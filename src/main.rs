@@ -1,10 +1,12 @@
-mod structs;
 mod scan;
+mod config;
+mod validated_config;
 
 use std::{env, fs};
 use std::error::Error;
 use std::path::{Path};
-use structs::{Config, ValidatedConfig};
+use config::Config;
+use validated_config::ValidatedConfig;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
@@ -36,7 +38,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 fn process_config(config: ValidatedConfig) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("obsidian folder: {:?}", config.obsidian_path());
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
-
+    println!("ignore_folders: {:?} dedupe_images:{}", ignore_folders, config.dedupe_images());
     Ok(())
 }
 

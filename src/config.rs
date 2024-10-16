@@ -1,50 +1,47 @@
+use serde::Deserialize;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use serde::Deserialize;
+use crate::validated_config::ValidatedConfig;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
     obsidian_path: String,
     ignore_folders: Option<Vec<String>>,
-}
-
-pub struct ValidatedConfig {
-    obsidian_path: PathBuf,
-    ignore_folders: Option<Vec<PathBuf>>,
+    dedupe_images: Option<bool>,
 }
 
 impl Config {
-    pub fn validate(self) -> Result<ValidatedConfig, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn validate(self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(&self.obsidian_path);
         if !expanded_path.exists() {
             return Err(format!("Path does not exist: {:?}", expanded_path).into());
         }
 
-        // validate ignore folders
         let ignore_folders = match self.validate_ignore_folders(&expanded_path) {
             Ok(value) => value,
-            Err(value) => return value,
+            Err(value) => return Err(value),
         };
 
-        Ok(ValidatedConfig {
-            obsidian_path: expanded_path,
+        Ok(ValidatedConfig::new(
+            expanded_path,
             ignore_folders,
-        })
+            self.dedupe_images.unwrap_or(false),
+        ))
     }
 
-    fn validate_ignore_folders(self, expanded_path: &PathBuf) -> Result<Option<Vec<PathBuf>>, Result<ValidatedConfig, Box<dyn Error + Send + Sync>>> {
-        let ignore_folders = if let Some(folders) = self.ignore_folders {
+    fn validate_ignore_folders(&self, expanded_path: &PathBuf) -> Result<Option<Vec<PathBuf>>, Box<dyn Error + Send + Sync>> {
+        let ignore_folders = if let Some(folders) = &self.ignore_folders {
             if folders.is_empty() {
                 None
             } else {
                 let mut validated_folders = Vec::new();
                 for (index, folder) in folders.iter().enumerate() {
                     if folder.trim().is_empty() {
-                        return Err(Err(format!("ignore_folders: entry at index {} is empty or only contains whitespace", index).into()));
+                        return Err(format!("ignore_folders: entry at index {} is empty or only contains whitespace", index).into());
                     }
                     let full_path = expanded_path.join(folder);
                     if !full_path.exists() {
-                        return Err(Err(format!("Ignore folder does not exist: {:?}", full_path).into()));
+                        return Err(format!("Ignore folder does not exist: {:?}", full_path).into());
                     }
                     validated_folders.push(full_path);
                 }
@@ -54,16 +51,6 @@ impl Config {
             None
         };
         Ok(ignore_folders)
-    }
-}
-
-impl ValidatedConfig {
-    pub fn obsidian_path(&self) -> &Path {
-        &self.obsidian_path
-    }
-
-    pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
-        self.ignore_folders.as_deref()
     }
 }
 
