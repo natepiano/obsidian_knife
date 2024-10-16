@@ -4,41 +4,42 @@ use crate::{constants::IMAGE_EXTENSIONS,
             validated_config::ValidatedConfig};
 use std::path::PathBuf;
 use walkdir::{DirEntry, WalkDir};
+use crate::thread_safe_output::ThreadSafeOutput;
 
-pub fn scan_obsidian_folder(config: ValidatedConfig) {
-    println!("apply_changes: {}", config.destructive());
-    println!("dedupe_images:{}\n", config.dedupe_images());
-    println!("scanning: {:?}", config.obsidian_path());
+pub fn scan_obsidian_folder(config: ValidatedConfig, output: &ThreadSafeOutput) {
+    output.write(&format!("apply_changes: {}\n", config.destructive())).unwrap();
+    output.write(&format!("dedupe_images:{}\n\n", config.dedupe_images())).unwrap();
+    output.write(&format!("scanning: {:?}\n", config.obsidian_path())).unwrap();
 
-    let (markdown_files, image_files, other_files) = collect_files(&config);
+    let (markdown_files, image_files, other_files) = collect_files(&config, output);
 
-    println!("\nMarkdown files: {}", markdown_files.len());
+    output.write(&format!("\nMarkdown files: {}\n", markdown_files.len())).unwrap();
 
-    println!("Image files:");
+    output.write("Image files:\n").unwrap();
     let image_counts = count_image_types(&image_files);
     for (ext, count) in image_counts.iter() {
-        println!("  .{}: {}", ext, count);
+        output.write(&format!("  .{}: {}\n", ext, count)).unwrap();
     }
-    println!("Total image files: {}", image_files.len());
+    output.write(&format!("Total image files: {}\n", image_files.len())).unwrap();
 
-    println!("Other files: {}", other_files.len());
+    output.write(&format!("Other files: {}\n", other_files.len())).unwrap();
 
     if !other_files.is_empty() {
-        println!("\nOther files found:");
+        output.write("\nOther files found:\n").unwrap();
         for file in other_files {
-            println!("  {}", file.display());
+            output.write(&format!("  {}\n", file.display())).unwrap();
         }
     }
 }
 
-fn collect_files(config: &ValidatedConfig) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
+fn collect_files(config: &ValidatedConfig, output: &ThreadSafeOutput) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
     let (markdown_files, image_files, other_files): (Vec<_>, Vec<_>, Vec<_>) =
         WalkDir::new(config.obsidian_path())
             .follow_links(true)
             .into_iter()
-            .filter_entry(|e| !is_ignored_folder(e, ignore_folders))
+            .filter_entry(|e| !is_ignored_folder(e, ignore_folders, output))
             .filter_map(Result::ok)
             .filter(|e| e.file_type().is_file())
             .map(|e| e.into_path())
@@ -60,11 +61,11 @@ fn collect_files(config: &ValidatedConfig) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<P
     (markdown_files, image_files, other_files)
 }
 
-fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
+fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf], output: &ThreadSafeOutput) -> bool {
     if entry.file_type().is_dir() {
         for ignored_path in ignore_folders {
             if entry.path().starts_with(ignored_path) {
-                println!("ignoring: {:?}", entry.path());
+                output.write(&format!("ignoring: {:?}\n", entry.path())).unwrap();
                 return true;
             }
         }
