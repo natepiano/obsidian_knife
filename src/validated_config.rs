@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 pub struct ValidatedConfig {
+    apply_changes: bool,
     obsidian_path: PathBuf,
     ignore_folders: Option<Vec<PathBuf>>,
     dedupe_images: bool,
@@ -8,6 +9,7 @@ pub struct ValidatedConfig {
 
 impl ValidatedConfig {
     pub fn new(
+        destructive: bool,
         obsidian_path: PathBuf,
         ignore_folders: Option<Vec<PathBuf>>,
         dedupe_images: bool,
@@ -16,6 +18,7 @@ impl ValidatedConfig {
             obsidian_path,
             ignore_folders,
             dedupe_images,
+            apply_changes: destructive,
         }
     }
 
@@ -29,5 +32,9 @@ impl ValidatedConfig {
 
     pub fn dedupe_images(&self) -> bool {
         self.dedupe_images
+    }
+
+    pub fn destructive(&self) -> bool {
+        self.apply_changes
     }
 }

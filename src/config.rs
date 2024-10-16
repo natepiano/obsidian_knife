@@ -1,10 +1,11 @@
+use crate::validated_config::ValidatedConfig;
 use serde::Deserialize;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use crate::validated_config::ValidatedConfig;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
+    apply_changes: Option<bool>,
     obsidian_path: String,
     ignore_folders: Option<Vec<String>>,
     dedupe_images: Option<bool>,
@@ -23,13 +24,17 @@ impl Config {
         };
 
         Ok(ValidatedConfig::new(
+            self.apply_changes.unwrap_or(false),
             expanded_path,
             ignore_folders,
             self.dedupe_images.unwrap_or(false),
         ))
     }
 
-    fn validate_ignore_folders(&self, expanded_path: &PathBuf) -> Result<Option<Vec<PathBuf>>, Box<dyn Error + Send + Sync>> {
+    fn validate_ignore_folders(
+        &self,
+        expanded_path: &PathBuf,
+    ) -> Result<Option<Vec<PathBuf>>, Box<dyn Error + Send + Sync>> {
         let ignore_folders = if let Some(folders) = &self.ignore_folders {
             if folders.is_empty() {
                 None

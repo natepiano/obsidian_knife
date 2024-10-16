@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 serde = { version = "1.0.210", features = ["derive"] }
 serde_yaml = "0.9.34+deprecated"
+walkdir = "2.5.0"
 
 [profile.dev.package."*"]
 opt-level = 3

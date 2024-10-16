@@ -1,14 +1,14 @@
-mod scan;
 mod config;
+mod scan;
 mod validated_config;
 
-use std::{env, fs};
+use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use std::error::Error;
-use std::path::{Path};
-use config::Config;
-use validated_config::ValidatedConfig;
+use std::path::Path;
+use std::{env, fs};
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    println!("\nstarting obsidian_knife");
 
     let config_file = match get_config_file_name() {
         Ok(value) => value,
@@ -36,9 +36,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 fn process_config(config: ValidatedConfig) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("obsidian folder: {:?}", config.obsidian_path());
-    let ignore_folders = config.ignore_folders().unwrap_or(&[]);
-    println!("ignore_folders: {:?} dedupe_images:{}", ignore_folders, config.dedupe_images());
+    scan_obsidian_folder(config);
     Ok(())
 }
 
@@ -58,25 +56,23 @@ fn read_config(config_file: &str) -> Result<Config, Box<dyn Error + Send + Sync>
         if e.kind() == std::io::ErrorKind::NotFound {
             Box::new(std::io::Error::new(
                 std::io::ErrorKind::NotFound,
-                format!("Config file not found: {}", path.display())
+                format!("Config file not found: {}", path.display()),
             ))
         } else {
             Box::new(std::io::Error::new(
                 e.kind(),
-                format!("Error reading config file '{}': {}", path.display(), e)
+                format!("Error reading config file '{}': {}", path.display(), e),
             ))
         }
     })?;
 
-    let config: Config = serde_yaml::from_str(&contents)
-        .map_err(|e| -> Box<dyn Error + Send + Sync> {
+    let config: Config =
+        serde_yaml::from_str(&contents).map_err(|e| -> Box<dyn Error + Send + Sync> {
             Box::new(std::io::Error::new(
                 std::io::ErrorKind::InvalidData,
-                format!("Error parsing config file '{}': {}", path.display(), e)
+                format!("Error parsing config file '{}': {}", path.display(), e),
             ))
         })?;
 
     Ok(config)
 }
-
-
