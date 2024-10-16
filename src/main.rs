@@ -1,6 +1,7 @@
 mod config;
 mod scan;
 mod validated_config;
+mod constants;
 
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use std::error::Error;
@@ -20,11 +21,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     match process_config(validated_config) {
         Ok(_) => {
-            println!("obsidian_knife made the cut with {}", config_file);
+            println!("\nobsidian_knife made the cut using {}", config_file);
             Ok(())
         }
         Err(e) => {
-            eprintln!("Error occurred during processing:");
+            eprintln!("\nError occurred during processing:");
             eprintln!("Error type: {}", std::any::type_name_of_val(&*e));
             eprintln!("Error details: {}", e);
             if let Some(source) = e.source() {
