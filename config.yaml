@@ -1,0 +1,4 @@
+obsidian_path: ~/Documents/brain
+ignore_folders:
+  - .idea
+  - .obsidian
