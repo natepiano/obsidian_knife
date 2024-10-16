@@ -1,35 +1,46 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
+use std::error::Error;
 use crate::{constants::IMAGE_EXTENSIONS,
             validated_config::ValidatedConfig};
 use std::path::PathBuf;
 use walkdir::{DirEntry, WalkDir};
 use crate::thread_safe_output::ThreadSafeOutput;
 
-pub fn scan_obsidian_folder(config: ValidatedConfig, output: &ThreadSafeOutput) {
-    output.write(&format!("apply_changes: {}\n", config.destructive())).unwrap();
-    output.write(&format!("dedupe_images:{}\n\n", config.dedupe_images())).unwrap();
-    output.write(&format!("scanning: {:?}\n", config.obsidian_path())).unwrap();
+pub fn scan_obsidian_folder(config: ValidatedConfig, output: &ThreadSafeOutput) -> Result<(), Box<dyn Error + Send + Sync>> {
+    output_scan_execution_start(&config, output);
 
     let (markdown_files, image_files, other_files) = collect_files(&config, output);
-
-    output.write(&format!("\nMarkdown files: {}\n", markdown_files.len())).unwrap();
-
-    output.write("Image files:\n").unwrap();
     let image_counts = count_image_types(&image_files);
-    for (ext, count) in image_counts.iter() {
-        output.write(&format!("  .{}: {}\n", ext, count)).unwrap();
-    }
-    output.write(&format!("Total image files: {}\n", image_files.len())).unwrap();
 
-    output.write(&format!("Other files: {}\n", other_files.len())).unwrap();
+    output_file_info(output, &markdown_files, &image_files, &other_files, image_counts);
+
+    Ok(())
+}
+
+fn output_file_info(output: &ThreadSafeOutput, markdown_files: &Vec<PathBuf>, image_files: &Vec<PathBuf>, other_files: &Vec<PathBuf>, image_counts: Vec<(String, usize)>) {
+    println!();
+    output.writeln_markdown("##", "file counts").unwrap();
+    output.writeln_markdown("###", &format!("markdown files: {}", markdown_files.len())).unwrap();
+    output.writeln_markdown("###", &format!("image files: {}", image_files.len())).unwrap();
+    for (ext, count) in image_counts.iter() {
+        output.writeln_markdown("- ", &format!(".{}: {}", ext, count)).unwrap();
+    }
+    output.writeln_markdown("###", &format!("other files: {}", other_files.len())).unwrap();
 
     if !other_files.is_empty() {
-        output.write("\nOther files found:\n").unwrap();
+        output.writeln_markdown("####", "other files found:").unwrap();
         for file in other_files {
-            output.write(&format!("  {}\n", file.display())).unwrap();
+            output.writeln_markdown("- ", &format!("{}", file.display())).unwrap();
         }
     }
+    println!();
+}
+
+fn output_scan_execution_start(config: &ValidatedConfig, output: &ThreadSafeOutput) {
+    output.writeln_markdown("#", "scanning").unwrap();
+    output.writeln_markdown("## scan details", "").unwrap();
+    output.writeln_markdown("", &format!("scanning: {:?}", config.obsidian_path())).unwrap();
 }
 
 fn collect_files(config: &ValidatedConfig, output: &ThreadSafeOutput) -> (Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>) {
@@ -65,7 +76,7 @@ fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf], output: &Thre
     if entry.file_type().is_dir() {
         for ignored_path in ignore_folders {
             if entry.path().starts_with(ignored_path) {
-                output.write(&format!("ignoring: {:?}\n", entry.path())).unwrap();
+                output.writeln_markdown("", &format!("ignoring; {:?}", entry.path())).unwrap();
                 return true;
             }
         }

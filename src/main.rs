@@ -21,27 +21,39 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let validated_config = config.validate()?;
 
     let output = ThreadSafeOutput::new(validated_config.obsidian_path())?;
-    output.write("\nstarting obsidian_knife\n")?;
+
+    output_execution_start(&validated_config, &output)?;
 
     match process_config(validated_config, &output) {
         Ok(_) => {
-            output.write(&format!("\nobsidian_knife made the cut using {}\n", config_file))?;
+            output.writeln_markdown("# ", &format!("obsidian_knife made the cut using {}", config_file))?;
             Ok(())
         }
         Err(e) => {
-            output.write("\nError occurred during processing:\n")?;
-            output.write(&format!("Error type: {}\n", std::any::type_name_of_val(&*e)))?;
-            output.write(&format!("Error details: {}\n", e))?;
+            output.writeln_markdown("## Error Occurred", "Error occurred during processing:")?;
+            output.writeln_markdown("- **Error type:** ", &format!("{}", std::any::type_name_of_val(&*e)))?;
+            output.writeln_markdown("- **Error details:** ", &format!("{}", e))?;
             if let Some(source) = e.source() {
-                output.write(&format!("Caused by: {}\n", source))?;
+                output.writeln_markdown("- **Caused by:** ", &format!("{}", source))?;
             }
             Err(e)
         }
     }
 }
 
+fn output_execution_start(validated_config: &ValidatedConfig, output: &ThreadSafeOutput) -> Result<(), Box<dyn Error + Send + Sync>> {
+    println!();
+    output.writeln_markdown("# ", "starting obsidian_knife")?;
+    println!();
+    output.writeln_markdown("## ", "configuration").unwrap();
+    output.writeln_markdown("- ", &format!("Apply changes: {}", validated_config.destructive())).unwrap();
+    output.writeln_markdown("- ", &format!("Dedupe images: {}", validated_config.dedupe_images())).unwrap();
+    println!();
+    Ok(())
+}
+
 fn process_config(config: ValidatedConfig, output: &ThreadSafeOutput) -> Result<(), Box<dyn Error + Send + Sync>> {
-    scan_obsidian_folder(config, output);
+    let _ = scan_obsidian_folder(config, output);
     Ok(())
 }
 
