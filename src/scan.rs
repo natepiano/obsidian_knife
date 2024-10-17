@@ -46,8 +46,6 @@ fn get_image_info_map(
 
     write_cache_file_info(writer, &cache_file_path, cache_file_status)?;
 
-    let initial_cache_count = cache.get_initial_count();
-
     let mut image_info_map = HashMap::new();
     let image_references = collect_image_references(&markdown_files)?;
 
@@ -56,10 +54,10 @@ fn get_image_info_map(
 
         let image_file_name = image_path.file_name().and_then(OsStr::to_str).unwrap_or_default();
         let references: Vec<String> = image_references.iter()
-            .filter(|&ref_path| {
-                Path::new(ref_path).file_name().and_then(OsStr::to_str).unwrap_or_default() == image_file_name
+            .filter(|(markdown_path, _)| {
+                markdown_path.file_name().and_then(OsStr::to_str).unwrap_or_default().contains(image_file_name)
             })
-            .cloned()
+            .map(|(path, _)| path.to_string_lossy().to_string())
             .collect();
 
         let image_info = ImageInfo {
@@ -71,16 +69,34 @@ fn get_image_info_map(
         image_info_map.insert(image_path, image_info);
     }
 
-    let files_deleted = cache.remove_non_existent_entries();
+    cache.remove_non_existent_entries();
     cache.save()?;
 
-    write_cache_contents_info(writer, &mut cache, initial_cache_count, &mut image_info_map, files_deleted)?;
+    write_cache_contents_info(writer, &mut cache, &mut image_info_map)?;
+
+    let histogram = generate_image_reference_histogram(&image_references, 10);
+    write_image_reference_histogram(writer, &histogram)?;
 
     Ok(image_info_map)
 }
 
+fn write_image_reference_histogram(writer: &ThreadSafeWriter, histogram: &[(String, usize)]) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln_markdown("###", "image reference histogram")?;
+
+    let headers = &["image is referenced", "in count of files"];
+    let rows: Vec<Vec<String>> = histogram
+        .iter()
+        .map(|(category, count)| vec![category.clone(), count.to_string()])
+        .collect();
+
+    writer.write_markdown_table(headers, &rows, Some(&[ColumnAlignment::Left, ColumnAlignment::Right]))?;
+
+    println!();
+    Ok(())
+}
+
 fn write_cache_file_info(writer: &ThreadSafeWriter, cache_file_path: &PathBuf, cache_file_status: CacheFileStatus) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln_markdown("##", "collecting image info")?;
+    writer.writeln_markdown("##", "collecting image file info")?;
 
     match cache_file_status {
         CacheFileStatus::ReadFromCache => writer.writeln_markdown("", &format!("reading from cache: {:?}", cache_file_path))?,
@@ -91,26 +107,26 @@ fn write_cache_file_info(writer: &ThreadSafeWriter, cache_file_path: &PathBuf, c
     Ok(())
 }
 
-fn write_cache_contents_info(writer: &ThreadSafeWriter, cache: &mut Sha256Cache, initial_cache_count: usize, image_info_map: &mut HashMap<PathBuf, ImageInfo>, files_deleted: usize) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let (files_read, files_added, files_modified, total_files) = cache.get_stats();
+fn write_cache_contents_info(writer: &ThreadSafeWriter, cache: &mut Sha256Cache, image_info_map: &mut HashMap<PathBuf, ImageInfo>) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let stats = cache.get_stats();
 
     let headers = &["Metric", "Count"];
     let rows = vec![
-        vec!["Total entries in cache (initial)".to_string(), initial_cache_count.to_string()],
-        vec!["Matching files read from cache".to_string(), files_read.to_string()],
-        vec!["Files added to cache".to_string(), files_added.to_string()],
-        vec!["Matching files updated in cache".to_string(), files_modified.to_string()],
-        vec!["Files deleted from cache".to_string(), files_deleted.to_string()],
-        vec!["Total files in cache (final)".to_string(), total_files.to_string()],
+        // initial was captured before deletions so we can see the results appropriately
+        vec!["Total entries in cache (initial)".to_string(), stats.initial_count.to_string()],
+        vec!["Matching files read from cache".to_string(), stats.files_read.to_string()],
+        vec!["Files added to cache".to_string(), stats.files_added.to_string()],
+        vec!["Matching files updated in cache".to_string(), stats.files_modified.to_string()],
+        vec!["Files deleted from cache".to_string(), stats.files_deleted.to_string()],
+        vec!["Total files in cache (final)".to_string(), stats.total_files.to_string()],
     ];
-
 
     let alignments = [ColumnAlignment::Left, ColumnAlignment::Right];
     writer.writeln_markdown("###", "Cache Statistics")?;
     writer.write_markdown_table(headers, &rows, Some(&alignments))?;
     println!();
 
-    assert_eq!(image_info_map.len(), total_files, "The number of entries in image_info_map does not match the total files in cache");
+    assert_eq!(image_info_map.len(), stats.total_files, "The number of entries in image_info_map does not match the total files in cache");
     Ok(())
 }
 
@@ -165,31 +181,57 @@ fn collect_files(config: &ValidatedConfig, writer: &ThreadSafeWriter) -> Result<
     Ok((markdown_files, image_files, other_files))
 }
 
-fn collect_image_references(markdown_files: &[PathBuf]) -> Result<HashSet<String>, Box<dyn Error + Send + Sync>> {
+fn collect_image_references(markdown_files: &[PathBuf]) -> Result<HashMap<PathBuf, usize>, Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Regex::new(&format!(
         r"!\[(?:[^\]]*)\]\(([^)]+)\)|!\[\[([^\]]+\.(?:{}))\]\]",
         extensions_pattern
     ))?;
-    let mut image_references = HashSet::new();
+    let mut image_references = HashMap::new();
 
     for file_path in markdown_files {
         let file = File::open(file_path)?;
         let reader = BufReader::new(file);
+        let mut ref_count = 0;
 
         for line in reader.lines() {
             let line = line?;
-            for capture in image_regex.captures_iter(&line) {
-                if let Some(image_name) = capture.get(1).or_else(|| capture.get(2)) {
-                    image_references.insert(image_name.as_str().to_string());
-                }
-            }
+            ref_count += image_regex.captures_iter(&line).count();
         }
+
+        image_references.insert(file_path.clone(), ref_count);
     }
 
     Ok(image_references)
 }
 
+fn generate_image_reference_histogram(image_references: &HashMap<PathBuf, usize>, threshold: usize) -> Vec<(String, usize)> {
+    let mut histogram = HashMap::new();
+    let threshold_category = format!("{} or more times", threshold);
+
+    for &count in image_references.values() {
+        let category = if count >= threshold {
+            threshold_category.clone()
+        } else {
+            count.to_string()
+        };
+        *histogram.entry(category).or_insert(0) += 1;
+    }
+
+    let mut histogram_vec: Vec<(String, usize)> = histogram.into_iter().collect();
+    histogram_vec.sort_by(|a, b| {
+        match (a.0.as_str(), b.0.as_str()) {
+            (s, _) if s == threshold_category => std::cmp::Ordering::Less,
+            (_, s) if s == threshold_category => std::cmp::Ordering::Greater,
+            _ => {
+                a.0.parse::<usize>().unwrap_or(0).cmp(&b.0.parse::<usize>().unwrap_or(0))
+                    .then_with(|| b.1.cmp(&a.1))
+            }
+        }
+    });
+
+    histogram_vec
+}
 
 fn count_image_types(image_files: &[PathBuf]) -> Vec<(String, usize)> {
     let counts: HashMap<String, usize> = image_files
@@ -209,25 +251,33 @@ fn count_image_types(image_files: &[PathBuf]) -> Vec<(String, usize)> {
 }
 
 fn write_file_info(
-    output: &ThreadSafeWriter,
+    writer: &ThreadSafeWriter,
     markdown_files: &[PathBuf],
     image_files: &[PathBuf],
     other_files: &[PathBuf],
     image_counts: &[(String, usize)]
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
-    output.writeln_markdown("##", "file counts")?;
-    output.writeln_markdown("###", &format!("markdown files: {}", markdown_files.len()))?;
-    output.writeln_markdown("###", &format!("image files: {}", image_files.len()))?;
-    for (ext, count) in image_counts.iter() {
-        output.writeln_markdown("- ", &format!(".{}: {}", ext, count))?;
-    }
-    output.writeln_markdown("###", &format!("other files: {}", other_files.len()))?;
+    writer.writeln_markdown("##", "file counts")?;
+    writer.writeln_markdown("###", &format!("markdown files: {}", markdown_files.len()))?;
+    writer.writeln_markdown("###", &format!("image files: {}", image_files.len()))?;
+
+    // Create headers and rows for the image counts table
+    let headers = &["Extension", "Count"];
+    let rows: Vec<Vec<String>> = image_counts
+        .iter()
+        .map(|(ext, count)| vec![format!(".{}", ext), count.to_string()])
+        .collect();
+
+    // Write the image counts as a markdown table
+    writer.write_markdown_table(headers, &rows, Some(&[ColumnAlignment::Left, ColumnAlignment::Right]))?;
+
+    writer.writeln_markdown("###", &format!("other files: {}", other_files.len()))?;
 
     if !other_files.is_empty() {
-        output.writeln_markdown("####", "other files found:")?;
+        writer.writeln_markdown("####", "other files found:")?;
         for file in other_files {
-            output.writeln_markdown("- ", &format!("{}", file.display()))?;
+            writer.writeln_markdown("- ", &format!("{}", file.display()))?;
         }
     }
     println!();
