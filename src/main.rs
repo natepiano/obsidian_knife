@@ -3,14 +3,18 @@ mod scan;
 mod validated_config;
 mod constants;
 mod thread_safe_writer;
+mod sha256_cache;
 
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use std::error::Error;
 use std::path::Path;
 use std::{env, fs};
+use std::time::Instant;
 use crate::thread_safe_writer::ThreadSafeWriter;
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let start_time = Instant::now();
+
     let config_file = match get_config_file_name() {
         Ok(value) => value,
         Err(value) => return value,
@@ -26,6 +30,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     match process_config(validated_config, &writer) {
         Ok(_) => {
             writer.writeln_markdown("# ", &format!("obsidian_knife made the cut using {}", config_file))?;
+            let duration = start_time.elapsed();
+            writer.writeln_markdown("", &format!("Total processing time: {:.2?}", duration))?;
             Ok(())
         }
         Err(e) => {
@@ -35,6 +41,9 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             if let Some(source) = e.source() {
                 writer.writeln_markdown("- **Caused by:** ", &format!("{}", source))?;
             }
+            let duration = start_time.elapsed();
+            writer.writeln_markdown("", &format!("Total processing time before error: {:.2?}", duration))?;
+            println!("Total processing time before error: {:.2?}", duration);
             Err(e)
         }
     }

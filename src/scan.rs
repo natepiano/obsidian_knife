@@ -12,6 +12,7 @@ use crate::{constants::IMAGE_EXTENSIONS,
 use std::path::{Path, PathBuf};
 use walkdir::{WalkDir};
 use regex::Regex;
+use crate::sha256_cache::Sha256Cache;
 use crate::thread_safe_writer::ThreadSafeWriter;
 
 #[derive(Debug)]
@@ -29,18 +30,27 @@ pub fn scan_obsidian_folder(config: ValidatedConfig, writer: &ThreadSafeWriter) 
 
     write_file_info(writer, &markdown_files, &image_files, &other_files, &image_counts)?;
 
-    let image_info_map = get_image_info_map(&markdown_files, image_files, writer)?;
+    let image_info_map = get_image_info_map(&config, &markdown_files, image_files, writer)?;
 
     Ok(image_info_map)
 }
 
-fn get_image_info_map(markdown_files: &Vec<PathBuf>, image_files: Vec<PathBuf>, writer: &ThreadSafeWriter) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+fn get_image_info_map(
+    config: &ValidatedConfig,
+    markdown_files: &Vec<PathBuf>,
+    image_files: Vec<PathBuf>,
+    writer: &ThreadSafeWriter
+) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+    writer.writeln_markdown("##", "collecting image info")?;
+
+    let cache_file_path = config.obsidian_path().join(crate::constants::CACHE_FOLDER).join("image_cache.json");
+    let mut cache = Sha256Cache::new(cache_file_path, writer)?;
     let mut image_info_map = HashMap::new();
 
     let image_references = collect_image_references(&markdown_files)?;
 
     for image_path in image_files {
-        let hash = hash_file(&image_path)?;
+        let hash = cache.get_or_update(&image_path)?;
 
         let image_file_name = image_path.file_name().and_then(OsStr::to_str).unwrap_or_default();
         let references: Vec<String> = image_references.iter()
@@ -58,8 +68,11 @@ fn get_image_info_map(markdown_files: &Vec<PathBuf>, image_files: Vec<PathBuf>, 
 
         image_info_map.insert(image_path, image_info);
     }
-    // output.writeln_markdown("", &format!("first image info map: {:?}", image_info_map.iter().next()))?;
-    writer.writeln_markdown("##", &format!("image info maps: {}", image_info_map.len()))?;
+
+    cache.remove_non_existent_entries();
+    cache.save()?;
+
+    writer.writeln_markdown("", &format!("count of image_info_maps: {}", image_info_map.len()))?;
     Ok(image_info_map)
 }
 

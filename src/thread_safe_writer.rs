@@ -45,7 +45,9 @@ impl ThreadSafeWriter {
         }
 
         // Ensure there's a space between the prefix and the message
-        let markdown_prefix = if markdown_prefix.ends_with(' ') {
+        let markdown_prefix = if markdown_prefix.is_empty() {
+            String::new()
+        } else if markdown_prefix.ends_with(' ') {
             markdown_prefix.to_string()
         } else {
             format!("{} ", markdown_prefix)

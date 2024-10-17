@@ -10,6 +10,7 @@ serde_yaml = "0.9.34+deprecated"
 sha2 = "0.10.7"
 walkdir = "2.5.0"
 regex = "1.11.0"
+serde_json = "1.0.128"
 
 [profile.dev.package."*"]
 opt-level = 3
