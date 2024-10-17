@@ -1,16 +1,16 @@
 mod config;
-mod scan;
-mod validated_config;
 mod constants;
-mod thread_safe_writer;
+mod scan;
 mod sha256_cache;
+mod thread_safe_writer;
+mod validated_config;
 
+use crate::thread_safe_writer::ThreadSafeWriter;
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use std::error::Error;
 use std::path::Path;
-use std::{env, fs};
 use std::time::Instant;
-use crate::thread_safe_writer::ThreadSafeWriter;
+use std::{env, fs};
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let start_time = Instant::now();
@@ -29,39 +29,63 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     match process_config(validated_config, &writer) {
         Ok(_) => {
-            writer.writeln_markdown("# ", &format!("obsidian_knife made the cut using {}", config_file))?;
+            writer.writeln_markdown(
+                "# ",
+                &format!("obsidian_knife made the cut using {}", config_file),
+            )?;
             let duration = start_time.elapsed();
             let duration_secs = duration.as_secs_f64();
-            writer.writeln_markdown("", &format!("Total processing time: {:.2} seconds", duration_secs))?;
+            writer.writeln_markdown(
+                "",
+                &format!("Total processing time: {:.2} seconds", duration_secs),
+            )?;
             Ok(())
         }
         Err(e) => {
             writer.writeln_markdown("## Error Occurred", "Error occurred during processing:")?;
-            writer.writeln_markdown("- **Error type:** ", &format!("{}", std::any::type_name_of_val(&*e)))?;
+            writer.writeln_markdown(
+                "- **Error type:** ",
+                &format!("{}", std::any::type_name_of_val(&*e)),
+            )?;
             writer.writeln_markdown("- **Error details:** ", &format!("{}", e))?;
             if let Some(source) = e.source() {
                 writer.writeln_markdown("- **Caused by:** ", &format!("{}", source))?;
             }
             let duration = start_time.elapsed();
             let duration_secs = duration.as_secs_f64();
-            writer.writeln_markdown("", &format!("Total processing time before error: {:.2?}", duration_secs))?;
+            writer.writeln_markdown(
+                "",
+                &format!("Total processing time before error: {:.2?}", duration_secs),
+            )?;
             Err(e)
         }
     }
 }
 
-fn output_execution_start(validated_config: &ValidatedConfig, output: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn output_execution_start(
+    validated_config: &ValidatedConfig,
+    output: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
     output.writeln_markdown("# ", "starting obsidian_knife")?;
     println!();
     output.writeln_markdown("## ", "configuration")?;
-    output.writeln_markdown("- ", &format!("Apply changes: {}", validated_config.destructive()))?;
-    output.writeln_markdown("- ", &format!("Dedupe images: {}", validated_config.dedupe_images()))?;
+    output.writeln_markdown(
+        "- ",
+        &format!("Apply changes: {}", validated_config.destructive()),
+    )?;
+    output.writeln_markdown(
+        "- ",
+        &format!("Dedupe images: {}", validated_config.dedupe_images()),
+    )?;
     println!();
     Ok(())
 }
 
-fn process_config(config: ValidatedConfig, writer: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn process_config(
+    config: ValidatedConfig,
+    writer: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let _ = scan_obsidian_folder(config, writer);
     Ok(())
 }

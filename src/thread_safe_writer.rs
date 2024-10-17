@@ -1,8 +1,8 @@
-use std::sync::{Arc, Mutex};
-use std::io::{self, Write};
 use chrono::Local;
 use std::fs::OpenOptions;
-use std::path::{Path};
+use std::io::{self, Write};
+use std::path::Path;
+use std::sync::{Arc, Mutex};
 
 pub struct ThreadSafeWriter {
     console: io::Stdout,
@@ -37,7 +37,12 @@ impl ThreadSafeWriter {
         })
     }
 
-    pub fn write_markdown_table(&self, headers: &[&str], rows: &[Vec<String>], alignments: Option<&[ColumnAlignment]>) -> io::Result<()> {
+    pub fn write_markdown_table(
+        &self,
+        headers: &[&str],
+        rows: &[Vec<String>],
+        alignments: Option<&[ColumnAlignment]>,
+    ) -> io::Result<()> {
         // Write to file (markdown format)
         self.write_markdown_table_to_file(headers, rows, alignments)?;
 
@@ -47,7 +52,12 @@ impl ThreadSafeWriter {
         Ok(())
     }
 
-    fn write_markdown_table_to_file(&self, headers: &[&str], rows: &[Vec<String>], alignments: Option<&[ColumnAlignment]>) -> io::Result<()> {
+    fn write_markdown_table_to_file(
+        &self,
+        headers: &[&str],
+        rows: &[Vec<String>],
+        alignments: Option<&[ColumnAlignment]>,
+    ) -> io::Result<()> {
         let mut file = self.file.lock().unwrap();
 
         // Write headers
@@ -56,14 +66,24 @@ impl ThreadSafeWriter {
         // Write separator with alignment
         let separator = match alignments {
             Some(aligns) => {
-                let sep: Vec<String> = aligns.iter().map(|&a| match a {
-                    ColumnAlignment::Left => ":---".to_string(),
-                    ColumnAlignment::Center => ":---:".to_string(),
-                    ColumnAlignment::Right => "---:".to_string(),
-                }).collect();
+                let sep: Vec<String> = aligns
+                    .iter()
+                    .map(|&a| match a {
+                        ColumnAlignment::Left => ":---".to_string(),
+                        ColumnAlignment::Center => ":---:".to_string(),
+                        ColumnAlignment::Right => "---:".to_string(),
+                    })
+                    .collect();
                 format!("| {} |", sep.join(" | "))
-            },
-            None => format!("| {} |", headers.iter().map(|_| "---").collect::<Vec<_>>().join(" | ")),
+            }
+            None => format!(
+                "| {} |",
+                headers
+                    .iter()
+                    .map(|_| "---")
+                    .collect::<Vec<_>>()
+                    .join(" | ")
+            ),
         };
         writeln!(file, "{}", separator)?;
 

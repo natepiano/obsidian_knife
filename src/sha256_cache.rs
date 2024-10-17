@@ -1,11 +1,11 @@
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
 use std::path::{Path, PathBuf};
 use std::time::SystemTime;
-use sha2::{Sha256, Digest};
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Copy)]
 pub enum CacheFileStatus {
@@ -48,17 +48,19 @@ pub struct Sha256Cache {
 }
 
 impl Sha256Cache {
-    pub fn new(cache_file_path: PathBuf) -> Result<(Self, CacheFileStatus), Box<dyn Error + Send + Sync>> {
+    pub fn new(
+        cache_file_path: PathBuf,
+    ) -> Result<(Self, CacheFileStatus), Box<dyn Error + Send + Sync>> {
         let (cache, status) = if cache_file_path.exists() {
             match File::open(&cache_file_path) {
                 Ok(file) => {
                     let reader = BufReader::new(file);
                     match serde_json::from_reader(reader) {
                         Ok(parsed_cache) => (parsed_cache, CacheFileStatus::ReadFromCache),
-                        Err(_) => (HashMap::new(), CacheFileStatus::CacheCorrupted)
+                        Err(_) => (HashMap::new(), CacheFileStatus::CacheCorrupted),
                     }
-                },
-                Err(_) => (HashMap::new(), CacheFileStatus::CreatedNewCache)
+                }
+                Err(_) => (HashMap::new(), CacheFileStatus::CreatedNewCache),
             }
         } else {
             (HashMap::new(), CacheFileStatus::CreatedNewCache)
@@ -66,18 +68,24 @@ impl Sha256Cache {
 
         let initial_count = cache.len();
 
-        Ok((Sha256Cache {
-            cache,
-            cache_file_path,
-            initial_count,
-            files_read: 0,
-            files_added: 0,
-            files_modified: 0,
-            files_deleted: 0,
-        }, status))
+        Ok((
+            Sha256Cache {
+                cache,
+                cache_file_path,
+                initial_count,
+                files_read: 0,
+                files_added: 0,
+                files_modified: 0,
+                files_deleted: 0,
+            },
+            status,
+        ))
     }
 
-    pub fn get_or_update(&mut self, path: &Path) -> Result<(String, CacheEntryStatus), Box<dyn Error + Send + Sync>> {
+    pub fn get_or_update(
+        &mut self,
+        path: &Path,
+    ) -> Result<(String, CacheEntryStatus), Box<dyn Error + Send + Sync>> {
         let metadata = fs::metadata(path)?;
         let time_stamp = metadata.modified()?;
 
@@ -97,10 +105,13 @@ impl Sha256Cache {
             CacheEntryStatus::Added
         };
 
-        self.cache.insert(path.to_path_buf(), CachedImageInfo {
-            hash: new_hash.clone(),
-            time_stamp,
-        });
+        self.cache.insert(
+            path.to_path_buf(),
+            CachedImageInfo {
+                hash: new_hash.clone(),
+                time_stamp,
+            },
+        );
 
         Ok((new_hash, status))
     }
