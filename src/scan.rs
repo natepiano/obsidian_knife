@@ -3,7 +3,6 @@ use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::{constants::IMAGE_EXTENSIONS, validated_config::ValidatedConfig};
 
 use rayon::prelude::*;
-use std::sync::{Mutex};
 
 use regex::Regex;
 use std::cmp::Reverse;
@@ -32,6 +31,7 @@ struct ImageReferenceCount {
 #[derive(Default)]
 pub struct CollectedFiles {
     pub markdown_files: Vec<PathBuf>,
+    pub markdown_files_with_references: HashMap<PathBuf, Vec<String>>,
     pub image_files: Vec<PathBuf>,
     pub other_files: Vec<PathBuf>,
 }
@@ -47,21 +47,17 @@ pub fn scan_obsidian_folder(
 
     write_file_info(
         writer,
-        &collected_files.markdown_files,
-        &collected_files.image_files,
-        &collected_files.other_files,
-        &image_counts,
+        &collected_files,
     )?;
 
-    let image_info_map = get_image_info_map(&config, &collected_files.markdown_files, collected_files.image_files, writer)?;
+    let image_info_map = get_image_info_map(&config, collected_files, writer)?;
 
     Ok(image_info_map)
 }
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    markdown_files: &Vec<PathBuf>,
-    image_files: Vec<PathBuf>,
+    collected_files: CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config
@@ -73,9 +69,9 @@ fn get_image_info_map(
     write_cache_file_info(writer, &cache_file_path, cache_file_status)?;
 
     let mut image_info_map = HashMap::new();
-    let image_references_in_markdown_files = collect_markdown_image_references(&markdown_files)?;
+    let image_references_in_markdown_files = &collected_files.markdown_files_with_references; // collect_markdown_image_references(&markdown_files)?;
 
-    for image_path in image_files {
+    for image_path in collected_files.image_files {
         let (hash, _) = cache.get_or_update(&image_path)?;
 
         let image_file_name = image_path
@@ -239,40 +235,37 @@ fn is_not_ignored(
     }
     !is_ignored
 }
-
 fn collect_files(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
-    let collected_files = Mutex::new(CollectedFiles::default());
+    let mut collected_files = CollectedFiles::default();
 
-    WalkDir::new(config.obsidian_path())
+    // create the list of files to operate on
+    for entry in WalkDir::new(config.obsidian_path())
         .follow_links(true)
         .into_iter()
         .filter_entry(|e| is_not_ignored(e, ignore_folders, &writer))
-        .par_bridge()
-        .try_for_each(|entry| -> Result<(), Box<dyn Error + Send + Sync>> {
-            let entry = entry?;
-            let path = entry.path();
+    {
+        let entry = entry?;
+        let path = entry.path();
 
-            if entry.file_type().is_file() {
-                if path.file_name().and_then(|s| s.to_str()) == Some(".DS_Store") {
-                    return Ok(());
-                }
-
-                let mut files = collected_files.lock().unwrap();
-                match path.extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
-                    Some(ext) if ext == "md" => files.markdown_files.push(path.to_path_buf()),
-                    Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => files.image_files.push(path.to_path_buf()),
-                    _ => files.other_files.push(path.to_path_buf()),
-                }
+        if entry.file_type().is_file() {
+            if path.file_name().and_then(|s| s.to_str()) == Some(".DS_Store") {
+                continue;
             }
 
-            Ok(())
-        })?;
+            match path.extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
+                Some(ext) if ext == "md" => collected_files.markdown_files.push(path.to_path_buf()),
+                Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => collected_files.image_files.push(path.to_path_buf()),
+                _ => collected_files.other_files.push(path.to_path_buf()),
+            }
+        }
+    }
 
-    Ok(collected_files.into_inner().unwrap())
+    collected_files.markdown_files_with_references = collect_markdown_image_references(&collected_files.markdown_files)?;
+    Ok(collected_files)
 }
 
 fn collect_markdown_image_references(
@@ -360,15 +353,14 @@ fn count_image_types(image_files: &[PathBuf]) -> Vec<(String, usize)> {
 
 fn write_file_info(
     writer: &ThreadSafeWriter,
-    markdown_files: &[PathBuf],
-    image_files: &[PathBuf],
-    other_files: &[PathBuf],
-    image_counts: &[(String, usize)],
+    collected_files: &CollectedFiles,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
     writer.writeln_markdown("##", "file counts")?;
-    writer.writeln_markdown("###", &format!("markdown files: {}", markdown_files.len()))?;
-    writer.writeln_markdown("###", &format!("image files: {}", image_files.len()))?;
+    writer.writeln_markdown("###", &format!("markdown files: {}", collected_files.markdown_files.len()))?;
+    writer.writeln_markdown("###", &format!("image files: {}", collected_files.image_files.len()))?;
+
+    let image_counts = count_image_types(&collected_files.image_files);
 
     // Create headers and rows for the image counts table
     let headers = &["Extension", "Count"];
@@ -384,11 +376,11 @@ fn write_file_info(
         Some(&[ColumnAlignment::Left, ColumnAlignment::Right]),
     )?;
 
-    writer.writeln_markdown("###", &format!("other files: {}", other_files.len()))?;
+    writer.writeln_markdown("###", &format!("other files: {}", collected_files.other_files.len()))?;
 
-    if !other_files.is_empty() {
+    if !collected_files.other_files.is_empty() {
         writer.writeln_markdown("####", "other files found:")?;
-        for file in other_files {
+        for file in &collected_files.other_files {
             writer.writeln_markdown("- ", &format!("{}", file.display()))?;
         }
     }
