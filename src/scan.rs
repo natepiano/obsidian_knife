@@ -32,6 +32,7 @@ struct ImageReferenceCount {
 #[derive(Default)]
 pub struct CollectedFiles {
     pub markdown_files: HashMap<PathBuf, Vec<String>>,
+   // pub image_map: HashMap<PathBuf, ImageInfo>,
     pub image_files: Vec<PathBuf>,
     pub other_files: Vec<PathBuf>,
 }
@@ -39,7 +40,7 @@ pub struct CollectedFiles {
 pub fn scan_obsidian_folder(
     config: ValidatedConfig,
     writer: &ThreadSafeWriter,
-) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
 
     let collected_files = collect_files(&config, writer)?;
@@ -49,14 +50,14 @@ pub fn scan_obsidian_folder(
         &collected_files,
     )?;
 
-    let image_info_map = get_image_info_map(&config, collected_files, writer)?;
+    let image_info_map = get_image_info_map(&config, &collected_files, writer)?;
 
-    Ok(image_info_map)
+    Ok(collected_files)
 }
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    collected_files: CollectedFiles,
+    collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config
@@ -70,7 +71,7 @@ fn get_image_info_map(
     let mut image_info_map = HashMap::new();
     let image_references_in_markdown_files = &collected_files.markdown_files;
 
-    for image_path in collected_files.image_files {
+    for image_path in collected_files.image_files.clone() {
         let (hash, _) = cache.get_or_update(&image_path)?;
 
         let image_file_name = image_path
