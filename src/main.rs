@@ -31,7 +31,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Ok(_) => {
             writer.writeln_markdown("# ", &format!("obsidian_knife made the cut using {}", config_file))?;
             let duration = start_time.elapsed();
-            writer.writeln_markdown("", &format!("Total processing time: {:.2?}", duration))?;
+            let duration_secs = duration.as_secs_f64();
+            writer.writeln_markdown("", &format!("Total processing time: {:.2} seconds", duration_secs))?;
             Ok(())
         }
         Err(e) => {
@@ -42,8 +43,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
                 writer.writeln_markdown("- **Caused by:** ", &format!("{}", source))?;
             }
             let duration = start_time.elapsed();
-            writer.writeln_markdown("", &format!("Total processing time before error: {:.2?}", duration))?;
-            println!("Total processing time before error: {:.2?}", duration);
+            let duration_secs = duration.as_secs_f64();
+            writer.writeln_markdown("", &format!("Total processing time before error: {:.2?}", duration_secs))?;
             Err(e)
         }
     }
