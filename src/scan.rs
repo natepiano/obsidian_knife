@@ -12,6 +12,7 @@ use std::ffi::OsStr;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
+use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
@@ -30,8 +31,7 @@ struct ImageReferenceCount {
 
 #[derive(Default)]
 pub struct CollectedFiles {
-    pub markdown_files: Vec<PathBuf>,
-    pub markdown_files_with_references: HashMap<PathBuf, Vec<String>>,
+    pub markdown_files: HashMap<PathBuf, Vec<String>>,
     pub image_files: Vec<PathBuf>,
     pub other_files: Vec<PathBuf>,
 }
@@ -43,7 +43,6 @@ pub fn scan_obsidian_folder(
     write_scan_start(&config, writer)?;
 
     let collected_files = collect_files(&config, writer)?;
-    let image_counts = count_image_types(&collected_files.image_files);
 
     write_file_info(
         writer,
@@ -69,7 +68,7 @@ fn get_image_info_map(
     write_cache_file_info(writer, &cache_file_path, cache_file_status)?;
 
     let mut image_info_map = HashMap::new();
-    let image_references_in_markdown_files = &collected_files.markdown_files_with_references; // collect_markdown_image_references(&markdown_files)?;
+    let image_references_in_markdown_files = &collected_files.markdown_files;
 
     for image_path in collected_files.image_files {
         let (hash, _) = cache.get_or_update(&image_path)?;
@@ -235,12 +234,14 @@ fn is_not_ignored(
     }
     !is_ignored
 }
+
 fn collect_files(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut collected_files = CollectedFiles::default();
+    let mut markdown_files = Vec::new();
 
     // create the list of files to operate on
     for entry in WalkDir::new(config.obsidian_path())
@@ -257,47 +258,51 @@ fn collect_files(
             }
 
             match path.extension().and_then(|s| s.to_str()).map(|s| s.to_lowercase()) {
-                Some(ext) if ext == "md" => collected_files.markdown_files.push(path.to_path_buf()),
+                Some(ext) if ext == "md" => markdown_files.push(path.to_path_buf()),
                 Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => collected_files.image_files.push(path.to_path_buf()),
                 _ => collected_files.other_files.push(path.to_path_buf()),
             }
         }
     }
 
-    collected_files.markdown_files_with_references = collect_markdown_image_references(&collected_files.markdown_files)?;
+    collected_files.markdown_files = scan_markdown_files(&markdown_files)?;
     Ok(collected_files)
 }
 
-fn collect_markdown_image_references(
+fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, Vec<String>>, Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
-    let image_regex = Regex::new(&format!(
+    let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))\]\])",
         extensions_pattern
-    ))?;
-    let mut image_references = HashMap::new();
+    ))?);
 
-    for file_path in markdown_files {
-        let file = File::open(file_path)?;
-        let reader = BufReader::new(file);
-        let mut file_references = Vec::new();
+    let image_references: HashMap<PathBuf, Vec<String>> = markdown_files
+        .par_iter()
+        .filter_map(|file_path| {
+            scan_markdown_file(file_path, &image_regex).map(|references| (file_path.clone(), references)).ok()
+        })
+        .collect();
 
-        for line in reader.lines() {
-            let line = line?;
-            for capture in image_regex.captures_iter(&line) {
-                if let Some(reference) = capture.get(1) {
-                    file_references.push(reference.as_str().to_string());
-                }
+    Ok(image_references)
+}
+
+fn scan_markdown_file(file_path: &PathBuf, image_regex: &Arc<Regex>) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+    let file = File::open(file_path)?;
+    let reader = BufReader::new(file);
+    let mut file_references = Vec::new();
+
+    for line in reader.lines() {
+        let line = line?;
+        for capture in image_regex.captures_iter(&line) {
+            if let Some(reference) = capture.get(1) {
+                file_references.push(reference.as_str().to_string());
             }
-        }
-
-        if !file_references.is_empty() {
-            image_references.insert(file_path.clone(), file_references);
         }
     }
 
-    Ok(image_references)
+    Ok(file_references)
 }
 
 fn generate_markdown_image_reference_histogram(image_references: &HashMap<PathBuf, Vec<String>>) -> Vec<ImageReferenceCount> {
