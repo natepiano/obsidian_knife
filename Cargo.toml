@@ -7,7 +7,9 @@ edition = "2021"
 chrono = "0.4"
 serde = { version = "1.0.210", features = ["derive"] }
 serde_yaml = "0.9.34+deprecated"
+sha2 = "0.10.7"
 walkdir = "2.5.0"
+regex = "1.11.0"
 
 [profile.dev.package."*"]
 opt-level = 3

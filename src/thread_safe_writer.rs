@@ -4,13 +4,13 @@ use chrono::Local;
 use std::fs::OpenOptions;
 use std::path::{Path};
 
-pub struct ThreadSafeOutput {
+pub struct ThreadSafeWriter {
     console: io::Stdout,
     buffer: Arc<Mutex<Vec<u8>>>,
     file: Arc<Mutex<std::fs::File>>,
 }
 
-impl ThreadSafeOutput {
+impl ThreadSafeWriter {
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
         let file_path = obsidian_path.join("obsidian_knife_output.md");
 
@@ -23,7 +23,7 @@ impl ThreadSafeOutput {
         let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
         writeln!(file, "---\ntime_stamp: \"{}\"\n---", timestamp)?;
 
-        Ok(ThreadSafeOutput {
+        Ok(ThreadSafeWriter {
             console: io::stdout(),
             buffer: Arc::new(Mutex::new(Vec::new())),
             file: Arc::new(Mutex::new(file)),
