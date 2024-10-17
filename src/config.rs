@@ -18,10 +18,14 @@ impl Config {
             return Err(format!("Path does not exist: {:?}", expanded_path).into());
         }
 
-        let ignore_folders = match self.validate_ignore_folders(&expanded_path) {
-            Ok(value) => value,
-            Err(value) => return Err(value),
-        };
+        let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
+
+        // Add the cache folder to ignored_folders
+        if let Some(folders) = &mut ignore_folders {
+            folders.push(expanded_path.join(crate::constants::CACHE_FOLDER));
+        } else {
+            ignore_folders = Some(vec![expanded_path.join(crate::constants::CACHE_FOLDER)]);
+        }
 
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
