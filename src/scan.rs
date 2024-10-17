@@ -10,7 +10,7 @@ use std::io::{BufRead, BufReader, Read};
 use crate::{constants::IMAGE_EXTENSIONS,
             validated_config::ValidatedConfig};
 use std::path::{Path, PathBuf};
-use walkdir::{DirEntry, WalkDir};
+use walkdir::{WalkDir};
 use regex::Regex;
 use crate::thread_safe_writer::ThreadSafeWriter;
 
@@ -24,7 +24,7 @@ pub struct ImageInfo {
 pub fn scan_obsidian_folder(config: ValidatedConfig, writer: &ThreadSafeWriter) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
 
-    let (markdown_files, image_files, other_files) = collect_files(&config)?;
+    let (markdown_files, image_files, other_files) = collect_files(&config, writer)?;
     let image_counts = count_image_types(&image_files);
 
     write_file_info(writer, &markdown_files, &image_files, &other_files, &image_counts)?;
@@ -37,7 +37,7 @@ pub fn scan_obsidian_folder(config: ValidatedConfig, writer: &ThreadSafeWriter) 
 fn get_image_info_map(markdown_files: &Vec<PathBuf>, image_files: Vec<PathBuf>, writer: &ThreadSafeWriter) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let mut image_info_map = HashMap::new();
 
-    let image_references = collect_image_references(&markdown_files, writer)?;
+    let image_references = collect_image_references(&markdown_files)?;
 
     for image_path in image_files {
         let hash = hash_file(&image_path)?;
@@ -80,7 +80,7 @@ fn hash_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
 }
 
 
-fn collect_files(config: &ValidatedConfig) -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>), Box<dyn Error + Send + Sync>> {
+fn collect_files(config: &ValidatedConfig, writer: &ThreadSafeWriter) -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>), Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
     let mut markdown_files = Vec::new();
@@ -90,7 +90,11 @@ fn collect_files(config: &ValidatedConfig) -> Result<(Vec<PathBuf>, Vec<PathBuf>
     let walker = WalkDir::new(config.obsidian_path()).follow_links(true);
 
     for entry in walker.into_iter().filter_entry(|e| {
-        !ignore_folders.iter().any(|ignored| e.path().starts_with(ignored))
+        let is_ignored = ignore_folders.iter().any(|ignored| e.path().starts_with(ignored));
+        if is_ignored && e.file_type().is_dir() {
+            let _ = writer.writeln_markdown("", &format!("ignoring: {:?}", e.path()));
+        }
+        !is_ignored
     }) {
         let entry = entry?;
         if entry.file_type().is_file() {
@@ -110,19 +114,7 @@ fn collect_files(config: &ValidatedConfig) -> Result<(Vec<PathBuf>, Vec<PathBuf>
     Ok((markdown_files, image_files, other_files))
 }
 
-fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf], output: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if entry.file_type().is_dir() {
-        for ignored_path in ignore_folders {
-            if entry.path().starts_with(ignored_path) {
-                output.writeln_markdown("", &format!("ignoring; {:?}", entry.path()))?;
-                break;
-            }
-        }
-    }
-    Ok(())
-}
-
-fn collect_image_references(markdown_files: &[PathBuf], output: &ThreadSafeWriter) -> Result<HashSet<String>, Box<dyn Error + Send + Sync>> {
+fn collect_image_references(markdown_files: &[PathBuf]) -> Result<HashSet<String>, Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Regex::new(&format!(
         r"!\[(?:[^\]]*)\]\(([^)]+)\)|!\[\[([^\]]+\.(?:{}))\]\]",
