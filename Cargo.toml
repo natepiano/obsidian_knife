@@ -11,6 +11,7 @@ sha2 = "0.10.7"
 walkdir = "2.5.0"
 regex = "1.11.0"
 serde_json = "1.0.128"
+rayon = "1.10.0"
 
 [profile.dev.package."*"]
 opt-level = 3
