@@ -18,7 +18,7 @@ use walkdir::{DirEntry, WalkDir};
 #[derive(Debug)]
 pub struct ImageInfo {
     path: PathBuf,
-    hash: String,
+    pub hash: String,
     references: Vec<String>,
 }
 
@@ -37,7 +37,7 @@ pub struct CollectedFiles {
 }
 
 pub fn scan_obsidian_folder(
-    config: ValidatedConfig,
+    config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
@@ -110,7 +110,7 @@ fn write_image_reference_histogram(
     writer: &ThreadSafeWriter,
     histogram: &[ImageReferenceCount],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln_markdown("###", "markdown files with images")?;
+    writer.writeln("###", "markdown files with images")?;
 
     let take_count = 5;
 
@@ -139,7 +139,7 @@ fn write_image_reference_histogram(
         .collect();
 
     if rows.is_empty() {
-        writer.writeln_markdown("", "No Markdown files contain image references.")?;
+        writer.writeln("", "No Markdown files contain image references.")?;
     } else {
         writer.write_markdown_table(
             headers,
@@ -161,20 +161,20 @@ fn write_cache_file_info(
     cache_file_path: &PathBuf,
     cache_file_status: CacheFileStatus,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln_markdown("##", "collecting image file info")?;
+    writer.writeln("##", "collecting image file info")?;
 
     match cache_file_status {
         CacheFileStatus::ReadFromCache => {
-            writer.writeln_markdown("", &format!("reading from cache: {:?}", cache_file_path))?
+            writer.writeln("", &format!("reading from cache: {:?}", cache_file_path))?
         }
-        CacheFileStatus::CreatedNewCache => writer.writeln_markdown(
+        CacheFileStatus::CreatedNewCache => writer.writeln(
             "",
             &format!(
                 "cache file missing - creating new cache: {:?}",
                 cache_file_path
             ),
         )?,
-        CacheFileStatus::CacheCorrupted => writer.writeln_markdown(
+        CacheFileStatus::CacheCorrupted => writer.writeln(
             "",
             &format!("cache corrupted, creating new cache: {:?}", cache_file_path),
         )?,
@@ -220,7 +220,7 @@ fn write_cache_contents_info(
     ];
 
     let alignments = [ColumnAlignment::Left, ColumnAlignment::Right];
-    writer.writeln_markdown("###", "Cache Statistics")?;
+    writer.writeln("###", "Cache Statistics")?;
     writer.write_markdown_table(headers, &rows, Some(&alignments))?;
     println!();
 
@@ -238,7 +238,7 @@ fn is_not_ignored(entry: &DirEntry, ignore_folders: &[PathBuf], writer: &ThreadS
         .iter()
         .any(|ignored| path.starts_with(ignored));
     if is_ignored {
-        let _ = writer.writeln_markdown("", &format!("ignoring: {:?}", path));
+        let _ = writer.writeln("", &format!("ignoring: {:?}", path));
     }
     !is_ignored
 }
@@ -281,8 +281,9 @@ fn collect_files(
     }
 
     collected_files.markdown_files = scan_markdown_files(&markdown_files)?;
+
     collected_files.image_map =
-        get_image_info_map(&config, &collected_files, &image_files, &writer)?;
+       get_image_info_map(&config, &collected_files, &image_files, &writer)?;
 
     Ok(collected_files)
 }
@@ -389,12 +390,12 @@ fn write_file_info(
     collected_files: &CollectedFiles,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
-    writer.writeln_markdown("##", "file counts")?;
-    writer.writeln_markdown(
+    writer.writeln("##", "file counts")?;
+    writer.writeln(
         "###",
         &format!("markdown files: {}", collected_files.markdown_files.len()),
     )?;
-    writer.writeln_markdown(
+    writer.writeln(
         "###",
         &format!("image files: {}", collected_files.image_map.len()),
     )?;
@@ -415,15 +416,15 @@ fn write_file_info(
         Some(&[ColumnAlignment::Left, ColumnAlignment::Right]),
     )?;
 
-    writer.writeln_markdown(
+    writer.writeln(
         "###",
         &format!("other files: {}", collected_files.other_files.len()),
     )?;
 
     if !collected_files.other_files.is_empty() {
-        writer.writeln_markdown("####", "other files found:")?;
+        writer.writeln("####", "other files found:")?;
         for file in &collected_files.other_files {
-            writer.writeln_markdown("- ", &format!("{}", file.display()))?;
+            writer.writeln("- ", &format!("{}", file.display()))?;
         }
     }
     println!();
@@ -434,8 +435,8 @@ fn write_scan_start(
     config: &ValidatedConfig,
     output: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    output.writeln_markdown("#", "scanning")?;
-    output.writeln_markdown("## scan details", "")?;
-    output.writeln_markdown("", &format!("scanning: {:?}", config.obsidian_path()))?;
+    output.writeln("#", "scanning")?;
+    output.writeln("## scan details", "")?;
+    output.writeln("", &format!("scanning: {:?}", config.obsidian_path()))?;
     Ok(())
 }

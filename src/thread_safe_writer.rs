@@ -70,7 +70,7 @@ impl ThreadSafeWriter {
                     .iter()
                     .map(|&a| match a {
                         ColumnAlignment::Left => ":---".to_string(),
-                       // ColumnAlignment::Center => ":---:".to_string(),
+                        // ColumnAlignment::Center => ":---:".to_string(),
                         ColumnAlignment::Right => "---:".to_string(),
                     })
                     .collect();
@@ -111,7 +111,7 @@ impl ThreadSafeWriter {
         Ok(())
     }
 
-    pub fn writeln_markdown(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
+    pub fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
         if !message.is_empty() {
             let console_message = format!("{}\n", message);
 

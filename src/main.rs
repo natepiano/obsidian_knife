@@ -1,10 +1,12 @@
 mod config;
 mod constants;
+mod dedupe_images;
 mod scan;
 mod sha256_cache;
 mod thread_safe_writer;
 mod validated_config;
 
+use crate::dedupe_images::find_and_output_duplicate_images;
 use crate::thread_safe_writer::ThreadSafeWriter;
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use std::error::Error;
@@ -29,31 +31,31 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     match process_config(validated_config, &writer) {
         Ok(_) => {
-            writer.writeln_markdown(
+            writer.writeln(
                 "# ",
                 &format!("obsidian_knife made the cut using {}", config_file),
             )?;
             let duration = start_time.elapsed();
             let duration_secs = duration.as_secs_f64();
-            writer.writeln_markdown(
+            writer.writeln(
                 "",
                 &format!("Total processing time: {:.2} seconds", duration_secs),
             )?;
             Ok(())
         }
         Err(e) => {
-            writer.writeln_markdown("## Error Occurred", "Error occurred during processing:")?;
-            writer.writeln_markdown(
+            writer.writeln("## Error Occurred", "Error occurred during processing:")?;
+            writer.writeln(
                 "- **Error type:** ",
                 &format!("{}", std::any::type_name_of_val(&*e)),
             )?;
-            writer.writeln_markdown("- **Error details:** ", &format!("{}", e))?;
+            writer.writeln("- **Error details:** ", &format!("{}", e))?;
             if let Some(source) = e.source() {
-                writer.writeln_markdown("- **Caused by:** ", &format!("{}", source))?;
+                writer.writeln("- **Caused by:** ", &format!("{}", source))?;
             }
             let duration = start_time.elapsed();
             let duration_secs = duration.as_secs_f64();
-            writer.writeln_markdown(
+            writer.writeln(
                 "",
                 &format!("Total processing time before error: {:.2?}", duration_secs),
             )?;
@@ -67,14 +69,14 @@ fn output_execution_start(
     output: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
-    output.writeln_markdown("# ", "starting obsidian_knife")?;
+    output.writeln("# ", "starting obsidian_knife")?;
     println!();
-    output.writeln_markdown("## ", "configuration")?;
-    output.writeln_markdown(
+    output.writeln("## ", "configuration")?;
+    output.writeln(
         "- ",
         &format!("Apply changes: {}", validated_config.destructive()),
     )?;
-    output.writeln_markdown(
+    output.writeln(
         "- ",
         &format!("Dedupe images: {}", validated_config.dedupe_images()),
     )?;
@@ -86,7 +88,10 @@ fn process_config(
     config: ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _ = scan_obsidian_folder(config, writer);
+    let collected_files = scan_obsidian_folder(&config, writer)?;
+
+    find_and_output_duplicate_images(&config, &collected_files.image_map, writer)?;
+
     Ok(())
 }
 
