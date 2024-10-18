@@ -49,9 +49,35 @@ fn write_duplicates_tables(
     writer: &ThreadSafeWriter,
     duplicate_groups: &mut Vec<(String, Vec<(&PathBuf, &ImageInfo)>)>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let headers = &["Sample", "Duplicates"];
+    let headers = &["Sample", "Duplicates", "Referenced By"];
 
-    for (hash, group) in duplicate_groups {
+    // Separate groups with no references and those with references
+    let (no_ref_groups, ref_groups): (Vec<_>, Vec<_>) = duplicate_groups
+        .iter()
+        .partition(|(_, group)| group.iter().all(|(_, info)| info.references.is_empty()));
+
+    // Write tables for groups with no references
+    if !no_ref_groups.is_empty() {
+        writer.writeln("##", "Duplicate Images with No References")?;
+        write_group_tables(config, writer, headers, &no_ref_groups)?;
+    }
+
+    // Write tables for groups with references
+    if !ref_groups.is_empty() {
+        writer.writeln("##", "Duplicate Images with References")?;
+        write_group_tables(config, writer, headers, &ref_groups)?;
+    }
+
+    Ok(())
+}
+
+fn write_group_tables(
+    config: &ValidatedConfig,
+    writer: &ThreadSafeWriter,
+    headers: &[&str],
+    groups: &[&(String, Vec<(&PathBuf, &ImageInfo)>)],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    for (hash, group) in groups {
         writer.writeln("###", &format!("{} - {}", group.len(), hash))?;
 
         let sample = format!(
@@ -60,16 +86,26 @@ fn write_duplicates_tables(
         );
         let duplicates = group
             .iter()
-            .map(|(path, _)| format_image_link(path, config.obsidian_path()))
+            .map(|(path, _)| format_wikilink(path, config.obsidian_path(), true))
+            .collect::<Vec<_>>()
+            .join("<br>");
+        let references = group
+            .iter()
+            .flat_map(|(_, info)| &info.references)
+            .map(|path| format_wikilink(Path::new(path), config.obsidian_path(), false))
             .collect::<Vec<_>>()
             .join("<br>");
 
-        let rows = vec![vec![sample, duplicates]];
+        let rows = vec![vec![sample, duplicates, references]];
 
         writer.write_markdown_table(
             headers,
             &rows,
-            Some(&[ColumnAlignment::Left, ColumnAlignment::Left]),
+            Some(&[
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+            ]),
         )?;
 
         writer.writeln("", "")?; // Add an empty line between tables
@@ -77,8 +113,12 @@ fn write_duplicates_tables(
     Ok(())
 }
 
-fn format_image_link(path: &Path, obsidian_path: &Path) -> String {
+fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
-    let file_name = path.file_name().unwrap_or_default().to_string_lossy();
-    format!("[[{}\\|{}]]", relative_path.display(), file_name)
+    let display_name = if use_full_filename {
+        path.file_name().unwrap_or_default().to_string_lossy()
+    } else {
+        path.file_stem().unwrap_or_default().to_string_lossy()
+    };
+    format!("[[{}\\|{}]]", relative_path.display(), display_name)
 }

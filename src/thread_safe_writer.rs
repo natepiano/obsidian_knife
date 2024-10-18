@@ -27,9 +27,6 @@ impl ThreadSafeWriter {
             .truncate(true)
             .open(file_path)?;
 
-        let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
-        writeln!(file, "---\ntime_stamp: \"{}\"\n---", timestamp)?;
-
         Ok(ThreadSafeWriter {
             console: io::stdout(),
             buffer: Arc::new(Mutex::new(Vec::new())),
@@ -108,6 +105,29 @@ impl ThreadSafeWriter {
         }
 
         console.flush()?;
+        Ok(())
+    }
+
+    pub fn write_properties(&self, properties: &str) -> io::Result<()> {
+        println!();
+
+        // Write to file (Markdown format with prefix and suffix)
+        let mut file = self.file.lock().unwrap();
+        writeln!(file, "---")?;
+        writeln!(file, "{}", properties)?;
+        writeln!(file, "---")?;
+        file.flush()?;
+
+        // Write to console (without prefix and suffix)
+        let mut console = self.console.lock();
+        writeln!(console, "{}", properties)?;
+        console.flush()?;
+
+        // Write to buffer (without prefix and suffix)
+        let mut buffer = self.buffer.lock().unwrap();
+        writeln!(buffer, "{}", properties)?;
+        println!();
+
         Ok(())
     }
 

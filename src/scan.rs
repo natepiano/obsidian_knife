@@ -19,7 +19,7 @@ use walkdir::{DirEntry, WalkDir};
 pub struct ImageInfo {
     path: PathBuf,
     pub hash: String,
-    references: Vec<String>,
+    pub(crate) references: Vec<String>,
 }
 
 #[derive(Debug)]
@@ -73,16 +73,19 @@ fn get_image_info_map(
             .file_name()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
+
         let references: Vec<String> = image_references_in_markdown_files
             .iter()
-            .filter(|(markdown_path, _)| {
-                markdown_path
-                    .file_name()
-                    .and_then(OsStr::to_str)
-                    .unwrap_or_default()
-                    .contains(image_file_name)
+            .filter_map(|(markdown_path, image_links)| {
+                if image_links
+                    .iter()
+                    .any(|link| link.contains(image_file_name))
+                {
+                    Some(markdown_path.to_string_lossy().to_string())
+                } else {
+                    None
+                }
             })
-            .map(|(path, _)| path.to_string_lossy().to_string())
             .collect();
 
         let image_info = ImageInfo {
@@ -326,7 +329,9 @@ fn scan_markdown_file(
         let line = line?;
         for capture in image_regex.captures_iter(&line) {
             if let Some(reference) = capture.get(1) {
-                file_references.push(reference.as_str().to_string());
+                let reference_string = reference.as_str().to_string();
+                // println!("refererence_string {}",reference_string);
+                file_references.push(reference_string);
             }
         }
     }

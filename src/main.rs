@@ -9,6 +9,7 @@ mod validated_config;
 use crate::dedupe_images::find_and_output_duplicate_images;
 use crate::thread_safe_writer::ThreadSafeWriter;
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
+use chrono::Local;
 use std::error::Error;
 use std::path::Path;
 use std::time::Instant;
@@ -27,10 +28,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let writer = ThreadSafeWriter::new(validated_config.obsidian_path())?;
 
-    output_execution_start(&validated_config, &writer)?;
+    write_execution_start(&validated_config, &writer)?;
 
     match process_config(validated_config, &writer) {
         Ok(_) => {
+            println!();
             writer.writeln(
                 "# ",
                 &format!("obsidian_knife made the cut using {}", config_file),
@@ -112,22 +114,21 @@ fn read_config(config_file: &str) -> Result<Config, Box<dyn Error + Send + Sync>
     Ok(config)
 }
 
-fn output_execution_start(
+fn write_execution_start(
     validated_config: &ValidatedConfig,
-    output: &ThreadSafeWriter,
+    writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!();
-    output.writeln("# ", "starting obsidian_knife")?;
-    println!();
-    output.writeln("## ", "configuration")?;
-    output.writeln(
-        "- ",
-        &format!("Apply changes: {}", validated_config.destructive()),
-    )?;
-    output.writeln(
-        "- ",
-        &format!("Dedupe images: {}", validated_config.dedupe_images()),
-    )?;
+    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let properties = format!(
+        "time_stamp: {}\napply_changes: {}\ndedupe_images: {}",
+        timestamp,
+        validated_config.destructive(),
+        validated_config.dedupe_images()
+    );
+
+    writer.write_properties(&properties)?;
+
+    writer.writeln("# ", "starting obsidian_knife")?;
     println!();
     Ok(())
 }
