@@ -13,7 +13,7 @@ pub struct ThreadSafeWriter {
 #[derive(Clone, Copy)]
 pub enum ColumnAlignment {
     Left,
-    Center,
+    // Center,
     Right,
 }
 
@@ -43,7 +43,7 @@ impl ThreadSafeWriter {
         rows: &[Vec<String>],
         alignments: Option<&[ColumnAlignment]>,
     ) -> io::Result<()> {
-        // Write to file (markdown format)
+        // Write to file (Markdown format)
         self.write_markdown_table_to_file(headers, rows, alignments)?;
 
         // Write to console (simplified format)
@@ -70,7 +70,7 @@ impl ThreadSafeWriter {
                     .iter()
                     .map(|&a| match a {
                         ColumnAlignment::Left => ":---".to_string(),
-                        ColumnAlignment::Center => ":---:".to_string(),
+                       // ColumnAlignment::Center => ":---:".to_string(),
                         ColumnAlignment::Right => "---:".to_string(),
                     })
                     .collect();
