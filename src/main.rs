@@ -64,26 +64,6 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     }
 }
 
-fn output_execution_start(
-    validated_config: &ValidatedConfig,
-    output: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!();
-    output.writeln("# ", "starting obsidian_knife")?;
-    println!();
-    output.writeln("## ", "configuration")?;
-    output.writeln(
-        "- ",
-        &format!("Apply changes: {}", validated_config.destructive()),
-    )?;
-    output.writeln(
-        "- ",
-        &format!("Dedupe images: {}", validated_config.dedupe_images()),
-    )?;
-    println!();
-    Ok(())
-}
-
 fn process_config(
     config: ValidatedConfig,
     writer: &ThreadSafeWriter,
@@ -130,4 +110,24 @@ fn read_config(config_file: &str) -> Result<Config, Box<dyn Error + Send + Sync>
         })?;
 
     Ok(config)
+}
+
+fn output_execution_start(
+    validated_config: &ValidatedConfig,
+    output: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    println!();
+    output.writeln("# ", "starting obsidian_knife")?;
+    println!();
+    output.writeln("## ", "configuration")?;
+    output.writeln(
+        "- ",
+        &format!("Apply changes: {}", validated_config.destructive()),
+    )?;
+    output.writeln(
+        "- ",
+        &format!("Dedupe images: {}", validated_config.dedupe_images()),
+    )?;
+    println!();
+    Ok(())
 }

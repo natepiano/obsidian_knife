@@ -1,9 +1,9 @@
 use crate::scan::ImageInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use crate::validated_config::ValidatedConfig;
 
 pub fn find_and_output_duplicate_images(
     config: &ValidatedConfig,
@@ -11,10 +11,11 @@ pub fn find_and_output_duplicate_images(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if !config.dedupe_images() {
-        writer.writeln("##", "Image deduplicate is off")?;
+        writer.writeln("#", "Image deduplication is off")?;
         return Ok(());
     }
 
+    writer.writeln("#", "Image Deduplication")?;
     writer.writeln("##", "Duplicate Images")?;
 
     // Group images by hash
@@ -38,12 +39,25 @@ pub fn find_and_output_duplicate_images(
         return Ok(());
     }
 
+    write_duplicates_tables(config, writer, &mut duplicate_groups)?;
+
+    Ok(())
+}
+
+fn write_duplicates_tables(
+    config: &ValidatedConfig,
+    writer: &ThreadSafeWriter,
+    duplicate_groups: &mut Vec<(String, Vec<(&PathBuf, &ImageInfo)>)>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates"];
 
     for (hash, group) in duplicate_groups {
         writer.writeln("###", &format!("{} - {}", group.len(), hash))?;
 
-        let sample = format!("![[{}\\|400]]", group[0].0.file_name().unwrap().to_string_lossy());
+        let sample = format!(
+            "![[{}\\|400]]",
+            group[0].0.file_name().unwrap().to_string_lossy()
+        );
         let duplicates = group
             .iter()
             .map(|(path, _)| format_image_link(path, config.obsidian_path()))
@@ -60,7 +74,6 @@ pub fn find_and_output_duplicate_images(
 
         writer.writeln("", "")?; // Add an empty line between tables
     }
-
     Ok(())
 }
 

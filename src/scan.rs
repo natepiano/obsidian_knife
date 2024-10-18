@@ -113,8 +113,13 @@ fn write_image_reference_histogram(
     writer.writeln("###", "markdown files with images")?;
 
     let take_count = 5;
+    let file_column_header = format!("Example Files (max:{})", &take_count);
 
-    let headers = &["Number of Images", "Number of Markdown Files", "Files"];
+    let headers = &[
+        "Number of Images",
+        "Number of Markdown Files",
+        &file_column_header,
+    ];
     let rows: Vec<Vec<String>> = histogram
         .iter()
         .filter(|entry| entry.image_count > 0)
@@ -283,7 +288,7 @@ fn collect_files(
     collected_files.markdown_files = scan_markdown_files(&markdown_files)?;
 
     collected_files.image_map =
-       get_image_info_map(&config, &collected_files, &image_files, &writer)?;
+        get_image_info_map(&config, &collected_files, &image_files, &writer)?;
 
     Ok(collected_files)
 }
