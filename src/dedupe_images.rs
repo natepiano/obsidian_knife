@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-pub fn find_and_output_duplicate_images(
+pub fn dedupe(
     config: &ValidatedConfig,
     image_map: &HashMap<PathBuf, ImageInfo>,
     writer: &ThreadSafeWriter,
