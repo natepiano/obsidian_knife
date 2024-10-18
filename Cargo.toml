@@ -5,13 +5,14 @@ edition = "2021"
 
 [dependencies]
 chrono = "0.4"
+rayon = "1.10.0"
+regex = "1.11.0"
 serde = { version = "1.0.210", features = ["derive"] }
+serde_json = "1.0.128"
 serde_yaml = "0.9.34+deprecated"
 sha2 = "0.10.7"
+tempfile = "3.13.0"
 walkdir = "2.5.0"
-regex = "1.11.0"
-serde_json = "1.0.128"
-rayon = "1.10.0"
 
 [profile.dev.package."*"]
 opt-level = 3
