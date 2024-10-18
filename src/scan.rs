@@ -22,13 +22,6 @@ pub struct ImageInfo {
     pub(crate) references: Vec<String>,
 }
 
-#[derive(Debug)]
-struct ImageReferenceCount {
-    markdown_files: usize,
-    image_count: usize,
-    file_names: Vec<String>,
-}
-
 #[derive(Default)]
 pub struct CollectedFiles {
     pub markdown_files: HashMap<PathBuf, Vec<String>>,
@@ -89,7 +82,7 @@ fn get_image_info_map(
             .collect();
 
         let image_info = ImageInfo {
-           // path: image_path.clone(),
+            // path: image_path.clone(),
             hash,
             references,
         };
@@ -102,66 +95,11 @@ fn get_image_info_map(
 
     write_cache_contents_info(writer, &mut cache, &mut image_info_map)?;
 
-    let histogram =
-        generate_markdown_image_reference_histogram(&image_references_in_markdown_files);
-    write_image_reference_histogram(writer, &histogram)?;
+    // let histogram =
+    //     generate_markdown_image_reference_histogram(&image_references_in_markdown_files);
+    // write_image_reference_histogram(writer, &histogram)?;
 
     Ok(image_info_map)
-}
-
-fn write_image_reference_histogram(
-    writer: &ThreadSafeWriter,
-    histogram: &[ImageReferenceCount],
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("###", "markdown files with images")?;
-
-    let take_count = 5;
-    let file_column_header = format!("Example Files (max:{})", &take_count);
-
-    let headers = &[
-        "Number of Images",
-        "Number of Markdown Files",
-        &file_column_header,
-    ];
-    let rows: Vec<Vec<String>> = histogram
-        .iter()
-        .filter(|entry| entry.image_count > 0)
-        .map(|entry| {
-            let wikilinks: Vec<String> = entry
-                .file_names
-                .iter()
-                .take(take_count) // Limit to first 5 files
-                .map(|name| format!("[[{}]]", name))
-                .collect();
-            let file_list = if entry.file_names.len() > take_count {
-                format!("{}, ...", wikilinks.join(", "))
-            } else {
-                wikilinks.join(", ")
-            };
-            vec![
-                entry.image_count.to_string(),
-                entry.markdown_files.to_string(),
-                file_list,
-            ]
-        })
-        .collect();
-
-    if rows.is_empty() {
-        writer.writeln("", "No Markdown files contain image references.")?;
-    } else {
-        writer.write_markdown_table(
-            headers,
-            &rows,
-            Some(&[
-                ColumnAlignment::Right,
-                ColumnAlignment::Right,
-                ColumnAlignment::Left,
-            ]),
-        )?;
-    }
-
-    println!();
-    Ok(())
 }
 
 fn write_cache_file_info(
@@ -301,7 +239,7 @@ fn scan_markdown_files(
 ) -> Result<HashMap<PathBuf, Vec<String>>, Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
-        r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))\]\])",
+        r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
         extensions_pattern
     ))?);
 
@@ -328,54 +266,14 @@ fn scan_markdown_file(
     for line in reader.lines() {
         let line = line?;
         for capture in image_regex.captures_iter(&line) {
-            if let Some(reference) = capture.get(1) {
+            if let Some(reference) = capture.get(0) {
                 let reference_string = reference.as_str().to_string();
-                // println!("refererence_string {}",reference_string);
                 file_references.push(reference_string);
             }
         }
     }
 
     Ok(file_references)
-}
-
-fn generate_markdown_image_reference_histogram(
-    image_references: &HashMap<PathBuf, Vec<String>>,
-) -> Vec<ImageReferenceCount> {
-    let mut histogram = HashMap::new();
-
-    for (path, references) in image_references {
-        let count = references.len();
-        histogram
-            .entry(count)
-            .or_insert_with(Vec::new)
-            .push(path.clone());
-    }
-
-    let mut histogram_vec: Vec<ImageReferenceCount> = histogram
-        .into_iter()
-        .map(|(image_count, paths)| ImageReferenceCount {
-            markdown_files: paths.len(),
-            image_count,
-            file_names: paths
-                .into_iter()
-                .filter_map(|path| {
-                    path.file_stem()
-                        .and_then(|stem| stem.to_str())
-                        .map(|s| s.to_string())
-                })
-                .map(|stem| stem.to_string())
-                .collect(),
-        })
-        .collect();
-
-    histogram_vec.sort_by(|a, b| {
-        a.image_count
-            .cmp(&b.image_count)
-            .then_with(|| b.markdown_files.cmp(&a.markdown_files))
-    });
-
-    histogram_vec
 }
 
 fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {

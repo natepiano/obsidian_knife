@@ -4,7 +4,7 @@ pub struct ValidatedConfig {
     apply_changes: bool,
     obsidian_path: PathBuf,
     ignore_folders: Option<Vec<PathBuf>>,
-    dedupe_images: bool,
+    cleanup_image_files: bool,
 }
 
 impl ValidatedConfig {
@@ -12,12 +12,12 @@ impl ValidatedConfig {
         destructive: bool,
         obsidian_path: PathBuf,
         ignore_folders: Option<Vec<PathBuf>>,
-        dedupe_images: bool,
+        cleanup_image_files: bool,
     ) -> Self {
         ValidatedConfig {
             obsidian_path,
             ignore_folders,
-            dedupe_images,
+            cleanup_image_files,
             apply_changes: destructive,
         }
     }
@@ -30,8 +30,8 @@ impl ValidatedConfig {
         self.ignore_folders.as_deref()
     }
 
-    pub fn dedupe_images(&self) -> bool {
-        self.dedupe_images
+    pub fn cleanup_image_files(&self) -> bool {
+        self.cleanup_image_files
     }
 
     pub fn destructive(&self) -> bool {

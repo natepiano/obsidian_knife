@@ -1,6 +1,6 @@
 apply_changes: false
 obsidian_path: ~/Documents/brain
+cleanup_image_files: true
 ignore_folders:
   - .idea
   - .obsidian
-dedupe_images: true

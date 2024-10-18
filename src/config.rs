@@ -8,7 +8,7 @@ pub struct Config {
     apply_changes: Option<bool>,
     obsidian_path: String,
     ignore_folders: Option<Vec<String>>,
-    dedupe_images: Option<bool>,
+    cleanup_image_files: Option<bool>,
 }
 
 impl Config {
@@ -31,7 +31,7 @@ impl Config {
             self.apply_changes.unwrap_or(false),
             expanded_path,
             ignore_folders,
-            self.dedupe_images.unwrap_or(false),
+            self.cleanup_image_files.unwrap_or(false),
         ))
     }
 

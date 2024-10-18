@@ -123,7 +123,7 @@ fn write_execution_start(
         "time_stamp: {}\napply_changes: {}\ndedupe_images: {}",
         timestamp,
         validated_config.destructive(),
-        validated_config.dedupe_images()
+        validated_config.cleanup_image_files()
     );
 
     writer.write_properties(&properties)?;

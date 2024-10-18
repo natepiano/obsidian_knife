@@ -1,51 +1,26 @@
 use crate::scan::ImageInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
+use regex::Regex;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use regex::Regex;
-
-use std::cell::RefCell;
-use std::rc::Rc;
-
-#[derive(Debug)]
-struct FileOperationTracker {
-    file_operation_performed: RefCell<bool>,
-}
-
-impl FileOperationTracker {
-    fn new() -> Self {
-        Self {
-            file_operation_performed: RefCell::new(false),
-        }
-    }
-
-    fn was_performed(&self) -> bool {
-        *self.file_operation_performed.borrow()
-    }
-
-    fn mark_as_performed(&self) {
-        *self.file_operation_performed.borrow_mut() = true;
-    }
-}
 
 pub fn dedupe(
     config: &ValidatedConfig,
     image_map: &HashMap<PathBuf, ImageInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if !config.dedupe_images() {
+    if !config.cleanup_image_files() {
         writer.writeln("#", "Image deduplication is off")?;
         return Ok(());
     }
 
-    writer.writeln("#", "Image Analysis")?;
+    writer.writeln("#", "Image Deduplication")?;
     if config.destructive() {
         writer.writeln("", "Changes will be applied")?;
     }
-
     // Group images by hash
     let mut hash_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
     for (path, info) in image_map {
@@ -58,57 +33,86 @@ pub fn dedupe(
     // Identify different image groups
     let mut tiff_images = Vec::new();
     let mut zero_byte_images = Vec::new();
+    let mut unreferenced_images = Vec::new();
     let mut duplicate_groups = Vec::new();
 
     for (hash, group) in hash_groups {
-        let is_tiff = group.iter().any(|(path, _)|
-            path.extension().and_then(|ext| ext.to_str()) == Some("tiff"));
-        let is_zero_byte = group.iter().any(|(path, _)|
-            fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false));
+        let is_tiff = group
+            .iter()
+            .any(|(path, _)| path.extension().and_then(|ext| ext.to_str()) == Some("tiff"));
+        let is_zero_byte = group
+            .iter()
+            .any(|(path, _)| fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false));
+        let all_unreferenced = group.iter().all(|(_, info)| info.references.is_empty());
 
         if is_tiff {
             tiff_images.extend(group);
         } else if is_zero_byte {
             zero_byte_images.extend(group);
+        } else if all_unreferenced {
+            unreferenced_images.extend(group);
         } else if group.len() > 1 {
             duplicate_groups.push((hash, group));
         }
     }
 
-    let tracker = Rc::new(FileOperationTracker::new());
+    // Return early if all vectors are empty
+    if tiff_images.is_empty()
+        && zero_byte_images.is_empty()
+        && unreferenced_images.is_empty()
+        && duplicate_groups.is_empty()
+    {
+        writer.writeln("", "No issues found during image analysis.")?;
+        return Ok(());
+    }
 
     // Sort and write tables for each group
     tiff_images.sort_by(|a, b| a.0.cmp(b.0));
     zero_byte_images.sort_by(|a, b| a.0.cmp(b.0));
+    unreferenced_images.sort_by(|a, b| a.0.cmp(b.0));
     duplicate_groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
 
     if !tiff_images.is_empty() {
         writer.writeln("##", "TIFF Images")?;
-        writer.writeln("", "The following TIFF images may not render correctly in Obsidian:")?;
-        write_group_tables(config, writer, &[("TIFF Images", tiff_images)], false, &tracker)?;
+        writer.writeln(
+            "",
+            "The following TIFF images may not render correctly in Obsidian:",
+        )?;
+        write_group_tables(config, writer, &[("TIFF Images", tiff_images)], false)?;
     }
 
     if !zero_byte_images.is_empty() {
         writer.writeln("##", "Zero-Byte Images")?;
-        writer.writeln("", "The following images have zero bytes and may be corrupted:")?;
-        write_group_tables(config, writer, &[("Zero-Byte Images", zero_byte_images)], false, &tracker)?;
+        writer.writeln(
+            "",
+            "The following images have zero bytes and may be corrupted:",
+        )?;
+        write_group_tables(
+            config,
+            writer,
+            &[("Zero-Byte Images", zero_byte_images)],
+            false,
+        )?;
+    }
+
+    if !unreferenced_images.is_empty() {
+        writer.writeln("##", "Unreferenced Images")?;
+        writer.writeln("", "The following images are not referenced by any files:")?;
+        // Group unreferenced images by their hash
+        let mut unreferenced_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
+        for (path, info) in unreferenced_images {
+            unreferenced_groups
+                .entry(info.hash.clone())
+                .or_default()
+                .push((path, info));
+        }
+        let unreferenced_groups: Vec<_> = unreferenced_groups.into_iter().collect();
+        write_group_tables(config, writer, &unreferenced_groups, false)?;
     }
 
     if !duplicate_groups.is_empty() {
-        // Separate groups with no references and those with references
-        let (no_ref_groups, ref_groups): (Vec<_>, Vec<_>) = duplicate_groups
-            .into_iter()
-            .partition(|(_, group)| group.iter().all(|(_, info)| info.references.is_empty()));
-
-        if !no_ref_groups.is_empty() {
-            writer.writeln("##", "Duplicate Images with No References")?;
-            write_group_tables(config, writer, &no_ref_groups, false, &tracker)?;
-        }
-
-        if !ref_groups.is_empty() {
-            writer.writeln("##", "Duplicate Images with References")?;
-            write_group_tables(config, writer, &ref_groups, true, &tracker)?;
-        }
+        writer.writeln("##", "Duplicate Images with References")?;
+        write_group_tables(config, writer, &duplicate_groups, true)?;
     }
 
     Ok(())
@@ -119,23 +123,11 @@ fn write_group_tables(
     writer: &ThreadSafeWriter,
     groups: &[(impl AsRef<str>, Vec<(&PathBuf, &ImageInfo)>)],
     is_ref_group: bool,
-    tracker: &FileOperationTracker,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates", "Referenced By"];
 
-    for (group_index, (group_name, group)) in groups.iter().enumerate() {
-        writer.writeln("###", &format!("image file hash: {}", group_name.as_ref()))?;
-        writer.writeln("", &format!("{} duplicates", group.len()))?;
-
-        // Calculate total number of references
-        let total_references: usize = group.iter().map(|(_, info)| info.references.len()).sum();
-
-        // Output reference count if there are any references
-        if total_references > 0 {
-            writer.writeln("", &format!("referenced by {} files\n", total_references))?;
-        } else {
-            writer.writeln("", "")?;
-        }
+    for (group_name, group) in groups.iter() {
+        write_table_header(writer, group_name, group)?;
 
         let keeper_path = if is_ref_group {
             Some(group[0].0.clone())
@@ -152,13 +144,17 @@ fn write_group_tables(
             .iter()
             .enumerate()
             .map(|(i, (path, _))| {
-                let mut link = format!("{}. {}", i + 1, format_wikilink(path, config.obsidian_path(), true));
+                let mut link = format!(
+                    "{}. {}",
+                    i + 1,
+                    format_wikilink(path, config.obsidian_path(), true)
+                );
                 if config.destructive() {
                     if is_ref_group && i == 0 {
                         link.push_str(" - kept");
                     } else {
                         link.push_str(" - deleted");
-                        if let Err(e) = handle_file_operation(path, FileOperation::Delete, tracker) {
+                        if let Err(e) = handle_file_operation(path, FileOperation::Delete) {
                             eprintln!("Error deleting file {:?}: {}", path, e);
                         }
                     }
@@ -174,14 +170,17 @@ fn write_group_tables(
             .flat_map(|(path, info)| {
                 let path = (*path).to_path_buf();
                 let keeper_path = keeper_path.clone();
-                let tracker = tracker;
-                info.references.iter().map(move |ref_path| {
-                    (path.clone(), keeper_path.clone(), ref_path.to_string())
-                })
+                info.references
+                    .iter()
+                    .map(move |ref_path| (path.clone(), keeper_path.clone(), ref_path.to_string()))
             })
             .enumerate()
             .map(|(index, (path, keeper_path, ref_path))| {
-                let mut link = format!("{}. {}", index + 1, format_wikilink(Path::new(&ref_path), config.obsidian_path(), false));
+                let mut link = format!(
+                    "{}. {}",
+                    index + 1,
+                    format_wikilink(Path::new(&ref_path), config.obsidian_path(), false)
+                );
                 if config.destructive() {
                     if is_ref_group {
                         link.push_str(" - updated");
@@ -189,8 +188,10 @@ fn write_group_tables(
                             if &path != keeper_path {
                                 if let Err(e) = handle_file_operation(
                                     Path::new(&ref_path),
-                                    FileOperation::UpdateReference(path.clone(), keeper_path.clone()),
-                                    tracker,
+                                    FileOperation::UpdateReference(
+                                        path.clone(),
+                                        keeper_path.clone(),
+                                    ),
                                 ) {
                                     eprintln!("Error updating reference in {:?}: {}", ref_path, e);
                                 }
@@ -201,7 +202,6 @@ fn write_group_tables(
                         if let Err(e) = handle_file_operation(
                             Path::new(&ref_path),
                             FileOperation::RemoveReference(path),
-                            tracker,
                         ) {
                             eprintln!("Error removing reference in {:?}: {}", ref_path, e);
                         }
@@ -225,15 +225,40 @@ fn write_group_tables(
             ]),
         )?;
 
-        // Mark the tracker as performed after processing the first row of the first group
-        if group_index == 1 {
-            tracker.mark_as_performed();
-        }
         writer.writeln("", "")?; // Add an empty line between tables
     }
     Ok(())
 }
 
+fn write_table_header(
+    writer: &ThreadSafeWriter,
+    group_name: impl AsRef<str>,
+    group: &[(&PathBuf, &ImageInfo)],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln("###", &format!("image file hash: {}", group_name.as_ref()))?;
+
+    let duplicates_message = if group.len() == 1 {
+        "no duplicates"
+    } else if group.len() == 2 {
+        "1 duplicate"
+    } else {
+        &format!("{} duplicates", group.len() - 1)
+    };
+
+    writer.writeln("", duplicates_message)?;
+
+    // Calculate total number of references
+    let total_references: usize = group.iter().map(|(_, info)| info.references.len()).sum();
+
+    // Output reference count if there are any references
+    if total_references > 0 {
+        writer.writeln("", &format!("referenced by {} files", total_references))?;
+    } else {
+        writer.writeln("", "not referenced by any file in obsidian folder")?;
+    }
+    writer.writeln("", "")?; // Add an empty line for better readability
+    Ok(())
+}
 
 fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
@@ -255,27 +280,27 @@ enum FileOperation {
 fn handle_file_operation(
     path: &Path,
     operation: FileOperation,
-    tracker: &FileOperationTracker,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
-    if !tracker.was_performed() {
-        match operation {
-            FileOperation::Delete => {
-                fs::remove_file(path)?;
-            }
-            FileOperation::RemoveReference(ref old_path) => {
-                update_file_content(path, old_path, None)?;
-            }
-            FileOperation::UpdateReference(ref old_path, ref new_path) => {
-                update_file_content(path, old_path, Some(new_path))?;
-            }
+    match operation {
+        FileOperation::Delete => {
+            fs::remove_file(path)?;
+        }
+        FileOperation::RemoveReference(ref old_path) => {
+            update_file_content(path, old_path, None)?;
+        }
+        FileOperation::UpdateReference(ref old_path, ref new_path) => {
+            update_file_content(path, old_path, Some(new_path))?;
         }
     }
 
     Ok(())
 }
 
-fn update_file_content(file_path: &Path, old_path: &Path, new_path: Option<&Path>) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn update_file_content(
+    file_path: &Path,
+    old_path: &Path,
+    new_path: Option<&Path>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
     let old_name = old_path.file_name().unwrap().to_str().unwrap();
 
@@ -332,9 +357,12 @@ mod tests {
         let content = "# Test\n![Image](test.jpg)\nSome text\n![[test.jpg]]\nMore text";
         let (temp_dir, file_path) = setup_test_file(content);
         let image_path = temp_dir.path().join("test.jpg");
-        let tracker = Rc::new(FileOperationTracker::new());
 
-        handle_file_operation(&file_path, FileOperation::RemoveReference(image_path.clone()), &tracker).unwrap();
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operation: {:?}", result);
@@ -350,13 +378,19 @@ mod tests {
         let (temp_dir, file_path) = setup_test_file(content);
         let old_image_path = temp_dir.path().join("old.jpg");
         let new_image_path = temp_dir.path().join("new.jpg");
-        let tracker = Rc::new(FileOperationTracker::new());
 
-        handle_file_operation(&file_path, FileOperation::UpdateReference(old_image_path, new_image_path),  &tracker).unwrap();
+        handle_file_operation(
+            &file_path,
+            FileOperation::UpdateReference(old_image_path, new_image_path),
+        )
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operation: {:?}", result);
-        assert_eq!(result, "# Test\n![Image](new.jpg)\nSome text\n![[new.jpg]]\nMore text");
+        assert_eq!(
+            result,
+            "# Test\n![Image](new.jpg)\nSome text\n![[new.jpg]]\nMore text"
+        );
 
         println!("--- Ending test_update_reference ---\n");
     }
@@ -367,13 +401,20 @@ mod tests {
         let content = "# Test\n![Image](test.jpg)\nSome text";
         let (temp_dir, file_path) = setup_test_file(content);
         let image_path = temp_dir.path().join("test.jpg");
-        let tracker = Rc::new(FileOperationTracker::new());
 
         println!("Performing first invocation");
-        handle_file_operation(&file_path, FileOperation::RemoveReference(image_path.clone()), &tracker).unwrap();
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
 
         println!("Performing second invocation");
-        handle_file_operation(&file_path, FileOperation::RemoveReference(image_path.clone()), &tracker).unwrap();
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operations: {:?}", result);
@@ -390,14 +431,14 @@ mod tests {
         File::create(&file_path).unwrap();
         println!("Test file created at: {:?}", file_path);
 
-        let tracker = Rc::new(FileOperationTracker::new());
-
         assert!(file_path.exists(), "Test file should exist before deletion");
 
-        handle_file_operation(&file_path, FileOperation::Delete, &tracker).unwrap();
+        handle_file_operation(&file_path, FileOperation::Delete).unwrap();
 
-        assert!(!file_path.exists(), "Test file should not exist after deletion");
-
+        assert!(
+            !file_path.exists(),
+            "Test file should not exist after deletion"
+        );
 
         println!("--- Ending test_delete ---\n");
     }
