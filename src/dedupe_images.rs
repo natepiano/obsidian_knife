@@ -124,8 +124,18 @@ fn write_group_tables(
     let headers = &["Sample", "Duplicates", "Referenced By"];
 
     for (group_index, (group_name, group)) in groups.iter().enumerate() {
+        writer.writeln("###", &format!("image file hash: {}", group_name.as_ref()))?;
+        writer.writeln("", &format!("{} duplicates", group.len()))?;
 
-        writer.writeln("###", &format!("{} - {}", group.len(), group_name.as_ref()))?;
+        // Calculate total number of references
+        let total_references: usize = group.iter().map(|(_, info)| info.references.len()).sum();
+
+        // Output reference count if there are any references
+        if total_references > 0 {
+            writer.writeln("", &format!("referenced by {} files\n", total_references))?;
+        } else {
+            writer.writeln("", "")?;
+        }
 
         let keeper_path = if is_ref_group {
             Some(group[0].0.clone())
@@ -138,11 +148,11 @@ fn write_group_tables(
             group[0].0.file_name().unwrap().to_string_lossy()
         );
 
-        let duplicates = group
+        let duplicates: Vec<String> = group
             .iter()
             .enumerate()
             .map(|(i, (path, _))| {
-                let mut link = format_wikilink(path, config.obsidian_path(), true);
+                let mut link = format!("{}. {}", i + 1, format_wikilink(path, config.obsidian_path(), true));
                 if config.destructive() {
                     if is_ref_group && i == 0 {
                         link.push_str(" - kept");
@@ -155,47 +165,53 @@ fn write_group_tables(
                 }
                 link
             })
-            .collect::<Vec<_>>()
-            .join("<br>");
+            .collect();
 
-        let references = group
+        let duplicates = duplicates.join("<br>");
+
+        let references: Vec<String> = group
             .iter()
             .flat_map(|(path, info)| {
                 let path = (*path).to_path_buf();
                 let keeper_path = keeper_path.clone();
-                let tracker = tracker; // This is now a reference
+                let tracker = tracker;
                 info.references.iter().map(move |ref_path| {
-                    let mut link = format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
-                    if config.destructive() {
-                        if is_ref_group {
-                            link.push_str(" - updated");
-                            if let Some(keeper_path) = &keeper_path {
-                                if &path != keeper_path {
-                                    if let Err(e) = handle_file_operation(
-                                        Path::new(ref_path),
-                                        FileOperation::UpdateReference(path.clone(), keeper_path.clone()),
-                                        tracker,
-                                    ) {
-                                        eprintln!("Error updating reference in {:?}: {}", ref_path, e);
-                                    }
-                                }
-                            }
-                        } else {
-                            link.push_str(" - reference removed");
-                            if let Err(e) = handle_file_operation(
-                                Path::new(ref_path),
-                                FileOperation::RemoveReference(path.clone()),
-                                tracker,
-                            ) {
-                                eprintln!("Error removing reference in {:?}: {}", ref_path, e);
-                            }
-                        }
-                    }
-                    link
+                    (path.clone(), keeper_path.clone(), ref_path.to_string())
                 })
             })
-            .collect::<Vec<_>>()
-            .join("<br>");
+            .enumerate()
+            .map(|(index, (path, keeper_path, ref_path))| {
+                let mut link = format!("{}. {}", index + 1, format_wikilink(Path::new(&ref_path), config.obsidian_path(), false));
+                if config.destructive() {
+                    if is_ref_group {
+                        link.push_str(" - updated");
+                        if let Some(keeper_path) = &keeper_path {
+                            if &path != keeper_path {
+                                if let Err(e) = handle_file_operation(
+                                    Path::new(&ref_path),
+                                    FileOperation::UpdateReference(path.clone(), keeper_path.clone()),
+                                    tracker,
+                                ) {
+                                    eprintln!("Error updating reference in {:?}: {}", ref_path, e);
+                                }
+                            }
+                        }
+                    } else {
+                        link.push_str(" - reference removed");
+                        if let Err(e) = handle_file_operation(
+                            Path::new(&ref_path),
+                            FileOperation::RemoveReference(path),
+                            tracker,
+                        ) {
+                            eprintln!("Error removing reference in {:?}: {}", ref_path, e);
+                        }
+                    }
+                }
+                link
+            })
+            .collect();
+
+        let references = references.join("<br>");
 
         let rows = vec![vec![sample, duplicates, references]];
 
