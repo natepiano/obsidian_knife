@@ -17,7 +17,7 @@ use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
 pub struct ImageInfo {
-    path: PathBuf,
+    //path: PathBuf,
     pub hash: String,
     pub(crate) references: Vec<String>,
 }
@@ -89,7 +89,7 @@ fn get_image_info_map(
             .collect();
 
         let image_info = ImageInfo {
-            path: image_path.clone(),
+           // path: image_path.clone(),
             hash,
             references,
         };
