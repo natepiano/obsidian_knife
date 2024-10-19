@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImageInfo {
     pub hash: String,
     pub(crate) references: Vec<String>,

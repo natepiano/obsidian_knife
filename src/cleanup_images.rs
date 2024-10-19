@@ -7,152 +7,171 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
+struct ImageGroup {
+    path: PathBuf,
+    info: ImageInfo,
+}
+
 pub fn cleanup_images(
     config: &ValidatedConfig,
     collected_files: CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if !config.cleanup_image_files() {
-        writer.writeln("#", "Image deduplication is off")?;
+        writer.writeln("#", "image cleanup is off")?;
         return Ok(());
     }
 
-    writer.writeln("#", "Image Deduplication")?;
-    if config.destructive() {
-        writer.writeln("", "Changes will be applied")?;
+    writer.writeln("#", "image cleanup")?;
+    if config.apply_changes() {
+        writer.writeln("", "changes will be applied")?;
+    } else {
+        writer.writeln("", "dry run mode: no changes will be applied")?;
     }
 
-    let image_map = &collected_files.image_map;
-
-    // Group images by hash
-    let mut hash_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
-    for (path, info) in image_map {
-        hash_groups
-            .entry(info.hash.clone())
-            .or_default()
-            .push((path, info));
-    }
-
-    // Identify different image groups
-    let mut tiff_images = Vec::new();
-    let mut zero_byte_images = Vec::new();
-    let mut unreferenced_images = Vec::new();
-    let mut duplicate_groups = Vec::new();
-
-    for (hash, group) in hash_groups {
-        let is_tiff = group
-            .iter()
-            .any(|(path, _)| path.extension().and_then(|ext| ext.to_str()) == Some("tiff"));
-        let is_zero_byte = group
-            .iter()
-            .any(|(path, _)| fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false));
-        let all_unreferenced = group.iter().all(|(_, info)| info.references.is_empty());
-
-        if is_tiff {
-            tiff_images.extend(group);
-        } else if is_zero_byte {
-            zero_byte_images.extend(group);
-        } else if all_unreferenced {
-            unreferenced_images.extend(group);
-        } else if group.len() > 1 {
-            duplicate_groups.push((hash, group));
-        }
-    }
-
+    let image_groups = group_images(&collected_files.image_map);
     let missing_references = generate_missing_references(&collected_files)?;
 
-    // Return early if all vectors are empty
+    let empty_vec = Vec::new();
+    let tiff_images = image_groups.get("TIFF Images").unwrap_or(&empty_vec);
+    let zero_byte_images = image_groups.get("Zero-Byte Images").unwrap_or(&empty_vec);
+    let unreferenced_images = image_groups
+        .get("Unreferenced Images")
+        .unwrap_or(&empty_vec);
+    let duplicate_groups: Vec<_> = image_groups
+        .iter()
+        .filter(|(key, group)| {
+            *key != "TIFF Images"
+                && *key != "zero-byte images"
+                && *key != "unreferenced images"
+                && group.len() > 1
+        })
+        .collect();
+
     if tiff_images.is_empty()
         && zero_byte_images.is_empty()
         && unreferenced_images.is_empty()
         && duplicate_groups.is_empty()
         && missing_references.is_empty()
     {
-        writer.writeln("", "No issues found during image analysis.")?;
+        writer.writeln("", "no issues found during image analysis.")?;
         return Ok(());
     }
 
-    // Write missing image references table if there are any missing references
-    if !missing_references.is_empty() {
-        write_missing_image_references_table(config, &missing_references, writer)?;
-    }
+    write_tables(
+        config,
+        writer,
+        &missing_references,
+        tiff_images,
+        zero_byte_images,
+        unreferenced_images,
+        &duplicate_groups,
+    )?;
 
-    // Sort and write tables for each group
-    tiff_images.sort_by(|a, b| a.0.cmp(b.0));
-    zero_byte_images.sort_by(|a, b| a.0.cmp(b.0));
-    unreferenced_images.sort_by(|a, b| a.0.cmp(b.0));
-    duplicate_groups.sort_by(|a, b| b.1.len().cmp(&a.1.len()));
+    Ok(())
+}
+
+fn write_tables(
+    config: &ValidatedConfig,
+    writer: &ThreadSafeWriter,
+    missing_references: &[(&PathBuf, String)],
+    tiff_images: &[ImageGroup],
+    zero_byte_images: &[ImageGroup],
+    unreferenced_images: &[ImageGroup],
+    duplicate_groups: &[(&String, &Vec<ImageGroup>)],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    write_missing_references_table(config, missing_references, writer)?;
 
     if !tiff_images.is_empty() {
-        writer.writeln("##", "TIFF Images")?;
-        writer.writeln(
-            "",
-            format!(
-                "The following {} TIFF images may not render correctly in Obsidian:",
-                tiff_images.len()
-            )
-            .as_str(),
+        let description = format!(
+            "The following {} {} may not render correctly in Obsidian:",
+            tiff_images.len(),
+            if tiff_images.len() == 1 { "TIFF image" } else { "TIFF images" }
+        );
+        write_special_group_table(
+            config,
+            writer,
+            "TIFF Images",
+            tiff_images,
+            &description,
         )?;
-        write_group_tables(config, writer, &[("TIFF Images", tiff_images)], false)?;
     }
 
     if !zero_byte_images.is_empty() {
-        writer.writeln("##", "Zero-Byte Images")?;
-        writer.writeln(
-            "",
-            format!(
-                "The following {} images have zero bytes and may be corrupted:",
-                zero_byte_images.len()
-            )
-            .as_str(),
-        )?;
-        write_group_tables(
+        let description = format!(
+            "The following {} {} zero bytes and may be corrupted:",
+            zero_byte_images.len(),
+            if zero_byte_images.len() == 1 { "image has" } else { "images have" }
+        );
+        write_special_group_table(
             config,
             writer,
-            &[("Zero-Byte Images", zero_byte_images)],
-            false,
+            "Zero-Byte Images",
+            zero_byte_images,
+            &description,
         )?;
     }
 
     if !unreferenced_images.is_empty() {
-        writer.writeln("##", "Unreferenced Images")?;
-        writer.writeln(
-            "",
-            format!(
-                "The following {} images are not referenced by any files:",
-                unreferenced_images.len()
-            )
-            .as_str(),
+        let description = format!(
+            "The following {} {} not referenced by any files:",
+            unreferenced_images.len(),
+            if unreferenced_images.len() == 1 { "image is" } else { "images are" }
+        );
+        write_special_group_table(
+            config,
+            writer,
+            "Unreferenced Images",
+            unreferenced_images,
+            &description,
         )?;
-        // Group unreferenced images by their hash
-        let mut unreferenced_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
-        for (path, info) in unreferenced_images {
-            unreferenced_groups
-                .entry(info.hash.clone())
-                .or_default()
-                .push((path, info));
-        }
-        let unreferenced_groups: Vec<_> = unreferenced_groups.into_iter().collect();
-        write_group_tables(config, writer, &unreferenced_groups, false)?;
     }
 
-    if !duplicate_groups.is_empty() {
-        writer.writeln("##", "Duplicate Images with References")?;
-        write_group_tables(config, writer, &duplicate_groups, true)?;
+    for (hash, group) in duplicate_groups {
+        write_duplicate_group_table(config, writer, hash, group)?;
     }
 
     Ok(())
 }
 
-fn generate_missing_references<'a>(
+fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> HashMap<String, Vec<ImageGroup>> {
+    let mut groups: HashMap<String, Vec<ImageGroup>> = HashMap::new();
+
+    for (path, info) in image_map {
+        let group_type = determine_group_type(path, info);
+        groups.entry(group_type).or_default().push(ImageGroup {
+            path: path.clone(),
+            info: info.clone(),
+        });
+    }
+
+    // Sort groups by path
+    for group in groups.values_mut() {
+        group.sort_by(|a, b| a.path.cmp(&b.path));
+    }
+
+    groups
+}
+
+fn determine_group_type(path: &Path, info: &ImageInfo) -> String {
+    if path.extension().and_then(|ext| ext.to_str()) == Some("tiff") {
+        "TIFF Images".to_string()
+    } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {
+        "Zero-Byte Images".to_string()
+    } else if info.references.is_empty() {
+        "Unreferenced Images".to_string()
+    } else {
+        info.hash.clone()
+    }
+}
+
+fn generate_missing_references(
     collected_files: &CollectedFiles,
-) -> Result<Vec<(&PathBuf, &String, String)>, Box<dyn Error + Send + Sync>> {
+) -> Result<Vec<(&PathBuf, String)>, Box<dyn Error + Send + Sync>> {
     let mut missing_references = Vec::new();
-
-    let image_map = &collected_files.image_map;
-
-    // Create a HashSet of normalized image filenames for faster lookup
-    let image_filenames: HashSet<String> = image_map
+    let image_filenames: HashSet<String> = collected_files
+        .image_map
         .keys()
         .filter_map(|path| path.file_name())
         .map(|name| name.to_string_lossy().to_lowercase())
@@ -162,7 +181,7 @@ fn generate_missing_references<'a>(
         for image_link in &file_info.image_links {
             if let Some(extracted_filename) = extract_local_image_filename(image_link) {
                 if !image_exists_in_set(&extracted_filename, &image_filenames) {
-                    missing_references.push((markdown_path, image_link, extracted_filename));
+                    missing_references.push((markdown_path, extracted_filename));
                 }
             }
         }
@@ -171,11 +190,15 @@ fn generate_missing_references<'a>(
     Ok(missing_references)
 }
 
-fn write_missing_image_references_table(
+fn write_missing_references_table(
     config: &ValidatedConfig,
-    missing_references: &[(&PathBuf, &String, String)],
+    missing_references: &[(&PathBuf, String)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if missing_references.is_empty() {
+        return Ok(());
+    }
+
     writer.writeln("## Missing Image References", "")?;
     writer.writeln(
         "",
@@ -185,16 +208,32 @@ fn write_missing_image_references_table(
     let headers = &[
         "Markdown File",
         "Missing Image Reference",
-        "Extracted Filename",
+        "Action",
     ];
-    let rows: Vec<Vec<String>> = missing_references
+
+    // Group missing references by markdown file
+    let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
+    for (markdown_path, extracted_filename) in missing_references {
+        grouped_references.entry(markdown_path).or_default().push(ImageGroup {
+            path: PathBuf::from(extracted_filename),
+            info: ImageInfo {
+                hash: String::new(),
+                references: vec![markdown_path.to_string_lossy().to_string()],
+            },
+        });
+    }
+
+    let rows: Vec<Vec<String>> = grouped_references
         .iter()
-        .map(|(markdown_path, image_link, extracted_filename)| {
-            vec![
-                format_wikilink(markdown_path, config.obsidian_path(), false),
-                (*image_link).to_string(),
-                extracted_filename.to_string(),
-            ]
+        .map(|(markdown_path, image_groups)| {
+            let markdown_link = format_wikilink(markdown_path, config.obsidian_path(), false);
+            let image_links = image_groups
+                .iter()
+                .map(|group| group.path.to_string_lossy().to_string())
+                .collect::<Vec<_>>()
+                .join(", ");
+            let actions = format_references(config, image_groups, None);
+            vec![markdown_link, image_links, actions]
         })
         .collect();
 
@@ -242,146 +281,169 @@ fn image_exists_in_set(image_filename: &str, image_filenames: &HashSet<String>) 
     image_filenames.contains(&image_filename.to_lowercase())
 }
 
-fn write_group_tables(
+fn write_special_group_table(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
-    groups: &[(impl AsRef<str>, Vec<(&PathBuf, &ImageInfo)>)],
+    group_type: &str,
+    groups: &[ImageGroup],
+    description: &str,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln("##", group_type)?;
+    writer.writeln("", &format!("{}\n", description))?;
+    write_group_table(config, writer, groups, false, true)?; // Note the added `true` parameter
+    Ok(())
+}
+
+fn write_duplicate_group_table(
+    config: &ValidatedConfig,
+    writer: &ThreadSafeWriter,
+    group_hash: &str,
+    groups: &[ImageGroup],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln("## Duplicate Images with References", "")?;
+    writer.writeln("###", &format!("image file hash: {}", group_hash))?;
+    writer.writeln("", &format!("{} duplicates", groups.len() - 1))?;
+    let total_references: usize = groups.iter().map(|g| g.info.references.len()).sum();
+    writer.writeln("", &format!("referenced by {} files\n", total_references))?;
+    write_group_table(config, writer, groups, true, false)?; // Note the added `false` parameter
+    Ok(())
+}
+
+fn write_group_table(
+    config: &ValidatedConfig,
+    writer: &ThreadSafeWriter,
+    groups: &[ImageGroup],
     is_ref_group: bool,
+    is_special_group: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates", "Referenced By"];
+    let keeper_path = if is_ref_group {
+        Some(&groups[0].path)
+    } else {
+        None
+    };
 
-    for (group_name, group) in groups.iter() {
-        write_table_header(writer, group_name, group)?;
+    let sample = format!(
+        "![[{}\\|400]]",
+        groups[0].path.file_name().unwrap().to_string_lossy()
+    );
 
-        let keeper_path = if is_ref_group {
-            Some(group[0].0.clone())
-        } else {
-            None
-        };
+    let duplicates = format_duplicates(config, groups, keeper_path, is_special_group);
+    let references = format_references(config, groups, keeper_path);
 
-        let sample = format!(
-            "![[{}\\|400]]",
-            group[0].0.file_name().unwrap().to_string_lossy()
-        );
+    let rows = vec![vec![sample, duplicates, references]];
 
-        let duplicates: Vec<String> = group
-            .iter()
-            .enumerate()
-            .map(|(i, (path, _))| {
-                let mut link = format!(
-                    "{}. {}",
-                    i + 1,
-                    format_wikilink(path, config.obsidian_path(), true)
-                );
-                if config.destructive() {
-                    if is_ref_group && i == 0 {
-                        link.push_str(" - kept");
-                    } else {
-                        link.push_str(" - deleted");
-                        if let Err(e) = handle_file_operation(path, FileOperation::Delete) {
-                            eprintln!("Error deleting file {:?}: {}", path, e);
+    writer.write_markdown_table(
+        headers,
+        &rows,
+        Some(&[
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+        ]),
+    )?;
+
+    writer.writeln("", "")?; // Add an empty line between tables
+    Ok(())
+}
+
+fn format_duplicates(
+    config: &ValidatedConfig,
+    groups: &[ImageGroup],
+    keeper_path: Option<&PathBuf>,
+    is_special_group: bool,
+) -> String {
+    groups
+        .iter()
+        .enumerate()
+        .map(|(i, group)| {
+            let mut link = format!(
+                "{}. {}",
+                i + 1,
+                format_wikilink(&group.path, config.obsidian_path(), true)
+            );
+            if config.apply_changes() {
+                if is_special_group {
+                    // For special files (zero byte, tiff, unreferenced), always delete
+                    link.push_str(" - deleted");
+                    if let Err(e) = handle_file_operation(&group.path, FileOperation::Delete) {
+                        eprintln!("Error deleting file {:?}: {}", group.path, e);
+                    }
+                } else {
+                    // For duplicate groups
+                    if let Some(keeper) = keeper_path {
+                        if &group.path == keeper {
+                            link.push_str(" - kept");
+                        } else {
+                            link.push_str(" - deleted");
+                            if let Err(e) = handle_file_operation(&group.path, FileOperation::Delete) {
+                                eprintln!("Error deleting file {:?}: {}", group.path, e);
+                            }
                         }
                     }
                 }
-                link
-            })
-            .collect();
+            }
+            link
+        })
+        .collect::<Vec<_>>()
+        .join("<br>")
+}
 
-        let duplicates = duplicates.join("<br>");
-
-        let references: Vec<String> = group
-            .iter()
-            .flat_map(|(path, info)| {
-                let path = (*path).to_path_buf();
-                let keeper_path = keeper_path.clone();
-                info.references
-                    .iter()
-                    .map(move |ref_path| (path.clone(), keeper_path.clone(), ref_path.to_string()))
-            })
-            .enumerate()
-            .map(|(index, (path, keeper_path, ref_path))| {
-                let mut link = format!(
-                    "{}. {}",
-                    index + 1,
-                    format_wikilink(Path::new(&ref_path), config.obsidian_path(), false)
-                );
-                if config.destructive() {
-                    if is_ref_group {
-                        link.push_str(" - updated");
-                        if let Some(keeper_path) = &keeper_path {
-                            if &path != keeper_path {
+fn format_references(
+    config: &ValidatedConfig,
+    groups: &[ImageGroup],
+    keeper_path: Option<&PathBuf>,
+) -> String {
+    groups
+        .iter()
+        .flat_map(|group| {
+            group
+                .info
+                .references
+                .iter()
+                .enumerate()
+                .map(move |(index, ref_path)| {
+                    let mut link = format!(
+                        "{}. {}",
+                        index + 1,
+                        format_wikilink(Path::new(ref_path), config.obsidian_path(), false)
+                    );
+                    if config.apply_changes() {
+                        if let Some(keeper) = keeper_path {
+                            if &group.path != keeper {
+                                link.push_str(" - updated");
                                 if let Err(e) = handle_file_operation(
-                                    Path::new(&ref_path),
+                                    Path::new(ref_path),
                                     FileOperation::UpdateReference(
-                                        path.clone(),
-                                        keeper_path.clone(),
+                                        group.path.clone(),
+                                        keeper.clone(),
                                     ),
                                 ) {
                                     eprintln!("Error updating reference in {:?}: {}", ref_path, e);
                                 }
                             }
+                        } else {
+                            link.push_str(" - reference removed");
+                            let remove_path = group.path.file_name().unwrap_or_default().to_str().unwrap_or_default();
+                            if let Err(e) = handle_file_operation(
+                                Path::new(ref_path),
+                                FileOperation::RemoveReference(PathBuf::from(remove_path)),
+                            ) {
+                                eprintln!("Error removing reference in {:?}: {}", ref_path, e);
+                            }
                         }
                     } else {
-                        link.push_str(" - reference removed");
-                        if let Err(e) = handle_file_operation(
-                            Path::new(&ref_path),
-                            FileOperation::RemoveReference(path),
-                        ) {
-                            eprintln!("Error removing reference in {:?}: {}", ref_path, e);
+                        if keeper_path.is_some() {
+                            link.push_str(" - would be updated");
+                        } else {
+                            link.push_str(" - reference would be removed");
                         }
                     }
-                }
-                link
-            })
-            .collect();
-
-        let references = references.join("<br>");
-
-        let rows = vec![vec![sample, duplicates, references]];
-
-        writer.write_markdown_table(
-            headers,
-            &rows,
-            Some(&[
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-            ]),
-        )?;
-
-        writer.writeln("", "")?; // Add an empty line between tables
-    }
-    Ok(())
-}
-
-fn write_table_header(
-    writer: &ThreadSafeWriter,
-    group_name: impl AsRef<str>,
-    group: &[(&PathBuf, &ImageInfo)],
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("###", &format!("image file hash: {}", group_name.as_ref()))?;
-
-    let duplicates_message = if group.len() == 1 {
-        "no duplicates"
-    } else if group.len() == 2 {
-        "1 duplicate"
-    } else {
-        &format!("{} duplicates", group.len() - 1)
-    };
-
-    writer.writeln("", duplicates_message)?;
-
-    // Calculate total number of references
-    let total_references: usize = group.iter().map(|(_, info)| info.references.len()).sum();
-
-    // Output reference count if there are any references
-    if total_references > 0 {
-        writer.writeln("", &format!("referenced by {} files", total_references))?;
-    } else {
-        writer.writeln("", "not referenced by any file in obsidian folder")?;
-    }
-    writer.writeln("", "")?; // Add an empty line for better readability
-    Ok(())
+                    link
+                })
+        })
+        .collect::<Vec<_>>()
+        .join("<br>")
 }
 
 fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {
@@ -405,7 +467,15 @@ fn handle_file_operation(
     path: &Path,
     operation: FileOperation,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // Check if the path is a wikilink
+    if path.to_str().map_or(false, |s| s.contains("[[") && s.contains("]]")) {
+        return Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            format!("Wikilink paths are not allowed: {:?}", path),
+        )));
+    }
     match operation {
+
         FileOperation::Delete => {
             fs::remove_file(path)?;
         }
@@ -565,5 +635,28 @@ mod tests {
         );
 
         println!("--- Ending test_delete ---\n");
+    }
+
+    #[test]
+    fn test_handle_file_operation_wikilink_error() {
+        let wikilink_path = PathBuf::from("[[Some File]]");
+
+        // Test with Delete operation
+        let result = handle_file_operation(&wikilink_path, FileOperation::Delete);
+        assert!(result.is_err(), "Delete operation should fail with wikilink path");
+
+        // Test with RemoveReference operation
+        let result = handle_file_operation(
+            &wikilink_path,
+            FileOperation::RemoveReference(PathBuf::from("old.jpg"))
+        );
+        assert!(result.is_err(), "RemoveReference operation should fail with wikilink path");
+
+        // Test with UpdateReference operation
+        let result = handle_file_operation(
+            &wikilink_path,
+            FileOperation::UpdateReference(PathBuf::from("old.jpg"), PathBuf::from("new.jpg"))
+        );
+        assert!(result.is_err(), "UpdateReference operation should fail with wikilink path");
     }
 }

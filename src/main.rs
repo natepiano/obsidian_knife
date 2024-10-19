@@ -1,6 +1,6 @@
+mod cleanup_images;
 mod config;
 mod constants;
-mod cleanup_images;
 mod scan;
 mod sha256_cache;
 mod thread_safe_writer;
@@ -122,7 +122,7 @@ fn write_execution_start(
     let properties = format!(
         "time_stamp: {}\napply_changes: {}\ndedupe_images: {}",
         timestamp,
-        validated_config.destructive(),
+        validated_config.apply_changes(),
         validated_config.cleanup_image_files()
     );
 

@@ -41,7 +41,7 @@ impl ValidatedConfig {
         self.simplify_wikilinks.as_deref()
     }
 
-    pub fn destructive(&self) -> bool {
+    pub fn apply_changes(&self) -> bool {
         self.apply_changes
     }
 }
