@@ -9,6 +9,7 @@ pub struct Config {
     obsidian_path: String,
     ignore_folders: Option<Vec<String>>,
     cleanup_image_files: Option<bool>,
+    simplify_wikilinks: Option<Vec<String>>,
 }
 
 impl Config {
@@ -27,11 +28,14 @@ impl Config {
             ignore_folders = Some(vec![expanded_path.join(crate::constants::CACHE_FOLDER)]);
         }
 
+        let validated_simplify_wikilinks = self.validate_simplify_wikilinks()?;
+
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
-            expanded_path,
-            ignore_folders,
             self.cleanup_image_files.unwrap_or(false),
+            ignore_folders,
+            expanded_path,
+            validated_simplify_wikilinks,
         ))
     }
 
@@ -60,6 +64,37 @@ impl Config {
             None
         };
         Ok(ignore_folders)
+    }
+
+    fn validate_simplify_wikilinks(
+        &self,
+    ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
+        if let Some(patterns) = &self.simplify_wikilinks {
+            if patterns.is_empty() {
+                Ok(None)
+            } else {
+                let validated_patterns: Vec<String> = patterns
+                    .iter()
+                    .enumerate()
+                    .filter_map(|(index, pattern)| {
+                        if pattern.trim().is_empty() {
+                            println!("Warning: simplify_wikilinks: entry at index {} is empty or only contains whitespace", index);
+                            None
+                        } else {
+                            Some(pattern.clone())
+                        }
+                    })
+                    .collect();
+
+                if validated_patterns.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(validated_patterns))
+                }
+            }
+        } else {
+            Ok(None)
+        }
     }
 }
 

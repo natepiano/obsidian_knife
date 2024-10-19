@@ -2,23 +2,26 @@ use std::path::{Path, PathBuf};
 
 pub struct ValidatedConfig {
     apply_changes: bool,
-    obsidian_path: PathBuf,
-    ignore_folders: Option<Vec<PathBuf>>,
     cleanup_image_files: bool,
+    ignore_folders: Option<Vec<PathBuf>>,
+    obsidian_path: PathBuf,
+    simplify_wikilinks: Option<Vec<String>>,
 }
 
 impl ValidatedConfig {
     pub fn new(
-        destructive: bool,
-        obsidian_path: PathBuf,
-        ignore_folders: Option<Vec<PathBuf>>,
+        apply_changes: bool,
         cleanup_image_files: bool,
+        ignore_folders: Option<Vec<PathBuf>>,
+        obsidian_path: PathBuf,
+        simplify_wikilinks: Option<Vec<String>>,
     ) -> Self {
         ValidatedConfig {
-            obsidian_path,
-            ignore_folders,
+            apply_changes,
             cleanup_image_files,
-            apply_changes: destructive,
+            ignore_folders,
+            obsidian_path,
+            simplify_wikilinks,
         }
     }
 
@@ -32,6 +35,10 @@ impl ValidatedConfig {
 
     pub fn cleanup_image_files(&self) -> bool {
         self.cleanup_image_files
+    }
+
+    pub fn simplify_wikilinks(&self) -> Option<&[String]> {
+        self.simplify_wikilinks.as_deref()
     }
 
     pub fn destructive(&self) -> bool {

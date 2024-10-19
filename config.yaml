@@ -1,6 +1,12 @@
-apply_changes: false
 obsidian_path: ~/Documents/brain
+apply_changes: false
 cleanup_image_files: true
 ignore_folders:
   - .idea
   - .obsidian
+simplify_wiklinks:
+# anything that renders as the specified string will get replaced with the specified string
+# for example [[foo|Ed]]: would render to Ed: so would get replaced with Ed
+  - Ed:
+  -
+

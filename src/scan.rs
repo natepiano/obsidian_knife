@@ -17,14 +17,27 @@ use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug)]
 pub struct ImageInfo {
-    //path: PathBuf,
     pub hash: String,
     pub(crate) references: Vec<String>,
 }
 
+#[derive(Debug, Clone)]
+pub struct WikilinkInfo {
+    pub line: usize,
+    pub line_text: String,
+    pub search_text: String,
+    pub replace_text: String,
+}
+
+#[derive(Default)]
+pub struct MarkdownFileInfo {
+    pub image_links: Vec<String>,
+    pub wikilinks: Vec<WikilinkInfo>,
+}
+
 #[derive(Default)]
 pub struct CollectedFiles {
-    pub markdown_files: HashMap<PathBuf, Vec<String>>,
+    pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
 }
@@ -57,7 +70,6 @@ fn get_image_info_map(
     write_cache_file_info(writer, &cache_file_path, cache_file_status)?;
 
     let mut image_info_map = HashMap::new();
-    let image_references_in_markdown_files = &collected_files.markdown_files;
 
     for image_path in image_files {
         let (hash, _) = cache.get_or_update(&image_path)?;
@@ -67,10 +79,12 @@ fn get_image_info_map(
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
-        let references: Vec<String> = image_references_in_markdown_files
+        let references: Vec<String> = collected_files
+            .markdown_files
             .iter()
-            .filter_map(|(markdown_path, image_links)| {
-                if image_links
+            .filter_map(|(markdown_path, file_info)| {
+                if file_info
+                    .image_links
                     .iter()
                     .any(|link| link.contains(image_file_name))
                 {
@@ -81,11 +95,7 @@ fn get_image_info_map(
             })
             .collect();
 
-        let image_info = ImageInfo {
-            // path: image_path.clone(),
-            hash,
-            references,
-        };
+        let image_info = ImageInfo { hash, references };
 
         image_info_map.insert(image_path.clone(), image_info);
     }
@@ -94,10 +104,6 @@ fn get_image_info_map(
     cache.save()?;
 
     write_cache_contents_info(writer, &mut cache, &mut image_info_map)?;
-
-    // let histogram =
-    //     generate_markdown_image_reference_histogram(&image_references_in_markdown_files);
-    // write_image_reference_histogram(writer, &histogram)?;
 
     Ok(image_info_map)
 }
@@ -226,7 +232,7 @@ fn collect_files(
         }
     }
 
-    collected_files.markdown_files = scan_markdown_files(&markdown_files)?;
+    collected_files.markdown_files = scan_markdown_files(&markdown_files, config)?;
 
     collected_files.image_map =
         get_image_info_map(&config, &collected_files, &image_files, &writer)?;
@@ -234,46 +240,119 @@ fn collect_files(
     Ok(collected_files)
 }
 
+// fn scan_markdown_files(
+//     markdown_files: &[PathBuf],
+// ) -> Result<HashMap<PathBuf, Vec<String>>, Box<dyn Error + Send + Sync>> {
+//     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
+//     let image_regex = Arc::new(Regex::new(&format!(
+//         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
+//         extensions_pattern
+//     ))?);
+//
+//     let image_references: HashMap<PathBuf, Vec<String>> = markdown_files
+//         .par_iter()
+//         .filter_map(|file_path| {
+//             scan_markdown_file(file_path, &image_regex)
+//                 .map(|references| (file_path.clone(), references))
+//                 .ok()
+//         })
+//         .collect();
+//
+//     Ok(image_references)
+// }
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
-) -> Result<HashMap<PathBuf, Vec<String>>, Box<dyn Error + Send + Sync>> {
+    config: &ValidatedConfig,
+) -> Result<HashMap<PathBuf, MarkdownFileInfo>, Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
         extensions_pattern
     ))?);
+    let wikilink_regex = Arc::new(Regex::new(r"\[\[([^\]]+)\]\]")?);
 
-    let image_references: HashMap<PathBuf, Vec<String>> = markdown_files
+    let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
+
+    let markdown_info: HashMap<PathBuf, MarkdownFileInfo> = markdown_files
         .par_iter()
         .filter_map(|file_path| {
-            scan_markdown_file(file_path, &image_regex)
-                .map(|references| (file_path.clone(), references))
+            scan_markdown_file(file_path, &image_regex, &wikilink_regex, &simplify_patterns)
+                .map(|info| (file_path.clone(), info))
                 .ok()
         })
         .collect();
 
-    Ok(image_references)
+    Ok(markdown_info)
 }
 
+// fn scan_markdown_file(
+//     file_path: &PathBuf,
+//     image_regex: &Arc<Regex>,
+// ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+//     let file = File::open(file_path)?;
+//     let reader = BufReader::new(file);
+//     let mut file_references = Vec::new();
+//
+//     for line in reader.lines() {
+//         let line = line?;
+//         for capture in image_regex.captures_iter(&line) {
+//             if let Some(reference) = capture.get(0) {
+//                 let reference_string = reference.as_str().to_string();
+//                 file_references.push(reference_string);
+//             }
+//         }
+//     }
+//
+//     Ok(file_references)
+// }
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
-) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
+    wikilink_regex: &Arc<Regex>,
+    simplify_patterns: &[String],
+) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
-    let mut file_references = Vec::new();
+    let mut file_info = MarkdownFileInfo::default();
 
-    for line in reader.lines() {
+    for (line_number, line) in reader.lines().enumerate() {
         let line = line?;
+
+        // Collect image references
         for capture in image_regex.captures_iter(&line) {
             if let Some(reference) = capture.get(0) {
                 let reference_string = reference.as_str().to_string();
-                file_references.push(reference_string);
+                file_info.image_links.push(reference_string);
+            }
+        }
+
+        // Collect wikilink information
+        for capture in wikilink_regex.captures_iter(&line) {
+            if let Some(wikilink) = capture.get(0) {
+                let wikilink_str = wikilink.as_str();
+                let replace_text = render_wikilink(&wikilink_str[2..wikilink_str.len() - 2]);
+                if simplify_patterns
+                    .iter()
+                    .any(|p| replace_text.starts_with(p))
+                {
+                    file_info.wikilinks.push(WikilinkInfo {
+                        line: line_number + 1,
+                        line_text: line.clone(),
+                        search_text: wikilink_str.to_string(),
+                        replace_text,
+                    });
+                }
             }
         }
     }
 
-    Ok(file_references)
+    Ok(file_info)
+}
+
+fn render_wikilink(wikilink: &str) -> String {
+    let parts: Vec<&str> = wikilink.split('|').collect();
+    let displayed = parts.last().unwrap_or(&wikilink);
+    displayed.to_string()
 }
 
 fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {

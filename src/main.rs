@@ -72,7 +72,7 @@ fn process_config(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let collected_files = scan_obsidian_folder(&config, writer)?;
 
-    dedupe(&config, &collected_files.image_map, writer)?;
+    dedupe(&config, collected_files, writer)?;
 
     Ok(())
 }

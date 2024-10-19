@@ -1,15 +1,15 @@
-use crate::scan::ImageInfo;
+use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 pub fn dedupe(
     config: &ValidatedConfig,
-    image_map: &HashMap<PathBuf, ImageInfo>,
+    collected_files: CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if !config.cleanup_image_files() {
@@ -21,6 +21,9 @@ pub fn dedupe(
     if config.destructive() {
         writer.writeln("", "Changes will be applied")?;
     }
+
+    let image_map = &collected_files.image_map;
+
     // Group images by hash
     let mut hash_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
     for (path, info) in image_map {
@@ -56,6 +59,9 @@ pub fn dedupe(
         }
     }
 
+    write_missing_image_references_table(config, &collected_files, writer)?;
+
+
     // Return early if all vectors are empty
     if tiff_images.is_empty()
         && zero_byte_images.is_empty()
@@ -76,7 +82,11 @@ pub fn dedupe(
         writer.writeln("##", "TIFF Images")?;
         writer.writeln(
             "",
-            "The following TIFF images may not render correctly in Obsidian:",
+            format!(
+                "The following {} TIFF images may not render correctly in Obsidian:",
+                tiff_images.len()
+            )
+            .as_str(),
         )?;
         write_group_tables(config, writer, &[("TIFF Images", tiff_images)], false)?;
     }
@@ -85,7 +95,11 @@ pub fn dedupe(
         writer.writeln("##", "Zero-Byte Images")?;
         writer.writeln(
             "",
-            "The following images have zero bytes and may be corrupted:",
+            format!(
+                "The following {} images have zero bytes and may be corrupted:",
+                zero_byte_images.len()
+            )
+            .as_str(),
         )?;
         write_group_tables(
             config,
@@ -97,7 +111,14 @@ pub fn dedupe(
 
     if !unreferenced_images.is_empty() {
         writer.writeln("##", "Unreferenced Images")?;
-        writer.writeln("", "The following images are not referenced by any files:")?;
+        writer.writeln(
+            "",
+            format!(
+                "The following {} images are not referenced by any files:",
+                unreferenced_images.len()
+            )
+            .as_str(),
+        )?;
         // Group unreferenced images by their hash
         let mut unreferenced_groups: HashMap<String, Vec<(&PathBuf, &ImageInfo)>> = HashMap::new();
         for (path, info) in unreferenced_images {
@@ -117,6 +138,95 @@ pub fn dedupe(
 
     Ok(())
 }
+
+
+fn write_missing_image_references_table(
+    config: &ValidatedConfig,
+    collected_files: &CollectedFiles,
+    writer: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let mut missing_references = Vec::new();
+
+    let image_map = &collected_files.image_map;
+
+    // Create a HashSet of normalized image filenames for faster lookup
+    let image_filenames: HashSet<String> = image_map
+        .keys()
+        .filter_map(|path| path.file_name())
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .collect();
+
+    for (markdown_path, file_info) in &collected_files.markdown_files {
+        for image_link in &file_info.image_links {
+            if let Some(extracted_filename) = extract_local_image_filename(image_link) {
+                if !image_exists_in_set(&extracted_filename, &image_filenames) {
+                    missing_references.push((markdown_path, image_link, extracted_filename));
+                }
+            }
+        }
+    }
+
+    if !missing_references.is_empty() {
+        writer.writeln("## Missing Image References", "")?;
+        writer.writeln(
+            "",
+            "The following markdown files refer to missing local image files:\n",
+        )?;
+
+        let headers = &["Markdown File", "Missing Image Reference", "Extracted Filename"];
+        let rows: Vec<Vec<String>> = missing_references
+            .iter()
+            .map(|(markdown_path, image_link, extracted_filename)| {
+                vec![
+                    format_wikilink(markdown_path, config.obsidian_path(), false),
+                    image_link.to_string(),
+                    extracted_filename.to_string(),
+                ]
+            })
+            .collect();
+
+        writer.write_markdown_table(
+            headers,
+            &rows,
+            Some(&[ColumnAlignment::Left, ColumnAlignment::Left, ColumnAlignment::Left]),
+        )?;
+    } else {
+        writer.writeln("## Missing Image References", "\nNo missing local image references found.")?;
+    }
+
+    Ok(())
+}
+
+fn extract_local_image_filename(image_link: &str) -> Option<String> {
+    // Handle Obsidian-style links (always local)
+    if image_link.starts_with("![[") && image_link.ends_with("]]") {
+        let inner = &image_link[3..image_link.len() - 2];
+        let filename = inner.split('|').next().unwrap_or(inner).trim();
+        Some(filename.to_lowercase())
+    }
+    // Handle Markdown-style links (check if local)
+    else if image_link.starts_with("![") && image_link.contains("](") && image_link.ends_with(")") {
+        let start = image_link.find("](").map(|i| i + 2)?;
+        let end = image_link.len() - 1;
+        let url = &image_link[start..end];
+
+        // Check if the URL is local (doesn't start with http:// or https://)
+        if !url.starts_with("http://") && !url.starts_with("https://") {
+            url.rsplit('/').next().map(|s| s.to_lowercase())
+        } else {
+            None
+        }
+    }
+    // If it's not a recognized image link format, return None
+    else {
+        None
+    }
+}
+
+fn image_exists_in_set(image_filename: &str, image_filenames: &HashSet<String>) -> bool {
+    image_filenames.contains(&image_filename.to_lowercase())
+}
+
 
 fn write_group_tables(
     config: &ValidatedConfig,
