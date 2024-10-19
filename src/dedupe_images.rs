@@ -59,17 +59,22 @@ pub fn dedupe(
         }
     }
 
-    write_missing_image_references_table(config, &collected_files, writer)?;
-
+    let missing_references = generate_missing_references(&collected_files)?;
 
     // Return early if all vectors are empty
     if tiff_images.is_empty()
         && zero_byte_images.is_empty()
         && unreferenced_images.is_empty()
         && duplicate_groups.is_empty()
+        && missing_references.is_empty()
     {
         writer.writeln("", "No issues found during image analysis.")?;
         return Ok(());
+    }
+
+    // Write missing image references table if there are any missing references
+    if !missing_references.is_empty() {
+        write_missing_image_references_table(config, &missing_references, writer)?;
     }
 
     // Sort and write tables for each group
@@ -139,12 +144,9 @@ pub fn dedupe(
     Ok(())
 }
 
-
-fn write_missing_image_references_table(
-    config: &ValidatedConfig,
+fn generate_missing_references<'a>(
     collected_files: &CollectedFiles,
-    writer: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<Vec<(&PathBuf, &String, String)>, Box<dyn Error + Send + Sync>> {
     let mut missing_references = Vec::new();
 
     let image_map = &collected_files.image_map;
@@ -166,33 +168,45 @@ fn write_missing_image_references_table(
         }
     }
 
-    if !missing_references.is_empty() {
-        writer.writeln("## Missing Image References", "")?;
-        writer.writeln(
-            "",
-            "The following markdown files refer to missing local image files:\n",
-        )?;
+    Ok(missing_references)
+}
 
-        let headers = &["Markdown File", "Missing Image Reference", "Extracted Filename"];
-        let rows: Vec<Vec<String>> = missing_references
-            .iter()
-            .map(|(markdown_path, image_link, extracted_filename)| {
-                vec![
-                    format_wikilink(markdown_path, config.obsidian_path(), false),
-                    image_link.to_string(),
-                    extracted_filename.to_string(),
-                ]
-            })
-            .collect();
+fn write_missing_image_references_table(
+    config: &ValidatedConfig,
+    missing_references: &[(&PathBuf, &String, String)],
+    writer: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln("## Missing Image References", "")?;
+    writer.writeln(
+        "",
+        "The following markdown files refer to missing local image files:\n",
+    )?;
 
-        writer.write_markdown_table(
-            headers,
-            &rows,
-            Some(&[ColumnAlignment::Left, ColumnAlignment::Left, ColumnAlignment::Left]),
-        )?;
-    } else {
-        writer.writeln("## Missing Image References", "\nNo missing local image references found.")?;
-    }
+    let headers = &[
+        "Markdown File",
+        "Missing Image Reference",
+        "Extracted Filename",
+    ];
+    let rows: Vec<Vec<String>> = missing_references
+        .iter()
+        .map(|(markdown_path, image_link, extracted_filename)| {
+            vec![
+                format_wikilink(markdown_path, config.obsidian_path(), false),
+                (*image_link).to_string(),
+                extracted_filename.to_string(),
+            ]
+        })
+        .collect();
+
+    writer.write_markdown_table(
+        headers,
+        &rows,
+        Some(&[
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+        ]),
+    )?;
 
     Ok(())
 }
@@ -205,7 +219,8 @@ fn extract_local_image_filename(image_link: &str) -> Option<String> {
         Some(filename.to_lowercase())
     }
     // Handle Markdown-style links (check if local)
-    else if image_link.starts_with("![") && image_link.contains("](") && image_link.ends_with(")") {
+    else if image_link.starts_with("![") && image_link.contains("](") && image_link.ends_with(")")
+    {
         let start = image_link.find("](").map(|i| i + 2)?;
         let end = image_link.len() - 1;
         let url = &image_link[start..end];
@@ -226,7 +241,6 @@ fn extract_local_image_filename(image_link: &str) -> Option<String> {
 fn image_exists_in_set(image_filename: &str, image_filenames: &HashSet<String>) -> bool {
     image_filenames.contains(&image_filename.to_lowercase())
 }
-
 
 fn write_group_tables(
     config: &ValidatedConfig,
