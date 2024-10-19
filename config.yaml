@@ -4,9 +4,12 @@ cleanup_image_files: true
 ignore_folders:
   - .idea
   - .obsidian
-simplify_wiklinks:
+  - conf/templates
 # anything that renders as the specified string will get replaced with the specified string
-# for example [[foo|Ed]]: would render to Ed: so would get replaced with Ed
-  - Ed:
-  -
-
+# for example [[foo|Ed]]: would render to Ed: so the link part would get replaced with Ed so
+# the remaining string would be Ed:
+#
+# it has come up because there are people named Ed but i also ed: to indicate editorial
+simplify_wikilinks:
+  - "Ed:"
+  - "Bob Rock"

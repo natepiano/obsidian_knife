@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Debug)]
 pub struct ValidatedConfig {
     apply_changes: bool,
     cleanup_image_files: bool,

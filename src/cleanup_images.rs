@@ -15,7 +15,7 @@ struct ImageGroup {
 
 pub fn cleanup_images(
     config: &ValidatedConfig,
-    collected_files: CollectedFiles,
+    collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if !config.cleanup_image_files() {
@@ -87,22 +87,24 @@ fn write_tables(
         let description = format!(
             "The following {} {} may not render correctly in Obsidian:",
             tiff_images.len(),
-            if tiff_images.len() == 1 { "TIFF image" } else { "TIFF images" }
+            if tiff_images.len() == 1 {
+                "TIFF image"
+            } else {
+                "TIFF images"
+            }
         );
-        write_special_group_table(
-            config,
-            writer,
-            "TIFF Images",
-            tiff_images,
-            &description,
-        )?;
+        write_special_group_table(config, writer, "TIFF Images", tiff_images, &description)?;
     }
 
     if !zero_byte_images.is_empty() {
         let description = format!(
             "The following {} {} zero bytes and may be corrupted:",
             zero_byte_images.len(),
-            if zero_byte_images.len() == 1 { "image has" } else { "images have" }
+            if zero_byte_images.len() == 1 {
+                "image has"
+            } else {
+                "images have"
+            }
         );
         write_special_group_table(
             config,
@@ -117,7 +119,11 @@ fn write_tables(
         let description = format!(
             "The following {} {} not referenced by any files:",
             unreferenced_images.len(),
-            if unreferenced_images.len() == 1 { "image is" } else { "images are" }
+            if unreferenced_images.len() == 1 {
+                "image is"
+            } else {
+                "images are"
+            }
         );
         write_special_group_table(
             config,
@@ -205,22 +211,21 @@ fn write_missing_references_table(
         "The following markdown files refer to missing local image files:\n",
     )?;
 
-    let headers = &[
-        "Markdown File",
-        "Missing Image Reference",
-        "Action",
-    ];
+    let headers = &["Markdown File", "Missing Image Reference", "Action"];
 
     // Group missing references by markdown file
     let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
     for (markdown_path, extracted_filename) in missing_references {
-        grouped_references.entry(markdown_path).or_default().push(ImageGroup {
-            path: PathBuf::from(extracted_filename),
-            info: ImageInfo {
-                hash: String::new(),
-                references: vec![markdown_path.to_string_lossy().to_string()],
-            },
-        });
+        grouped_references
+            .entry(markdown_path)
+            .or_default()
+            .push(ImageGroup {
+                path: PathBuf::from(extracted_filename),
+                info: ImageInfo {
+                    hash: String::new(),
+                    references: vec![markdown_path.to_string_lossy().to_string()],
+                },
+            });
     }
 
     let rows: Vec<Vec<String>> = grouped_references
@@ -376,7 +381,9 @@ fn format_duplicates(
                             link.push_str(" - kept");
                         } else {
                             link.push_str(" - deleted");
-                            if let Err(e) = handle_file_operation(&group.path, FileOperation::Delete) {
+                            if let Err(e) =
+                                handle_file_operation(&group.path, FileOperation::Delete)
+                            {
                                 eprintln!("Error deleting file {:?}: {}", group.path, e);
                             }
                         }
@@ -424,7 +431,12 @@ fn format_references(
                             }
                         } else {
                             link.push_str(" - reference removed");
-                            let remove_path = group.path.file_name().unwrap_or_default().to_str().unwrap_or_default();
+                            let remove_path = group
+                                .path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_str()
+                                .unwrap_or_default();
                             if let Err(e) = handle_file_operation(
                                 Path::new(ref_path),
                                 FileOperation::RemoveReference(PathBuf::from(remove_path)),
@@ -468,14 +480,16 @@ fn handle_file_operation(
     operation: FileOperation,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Check if the path is a wikilink
-    if path.to_str().map_or(false, |s| s.contains("[[") && s.contains("]]")) {
+    if path
+        .to_str()
+        .map_or(false, |s| s.contains("[[") && s.contains("]]"))
+    {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             format!("Wikilink paths are not allowed: {:?}", path),
         )));
     }
     match operation {
-
         FileOperation::Delete => {
             fs::remove_file(path)?;
         }
@@ -643,20 +657,29 @@ mod tests {
 
         // Test with Delete operation
         let result = handle_file_operation(&wikilink_path, FileOperation::Delete);
-        assert!(result.is_err(), "Delete operation should fail with wikilink path");
+        assert!(
+            result.is_err(),
+            "Delete operation should fail with wikilink path"
+        );
 
         // Test with RemoveReference operation
         let result = handle_file_operation(
             &wikilink_path,
-            FileOperation::RemoveReference(PathBuf::from("old.jpg"))
+            FileOperation::RemoveReference(PathBuf::from("old.jpg")),
         );
-        assert!(result.is_err(), "RemoveReference operation should fail with wikilink path");
+        assert!(
+            result.is_err(),
+            "RemoveReference operation should fail with wikilink path"
+        );
 
         // Test with UpdateReference operation
         let result = handle_file_operation(
             &wikilink_path,
-            FileOperation::UpdateReference(PathBuf::from("old.jpg"), PathBuf::from("new.jpg"))
+            FileOperation::UpdateReference(PathBuf::from("old.jpg"), PathBuf::from("new.jpg")),
         );
-        assert!(result.is_err(), "UpdateReference operation should fail with wikilink path");
+        assert!(
+            result.is_err(),
+            "UpdateReference operation should fail with wikilink path"
+        );
     }
 }

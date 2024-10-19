@@ -69,31 +69,23 @@ impl Config {
     fn validate_simplify_wikilinks(
         &self,
     ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
-        if let Some(patterns) = &self.simplify_wikilinks {
-            if patterns.is_empty() {
-                Ok(None)
-            } else {
-                let validated_patterns: Vec<String> = patterns
-                    .iter()
-                    .enumerate()
-                    .filter_map(|(index, pattern)| {
-                        if pattern.trim().is_empty() {
-                            println!("Warning: simplify_wikilinks: entry at index {} is empty or only contains whitespace", index);
-                            None
-                        } else {
-                            Some(pattern.clone())
-                        }
-                    })
-                    .collect();
-
-                if validated_patterns.is_empty() {
+        match &self.simplify_wikilinks {
+            Some(patterns) => {
+                let mut validated = Vec::new();
+                for (index, pattern) in patterns.iter().enumerate() {
+                    let trimmed = pattern.trim();
+                    if trimmed.is_empty() {
+                        return Err(format!("simplify_wikilinks: entry at index {} is empty or only contains whitespace", index).into());
+                    }
+                    validated.push(trimmed.to_string());
+                }
+                if validated.is_empty() {
                     Ok(None)
                 } else {
-                    Ok(Some(validated_patterns))
+                    Ok(Some(validated))
                 }
             }
-        } else {
-            Ok(None)
+            None => Ok(None),
         }
     }
 }
@@ -106,4 +98,67 @@ fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
         }
     }
     path.as_ref().to_path_buf()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_yaml;
+
+    #[test]
+    fn test_validate_simplify_wikilinks() {
+        // Test valid config
+        let yaml = r#"
+        obsidian_path: ~/Documents/brain
+        apply_changes: false
+        cleanup_image_files: true
+        ignore_folders:
+          - .idea
+          - .obsidian
+        simplify_wikilinks:
+          - "Ed:"
+          - "  Valid Entry  "
+        "#;
+
+        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        let result = config.validate_simplify_wikilinks().unwrap();
+        assert_eq!(
+            result,
+            Some(vec![String::from("Ed:"), String::from("Valid Entry")])
+        );
+
+        // Test config with empty entry
+        let yaml_with_empty = r#"
+        obsidian_path: ~/Documents/brain
+        simplify_wikilinks:
+          - "Ed:"
+          - ""
+          - "Valid Entry"
+        "#;
+
+        let config_with_empty: Config = serde_yaml::from_str(yaml_with_empty).unwrap();
+        let result = config_with_empty.validate_simplify_wikilinks();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "simplify_wikilinks: entry at index 1 is empty or only contains whitespace"
+        );
+
+        // Test config with whitespace-only entry
+        let yaml_with_whitespace = r#"
+        obsidian_path: ~/Documents/brain
+        simplify_wikilinks:
+          - "Ed:"
+          - "  "
+          - "Valid Entry"
+        "#;
+
+        let config_with_whitespace: Config = serde_yaml::from_str(yaml_with_whitespace).unwrap();
+        let result = config_with_whitespace.validate_simplify_wikilinks();
+        assert!(result.is_err());
+        assert_eq!(
+            result.unwrap_err().to_string(),
+            "simplify_wikilinks: entry at index 1 is empty or only contains whitespace"
+        );
+    }
 }

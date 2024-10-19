@@ -3,10 +3,12 @@ mod config;
 mod constants;
 mod scan;
 mod sha256_cache;
+mod simplify_wikilinks;
 mod thread_safe_writer;
 mod validated_config;
 
 use crate::cleanup_images::cleanup_images;
+use crate::simplify_wikilinks::process_simplify_wikilinks;
 use crate::thread_safe_writer::ThreadSafeWriter;
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use chrono::Local;
@@ -72,7 +74,9 @@ fn process_config(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let collected_files = scan_obsidian_folder(&config, writer)?;
 
-    cleanup_images(&config, collected_files, writer)?;
+    cleanup_images(&config, &collected_files, writer)?;
+
+    process_simplify_wikilinks(&config, &collected_files.markdown_files, writer)?;
 
     Ok(())
 }
