@@ -7,7 +7,7 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-pub fn dedupe(
+pub fn cleanup_images(
     config: &ValidatedConfig,
     collected_files: CollectedFiles,
     writer: &ThreadSafeWriter,

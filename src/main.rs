@@ -1,12 +1,12 @@
 mod config;
 mod constants;
-mod dedupe_images;
+mod cleanup_images;
 mod scan;
 mod sha256_cache;
 mod thread_safe_writer;
 mod validated_config;
 
-use crate::dedupe_images::dedupe;
+use crate::cleanup_images::cleanup_images;
 use crate::thread_safe_writer::ThreadSafeWriter;
 use crate::{config::Config, scan::scan_obsidian_folder, validated_config::ValidatedConfig};
 use chrono::Local;
@@ -72,7 +72,7 @@ fn process_config(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let collected_files = scan_obsidian_folder(&config, writer)?;
 
-    dedupe(&config, collected_files, writer)?;
+    cleanup_images(&config, collected_files, writer)?;
 
     Ok(())
 }
