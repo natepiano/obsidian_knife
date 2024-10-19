@@ -240,26 +240,6 @@ fn collect_files(
     Ok(collected_files)
 }
 
-// fn scan_markdown_files(
-//     markdown_files: &[PathBuf],
-// ) -> Result<HashMap<PathBuf, Vec<String>>, Box<dyn Error + Send + Sync>> {
-//     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
-//     let image_regex = Arc::new(Regex::new(&format!(
-//         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
-//         extensions_pattern
-//     ))?);
-//
-//     let image_references: HashMap<PathBuf, Vec<String>> = markdown_files
-//         .par_iter()
-//         .filter_map(|file_path| {
-//             scan_markdown_file(file_path, &image_regex)
-//                 .map(|references| (file_path.clone(), references))
-//                 .ok()
-//         })
-//         .collect();
-//
-//     Ok(image_references)
-// }
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
     config: &ValidatedConfig,
@@ -269,7 +249,7 @@ fn scan_markdown_files(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
         extensions_pattern
     ))?);
-    let wikilink_regex = Arc::new(Regex::new(r"\[\[([^\]]+)\]\]")?);
+    let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]")?);
 
     let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
 
@@ -285,26 +265,6 @@ fn scan_markdown_files(
     Ok(markdown_info)
 }
 
-// fn scan_markdown_file(
-//     file_path: &PathBuf,
-//     image_regex: &Arc<Regex>,
-// ) -> Result<Vec<String>, Box<dyn Error + Send + Sync>> {
-//     let file = File::open(file_path)?;
-//     let reader = BufReader::new(file);
-//     let mut file_references = Vec::new();
-//
-//     for line in reader.lines() {
-//         let line = line?;
-//         for capture in image_regex.captures_iter(&line) {
-//             if let Some(reference) = capture.get(0) {
-//                 let reference_string = reference.as_str().to_string();
-//                 file_references.push(reference_string);
-//             }
-//         }
-//     }
-//
-//     Ok(file_references)
-// }
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
