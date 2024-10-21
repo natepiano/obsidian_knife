@@ -1,4 +1,5 @@
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::file_utils::update_file;
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
 use std::error::Error;
@@ -44,12 +45,19 @@ pub fn process_simplify_wikilinks(
     for (file_path, file_info) in collected_files {
         for wikilink in &file_info.wikilinks {
             let file_wikilink = format_wikilink(file_path);
+            let will_replace = simplify_patterns.contains(&wikilink.replace_text);
+            let replaced = if will_replace {
+                if config.apply_changes() { "true" } else { "false" }
+            } else {
+                "false"
+            };
             table_data.push(vec![
                 file_wikilink,
                 wikilink.line.to_string(),
                 escape_pipes(&wikilink.line_text),
                 escape_pipes(&wikilink.search_text),
                 escape_pipes(&wikilink.replace_text),
+                replaced.to_string(),
             ]);
         }
     }
@@ -65,6 +73,7 @@ pub fn process_simplify_wikilinks(
         "line content",
         "search text",
         "replace with",
+        "replaced",
     ];
 
     writer.write_markdown_table(
@@ -76,15 +85,11 @@ pub fn process_simplify_wikilinks(
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
+            ColumnAlignment::Center,
         ]),
     )?;
 
-    if config.apply_changes() {
-        writer.writeln("", "\napplying changes...")?;
-        apply_simplifications(config, collected_files, writer)?;
-    } else {
-        writer.writeln("", "\ndry run mode: No changes applied.")?;
-    }
+    apply_simplifications(config, collected_files, writer)?;
 
     Ok(())
 }
@@ -105,23 +110,30 @@ fn apply_simplifications(
     collected_files: &HashMap<PathBuf, crate::scan::MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+
+    if !config.apply_changes() {
+        return Ok(());
+    }
+
     let simplify_patterns = config.simplify_wikilinks().unwrap_or(&[]);
     let mut changes_made = 0;
 
     for (file_path, file_info) in collected_files {
-        let mut file_content = std::fs::read_to_string(file_path)?;
         let mut file_changed = false;
 
-        for wikilink in &file_info.wikilinks {
-            if simplify_patterns.contains(&wikilink.replace_text) {
-                file_content = file_content.replace(&wikilink.search_text, &wikilink.replace_text);
-                file_changed = true;
-                changes_made += 1;
+        update_file(file_path, |content| {
+            let mut updated_content = content.to_string();
+            for wikilink in &file_info.wikilinks {
+                if simplify_patterns.contains(&wikilink.replace_text) {
+                    updated_content = updated_content.replace(&wikilink.search_text, &wikilink.replace_text);
+                    file_changed = true;
+                    changes_made += 1;
+                }
             }
-        }
+            updated_content
+        })?;
 
         if file_changed {
-            std::fs::write(file_path, file_content)?;
             writer.writeln("", &format!("Updated file: {:?}", file_path))?;
         }
     }

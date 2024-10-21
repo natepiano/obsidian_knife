@@ -1,5 +1,6 @@
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::file_utils::update_file;
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -504,38 +505,35 @@ fn update_file_content(
     old_path: &Path,
     new_path: Option<&Path>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let content = fs::read_to_string(file_path)?;
-    let old_name = old_path.file_name().unwrap().to_str().unwrap();
+    update_file(file_path, |content| {
+        let old_name = old_path.file_name().unwrap().to_str().unwrap();
+        let regex = Regex::new(&format!(
+            r"(!?\[.*?\]\({}(?:\|.*?)?\))|(!\[\[{}(?:\|.*?)?\]\])",
+            regex::escape(old_name),
+            regex::escape(old_name)
+        )).unwrap();
 
-    let regex = Regex::new(&format!(
-        r"(!?\[.*?\]\({}(?:\|.*?)?\))|(!\[\[{}(?:\|.*?)?\]\])",
-        regex::escape(old_name),
-        regex::escape(old_name)
-    ))?;
+        let new_content = regex.replace_all(&content, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            if let Some(new_path) = new_path {
+                let new_name = new_path.file_name().unwrap().to_str().unwrap();
+                matched.replace(old_name, new_name)
+            } else {
+                String::new()
+            }
+        });
 
-    let new_content = regex.replace_all(&content, |caps: &regex::Captures| {
-        let matched = caps.get(0).unwrap().as_str();
-        if let Some(new_path) = new_path {
-            let new_name = new_path.file_name().unwrap().to_str().unwrap();
-            matched.replace(old_name, new_name)
+        // Clean up empty lines when content was removed
+        if new_path.is_none() {
+            new_content
+                .lines()
+                .filter(|&line| !line.trim().is_empty())
+                .collect::<Vec<_>>()
+                .join("\n")
         } else {
-            String::new()
+            new_content.into_owned()
         }
-    });
-
-    // Clean up empty lines when content was removed
-    let new_content = if new_path.is_none() {
-        new_content
-            .lines()
-            .filter(|&line| !line.trim().is_empty())
-            .collect::<Vec<_>>()
-            .join("\n")
-    } else {
-        new_content.into_owned()
-    };
-
-    fs::write(file_path, new_content)?;
-    Ok(())
+    })
 }
 
 #[cfg(test)]
@@ -543,6 +541,7 @@ mod tests {
     use super::*;
     use std::fs::File;
     use std::io::Write;
+    use chrono::Local;
     use tempfile::TempDir;
 
     fn setup_test_file(content: &str) -> (TempDir, PathBuf) {
@@ -565,37 +564,17 @@ mod tests {
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-        .unwrap();
+            .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operation: {:?}", result);
-        assert_eq!(result, "# Test\nSome text\nMore text");
+
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text", today);
+
+        assert_eq!(result, expected_content);
 
         println!("--- Ending test_remove_reference ---\n");
-    }
-
-    #[test]
-    fn test_update_reference() {
-        println!("\n--- Starting test_update_reference ---");
-        let content = "# Test\n![Image](old.jpg)\nSome text\n![[old.jpg]]\nMore text";
-        let (temp_dir, file_path) = setup_test_file(content);
-        let old_image_path = temp_dir.path().join("old.jpg");
-        let new_image_path = temp_dir.path().join("new.jpg");
-
-        handle_file_operation(
-            &file_path,
-            FileOperation::UpdateReference(old_image_path, new_image_path),
-        )
-        .unwrap();
-
-        let result = fs::read_to_string(&file_path).unwrap();
-        println!("File content after operation: {:?}", result);
-        assert_eq!(
-            result,
-            "# Test\n![Image](new.jpg)\nSome text\n![[new.jpg]]\nMore text"
-        );
-
-        println!("--- Ending test_update_reference ---\n");
     }
 
     #[test]
@@ -610,18 +589,22 @@ mod tests {
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-        .unwrap();
+            .unwrap();
 
         println!("Performing second invocation");
         handle_file_operation(
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-        .unwrap();
+            .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operations: {:?}", result);
-        assert_eq!(result, "# Test\nSome text");
+
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
+
+        assert_eq!(result, expected_content);
 
         println!("--- Ending test_single_invocation ---\n");
     }

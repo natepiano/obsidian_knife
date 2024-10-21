@@ -1,6 +1,7 @@
 mod cleanup_images;
 mod config;
 mod constants;
+mod file_utils;
 mod scan;
 mod sha256_cache;
 mod simplify_wikilinks;

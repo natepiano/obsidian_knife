@@ -1,5 +1,5 @@
 obsidian_path: ~/Documents/brain
-apply_changes: false
+apply_changes: true
 cleanup_image_files: true
 ignore_folders:
   - .idea

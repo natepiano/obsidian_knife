@@ -12,7 +12,7 @@ pub struct ThreadSafeWriter {
 #[derive(Clone, Copy)]
 pub enum ColumnAlignment {
     Left,
-    // Center,
+    Center,
     Right,
 }
 
@@ -66,7 +66,7 @@ impl ThreadSafeWriter {
                     .iter()
                     .map(|&a| match a {
                         ColumnAlignment::Left => ":---".to_string(),
-                        // ColumnAlignment::Center => ":---:".to_string(),
+                        ColumnAlignment::Center => ":---:".to_string(),
                         ColumnAlignment::Right => "---:".to_string(),
                     })
                     .collect();
