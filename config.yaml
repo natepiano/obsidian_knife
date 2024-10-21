@@ -13,3 +13,5 @@ ignore_folders:
 simplify_wikilinks:
   - "Ed:"
   - "Bob Rock"
+ignore_text:
+  - "Ed: music reco:"

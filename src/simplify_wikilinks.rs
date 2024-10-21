@@ -9,7 +9,7 @@ pub fn process_simplify_wikilinks(
     collected_files: &HashMap<PathBuf, crate::scan::MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _ = match config.simplify_wikilinks() {
+    let simplify_patterns = match config.simplify_wikilinks() {
         Some(patterns) if !patterns.is_empty() => patterns,
         _ => {
             writer.writeln("#", "simplify wikilinks")?;
@@ -21,7 +21,12 @@ pub fn process_simplify_wikilinks(
         }
     };
 
+    let ignore_patterns = config.ignore_text().unwrap_or(&[]);
+
     writer.writeln("#", "simplify wikilinks")?;
+    println!("Simplify patterns: {:?}", simplify_patterns);
+    println!("Ignore patterns: {:?}", ignore_patterns);
+
     // Count total wikilinks
     let total_wikilinks: usize = collected_files
         .values()

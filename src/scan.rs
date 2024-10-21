@@ -252,11 +252,18 @@ fn scan_markdown_files(
     let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]")?);
 
     let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
+    let ignore_patterns = config.ignore_text().unwrap_or_default();
 
     let markdown_info: HashMap<PathBuf, MarkdownFileInfo> = markdown_files
         .par_iter()
         .filter_map(|file_path| {
-            scan_markdown_file(file_path, &image_regex, &wikilink_regex, &simplify_patterns)
+            scan_markdown_file(
+                file_path,
+                &image_regex,
+                &wikilink_regex,
+                &simplify_patterns,
+                &ignore_patterns,
+            )
                 .map(|info| (file_path.clone(), info))
                 .ok()
         })
@@ -270,6 +277,7 @@ fn scan_markdown_file(
     image_regex: &Arc<Regex>,
     wikilink_regex: &Arc<Regex>,
     simplify_patterns: &[String],
+    ignore_patterns: &[String],
 ) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
     let file = File::open(file_path)?;
     let reader = BufReader::new(file);
@@ -283,6 +291,7 @@ fn scan_markdown_file(
         collect_wikilink_info(
             wikilink_regex,
             simplify_patterns,
+            ignore_patterns,
             &mut file_info,
             line_number,
             &line,
@@ -295,6 +304,7 @@ fn scan_markdown_file(
 fn collect_wikilink_info(
     wikilink_regex: &Arc<Regex>,
     simplify_patterns: &[String],
+    ignore_patterns: &[String],
     file_info: &mut MarkdownFileInfo,
     line_number: usize,
     line: &str,
@@ -323,38 +333,48 @@ fn collect_wikilink_info(
         while let Some(match_start) = rendered_line[start_index..].find(pattern) {
             let match_start = start_index + match_start;
             let match_end = match_start + pattern.len();
-            let overlapping_wikilinks: Vec<_> = wikilink_positions
-                .iter()
-                .filter(|&&(start, end, _, _)| {
-                    (start <= match_start && end > match_start)
-                        || (start < match_end && end >= match_end)
-                        || (start >= match_start && end <= match_end)
-                })
-                .collect();
 
-            if !overlapping_wikilinks.is_empty() {
-                // Step 4 & 5: Create replacement
-                let original_start = if match_start < overlapping_wikilinks[0].0 {
-                    match_start - (overlapping_wikilinks[0].0 - overlapping_wikilinks[0].2)
-                } else {
-                    overlapping_wikilinks[0].2
-                };
-                let original_end = if match_end > overlapping_wikilinks.last().unwrap().1 {
-                    overlapping_wikilinks.last().unwrap().3
-                        + (match_end - overlapping_wikilinks.last().unwrap().1)
-                } else {
-                    overlapping_wikilinks.last().unwrap().3
-                };
+            // Check if the match is within an ignore pattern
+            let should_ignore = ignore_patterns.iter().any(|ignore_pattern| {
+                let ignore_regex = Regex::new(&format!(r"{}.*", regex::escape(ignore_pattern))).unwrap();
+                let ignore_match = ignore_regex.is_match(&rendered_line[match_start..]);
+                ignore_match
+            });
 
-                let search_text = line[original_start..original_end].to_string();
-                let replace_text = pattern.to_string();
+            if !should_ignore {
+                let overlapping_wikilinks: Vec<_> = wikilink_positions
+                    .iter()
+                    .filter(|&&(start, end, _, _)| {
+                        (start <= match_start && end > match_start)
+                            || (start < match_end && end >= match_end)
+                            || (start >= match_start && end <= match_end)
+                    })
+                    .collect();
 
-                file_info.wikilinks.push(WikilinkInfo {
-                    line: line_number + 1,
-                    line_text: line.to_string(),
-                    search_text,
-                    replace_text,
-                });
+                if !overlapping_wikilinks.is_empty() {
+                    // Step 4 & 5: Create replacement
+                    let original_start = if match_start < overlapping_wikilinks[0].0 {
+                        match_start - (overlapping_wikilinks[0].0 - overlapping_wikilinks[0].2)
+                    } else {
+                        overlapping_wikilinks[0].2
+                    };
+                    let original_end = if match_end > overlapping_wikilinks.last().unwrap().1 {
+                        overlapping_wikilinks.last().unwrap().3
+                            + (match_end - overlapping_wikilinks.last().unwrap().1)
+                    } else {
+                        overlapping_wikilinks.last().unwrap().3
+                    };
+
+                    let search_text = line[original_start..original_end].to_string();
+                    let replace_text = pattern.to_string();
+
+                    file_info.wikilinks.push(WikilinkInfo {
+                        line: line_number + 1,
+                        line_text: line.to_string(),
+                        search_text,
+                        replace_text,
+                    });
+                }
             }
             start_index = match_end;
         }
@@ -473,6 +493,7 @@ mod tests {
         // Set up test environment
         let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
         let simplify_patterns = vec!["Ed:".to_string(), "Éd:".to_string(), "Bob Rock".to_string()];
+        let ignore_patterns = vec![];  // Add an empty ignore patterns vector
         let mut file_info = MarkdownFileInfo::default();
 
         // Read the file and process each line
@@ -481,6 +502,7 @@ mod tests {
             collect_wikilink_info(
                 &wikilink_regex,
                 &simplify_patterns,
+                &ignore_patterns,  // Pass the ignore patterns
                 &mut file_info,
                 line_number,
                 line,
@@ -509,5 +531,46 @@ mod tests {
         assert_eq!(file_info.wikilinks[3].line, 4);
         assert_eq!(file_info.wikilinks[3].search_text, "Bob [[Rock]]");
         assert_eq!(file_info.wikilinks[3].replace_text, "Bob Rock");
+    }
+
+    #[test]
+    fn test_collect_wikilink_info_with_ignore() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create a test markdown file with various wikilink scenarios
+        let content = "[[Ed Barnes|Ed]]: music reco:\n[[Ed Barnes|Ed]]: is cool\nEd: something else";
+
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        // Set up test environment
+        let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
+        let simplify_patterns = vec!["Ed:".to_string()];
+        let ignore_patterns = vec!["Ed: music reco:".to_string()];
+        let mut file_info = MarkdownFileInfo::default();
+
+        // Read the file and process each line
+        let file_content = fs::read_to_string(&file_path).unwrap();
+        for (line_number, line) in file_content.lines().enumerate() {
+            collect_wikilink_info(
+                &wikilink_regex,
+                &simplify_patterns,
+                &ignore_patterns,
+                &mut file_info,
+                line_number,
+                line,
+            );
+        }
+
+        // Assertions
+        assert_eq!(file_info.wikilinks.len(), 1, "Expected 1 wikilink, found {}", file_info.wikilinks.len());
+
+        // Check the wikilink (should be simplified, not ignored)
+        assert_eq!(file_info.wikilinks[0].line, 2);
+        assert_eq!(file_info.wikilinks[0].search_text, "[[Ed Barnes|Ed]]:");
+        assert_eq!(file_info.wikilinks[0].replace_text, "Ed:");
+
+        // The "Ed: something else" shouldn't be included as it's not a wikilink
     }
 }

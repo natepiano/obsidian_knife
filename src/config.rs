@@ -10,6 +10,7 @@ pub struct Config {
     ignore_folders: Option<Vec<String>>,
     cleanup_image_files: Option<bool>,
     simplify_wikilinks: Option<Vec<String>>,
+    ignore_text: Option<Vec<String>>,
 }
 
 impl Config {
@@ -29,6 +30,7 @@ impl Config {
         }
 
         let validated_simplify_wikilinks = self.validate_simplify_wikilinks()?;
+        let validate_ignore_text = self.validate_ignore_text()?;
 
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
@@ -36,7 +38,29 @@ impl Config {
             ignore_folders,
             expanded_path,
             validated_simplify_wikilinks,
+            validate_ignore_text,
         ))
+    }
+
+    fn validate_ignore_text(&self) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
+        match &self.ignore_text {
+            Some(patterns) => {
+                let mut validated = Vec::new();
+                for (index, pattern) in patterns.iter().enumerate() {
+                    let trimmed = pattern.trim();
+                    if trimmed.is_empty() {
+                        return Err(format!("ignore: entry at index {} is empty or only contains whitespace", index).into());
+                    }
+                    validated.push(trimmed.to_string());
+                }
+                if validated.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(validated))
+                }
+            }
+            None => Ok(None),
+        }
     }
 
     fn validate_ignore_folders(

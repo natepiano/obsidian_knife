@@ -7,6 +7,7 @@ pub struct ValidatedConfig {
     ignore_folders: Option<Vec<PathBuf>>,
     obsidian_path: PathBuf,
     simplify_wikilinks: Option<Vec<String>>,
+    ignore_text: Option<Vec<String>>,
 }
 
 impl ValidatedConfig {
@@ -16,6 +17,7 @@ impl ValidatedConfig {
         ignore_folders: Option<Vec<PathBuf>>,
         obsidian_path: PathBuf,
         simplify_wikilinks: Option<Vec<String>>,
+        ignore_text: Option<Vec<String>>,
     ) -> Self {
         ValidatedConfig {
             apply_changes,
@@ -23,11 +25,16 @@ impl ValidatedConfig {
             ignore_folders,
             obsidian_path,
             simplify_wikilinks,
+            ignore_text: ignore_text,
         }
     }
 
     pub fn obsidian_path(&self) -> &Path {
         &self.obsidian_path
+    }
+
+    pub fn ignore_text(&self) -> Option<&[String]> {
+        self.ignore_text.as_deref()
     }
 
     pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
@@ -45,4 +52,5 @@ impl ValidatedConfig {
     pub fn apply_changes(&self) -> bool {
         self.apply_changes
     }
+
 }
