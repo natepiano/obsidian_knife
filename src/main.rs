@@ -133,6 +133,11 @@ fn write_execution_start(
     writer.write_properties(&properties)?;
 
     writer.writeln("# ", "starting obsidian_knife")?;
+    if validated_config.apply_changes() {
+        writer.writeln("", "apply_changes enabled: changes will be applied")?;
+    } else {
+        writer.writeln("", "apply_changes disabled: no changes will be applied")?;
+    }
     println!();
     Ok(())
 }

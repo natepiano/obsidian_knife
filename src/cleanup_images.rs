@@ -24,11 +24,6 @@ pub fn cleanup_images(
     }
 
     writer.writeln("#", "image cleanup")?;
-    if config.apply_changes() {
-        writer.writeln("", "changes will be applied")?;
-    } else {
-        writer.writeln("", "dry run mode: no changes will be applied")?;
-    }
 
     let image_groups = group_images(&collected_files.image_map);
     let missing_references = generate_missing_references(&collected_files)?;
