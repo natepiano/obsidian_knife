@@ -278,41 +278,105 @@ fn scan_markdown_file(
     for (line_number, line) in reader.lines().enumerate() {
         let line = line?;
 
-        // Collect image references
-        for capture in image_regex.captures_iter(&line) {
-            if let Some(reference) = capture.get(0) {
-                let reference_string = reference.as_str().to_string();
-                file_info.image_links.push(reference_string);
-            }
-        }
+        collect_image_reference(image_regex, &mut file_info, &line);
 
-        // Collect wikilink information
-        for capture in wikilink_regex.captures_iter(&line) {
-            if let Some(wikilink) = capture.get(0) {
-                let wikilink_str = wikilink.as_str();
-                let replace_text = render_wikilink(&wikilink_str[2..wikilink_str.len() - 2]);
-                if simplify_patterns
-                    .iter()
-                    .any(|p| replace_text.starts_with(p))
-                {
-                    file_info.wikilinks.push(WikilinkInfo {
-                        line: line_number + 1,
-                        line_text: line.clone(),
-                        search_text: wikilink_str.to_string(),
-                        replace_text,
-                    });
-                }
-            }
-        }
+        collect_wikilink_info(
+            wikilink_regex,
+            simplify_patterns,
+            &mut file_info,
+            line_number,
+            &line,
+        );
     }
 
     Ok(file_info)
 }
 
+fn collect_wikilink_info(
+    wikilink_regex: &Arc<Regex>,
+    simplify_patterns: &[String],
+    file_info: &mut MarkdownFileInfo,
+    line_number: usize,
+    line: &str,
+) {
+    let mut rendered_line = String::new();
+    let mut wikilink_positions = Vec::new();
+    let mut last_end = 0;
+
+    // Step 1: Render all wikilinks and save their positions
+    for capture in wikilink_regex.captures_iter(line) {
+        if let (Some(whole_match), Some(inner_content)) = (capture.get(0), capture.get(1)) {
+            rendered_line.push_str(&line[last_end..whole_match.start()]);
+            let start = rendered_line.len();
+            let rendered = render_wikilink(inner_content.as_str());
+            rendered_line.push_str(&rendered);
+            let end = rendered_line.len();
+            wikilink_positions.push((start, end, whole_match.start(), whole_match.end()));
+            last_end = whole_match.end();
+        }
+    }
+    rendered_line.push_str(&line[last_end..]);
+
+    // Step 2 & 3: Check for exact matches and find overlapping wikilinks
+    for pattern in simplify_patterns {
+        let mut start_index = 0;
+        while let Some(match_start) = rendered_line[start_index..].find(pattern) {
+            let match_start = start_index + match_start;
+            let match_end = match_start + pattern.len();
+            let overlapping_wikilinks: Vec<_> = wikilink_positions
+                .iter()
+                .filter(|&&(start, end, _, _)| {
+                    (start <= match_start && end > match_start)
+                        || (start < match_end && end >= match_end)
+                        || (start >= match_start && end <= match_end)
+                })
+                .collect();
+
+            if !overlapping_wikilinks.is_empty() {
+                // Step 4 & 5: Create replacement
+                let original_start = if match_start < overlapping_wikilinks[0].0 {
+                    match_start - (overlapping_wikilinks[0].0 - overlapping_wikilinks[0].2)
+                } else {
+                    overlapping_wikilinks[0].2
+                };
+                let original_end = if match_end > overlapping_wikilinks.last().unwrap().1 {
+                    overlapping_wikilinks.last().unwrap().3
+                        + (match_end - overlapping_wikilinks.last().unwrap().1)
+                } else {
+                    overlapping_wikilinks.last().unwrap().3
+                };
+
+                let search_text = line[original_start..original_end].to_string();
+                let replace_text = pattern.to_string();
+
+                file_info.wikilinks.push(WikilinkInfo {
+                    line: line_number + 1,
+                    line_text: line.to_string(),
+                    search_text,
+                    replace_text,
+                });
+            }
+            start_index = match_end;
+        }
+    }
+}
+
 fn render_wikilink(wikilink: &str) -> String {
-    let parts: Vec<&str> = wikilink.split('|').collect();
-    let displayed = parts.last().unwrap_or(&wikilink);
-    displayed.to_string()
+    wikilink.split('|').last().unwrap_or(wikilink).to_string()
+}
+
+fn collect_image_reference(
+    image_regex: &Arc<Regex>,
+    file_info: &mut MarkdownFileInfo,
+    line: &String,
+) {
+    // Collect image references
+    for capture in image_regex.captures_iter(&line) {
+        if let Some(reference) = capture.get(0) {
+            let reference_string = reference.as_str().to_string();
+            file_info.image_links.push(reference_string);
+        }
+    }
 }
 
 fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {
@@ -386,4 +450,64 @@ fn write_scan_start(
     output.writeln("## scan details", "")?;
     output.writeln("", &format!("scanning: {:?}", config.obsidian_path()))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs::{self, File};
+    use std::io::Write;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_collect_wikilink_info() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create a test markdown file with various wikilink scenarios
+        let content = "[[Ed Barnes|Ed]]: music reco\n[[Éd Bârnes|Éd]]: mûsîc récô\nloves [[Bob]] [[Rock]] yeah\nBob [[Rock]] is cool";
+
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        // Set up test environment
+        let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
+        let simplify_patterns = vec!["Ed:".to_string(), "Éd:".to_string(), "Bob Rock".to_string()];
+        let mut file_info = MarkdownFileInfo::default();
+
+        // Read the file and process each line
+        let file_content = fs::read_to_string(&file_path).unwrap();
+        for (line_number, line) in file_content.lines().enumerate() {
+            collect_wikilink_info(
+                &wikilink_regex,
+                &simplify_patterns,
+                &mut file_info,
+                line_number,
+                line,
+            );
+        }
+
+        // Assertions
+        assert_eq!(file_info.wikilinks.len(), 4);
+
+        // Check the first wikilink
+        assert_eq!(file_info.wikilinks[0].line, 1);
+        assert_eq!(file_info.wikilinks[0].search_text, "[[Ed Barnes|Ed]]:");
+        assert_eq!(file_info.wikilinks[0].replace_text, "Ed:");
+
+        // Check the second wikilink (with UTF-8 characters)
+        assert_eq!(file_info.wikilinks[1].line, 2);
+        assert_eq!(file_info.wikilinks[1].search_text, "[[Éd Bârnes|Éd]]:");
+        assert_eq!(file_info.wikilinks[1].replace_text, "Éd:");
+
+        // Check the third wikilink (adjacent wikilinks)
+        assert_eq!(file_info.wikilinks[2].line, 3);
+        assert_eq!(file_info.wikilinks[2].search_text, "[[Bob]] [[Rock]]");
+        assert_eq!(file_info.wikilinks[2].replace_text, "Bob Rock");
+
+        // Check the fourth wikilink (partial wikilink)
+        assert_eq!(file_info.wikilinks[3].line, 4);
+        assert_eq!(file_info.wikilinks[3].search_text, "Bob [[Rock]]");
+        assert_eq!(file_info.wikilinks[3].replace_text, "Bob Rock");
+    }
 }
