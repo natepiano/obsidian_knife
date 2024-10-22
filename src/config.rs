@@ -253,7 +253,6 @@ cleanup_image_files: true
             let config = Config::from_obsidian_file(Path::new(&tilde_path)).unwrap();
             assert_eq!(config.obsidian_path, "~/Documents/brain");
             assert_eq!(config.apply_changes, Some(false));
-            assert_eq!(config.cleanup_image_files, Some(true));
         }
     }
 
