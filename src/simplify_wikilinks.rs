@@ -19,8 +19,6 @@ pub fn process_simplify_wikilinks(
         }
     };
 
-    let ignore_patterns = config.ignore_text().unwrap_or(&[]);
-
     writer.writeln("#", "simplify wikilinks")?;
 
     // Display specified patterns
