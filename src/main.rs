@@ -105,10 +105,9 @@ fn write_execution_start(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
     let properties = format!(
-        "time_stamp: {}\napply_changes: {}\ndedupe_images: {}",
+        "time_stamp: {}\napply_changes: {}\n",
         timestamp,
         validated_config.apply_changes(),
-        validated_config.cleanup_image_files()
     );
 
     writer.write_properties(&properties)?;

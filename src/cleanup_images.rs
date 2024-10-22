@@ -19,10 +19,6 @@ pub fn cleanup_images(
     collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if !config.cleanup_image_files() {
-        writer.writeln("#", "image cleanup is off")?;
-        return Ok(());
-    }
 
     writer.writeln("#", "image cleanup")?;
 

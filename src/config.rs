@@ -7,7 +7,6 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
-    cleanup_image_files: Option<bool>,
     ignore_folders: Option<Vec<String>>,
     ignore_text: Option<Vec<String>>,
     obsidian_path: String,
@@ -101,7 +100,6 @@ impl Config {
 
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
-            self.cleanup_image_files.unwrap_or(false),
             ignore_folders,
             expanded_path,
             output_folder,
