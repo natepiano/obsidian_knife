@@ -7,12 +7,12 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
+    cleanup_image_files: Option<bool>,
+    ignore_folders: Option<Vec<String>>,
+    ignore_text: Option<Vec<String>>,
     obsidian_path: String,
     output_folder: Option<String>,
-    ignore_folders: Option<Vec<String>>,
-    cleanup_image_files: Option<bool>,
     simplify_wikilinks: Option<Vec<String>>,
-    ignore_text: Option<Vec<String>>,
 }
 
 impl Config {

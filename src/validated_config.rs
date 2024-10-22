@@ -5,10 +5,10 @@ pub struct ValidatedConfig {
     apply_changes: bool,
     cleanup_image_files: bool,
     ignore_folders: Option<Vec<PathBuf>>,
+    ignore_text: Option<Vec<String>>,
     obsidian_path: PathBuf,
     output_folder: PathBuf,
     simplify_wikilinks: Option<Vec<String>>,
-    ignore_text: Option<Vec<String>>,
 }
 
 impl ValidatedConfig {
