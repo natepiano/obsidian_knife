@@ -18,3 +18,4 @@ ignore_text:
 # it has come up because there are people named Ed but i also ed: to indicate editorial
 simplify_wikilinks:
  - "Ed:"
+ - "Bob Rock"

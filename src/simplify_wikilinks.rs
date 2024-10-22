@@ -14,10 +14,7 @@ pub fn process_simplify_wikilinks(
         Some(patterns) if !patterns.is_empty() => patterns,
         _ => {
             writer.writeln("#", "simplify wikilinks")?;
-            writer.writeln(
-                "",
-                "no simplification patterns specified - skipping wikilink simplification.",
-            )?;
+            writer.writeln("", "no wikilink patterns specified")?;
             return Ok(());
         }
     };
@@ -25,8 +22,9 @@ pub fn process_simplify_wikilinks(
     let ignore_patterns = config.ignore_text().unwrap_or(&[]);
 
     writer.writeln("#", "simplify wikilinks")?;
-    println!("Simplify patterns: {:?}", simplify_patterns);
-    println!("Ignore patterns: {:?}", ignore_patterns);
+
+    // Display specified patterns
+    writer.writeln("", &format!("these wikilinks specified: {}", simplify_patterns.join(", ")))?;
 
     // Count total wikilinks
     let total_wikilinks: usize = collected_files
@@ -34,62 +32,59 @@ pub fn process_simplify_wikilinks(
         .map(|file_info| file_info.wikilinks.len())
         .sum();
 
-    writer.writeln("", &format!("total wikilinks found: {}", total_wikilinks))?;
-    writer.writeln(
-        "",
-        "the following wikilinks match the specified simplification patterns:\n",
-    )?;
+    writer.writeln("", &format!("wikilinks found: {}", total_wikilinks))?;
 
-    let mut table_data = Vec::new();
+    // If there are wikilinks that match patterns, show the table
+    if total_wikilinks > 0 {
+        let mut table_data = Vec::new();
 
-    for (file_path, file_info) in collected_files {
-        for wikilink in &file_info.wikilinks {
-            let file_wikilink = format_wikilink(file_path);
-            let will_replace = simplify_patterns.contains(&wikilink.replace_text);
-            let replaced = if will_replace {
-                if config.apply_changes() { "true" } else { "false" }
-            } else {
-                "false"
-            };
-            table_data.push(vec![
-                file_wikilink,
-                wikilink.line.to_string(),
-                escape_pipes(&wikilink.line_text),
-                escape_pipes(&wikilink.search_text),
-                escape_pipes(&wikilink.replace_text),
-                replaced.to_string(),
-            ]);
+        for (file_path, file_info) in collected_files {
+            for wikilink in &file_info.wikilinks {
+                let file_wikilink = format_wikilink(file_path);
+                let will_replace = simplify_patterns.contains(&wikilink.replace_text);
+                let replaced = if will_replace {
+                    if config.apply_changes() { "true" } else { "false" }
+                } else {
+                    "false"
+                };
+                table_data.push(vec![
+                    file_wikilink,
+                    wikilink.line.to_string(),
+                    escape_pipes(&wikilink.line_text),
+                    escape_pipes(&wikilink.search_text),
+                    escape_pipes(&wikilink.replace_text),
+                    replaced.to_string(),
+                ]);
+            }
         }
+
+        if !table_data.is_empty() {
+            writer.writeln("", "")?; // Add empty line before table
+            let headers = &[
+                "file",
+                "line number",
+                "line content",
+                "search text",
+                "replace with",
+                "replaced",
+            ];
+
+            writer.write_markdown_table(
+                headers,
+                &table_data,
+                Some(&[
+                    ColumnAlignment::Left,
+                    ColumnAlignment::Right,
+                    ColumnAlignment::Left,
+                    ColumnAlignment::Left,
+                    ColumnAlignment::Left,
+                    ColumnAlignment::Center,
+                ]),
+            )?;
+        }
+
+        apply_simplifications(config, collected_files, writer)?;
     }
-
-    if table_data.is_empty() {
-        writer.writeln("", "no matching wikilinks found.")?;
-        return Ok(());
-    }
-
-    let headers = &[
-        "file",
-        "line number",
-        "line content",
-        "search text",
-        "replace with",
-        "replaced",
-    ];
-
-    writer.write_markdown_table(
-        headers,
-        &table_data,
-        Some(&[
-            ColumnAlignment::Left,
-            ColumnAlignment::Right,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Center,
-        ]),
-    )?;
-
-    apply_simplifications(config, collected_files, writer)?;
 
     Ok(())
 }
