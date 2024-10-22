@@ -19,10 +19,7 @@ pub fn update_file<P: AsRef<Path>>(
     Ok(())
 }
 
-fn update_markdown_content(
-    content: &str,
-    update_fn: impl FnOnce(&str) -> String,
-) -> String {
+fn update_markdown_content(content: &str, update_fn: impl FnOnce(&str) -> String) -> String {
     let frontmatter_regex = Regex::new(r"(?s)^---\n(.*?)\n---").unwrap();
     let date_modified_regex = Regex::new(r"(?m)^date_modified:\s*(.*)$").unwrap();
 
@@ -31,18 +28,26 @@ fn update_markdown_content(
     let updated_content = if let Some(captures) = frontmatter_regex.captures(content) {
         let frontmatter = captures.get(1).unwrap().as_str();
         let updated_frontmatter = if date_modified_regex.is_match(frontmatter) {
-            date_modified_regex.replace(frontmatter, |_: &regex::Captures| {
-                format!("date_modified: \"{}\"", today)
-            }).to_string()
+            date_modified_regex
+                .replace(frontmatter, |_: &regex::Captures| {
+                    format!("date_modified: \"{}\"", today)
+                })
+                .to_string()
         } else {
             format!("{}\ndate_modified: \"{}\"", frontmatter.trim(), today)
         };
 
-        frontmatter_regex.replace(content, |_: &regex::Captures| {
-            format!("---\n{}\n---", updated_frontmatter.trim())
-        }).to_string()
+        frontmatter_regex
+            .replace(content, |_: &regex::Captures| {
+                format!("---\n{}\n---", updated_frontmatter.trim())
+            })
+            .to_string()
     } else {
-        format!("---\ndate_modified: \"{}\"\n---\n{}", today, content.trim_start())
+        format!(
+            "---\ndate_modified: \"{}\"\n---\n{}",
+            today,
+            content.trim_start()
+        )
     };
 
     update_fn(&updated_content)
@@ -62,18 +67,36 @@ mod tests {
 
         // Test case 1: Existing frontmatter with date_modified
         let content1 = "---\ntitle: Test\ndate_modified: \"[[2023-01-01]]\"\n---\nContent";
-        let expected1 = format!("---\ntitle: Test\ndate_modified: \"{}\"\n---\nContent", today);
-        assert_eq!(update_markdown_content(content1, |s| s.to_string()), expected1);
+        let expected1 = format!(
+            "---\ntitle: Test\ndate_modified: \"{}\"\n---\nContent",
+            today
+        );
+        assert_eq!(
+            update_markdown_content(content1, |s| s.to_string()),
+            expected1
+        );
 
         // Test case 2: Existing frontmatter without date_modified
         let content2 = "---\ntitle: Test\n---\nContent";
-        let expected2 = format!("---\ntitle: Test\ndate_modified: \"{}\"\n---\nContent", today);
-        assert_eq!(update_markdown_content(content2, |s| s.to_string()), expected2);
+        let expected2 = format!(
+            "---\ntitle: Test\ndate_modified: \"{}\"\n---\nContent",
+            today
+        );
+        assert_eq!(
+            update_markdown_content(content2, |s| s.to_string()),
+            expected2
+        );
 
         // Test case 3: No frontmatter
         let content3 = "Content without frontmatter";
-        let expected3 = format!("---\ndate_modified: \"{}\"\n---\nContent without frontmatter", today);
-        assert_eq!(update_markdown_content(content3, |s| s.to_string()), expected3);
+        let expected3 = format!(
+            "---\ndate_modified: \"{}\"\n---\nContent without frontmatter",
+            today
+        );
+        assert_eq!(
+            update_markdown_content(content3, |s| s.to_string()),
+            expected3
+        );
     }
 
     #[test]

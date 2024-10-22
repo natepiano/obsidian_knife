@@ -264,8 +264,8 @@ fn scan_markdown_files(
                 &simplify_patterns,
                 &ignore_patterns,
             )
-                .map(|info| (file_path.clone(), info))
-                .ok()
+            .map(|info| (file_path.clone(), info))
+            .ok()
         })
         .collect();
 
@@ -336,7 +336,8 @@ fn collect_wikilink_info(
 
             // Check if the match is within an ignore pattern
             let should_ignore = ignore_patterns.iter().any(|ignore_pattern| {
-                let ignore_regex = Regex::new(&format!(r"{}.*", regex::escape(ignore_pattern))).unwrap();
+                let ignore_regex =
+                    Regex::new(&format!(r"{}.*", regex::escape(ignore_pattern))).unwrap();
                 let ignore_match = ignore_regex.is_match(&rendered_line[match_start..]);
                 ignore_match
             });
@@ -493,7 +494,7 @@ mod tests {
         // Set up test environment
         let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
         let simplify_patterns = vec!["Ed:".to_string(), "Éd:".to_string(), "Bob Rock".to_string()];
-        let ignore_patterns = vec![];  // Add an empty ignore patterns vector
+        let ignore_patterns = vec![]; // Add an empty ignore patterns vector
         let mut file_info = MarkdownFileInfo::default();
 
         // Read the file and process each line
@@ -502,7 +503,7 @@ mod tests {
             collect_wikilink_info(
                 &wikilink_regex,
                 &simplify_patterns,
-                &ignore_patterns,  // Pass the ignore patterns
+                &ignore_patterns, // Pass the ignore patterns
                 &mut file_info,
                 line_number,
                 line,
@@ -539,7 +540,8 @@ mod tests {
         let file_path = temp_dir.path().join("test.md");
 
         // Create a test markdown file with various wikilink scenarios
-        let content = "[[Ed Barnes|Ed]]: music reco:\n[[Ed Barnes|Ed]]: is cool\nEd: something else";
+        let content =
+            "[[Ed Barnes|Ed]]: music reco:\n[[Ed Barnes|Ed]]: is cool\nEd: something else";
 
         let mut file = File::create(&file_path).unwrap();
         file.write_all(content.as_bytes()).unwrap();
@@ -564,7 +566,12 @@ mod tests {
         }
 
         // Assertions
-        assert_eq!(file_info.wikilinks.len(), 1, "Expected 1 wikilink, found {}", file_info.wikilinks.len());
+        assert_eq!(
+            file_info.wikilinks.len(),
+            1,
+            "Expected 1 wikilink, found {}",
+            file_info.wikilinks.len()
+        );
 
         // Check the wikilink (should be simplified, not ignored)
         assert_eq!(file_info.wikilinks[0].line, 2);

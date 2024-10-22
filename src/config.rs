@@ -49,7 +49,11 @@ impl Config {
                 for (index, pattern) in patterns.iter().enumerate() {
                     let trimmed = pattern.trim();
                     if trimmed.is_empty() {
-                        return Err(format!("ignore: entry at index {} is empty or only contains whitespace", index).into());
+                        return Err(format!(
+                            "ignore: entry at index {} is empty or only contains whitespace",
+                            index
+                        )
+                        .into());
                     }
                     validated.push(trimmed.to_string());
                 }

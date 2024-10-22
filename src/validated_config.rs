@@ -52,5 +52,4 @@ impl ValidatedConfig {
     pub fn apply_changes(&self) -> bool {
         self.apply_changes
     }
-
 }

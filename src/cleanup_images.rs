@@ -1,6 +1,6 @@
+use crate::file_utils::update_file;
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::file_utils::update_file;
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
@@ -511,7 +511,8 @@ fn update_file_content(
             r"(!?\[.*?\]\({}(?:\|.*?)?\))|(!\[\[{}(?:\|.*?)?\]\])",
             regex::escape(old_name),
             regex::escape(old_name)
-        )).unwrap();
+        ))
+        .unwrap();
 
         let new_content = regex.replace_all(&content, |caps: &regex::Captures| {
             let matched = caps.get(0).unwrap().as_str();
@@ -539,9 +540,9 @@ fn update_file_content(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Local;
     use std::fs::File;
     use std::io::Write;
-    use chrono::Local;
     use tempfile::TempDir;
 
     fn setup_test_file(content: &str) -> (TempDir, PathBuf) {
@@ -564,13 +565,16 @@ mod tests {
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operation: {:?}", result);
 
         let today = Local::now().format("[[%Y-%m-%d]]").to_string();
-        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text", today);
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text",
+            today
+        );
 
         assert_eq!(result, expected_content);
 
@@ -589,14 +593,14 @@ mod tests {
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         println!("Performing second invocation");
         handle_file_operation(
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         println!("File content after operations: {:?}", result);
