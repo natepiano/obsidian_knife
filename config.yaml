@@ -1,4 +1,5 @@
 obsidian_path: ~/Documents/brain
+output_folder: conf/obsidian_knife
 
 apply_changes: false
 cleanup_image_files: true

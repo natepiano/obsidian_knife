@@ -18,7 +18,7 @@ pub enum ColumnAlignment {
 
 impl ThreadSafeWriter {
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
-        let file_path = obsidian_path.join("obsidian_knife_output.md");
+        let file_path = obsidian_path.join("obsidian knife output.md");
 
         let file = OpenOptions::new()
             .write(true)
