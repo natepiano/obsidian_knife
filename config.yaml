@@ -9,7 +9,7 @@ ignore_folders:
   - conf/templates
 
 ignore_text:
-  - "Ed: music reco:"
+ - "Ed: music reco:"
 
 # anything that renders as the specified string will get replaced with the specified string
 # for example [[foo|Ed]]: would render to Ed: so the link part would get replaced with Ed so
