@@ -87,7 +87,6 @@ fn test_validate_example_config_without_folders() {
     assert!(result.is_err());
     let error = result.unwrap_err().to_string();
 
-    println!("Actual error message: {}", error);
     assert!(error.contains("does_not_exist"));
 }
 

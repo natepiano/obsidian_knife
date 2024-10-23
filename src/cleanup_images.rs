@@ -545,13 +545,11 @@ mod tests {
         let file_path = temp_dir.path().join("test_file.md");
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", content).unwrap();
-        println!("Test file created at: {:?}", file_path);
         (temp_dir, file_path)
     }
 
     #[test]
     fn test_remove_reference() {
-        println!("\n--- Starting test_remove_reference ---");
         let content = "# Test\n![Image](test.jpg)\nSome text\n![[test.jpg]]\nMore text";
         let (temp_dir, file_path) = setup_test_file(content);
         let image_path = temp_dir.path().join("test.jpg");
@@ -563,7 +561,6 @@ mod tests {
         .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
-        println!("File content after operation: {:?}", result);
 
         let today = Local::now().format("[[%Y-%m-%d]]").to_string();
         let expected_content = format!(
@@ -573,24 +570,22 @@ mod tests {
 
         assert_eq!(result, expected_content);
 
-        println!("--- Ending test_remove_reference ---\n");
     }
 
     #[test]
     fn test_single_invocation() {
-        println!("\n--- Starting test_single_invocation ---");
         let content = "# Test\n![Image](test.jpg)\nSome text";
         let (temp_dir, file_path) = setup_test_file(content);
         let image_path = temp_dir.path().join("test.jpg");
 
-        println!("Performing first invocation");
+        // first invocation
         handle_file_operation(
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
         .unwrap();
 
-        println!("Performing second invocation");
+        // second invocation
         handle_file_operation(
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
@@ -598,23 +593,19 @@ mod tests {
         .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
-        println!("File content after operations: {:?}", result);
 
         let today = Local::now().format("[[%Y-%m-%d]]").to_string();
         let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
 
         assert_eq!(result, expected_content);
 
-        println!("--- Ending test_single_invocation ---\n");
     }
 
     #[test]
     fn test_delete() {
-        println!("\n--- Starting test_delete ---");
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("file_to_delete.jpg");
         File::create(&file_path).unwrap();
-        println!("Test file created at: {:?}", file_path);
 
         assert!(file_path.exists(), "Test file should exist before deletion");
 
@@ -624,8 +615,6 @@ mod tests {
             !file_path.exists(),
             "Test file should not exist after deletion"
         );
-
-        println!("--- Ending test_delete ---\n");
     }
 
     #[test]

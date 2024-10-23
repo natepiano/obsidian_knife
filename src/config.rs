@@ -1,3 +1,4 @@
+use crate::yaml_utils::deserialize_yaml_frontmatter;
 use crate::validated_config::ValidatedConfig;
 use serde::Deserialize;
 use std::error::Error;
@@ -17,62 +18,45 @@ pub struct Config {
 }
 
 impl Config {
-    fn from_yaml_str(yaml: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        serde_yaml::from_str(yaml).map_err(|e| {
-            let error = std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!("error parsing yaml configuration: {}", e),
-            );
-            Box::new(error) as Box<dyn Error + Send + Sync>
-        })
-    }
-
-    fn extract_yaml_frontmatter(content: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-        let trimmed = content.trim_start();
-        if !trimmed.starts_with("---") {
-            return Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "configuration file must start with yaml frontmatter (---)",
-            )));
-        }
-
-        // Find the second occurrence of "---"
-        let after_first = &trimmed[3..];
-        if let Some(end_index) = after_first.find("---") {
-            Ok(after_first[..end_index].trim().to_string())
-        } else {
-            Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                "configuration file must have closing yaml frontmatter (---)",
-            )))
-        }
-    }
-
+    /// Creates a `Config` instance from an Obsidian file by deserializing the YAML front matter.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - The path to the Obsidian configuration file.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(Config)` if successful.
+    /// * `Err(Box<dyn Error + Send + Sync>)` if reading or deserialization fails.
     pub fn from_obsidian_file(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(path);
-        let contents =
-            fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
-                if e.kind() == std::io::ErrorKind::NotFound {
-                    Box::new(std::io::Error::new(
-                        std::io::ErrorKind::NotFound,
-                        format!("config file not found: {}", expanded_path.display()),
-                    ))
-                } else {
-                    Box::new(std::io::Error::new(
-                        e.kind(),
-                        format!(
-                            "error reading config file '{}': {}",
-                            expanded_path.display(),
-                            e
-                        ),
-                    ))
-                }
-            })?;
+        let contents = fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
+            if e.kind() == std::io::ErrorKind::NotFound {
+                Box::new(std::io::Error::new(
+                    std::io::ErrorKind::NotFound,
+                    format!("config file not found: {}", expanded_path.display()),
+                ))
+            } else {
+                Box::new(std::io::Error::new(
+                    e.kind(),
+                    format!(
+                        "error reading config file '{}': {}",
+                        expanded_path.display(),
+                        e
+                    ),
+                ))
+            }
+        })?;
 
-        let yaml = Self::extract_yaml_frontmatter(&contents)?;
-        Self::from_yaml_str(&yaml)
+        deserialize_yaml_frontmatter(&contents)
     }
 
+    /// Validates the `Config` and returns a `ValidatedConfig`.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(ValidatedConfig)` if validation succeeds.
+    /// * `Err(Box<dyn Error + Send + Sync>)` if validation fails.
     pub fn validate(self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(&self.obsidian_path);
         if !expanded_path.exists() {
@@ -136,10 +120,10 @@ impl Config {
                     let trimmed = pattern.trim();
                     if trimmed.is_empty() {
                         return Err(format!(
-                            "ignore: entry at index {} is empty or only contains whitespace",
+                            "ignore_text: entry at index {} is empty or only contains whitespace",
                             index
                         )
-                        .into());
+                            .into());
                     }
                     validated.push(trimmed.to_string());
                 }
@@ -164,12 +148,14 @@ impl Config {
                 let mut validated_folders = Vec::new();
                 for (index, folder) in folders.iter().enumerate() {
                     if folder.trim().is_empty() {
-                        return Err(format!("ignore_folders: entry at index {} is empty or only contains whitespace", index).into());
+                        return Err(format!(
+                            "ignore_folders: entry at index {} is empty or only contains whitespace",
+                            index
+                        )
+                            .into());
                     }
                     let full_path = expanded_path.join(folder);
-                    // Change: Only check if the obsidian_path exists, not each ignore folder
-                    // This better matches the real use case where we might want to ignore folders
-                    // that don't exist yet but might be created later
+                    // Note: We are not checking the existence of each ignore folder
                     validated_folders.push(full_path);
                 }
                 Some(validated_folders)
@@ -189,7 +175,11 @@ impl Config {
                 for (index, pattern) in patterns.iter().enumerate() {
                     let trimmed = pattern.trim();
                     if trimmed.is_empty() {
-                        return Err(format!("simplify_wikilinks: entry at index {} is empty or only contains whitespace", index).into());
+                        return Err(format!(
+                            "simplify_wikilinks: entry at index {} is empty or only contains whitespace",
+                            index
+                        )
+                            .into());
                     }
                     validated.push(trimmed.to_string());
                 }
@@ -211,34 +201,6 @@ mod tests {
     use std::io::Write;
     use tempfile::NamedTempFile;
     use tempfile::TempDir;
-
-    #[test]
-    fn test_extract_yaml_frontmatter() {
-        let content = r#"---
-obsidian_path: ~/Documents/brain
-apply_changes: false
-cleanup_image_files: true
----
-# Configuration
-This is my Obsidian configuration file.
-"#;
-        let yaml = Config::extract_yaml_frontmatter(content).unwrap();
-        assert!(yaml.contains("obsidian_path"));
-        assert!(yaml.contains("apply_changes"));
-        assert!(!yaml.contains("# Configuration"));
-    }
-
-    #[test]
-    fn test_extract_yaml_frontmatter_no_start() {
-        let content = "not a yaml file";
-        assert!(Config::extract_yaml_frontmatter(content).is_err());
-    }
-
-    #[test]
-    fn test_extract_yaml_frontmatter_no_end() {
-        let content = "---\nsome: yaml\nbut no end";
-        assert!(Config::extract_yaml_frontmatter(content).is_err());
-    }
 
     #[test]
     fn test_from_obsidian_file_with_tilde() {
