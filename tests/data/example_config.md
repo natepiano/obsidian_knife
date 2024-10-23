@@ -1,13 +1,4 @@
-# this is an example yaml file
-# i thought it would be helpful to just store the config as a markdown file in obsidian
-# so it lives with the repository
-
-# to make it work, just copy/paste the configuration parameters and put it into a markdown file in
-# obsidian as the frontmatter - placed between two lines with just --- in them like so (without the comments)
-# ---
-# <your config goes here>
-# ---
-
+---
 obsidian_path: ~/Documents/brain
 output_folder: conf/obsidian_knife
 
@@ -29,3 +20,16 @@ ignore_text:
 simplify_wikilinks:
  - "Ed:"
  - "Bob Rock"
+---
+
+this is an example configuration file. I thought it would be helpful to just store the config as a markdown file in obsidian
+so it lives with the repository
+
+to make it work, just copy/paste the configuration parameters and put it into a markdown file in 
+obsidian as the frontmatter - placed between two lines with just --- in them like so (without the comments)
+
+```yaml
+ ---
+ <your config goes here>
+ ---
+```

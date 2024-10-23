@@ -3,6 +3,14 @@ name = "obsidian_knife"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "obsidian_knife"
+path = "src/lib.rs"
+
+[[bind]]
+name = "obsidian_knife"
+path = "src/main.rs"
+
 [dependencies]
 chrono = "0.4"
 rayon = "1.10.0"

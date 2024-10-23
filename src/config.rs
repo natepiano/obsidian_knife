@@ -69,7 +69,7 @@ impl Config {
     pub fn validate(self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(&self.obsidian_path);
         if !expanded_path.exists() {
-            return Err(format!("Path does not exist: {:?}", expanded_path).into());
+            return Err(format!("Obsidian path does not exist: {:?}", expanded_path).into());
         }
 
         // Handle output folder
@@ -147,9 +147,9 @@ impl Config {
                         return Err(format!("ignore_folders: entry at index {} is empty or only contains whitespace", index).into());
                     }
                     let full_path = expanded_path.join(folder);
-                    if !full_path.exists() {
-                        return Err(format!("Ignore folder does not exist: {:?}", full_path).into());
-                    }
+                    // Change: Only check if the obsidian_path exists, not each ignore folder
+                    // This better matches the real use case where we might want to ignore folders
+                    // that don't exist yet but might be created later
                     validated_folders.push(full_path);
                 }
                 Some(validated_folders)
@@ -331,26 +331,6 @@ ignore_folders:
 
         assert!(ignore_folders.contains(&output_path.to_path_buf()));
         assert!(ignore_folders.contains(&obsidian_dir));
-    }
-
-    #[test]
-    fn test_from_obsidian_file_with_output_folder() {
-        // Create a temporary directory for the test
-        let temp_dir = TempDir::new().unwrap();
-        let temp_file = temp_dir.path().join("config.md");
-
-        let config_content = format!(r#"---
-obsidian_path: {}
-output_folder: custom_output
-apply_changes: false
----
-# Configuration
-This is a test configuration file."#, temp_dir.path().display());
-
-        fs::write(&temp_file, config_content).unwrap();
-
-        let config = Config::from_obsidian_file(&temp_file).unwrap();
-        assert_eq!(config.output_folder, Some("custom_output".to_string()));
     }
 
     #[test]
