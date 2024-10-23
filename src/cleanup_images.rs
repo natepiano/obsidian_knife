@@ -569,7 +569,6 @@ mod tests {
         );
 
         assert_eq!(result, expected_content);
-
     }
 
     #[test]
@@ -598,7 +597,6 @@ mod tests {
         let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
 
         assert_eq!(result, expected_content);
-
     }
 
     #[test]

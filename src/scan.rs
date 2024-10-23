@@ -4,23 +4,24 @@ use crate::{constants::IMAGE_EXTENSIONS, validated_config::ValidatedConfig};
 
 use rayon::prelude::*;
 
+use crate::yaml_utils::deserialize_yaml_frontmatter;
 use regex::Regex;
 use serde::Deserialize;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
 use std::ffi::OsStr;
-use std::fs::File;
+use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Deserialize)]
-pub struct ObsidianFileProperties {
-    date_created: Option<String>,
-    date_created_fix: Option<String>,
-    date_modified: Option<String>,
+pub struct Properties {
+    pub date_created: Option<String>,
+    pub date_created_fix: Option<String>,
+    pub date_modified: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -37,9 +38,11 @@ pub struct WikilinkInfo {
     pub replace_text: String,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct MarkdownFileInfo {
     pub image_links: Vec<String>,
+    pub properties: Option<Properties>,
+    pub property_error: Option<String>,
     pub wikilinks: Vec<WikilinkInfo>,
 }
 
@@ -287,9 +290,19 @@ fn scan_markdown_file(
     simplify_patterns: &[String],
     ignore_patterns: &[String],
 ) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
-    let file = File::open(file_path)?;
-    let reader = BufReader::new(file);
+    let content = fs::read_to_string(file_path)?;
+
+    // Deserialize YAML front matter
+    let (properties, property_error) = match deserialize_yaml_frontmatter(&content) {
+        Ok(props) => (Some(props), None),
+        Err(e) => (None, Some(e.to_string())),
+    };
+
     let mut file_info = MarkdownFileInfo::default();
+    file_info.properties = properties;
+    file_info.property_error = property_error; // Set the captured error
+
+    let reader = BufReader::new(content.as_bytes());
 
     for (line_number, line) in reader.lines().enumerate() {
         let line = line?;
@@ -449,7 +462,7 @@ fn write_file_info(
         .map(|(ext, count)| vec![format!(".{}", ext), count.to_string()])
         .collect();
 
-    // Write the image counts as a markdown table
+    // Write the image counts as a Markdown table
     writer.write_markdown_table(
         headers,
         &rows,
@@ -587,5 +600,60 @@ mod tests {
         assert_eq!(file_info.wikilinks[0].replace_text, "Ed:");
 
         // The "Ed: something else" shouldn't be included as it's not a wikilink
+    }
+
+    #[test]
+    fn test_markdown_file_without_yaml_frontmatter() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let content = r#"
+[[Bob]] loves [[Rock]]!
+No YAML here.
+"#;
+
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        let file_info = scan_markdown_file(
+            &file_path,
+            &Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap()),
+            &Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap()),
+            &[],
+            &[],
+        )
+        .unwrap();
+
+        assert!(file_info.properties.is_none());
+        assert!(file_info.property_error.is_some());
+    }
+
+    #[test]
+    fn test_markdown_file_with_malformed_yaml_frontmatter() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let content = r#"
+---
+date_created "2023-10-01"  # Missing colon
+date_modified: "2023-10-15"
+---
+[[Bob]] loves [[Rock]]!
+"#;
+
+        let mut file = File::create(&file_path).unwrap();
+        file.write_all(content.as_bytes()).unwrap();
+
+        let file_info = scan_markdown_file(
+            &file_path,
+            &Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap()),
+            &Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap()),
+            &[],
+            &[],
+        )
+        .unwrap();
+
+        assert!(file_info.properties.is_none());
+        assert!(file_info.property_error.is_some());
     }
 }

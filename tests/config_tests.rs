@@ -1,6 +1,5 @@
 use obsidian_knife::Config;
 use std::fs;
-use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 

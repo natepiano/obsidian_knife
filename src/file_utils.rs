@@ -90,7 +90,6 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     path.to_path_buf()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -184,7 +183,6 @@ mod tests {
 
         let expanded = expand_tilde(path);
 
-
         // Since HOME is unlikely to contain invalid bytes, the tilde should be expanded
         if let Some(home) = std::env::var_os("HOME") {
             let mut expected = PathBuf::from(home);
@@ -192,8 +190,10 @@ mod tests {
             assert_eq!(expanded, expected);
         } else {
             // If HOME is not set, the path should remain unchanged
-            assert_eq!(expanded, PathBuf::from(OsStr::from_bytes(b"~/invalid-\xFF-path")));
+            assert_eq!(
+                expanded,
+                PathBuf::from(OsStr::from_bytes(b"~/invalid-\xFF-path"))
+            );
         }
     }
-
 }

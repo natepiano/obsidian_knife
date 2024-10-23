@@ -6,6 +6,13 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
+pub fn format_wikilink(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| format!("[[{}]]", s))
+        .unwrap_or_else(|| "[[]]".to_string())
+}
+
 pub fn process_simplify_wikilinks(
     config: &ValidatedConfig,
     collected_files: &HashMap<PathBuf, crate::scan::MarkdownFileInfo>,
@@ -129,13 +136,6 @@ fn write_wikilinks_table(
 
 fn escape_pipes(s: &str) -> String {
     s.replace('|', "\\|")
-}
-
-fn format_wikilink(path: &Path) -> String {
-    path.file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| format!("[[{}]]", s))
-        .unwrap_or_else(|| "[[]]".to_string())
 }
 
 fn apply_simplifications(

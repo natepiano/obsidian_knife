@@ -7,7 +7,7 @@ mod scan;
 mod sha256_cache;
 mod simplify_wikilinks;
 mod thread_safe_writer;
-mod update_creation_dates;
+mod update_dates;
 mod validated_config;
 mod yaml_utils;
 
@@ -24,13 +24,13 @@ pub fn process_config(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let collected_files = scan::scan_obsidian_folder(&config, writer)?;
-    update_creation_dates::update_creation_dates(&config, &collected_files, writer)?;
     cleanup_images::cleanup_images(&config, &collected_files, writer)?;
     simplify_wikilinks::process_simplify_wikilinks(
         &config,
         &collected_files.markdown_files,
         writer,
     )?;
+    update_dates::process_dates(&collected_files.markdown_files, writer)?;
     Ok(())
 }
 

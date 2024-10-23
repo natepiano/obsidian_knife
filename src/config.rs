@@ -1,10 +1,10 @@
-use crate::yaml_utils::deserialize_yaml_frontmatter;
+use crate::file_utils::expand_tilde;
 use crate::validated_config::ValidatedConfig;
+use crate::yaml_utils::deserialize_yaml_frontmatter;
 use serde::Deserialize;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::file_utils::expand_tilde;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -29,23 +29,24 @@ impl Config {
     /// * `Err(Box<dyn Error + Send + Sync>)` if reading or deserialization fails.
     pub fn from_obsidian_file(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(path);
-        let contents = fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("config file not found: {}", expanded_path.display()),
-                ))
-            } else {
-                Box::new(std::io::Error::new(
-                    e.kind(),
-                    format!(
-                        "error reading config file '{}': {}",
-                        expanded_path.display(),
-                        e
-                    ),
-                ))
-            }
-        })?;
+        let contents =
+            fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Box::new(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("config file not found: {}", expanded_path.display()),
+                    ))
+                } else {
+                    Box::new(std::io::Error::new(
+                        e.kind(),
+                        format!(
+                            "error reading config file '{}': {}",
+                            expanded_path.display(),
+                            e
+                        ),
+                    ))
+                }
+            })?;
 
         deserialize_yaml_frontmatter(&contents)
     }
@@ -109,7 +110,7 @@ impl Config {
                             "ignore_text: entry at index {} is empty or only contains whitespace",
                             index
                         )
-                            .into());
+                        .into());
                     }
                     validated.push(trimmed.to_string());
                 }
