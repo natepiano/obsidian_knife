@@ -252,6 +252,7 @@ fn write_invalid_dates_table(
 
     let headers = &[
         "file",
+        "created", // New "created" column
         "date_created",
         "error",
         "date_modified",
@@ -263,14 +264,21 @@ fn write_invalid_dates_table(
     let rows: Vec<Vec<String>> = entries
         .iter()
         .map(|(path, error)| {
+            // Get the creation time from the file system
+            let created_time = match get_file_creation_time(path) {
+                Ok(time) => time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                Err(_) => "N/A".to_string(), // Handle case where the creation time can't be retrieved
+            };
+
             vec![
-                format_wikilink(path),
-                error.date_created.clone().unwrap_or_default(),
-                error.date_created_error.clone().unwrap_or_default(),
-                error.date_modified.clone().unwrap_or_default(),
-                error.date_modified_error.clone().unwrap_or_default(),
-                error.date_created_fix.clone().unwrap_or_default(),
-                error.date_created_fix_error.clone().unwrap_or_default(),
+                format_wikilink(path),                                  // File path
+                created_time,                                           // New "created" column
+                error.date_created.clone().unwrap_or_default(),         // Date created
+                error.date_created_error.clone().unwrap_or_default(),   // Error for date_created
+                error.date_modified.clone().unwrap_or_default(),        // Date modified
+                error.date_modified_error.clone().unwrap_or_default(),  // Error for date_modified
+                error.date_created_fix.clone().unwrap_or_default(),     // Date created fix
+                error.date_created_fix_error.clone().unwrap_or_default(), // Error for date_created_fix
             ]
         })
         .collect();
@@ -286,11 +294,13 @@ fn write_invalid_dates_table(
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
+            ColumnAlignment::Left,
         ]),
     )?;
 
     Ok(())
 }
+
 
 fn write_valid_dates_table(
     entries: &[(PathBuf, DateInfo)],
