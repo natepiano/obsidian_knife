@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Err(value) => return value,
     };
 
-    let config = read_config(&config_file)?;
+    let config = Config::from_obsidian_file(Path::new(&config_file))?;
     let validated_config = config.validate()?;
     let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
 
@@ -66,8 +66,4 @@ fn get_config_file_name() -> Result<String, Result<(), Box<dyn Error + Send + Sy
         ));
     }
     Ok(args[1].clone())
-}
-
-fn read_config(config_file: &str) -> Result<Config, Box<dyn Error + Send + Sync>> {
-    Config::from_obsidian_file(Path::new(config_file))
 }
