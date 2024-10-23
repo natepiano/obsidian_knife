@@ -20,7 +20,6 @@ impl ValidatedConfig {
         obsidian_path: PathBuf,
         output_folder: PathBuf,
         simplify_wikilinks: Option<Vec<String>>,
-
     ) -> Self {
         ValidatedConfig {
             apply_changes,
@@ -61,5 +60,4 @@ impl ValidatedConfig {
     pub fn simplify_wikilinks(&self) -> Option<&[String]> {
         self.simplify_wikilinks.as_deref()
     }
-
 }

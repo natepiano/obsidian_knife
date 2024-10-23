@@ -1,4 +1,4 @@
-use obsidian_knife::{Config, ThreadSafeWriter, process_config, write_execution_start};
+use obsidian_knife::{process_config, write_execution_start, Config, ThreadSafeWriter};
 use std::env;
 use std::error::Error;
 use std::path::Path;
@@ -28,7 +28,10 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             let duration = start_time.elapsed();
             writer.writeln(
                 "",
-                &format!("total processing time: {:.2} seconds", duration.as_secs_f64()),
+                &format!(
+                    "total processing time: {:.2} seconds",
+                    duration.as_secs_f64()
+                ),
             )?;
             Ok(())
         }
@@ -45,7 +48,10 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
             let duration = start_time.elapsed();
             writer.writeln(
                 "",
-                &format!("total processing time before error: {:.2} seconds", duration.as_secs_f64()),
+                &format!(
+                    "total processing time before error: {:.2} seconds",
+                    duration.as_secs_f64()
+                ),
             )?;
             Err(e)
         }
@@ -55,7 +61,9 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 fn get_config_file_name() -> Result<String, Result<(), Box<dyn Error + Send + Sync>>> {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
-        return Err(Err("usage: obsidian_knife <obsidian_folder/config_file.md>".into()));
+        return Err(Err(
+            "usage: obsidian_knife <obsidian_folder/config_file.md>".into(),
+        ));
     }
     Ok(args[1].clone())
 }

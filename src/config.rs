@@ -49,19 +49,24 @@ impl Config {
 
     pub fn from_obsidian_file(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(path);
-        let contents = fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
-            if e.kind() == std::io::ErrorKind::NotFound {
-                Box::new(std::io::Error::new(
-                    std::io::ErrorKind::NotFound,
-                    format!("config file not found: {}", expanded_path.display()),
-                ))
-            } else {
-                Box::new(std::io::Error::new(
-                    e.kind(),
-                    format!("error reading config file '{}': {}", expanded_path.display(), e),
-                ))
-            }
-        })?;
+        let contents =
+            fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    Box::new(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("config file not found: {}", expanded_path.display()),
+                    ))
+                } else {
+                    Box::new(std::io::Error::new(
+                        e.kind(),
+                        format!(
+                            "error reading config file '{}': {}",
+                            expanded_path.display(),
+                            e
+                        ),
+                    ))
+                }
+            })?;
 
         let yaml = Self::extract_yaml_frontmatter(&contents)?;
         Self::from_yaml_str(&yaml)
@@ -216,7 +221,6 @@ mod tests {
     use tempfile::NamedTempFile;
     use tempfile::TempDir;
 
-
     #[test]
     fn test_extract_yaml_frontmatter() {
         let content = r#"---
@@ -274,13 +278,18 @@ cleanup_image_files: true
     fn test_from_obsidian_file_not_found() {
         let result = Config::from_obsidian_file(Path::new("~/nonexistent/config.md"));
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("config file not found"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("config file not found"));
     }
 
     #[test]
     fn test_from_obsidian_file_invalid_yaml() {
         let mut temp_file = NamedTempFile::new().unwrap();
-        temp_file.write_all(b"---\ninvalid: yaml: content:\n---").unwrap();
+        temp_file
+            .write_all(b"---\ninvalid: yaml: content:\n---")
+            .unwrap();
 
         let result = Config::from_obsidian_file(temp_file.path());
         assert!(result.is_err());
@@ -312,14 +321,20 @@ apply_changes: false"#;
         // Create a temporary directory for the test
         let temp_dir = TempDir::new().unwrap();
 
-        let yaml = format!(r#"
+        let yaml = format!(
+            r#"
 obsidian_path: {}
-output_folder: "  ""#, temp_dir.path().display());
+output_folder: "  ""#,
+            temp_dir.path().display()
+        );
 
         let config: Config = serde_yaml::from_str(&yaml).unwrap();
         let result = config.validate();
         assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("output_folder cannot be empty"));
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("output_folder cannot be empty"));
     }
 
     #[test]
@@ -331,11 +346,14 @@ output_folder: "  ""#, temp_dir.path().display());
         let obsidian_dir = temp_dir.path().join(".obsidian");
         fs::create_dir(&obsidian_dir).unwrap();
 
-        let yaml = format!(r#"
+        let yaml = format!(
+            r#"
 obsidian_path: {}
 output_folder: custom_output
 ignore_folders:
-  - .obsidian"#, temp_dir.path().display());
+  - .obsidian"#,
+            temp_dir.path().display()
+        );
 
         let config: Config = serde_yaml::from_str(&yaml).unwrap();
         let validated = config.validate().unwrap();
@@ -352,8 +370,11 @@ ignore_folders:
         // Create a temporary directory for the test
         let temp_dir = TempDir::new().unwrap();
 
-        let yaml = format!(r#"
-obsidian_path: {}"#, temp_dir.path().display());
+        let yaml = format!(
+            r#"
+obsidian_path: {}"#,
+            temp_dir.path().display()
+        );
 
         let config: Config = serde_yaml::from_str(&yaml).unwrap();
         let validated = config.validate().unwrap();
@@ -433,7 +454,10 @@ obsidian_path: {}"#, temp_dir.path().display());
 
         let config = Config::from_obsidian_file(&config_path).unwrap();
         let validated = config.validate().unwrap();
-        assert_eq!(validated.creation_date_property(), Some("date_creation_fix"));
+        assert_eq!(
+            validated.creation_date_property(),
+            Some("date_creation_fix")
+        );
 
         // Test case 2: Property exists but empty
         let invalid_config = format!(
@@ -452,10 +476,7 @@ obsidian_path: {}"#, temp_dir.path().display());
             .contains("creation_date_property must have a value if specified"));
 
         // Test case 3: Property missing
-        let missing_config = format!(
-            "---\nobsidian_path: {}\n---",
-            temp_dir.path().display()
-        );
+        let missing_config = format!("---\nobsidian_path: {}\n---", temp_dir.path().display());
         fs::write(&config_path, missing_config).unwrap();
 
         let config = Config::from_obsidian_file(&config_path).unwrap();

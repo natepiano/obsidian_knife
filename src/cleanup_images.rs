@@ -19,7 +19,6 @@ pub fn cleanup_images(
     collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     writer.writeln("#", "image cleanup")?;
 
     let image_groups = group_images(&collected_files.image_map);

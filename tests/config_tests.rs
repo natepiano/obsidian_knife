@@ -91,7 +91,6 @@ fn test_validate_example_config_without_folders() {
     assert!(error.contains("does_not_exist"));
 }
 
-
 #[test]
 fn test_example_config_creation_date_property() {
     let temp_dir = TempDir::new().unwrap();
@@ -113,7 +112,10 @@ fn test_example_config_creation_date_property() {
     let config = Config::from_obsidian_file(&config_path).unwrap();
     let validated = config.validate();
     assert!(validated.is_ok());
-    assert_eq!(validated.unwrap().creation_date_property(), Some("date_onennote"));
+    assert_eq!(
+        validated.unwrap().creation_date_property(),
+        Some("date_onenote")
+    );
 }
 
 #[test]
@@ -124,11 +126,14 @@ fn test_config_integration_with_filesystem() {
     fs::create_dir_all(temp_dir.path().join(".obsidian")).unwrap();
 
     // Test that output folder is properly added to ignore list
-    let yaml = format!(r#"
+    let yaml = format!(
+        r#"
         obsidian_path: {}
         output_folder: custom_output
         ignore_folders:
-          - .obsidian"#, temp_dir.path().display());
+          - .obsidian"#,
+        temp_dir.path().display()
+    );
 
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
     let validated = config.validate().unwrap();
