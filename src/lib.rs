@@ -1,14 +1,15 @@
 // lib.rs
-pub mod cleanup_images;
-pub mod config;
-pub mod constants;
-pub mod file_utils;
-pub mod scan;
-pub mod sha256_cache;
-pub mod simplify_wikilinks;
-pub mod thread_safe_writer;
-pub mod update_creation_dates;
-pub mod validated_config;
+mod cleanup_images;
+mod config;
+mod constants;
+mod file_utils;
+mod scan;
+mod sha256_cache;
+mod simplify_wikilinks;
+mod thread_safe_writer;
+mod update_creation_dates;
+mod validated_config;
+mod yaml_utils;
 
 use chrono::Local;
 use std::error::Error;

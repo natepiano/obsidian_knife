@@ -3,6 +3,7 @@ use serde::Deserialize;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::file_utils::expand_tilde;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
@@ -201,16 +202,6 @@ impl Config {
             None => Ok(None),
         }
     }
-}
-
-fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
-    let path_str = path.as_ref().to_str().unwrap_or("");
-    if path_str.starts_with("~/") {
-        if let Some(home) = std::env::var_os("HOME") {
-            return PathBuf::from(home).join(&path_str[2..]);
-        }
-    }
-    path.as_ref().to_path_buf()
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@ use chrono::Local;
 use regex::Regex;
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub fn update_file<P: AsRef<Path>>(
     path: P,
@@ -52,6 +52,44 @@ fn update_markdown_content(content: &str, update_fn: impl FnOnce(&str) -> String
 
     update_fn(&updated_content)
 }
+
+/// Expands a path that starts with `~/` to the user's home directory.
+///
+/// # Arguments
+///
+/// * `path` - A path that may start with `~/`.
+///
+/// # Returns
+///
+/// * `PathBuf` with the expanded path.
+pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
+    let path = path.as_ref();
+
+    // Handle paths that start with "~/"
+    if let Some(path_str) = path.to_str() {
+        if path_str.starts_with("~/") {
+            if let Some(home) = std::env::var_os("HOME") {
+                return PathBuf::from(home).join(&path_str[2..]);
+            }
+        }
+    } else {
+        // Handle invalid UTF-8 paths (OsStr -> PathBuf without assuming valid UTF-8)
+        let mut components = path.components();
+        if let Some(std::path::Component::Normal(first)) = components.next() {
+            if first == "~" {
+                if let Some(home) = std::env::var_os("HOME") {
+                    let mut expanded_path = PathBuf::from(home);
+                    expanded_path.extend(components);
+                    return expanded_path;
+                }
+            }
+        }
+    }
+
+    // Return the original path if no tilde expansion was needed
+    path.to_path_buf()
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -114,4 +152,48 @@ mod tests {
         assert!(updated_content.contains(&format!("date_modified: \"{}\"", today)));
         assert!(updated_content.contains("Updated Content"));
     }
+
+    #[test]
+    fn test_expand_tilde() {
+        // Only run this test if HOME is set
+        if let Some(home) = std::env::var_os("HOME") {
+            let input = "~/Documents/brain";
+            let expected = PathBuf::from(home).join("Documents/brain");
+            let expanded = expand_tilde(input);
+            assert_eq!(expanded, expected);
+        }
+    }
+
+    #[test]
+    fn test_expand_tilde_no_tilde() {
+        let input = "/usr/local/bin";
+        let expected = PathBuf::from("/usr/local/bin");
+        let expanded = expand_tilde(input);
+        assert_eq!(expanded, expected);
+    }
+
+    #[test]
+    fn test_expand_tilde_invalid_utf8() {
+        use std::ffi::OsStr;
+        use std::os::unix::ffi::OsStrExt;
+
+        // Create a path with invalid UTF-8
+        let bytes = b"~/invalid-\xFF-path";
+        let os_str = OsStr::from_bytes(bytes);
+        let path = Path::new(os_str);
+
+        let expanded = expand_tilde(path);
+
+
+        // Since HOME is unlikely to contain invalid bytes, the tilde should be expanded
+        if let Some(home) = std::env::var_os("HOME") {
+            let mut expected = PathBuf::from(home);
+            expected.push(OsStr::from_bytes(b"invalid-\xFF-path"));
+            assert_eq!(expanded, expected);
+        } else {
+            // If HOME is not set, the path should remain unchanged
+            assert_eq!(expanded, PathBuf::from(OsStr::from_bytes(b"~/invalid-\xFF-path")));
+        }
+    }
+
 }
