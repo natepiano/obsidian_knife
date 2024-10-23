@@ -3,6 +3,7 @@ obsidian_path: ~/Documents/brain
 output_folder: conf/obsidian_knife
 
 apply_changes: false
+creation_date_property: date_onennote 
 
 ignore_folders:
   - .idea

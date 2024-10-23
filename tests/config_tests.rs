@@ -1,5 +1,7 @@
 use obsidian_knife::Config;
 use std::fs;
+use std::fs::File;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
@@ -87,4 +89,54 @@ fn test_validate_example_config_without_folders() {
 
     println!("Actual error message: {}", error);
     assert!(error.contains("does_not_exist"));
+}
+
+
+#[test]
+fn test_example_config_creation_date_property() {
+    let temp_dir = TempDir::new().unwrap();
+    create_test_folders(&temp_dir);
+    let config_path = temp_dir.path().join("example_config.md");
+
+    // Copy example config and modify the path to point to our temp directory
+    let mut example_config = std::fs::read_to_string("tests/data/example_config.md").unwrap();
+    example_config = example_config.replace(
+        "obsidian_path: ~/Documents/brain",
+        &format!("obsidian_path: {}", temp_dir.path().display()),
+    );
+
+    File::create(&config_path)
+        .unwrap()
+        .write_all(example_config.as_bytes())
+        .unwrap();
+
+    let config = Config::from_obsidian_file(&config_path).unwrap();
+    let validated = config.validate();
+    assert!(validated.is_ok());
+    assert_eq!(validated.unwrap().creation_date_property(), Some("date_onennote"));
+}
+
+#[test]
+fn test_config_integration_with_filesystem() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create test directories
+    fs::create_dir_all(temp_dir.path().join(".obsidian")).unwrap();
+
+    // Test that output folder is properly added to ignore list
+    let yaml = format!(r#"
+        obsidian_path: {}
+        output_folder: custom_output
+        ignore_folders:
+          - .obsidian"#, temp_dir.path().display());
+
+    let config: Config = serde_yaml::from_str(&yaml).unwrap();
+    let validated = config.validate().unwrap();
+
+    let ignore_folders = validated.ignore_folders().unwrap();
+    let output_path = validated.output_folder();
+
+    // Verify both filesystem integration points
+    assert!(ignore_folders.contains(&output_path.to_path_buf()));
+    assert!(ignore_folders.contains(&temp_dir.path().join(".obsidian")));
 }

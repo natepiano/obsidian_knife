@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
+    creation_date_property: Option<String>,
     ignore_folders: Option<Vec<String>>,
     ignore_text: Option<Vec<String>>,
     obsidian_path: String,
@@ -82,6 +83,18 @@ impl Config {
             expanded_path.join("obsidian_knife") // Default folder name
         };
 
+        // Validate creation_date_property
+        let creation_date_property = match &self.creation_date_property {
+            Some(prop) => {
+                let trimmed = prop.trim();
+                if trimmed.is_empty() {
+                    return Err("creation_date_property must have a value if specified".into());
+                }
+                Some(trimmed.to_string())
+            }
+            None => None,
+        };
+
         // Add output folder and cache folder to ignored folders
         let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
         let mut folders_to_add = vec![
@@ -96,15 +109,16 @@ impl Config {
         }
 
         let validated_simplify_wikilinks = self.validate_simplify_wikilinks()?;
-        let validate_ignore_text = self.validate_ignore_text()?;
+        let ignore_text = self.validate_ignore_text()?;
 
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
+            creation_date_property,
             ignore_folders,
+            ignore_text,
             expanded_path,
             output_folder,
             validated_simplify_wikilinks,
-            validate_ignore_text,
         ))
     }
 
@@ -403,5 +417,49 @@ obsidian_path: {}"#, temp_dir.path().display());
             result.unwrap_err().to_string(),
             "simplify_wikilinks: entry at index 1 is empty or only contains whitespace"
         );
+    }
+
+    #[test]
+    fn test_creation_date_property_validation() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test case 1: Valid property with value
+        let config_content = format!(
+            "---\nobsidian_path: {}\ncreation_date_property: date_creation_fix\n---",
+            temp_dir.path().display()
+        );
+        let config_path = temp_dir.path().join("config.md");
+        fs::write(&config_path, config_content).unwrap();
+
+        let config = Config::from_obsidian_file(&config_path).unwrap();
+        let validated = config.validate().unwrap();
+        assert_eq!(validated.creation_date_property(), Some("date_creation_fix"));
+
+        // Test case 2: Property exists but empty
+        let invalid_config = format!(
+            "---\nobsidian_path: {}\ncreation_date_property: \"\"\n---",
+            temp_dir.path().display()
+        );
+        let invalid_path = temp_dir.path().join("invalid_config.md");
+        fs::write(&invalid_path, invalid_config).unwrap();
+
+        let config = Config::from_obsidian_file(&invalid_path).unwrap();
+        let result = config.validate();
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .to_string()
+            .contains("creation_date_property must have a value if specified"));
+
+        // Test case 3: Property missing
+        let missing_config = format!(
+            "---\nobsidian_path: {}\n---",
+            temp_dir.path().display()
+        );
+        fs::write(&config_path, missing_config).unwrap();
+
+        let config = Config::from_obsidian_file(&config_path).unwrap();
+        let validated = config.validate().unwrap();
+        assert_eq!(validated.creation_date_property(), None);
     }
 }
