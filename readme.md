@@ -2,16 +2,20 @@
 cli utility to manage my [obsidian](https://obsidian.md) folder
 
 ## usage
-there is an example_config.md (tests/test/example_config.md) - this config should be placed in a markdown file wherever you want in your
-obsidian repo. I recommend in the same folder you specify as the output_folder for obsidian_knife. Then run the command line and path the path to the config yaml - ~ replacement for $HOME will work
+Use example_config.md (tests/test/example_config.md) as your starting point.This config can be invoked anywhere, but I recommend you name it what you wish and
+place it in your obsidian repo. I use a folder in my repo named conf and in that i have my templates folder - i also have a folder for output from obsidian_knife named,... "obsidian_knife"
+I put the configuration file in this folder and named it conf.md.  
 
-i.e.:
+One of the parameters in the configuration yaml (the frontmatter section of example_config.md) - is "output_folder". If you specify the same folder as your output folder then when you run the CLI
+you'll get the "obsidian knife output.md" in that same folder.
+
+example invocation:
 
 ```
-obsidian_knife ~/Documents/my_obsidian_folder/obsidian_knife/config.md
+obsidian_knife ~/Documents/my_obsidian_folder/conf/obsidian_knife/config.md
 ```
 
-an output file named "obsidian knife output.md" will be created in this folder where you can preview changes
+As mentioned, the output file "[obsidian_path]/[output_folder]/obsidian knife output.md" will be created where you can preview changes 
 
 If you want to apply changes then change apply_changes to true. If you have placed the config.md (or whatever you name it) as a file in obsidian,
 then obsidian will see the apply_changes field as a boolean that you can toggle by clicking on the rendered radio button.
