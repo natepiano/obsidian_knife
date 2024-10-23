@@ -20,7 +20,7 @@ then obsidian will see the apply_changes field as a boolean that you can toggle 
 - configurable apply_changes - set to false for a dry-run
 - output changes to a file in a specified folder in your obsidian repo
 - simplify unintentionally created wikilinks**
-- deduplicate images
+- deduplicate images 
 - remove local images and image references that won't render such as
     - tiff images
     - zero byte images
