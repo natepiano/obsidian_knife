@@ -7,7 +7,7 @@ edition = "2021"
 name = "obsidian_knife"
 path = "src/lib.rs"
 
-[[bind]]
+[[bin]]
 name = "obsidian_knife"
 path = "src/main.rs"
 

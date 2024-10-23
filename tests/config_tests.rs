@@ -1,6 +1,5 @@
 use obsidian_knife::Config;
-use std::fs::{self, File};
-use std::io::Write;
+use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
@@ -11,30 +10,32 @@ fn example_config() -> PathBuf {
         .join("example_config.md")
 }
 
-#[test]
-fn test_validate_example_config() {
-    // Create a temporary directory for our test "obsidian vault"
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create the required folders from our example config
+fn create_test_folders(temp_dir: &TempDir) {
     for folder in [".idea", ".obsidian", "conf/templates"].iter() {
         fs::create_dir_all(temp_dir.path().join(folder)).unwrap();
     }
+}
 
+fn setup_test_config(temp_dir: &TempDir, obsidian_path: &Path) -> PathBuf {
     let config_content = fs::read_to_string(example_config()).unwrap();
+    let temp_config_path = temp_dir.path().join("example_config.md");
 
-    // Create a temporary config file with the content, replacing the obsidian_path
-    let temp_config_path = temp_dir.path().join("config.md");
     let modified_content = config_content.replace(
         "obsidian_path: ~/Documents/brain",
-        &format!("obsidian_path: {}", temp_dir.path().to_string_lossy()),
+        &format!("obsidian_path: {}", obsidian_path.display()),
     );
 
-    let mut temp_config_file = File::create(&temp_config_path).unwrap();
-    temp_config_file.write_all(modified_content.as_bytes()).unwrap();
+    fs::write(&temp_config_path, modified_content).unwrap();
+    temp_config_path
+}
 
-    // Parse and validate the config
-    let config = Config::from_obsidian_file(&temp_config_path).unwrap();
+#[test]
+fn test_validate_example_config() {
+    let temp_dir = TempDir::new().unwrap();
+    create_test_folders(&temp_dir);
+
+    let config_path = setup_test_config(&temp_dir, temp_dir.path());
+    let config = Config::from_obsidian_file(&config_path).unwrap();
     let validated_config = config.validate().unwrap();
 
     // Test the validated configuration
@@ -72,32 +73,15 @@ fn test_validate_example_config() {
 
 #[test]
 fn test_validate_example_config_without_folders() {
-    // Create a temporary directory for our test "obsidian vault"
     let temp_dir = TempDir::new().unwrap();
+    create_test_folders(&temp_dir);
 
-    // Create the required folders from our example config
-    for folder in [".idea", ".obsidian", "conf/templates"].iter() {
-        fs::create_dir_all(temp_dir.path().join(folder)).unwrap();
-    }
-
-    // Read the example config
-    let config_content = fs::read_to_string(example_config()).unwrap();
-
-    // Create a temporary config file, but point it to a non-existent directory
-    let temp_config_path = temp_dir.path().join("example_config.md");
     let non_existent_path = temp_dir.path().join("does_not_exist");
-    let modified_content = config_content.replace(
-        "obsidian_path: ~/Documents/brain",
-        &format!("obsidian_path: {}", non_existent_path.display()),
-    );
+    let config_path = setup_test_config(&temp_dir, &non_existent_path);
 
-    fs::write(&temp_config_path, modified_content).unwrap();
-
-    // Parse and validate the config
-    let config = Config::from_obsidian_file(&temp_config_path).unwrap();
+    let config = Config::from_obsidian_file(&config_path).unwrap();
     let result = config.validate();
 
-    // Should fail because the Obsidian vault path doesn't exist
     assert!(result.is_err());
     let error = result.unwrap_err().to_string();
 
