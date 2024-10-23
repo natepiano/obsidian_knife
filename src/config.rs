@@ -70,7 +70,7 @@ impl Config {
     pub fn validate(self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(&self.obsidian_path);
         if !expanded_path.exists() {
-            return Err(format!("Obsidian path does not exist: {:?}", expanded_path).into());
+            return Err(format!("obsidian path does not exist: {:?}", expanded_path).into());
         }
 
         // Handle output folder

@@ -7,7 +7,7 @@ place it in your obsidian repo. I use a folder in my repo named conf and in that
 I put the configuration file in this folder and named it conf.md.  
 
 One of the parameters in the configuration yaml (the frontmatter section of example_config.md) - is "output_folder". If you specify the same folder as your output folder then when you run the CLI
-you'll get the "obsidian knife output.md" in that same folder.
+you'll get the "obsidian knife output.md" in that same folder. 
 
 example invocation:
 
@@ -64,6 +64,38 @@ might get replaced with a case insensitive replacement a la:
 [[Will Jones|Will]] you come to the store?
 ```
 
+# yaml doc
+```yaml
+# false = dry-run, true=destructive 
+apply_changes: false
+
+# add this value to name a property used in your md containing a file creation date you want to set
+# if you set (for example) the date_creation property to a valid date in "[[yyyy-mm-dd]]" format then 
+# the actual file creation date will be updated to this, and then the date_creation property will be removed from the md
+creation_date_property: date_creation
+
+# folders to ignore when scanning - this comes from my current actual configuration
+ignore_folders:
+- .idea
+- .obsidian
+- conf/templates
+
+# when scanning markdown for replacements, ignore any with this exact text
+ignore_text:
+- "Ed: music reco:"
+
+# path to obsidian folder - ~ welcome
+obsidian_path: ~/Documents/obsidian_folder
+
+# path to where you want the "obsidian knife output.md" file placed - defaults to "obsidian_knife"
+output_folder: conf/obsidian_knife
+
+# text you want to find that if it contains a wikilink, to then remove the wikilink from it
+# i.e., "Bob [[Rock]]" would become "Bob Rock"
+simplify_wikilinks:
+- Ed:
+- Bob Rock
+```
 # todo
 - replace create date on markdown file using defined property - also update date_created property in frontmatter
 - apply new links to existing text  
