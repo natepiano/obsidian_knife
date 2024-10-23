@@ -68,7 +68,7 @@ pub fn update_creation_dates(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("#", "creation date update")?;
 
-    let Some(date_property) = config.creation_date_property() else {
+    let Some(date_property) = None else { // config.creation_date_property() else {
         writer.writeln("", "no creation_date_property specified in config")?;
         return Ok(());
     };

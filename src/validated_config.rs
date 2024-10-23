@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct ValidatedConfig {
     apply_changes: bool,
-    creation_date_property: Option<String>,
     ignore_folders: Option<Vec<PathBuf>>,
     ignore_text: Option<Vec<String>>,
     obsidian_path: PathBuf,
@@ -14,7 +13,6 @@ pub struct ValidatedConfig {
 impl ValidatedConfig {
     pub fn new(
         apply_changes: bool,
-        creation_date_property: Option<String>,
         ignore_folders: Option<Vec<PathBuf>>,
         ignore_text: Option<Vec<String>>,
         obsidian_path: PathBuf,
@@ -23,7 +21,6 @@ impl ValidatedConfig {
     ) -> Self {
         ValidatedConfig {
             apply_changes,
-            creation_date_property,
             ignore_folders,
             ignore_text,
             obsidian_path,
@@ -34,11 +31,6 @@ impl ValidatedConfig {
 
     pub fn apply_changes(&self) -> bool {
         self.apply_changes
-    }
-
-    // Add new getter
-    pub fn creation_date_property(&self) -> Option<&str> {
-        self.creation_date_property.as_deref()
     }
 
     pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
