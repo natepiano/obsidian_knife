@@ -16,12 +16,11 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-
 #[derive(Debug, Deserialize)]
 pub struct ObsidianFileProperties {
     date_created: Option<String>,
+    date_created_fix: Option<String>,
     date_modified: Option<String>,
-    date_onenote: Option<String>,
 }
 
 #[derive(Debug, Clone)]
