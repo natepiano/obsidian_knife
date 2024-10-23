@@ -5,6 +5,7 @@ use crate::{constants::IMAGE_EXTENSIONS, validated_config::ValidatedConfig};
 use rayon::prelude::*;
 
 use regex::Regex;
+use serde::Deserialize;
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::error::Error;
@@ -14,6 +15,14 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
+
+
+#[derive(Debug, Deserialize)]
+pub struct ObsidianFileProperties {
+    date_created: Option<String>,
+    date_modified: Option<String>,
+    date_onenote: Option<String>,
+}
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
