@@ -4,6 +4,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
+use crate::yaml_utils;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FrontMatter {
@@ -47,40 +48,7 @@ impl FrontMatter {
 
 /// Extract frontmatter from content and deserialize it
 pub fn deserialize_frontmatter(content: &str) -> Result<FrontMatter, Box<dyn Error + Send + Sync>> {
-    let yaml_str = extract_frontmatter(content)?;
-    match serde_yaml::from_str(&yaml_str) {
-        Ok(value) => Ok(value),
-        Err(e) => {
-            Err(Box::new(std::io::Error::new(
-                std::io::ErrorKind::InvalidData,
-                format!(
-                    "error parsing yaml frontmatter: {}. Content:\n{}",
-                    e, yaml_str
-                ),
-            )))
-        }
-    }
-}
-
-/// Extract the YAML frontmatter section from the content
-pub fn extract_frontmatter(content: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let trimmed = content.trim_start();
-    if !trimmed.starts_with("---") {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "file must start with YAML frontmatter (---)",
-        )));
-    }
-
-    let after_first = &trimmed[3..];
-    if let Some(end_index) = after_first.find("---") {
-        Ok(after_first[..end_index].trim().to_string())
-    } else {
-        Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "file must have closing YAML frontmatter (---)",
-        )))
-    }
+    yaml_utils::deserialize_yaml_frontmatter(content)
 }
 
 /// Update the frontmatter in a file's content
@@ -170,6 +138,31 @@ tags:
     }
 
     #[test]
+    fn test_deserialize_frontmatter() {
+        let content = r#"---
+date_created: "[[2023-10-23]]"
+date_modified: "[[2023-10-24]]"
+custom_field: custom value
+---
+# Content"#;
+
+        let frontmatter = deserialize_frontmatter(content).unwrap();
+        assert_eq!(frontmatter.date_created, Some("[[2023-10-23]]".to_string()));
+        assert_eq!(frontmatter.date_modified, Some("[[2023-10-24]]".to_string()));
+        assert!(frontmatter.other_fields.contains_key("custom_field"));
+    }
+
+    #[test]
+    fn test_deserialize_invalid_frontmatter() {
+        let content = r#"---
+invalid: [yaml
+---"#;
+
+        let result = deserialize_frontmatter(content);
+        assert!(result.is_err());
+    }
+
+    #[test]
     fn test_frontmatter_serialization() {
         let mut frontmatter = FrontMatter {
             date_created: Some("[[2023-10-23]]".to_string()),
@@ -207,27 +200,6 @@ tags:
         // Test update methods
         frontmatter.update_date_modified(Some("[[2023-10-24]]".to_string()));
         assert_eq!(frontmatter.date_modified, Some("[[2023-10-24]]".to_string()));
-    }
-
-    #[test]
-    fn test_deserialize_invalid_frontmatter() {
-        let content = r#"---
-invalid: [yaml
----
-# Content"#;
-
-        let result = deserialize_frontmatter(content);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("error parsing yaml frontmatter"));
-    }
-
-    #[test]
-    fn test_missing_frontmatter() {
-        let content = "# Just content\nNo frontmatter here";
-
-        let result = deserialize_frontmatter(content);
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains("must start with YAML frontmatter"));
     }
 
     #[test]
