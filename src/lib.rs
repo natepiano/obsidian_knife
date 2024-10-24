@@ -30,7 +30,7 @@ pub fn process_config(
         &collected_files.markdown_files,
         writer,
     )?;
-    update_dates::process_dates(&collected_files.markdown_files, writer)?;
+    update_dates::process_dates(&config, &collected_files.markdown_files, writer)?;
     Ok(())
 }
 

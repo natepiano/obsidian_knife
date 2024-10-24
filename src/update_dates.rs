@@ -6,6 +6,33 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::ValidatedConfig;
+
+#[derive(Debug)]
+enum DateUpdateAction {
+    UpdateDateCreated {
+        new_value: String,
+        file_creation_time: Option<DateTime<Local>>,
+    },
+    UpdateDateModified(String),
+    NoAction,
+}
+
+impl DateUpdateAction {
+    fn to_string(&self) -> String {
+        match self {
+            DateUpdateAction::UpdateDateCreated { file_creation_time, .. } => {
+                let mut actions = vec!["date_created updated"];
+                if file_creation_time.is_some() {
+                    actions.push("file creation date updated");
+                }
+                actions.join(", ")
+            }
+            DateUpdateAction::UpdateDateModified(_) => "date_modified updated".to_string(),
+            DateUpdateAction::NoAction => "no action".to_string(),
+        }
+    }
+}
 
 // these are all the resulting tables we could write
 #[derive(Debug)]
@@ -33,13 +60,16 @@ impl DateValidationResults {
             && self.date_modified_entries.is_empty()
     }
 
-    pub fn write_tables(&self, writer: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn write_tables(
+        &self,
+        writer: &ThreadSafeWriter,
+        show_updates: bool,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if self.is_empty() {
-            writer.writeln("", "No date issues found.")?;
+            writer.writeln("", "no date issues found.")?;
             return Ok(());
         }
 
-        // Write tables in order of priority
         if !self.property_errors.is_empty() {
             write_property_errors_table(&self.property_errors, writer)?;
         }
@@ -49,11 +79,11 @@ impl DateValidationResults {
         }
 
         if !self.date_modified_entries.is_empty() {
-            write_date_modified_table(&self.date_modified_entries, writer)?;
+            write_date_modified_table(&self.date_modified_entries, writer, show_updates)?;
         }
 
         if !self.date_created_entries.is_empty() {
-            write_date_created_table(&self.date_created_entries, writer)?;
+            write_date_created_table(&self.date_created_entries, writer, show_updates)?;
         }
 
         Ok(())
@@ -165,13 +195,14 @@ enum DateCreatedPropertyUpdate {
 
 // Update process_dates to use the new implementation
 pub fn process_dates(
+    config: &ValidatedConfig,
     collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("#", "update dates")?;
 
     let results = collect_date_entries(collected_files)?;
-    results.write_tables(writer)?;
+    results.write_tables(writer, config.apply_changes())?;
 
     Ok(())
 }
@@ -497,11 +528,12 @@ fn write_invalid_dates_table(
 fn write_date_created_table(
     entries: &[(PathBuf, DateInfo, SetFileCreationDateWith)],
     writer: &ThreadSafeWriter,
+    show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", "date created issues and fixes")?;
     writer.writeln("", &format!("{} files have issues with date_created\n", entries.len()))?;
 
-    let headers = &[
+    let mut headers = vec![
         "file",
         "created (from file)",
         "date_created",
@@ -510,59 +542,61 @@ fn write_date_created_table(
         "updated file creation date",
     ];
 
+    if show_updates {
+        headers.push("update action");
+    }
+
     let rows: Vec<Vec<String>> = entries
         .iter()
         .map(|(path, info, final_set_value)| {
-            let created_time = info.created_timestamp;
-
-            // Strip wikilinks from display values
-            let date_created_display = info.date_created
-                .as_ref()
-                .map(|d| d.clone())
-                .unwrap_or_else(|| "missing".to_string());
-
-            let date_created_fix_display = info.date_created_fix
-                .as_ref()
-                .map(|d| d.clone())
-                .unwrap_or_default();
-
-            // Updated property - make sure there's a wikilink
-            let updated_property_str = match &info.updated_property {
-                DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix) => {
-                    ensure_wikilink_format(fix)
-                },
-                DateCreatedPropertyUpdate::UseDateCreatedProperty(d) => {
-                    ensure_wikilink_format(d)
-                },
-                DateCreatedPropertyUpdate::UseFileCreationDate(date) => {
-                    format!("[[{}]]", date)
-                },
-                DateCreatedPropertyUpdate::NoChange => String::from("no change"),
-            };
-
-            vec![
+            let mut row = vec![
                 format_wikilink(path),
-                created_time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                date_created_display,
-                date_created_fix_display,
-                updated_property_str,
-                final_set_value.to_string(created_time, info.date_created_fix.as_ref()),
-            ]
+                info.created_timestamp.format("%Y-%m-%d %H:%M:%S").to_string(),
+                info.date_created.clone().unwrap_or_else(|| "missing".to_string()),
+                info.date_created_fix.clone().unwrap_or_default(),
+                match &info.updated_property {
+                    DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix) => ensure_wikilink_format(fix),
+                    DateCreatedPropertyUpdate::UseDateCreatedProperty(d) => ensure_wikilink_format(d),
+                    DateCreatedPropertyUpdate::UseFileCreationDate(date) => format!("[[{}]]", date),
+                    DateCreatedPropertyUpdate::NoChange => String::from("no change"),
+                },
+                final_set_value.to_string(info.created_timestamp, info.date_created_fix.as_ref()),
+            ];
+
+            if show_updates {
+                let action = match &info.updated_property {
+                    DateCreatedPropertyUpdate::NoChange => DateUpdateAction::NoAction,
+                    _ => {
+                        let new_value = match &info.updated_property {
+                            DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix) => ensure_wikilink_format(fix),
+                            DateCreatedPropertyUpdate::UseDateCreatedProperty(d) => ensure_wikilink_format(d),
+                            DateCreatedPropertyUpdate::UseFileCreationDate(date) => format!("[[{}]]", date),
+                            DateCreatedPropertyUpdate::NoChange => unreachable!(),
+                        };
+                        let file_creation_time = if *final_set_value != SetFileCreationDateWith::NoChange {
+                            Some(info.created_timestamp)
+                        } else {
+                            None
+                        };
+                        DateUpdateAction::UpdateDateCreated {
+                            new_value,
+                            file_creation_time,
+                        }
+                    }
+                };
+                row.push(action.to_string());
+            }
+
+            row
         })
         .collect();
 
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ]),
-    )?;
+    let mut alignments = vec![ColumnAlignment::Left; 6];
+    if show_updates {
+        alignments.push(ColumnAlignment::Left);
+    }
+
+    writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 
     Ok(())
 }
@@ -588,6 +622,7 @@ fn strip_wikilinks(text: &str) -> String {
 fn write_date_modified_table(
     entries: &[(PathBuf, String, String)],
     writer: &ThreadSafeWriter,
+    show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", "date modified issues and fixes")?;
     writer.writeln(
@@ -595,16 +630,35 @@ fn write_date_modified_table(
         &format!("{} files have issues with date_modified\n", entries.len()),
     )?;
 
-    let headers = &["file", "date_modified", "updated property"];  // Changed from "fix" to "updated property"
+    let mut headers = vec!["file", "date_modified", "updated property"];
+    if show_updates {
+        headers.push("update action");
+    }
 
     let rows: Vec<Vec<String>> = entries
         .iter()
         .map(|(path, date_modified, fix)| {
-            vec![format_wikilink(path), date_modified.clone(), fix.clone()]
+            let mut row = vec![
+                format_wikilink(path),
+                date_modified.clone(),
+                fix.clone(),
+            ];
+
+            if show_updates {
+                let action = DateUpdateAction::UpdateDateModified(fix.clone());
+                row.push(action.to_string());
+            }
+
+            row
         })
         .collect();
 
-    writer.write_markdown_table(headers, &rows, Some(&[ColumnAlignment::Left; 3]))?;
+    let mut alignments = vec![ColumnAlignment::Left; 3];
+    if show_updates {
+        alignments.push(ColumnAlignment::Left);
+    }
+
+    writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 
     Ok(())
 }
