@@ -717,11 +717,35 @@ fn write_date_modified_table(
     Ok(())
 }
 
+// Add this new function to update_dates.rs
+fn format_error_for_table(error: &str) -> String {
+    // Replace newlines and pipes with spaces to keep content in one cell
+    let error = error.replace('\n', " ").replace('|', "\\|");
+
+    // If the error contains YAML content, format it more cleanly
+    if error.contains("Content:") {
+        let parts: Vec<&str> = error.split("Content:").collect();
+        let message = parts[0].trim();
+        let content = parts.get(1).map(|c| c.trim()).unwrap_or("");
+
+        // Format YAML content as inline
+        let formatted_content = content
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        format!("{} — YAML: {}", message, formatted_content)
+    } else {
+        error.to_string()
+    }
+}
+
+// Update the property errors table writing function
 fn write_property_errors_table(
     entries: &[(PathBuf, String)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "Property Errors")?;
+    writer.writeln("##", "property errors")?;
     writer.writeln(
         "",
         &format!("{} files have property errors\n", entries.len()),
@@ -732,8 +756,8 @@ fn write_property_errors_table(
         .iter()
         .map(|(path, error)| {
             vec![
-                format_wikilink(path), // Format the file path as a wiki link
-                error.clone(),         // Error message
+                format_wikilink(path),
+                format_error_for_table(error),
             ]
         })
         .collect();

@@ -136,5 +136,5 @@ value: 42"#;
             Some(YamlError::Invalid(_))
         ));
     }
-    
+
 }
