@@ -1,4 +1,4 @@
-use chrono::{Local, NaiveDate, NaiveDateTime};
+use chrono::{Local, NaiveDateTime};
 use regex::Regex;
 use std::error::Error;
 use std::{fs, io};
@@ -111,7 +111,6 @@ mod tests {
     use chrono::Local;
     use std::fs::File;
     use std::io::Write;
-    use std::os::unix::prelude::MetadataExt;
     use tempfile::TempDir;
 
     /// Use `GetFileInfo` to verify creation time on macOS
