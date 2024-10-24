@@ -60,13 +60,16 @@ fn write_wikilinks_table_header(
         &format!("simplify patterns: {}", simplify_patterns.join(", ")),
     )?;
 
-    writer.writeln(
-        "",
+    let count_string = if total_wikilinks > &0 {
         &format!(
             "count of wikilinks that render as a simplify pattern: {}",
             total_wikilinks
-        ),
-    )?;
+        )
+    } else {
+        "no wikilinks found that render as a a simplify pattern"
+    };
+
+    writer.writeln("", count_string)?;
     Ok(())
 }
 
