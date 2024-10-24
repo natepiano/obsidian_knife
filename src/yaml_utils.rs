@@ -16,13 +16,21 @@ where
     T: DeserializeOwned,
 {
     let yaml_str = extract_yaml_frontmatter(content)?;
-    serde_yaml::from_str(&yaml_str).map_err(|e| {
-        let error = std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            format!("error parsing yaml configuration: {}", e),
-        );
-        Box::new(error) as Box<dyn Error + Send + Sync>
-    })
+
+    // First try to parse as YAML
+    match serde_yaml::from_str(&yaml_str) {
+        Ok(value) => Ok(value),
+        Err(e) => {
+            // If parsing fails, provide a more detailed error message
+            Err(Box::new(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!(
+                    "error parsing yaml frontmatter: {}. Content:\n{}",
+                    e, yaml_str
+                ),
+            )))
+        }
+    }
 }
 
 /// Extracts YAML front matter from the given content string.

@@ -1,4 +1,4 @@
-use crate::scan::{MarkdownFileInfo, Properties};
+use crate::scan::MarkdownFileInfo;
 use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use chrono::{DateTime, Local, NaiveDate};
@@ -6,7 +6,15 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::ValidatedConfig;
+use crate::frontmatter::FrontMatter;
+use crate::{frontmatter, ValidatedConfig};
+
+#[derive(Debug)]
+struct DateUpdates {
+    date_created: Option<String>,
+    date_modified: Option<String>,
+    date_created_fix: Option<String>,
+}
 
 #[derive(Debug)]
 enum DateUpdateAction {
@@ -94,16 +102,17 @@ impl DateValidationResults {
 struct FileValidationContext {
     path: PathBuf,
     created_time: DateTime<Local>,
-    properties: Option<Properties>,
+    frontmatter: Option<FrontMatter>,
     property_error: Option<String>,
 }
+
 #[derive(Clone, Debug)]
 struct DateInfo {
     created_timestamp: DateTime<Local>,
     date_created: Option<String>,
     date_modified: Option<String>,
     date_created_fix: Option<String>,
-    updated_property: DateCreatedPropertyUpdate, // New field
+    updated_property: DateCreatedPropertyUpdate,
 }
 
 #[derive(Debug)]
@@ -201,7 +210,7 @@ pub fn process_dates(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("#", "update dates")?;
 
-    let results = collect_date_entries(collected_files)?;
+    let results = collect_date_entries(collected_files, config)?;
     results.write_tables(writer, config.apply_changes())?;
 
     Ok(())
@@ -209,12 +218,13 @@ pub fn process_dates(
 
 fn collect_date_entries(
     collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    config: &ValidatedConfig,  // Add config parameter
 ) -> Result<DateValidationResults, Box<dyn Error + Send + Sync>> {
     let mut results = DateValidationResults::new();
 
     for (path, file_info) in collected_files {
         let context = create_validation_context(path, file_info)?;
-        process_file(&mut results, context);
+        process_file(&mut results, context, config)?;
     }
 
     // Sort all results by filename
@@ -234,40 +244,41 @@ fn create_validation_context(
         path: path.clone(),
         created_time: get_file_creation_time(path)
             .unwrap_or_else(|_| Local::now()),
-        properties: file_info.properties.clone(),
+        frontmatter: file_info.frontmatter.clone(),
         property_error: file_info.property_error.clone(),
     })
 }
 
-fn process_file(results: &mut DateValidationResults, context: FileValidationContext) {
+fn process_file(
+    results: &mut DateValidationResults,
+    context: FileValidationContext,
+    config: &ValidatedConfig,  // Add config parameter
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Handle property errors first
     if let Some(error) = context.property_error {
         results.property_errors.push((context.path, error));
-        return;
+        return Ok(());
     }
 
-    // Early return if no properties
-    let props = match &context.properties {
-        Some(props) => props,
-        None => return,
+    // Early return if no frontmatter
+    let fm = match &context.frontmatter {
+        Some(fm) => fm,
+        None => return Ok(()),
     };
 
-    let validation = validate_date_fields(props);
+    let validation = validate_date_fields(fm);
     let has_invalid_dates = validation.has_invalid_dates();
 
-    // Process invalid dates separately from invalid wikilinks
     if has_invalid_dates {
         results.invalid_entries.push((
             context.path,
-            validation.create_validation_error(props),
+            validation.create_validation_error(fm),
         ));
-        return;
+        return Ok(());
     }
 
-    // Process valid dates but possibly invalid wikilinks
-    process_valid_dates(results, &context, props);
+    process_valid_dates(results, &context, fm, config)
 }
-
 
 struct DateFieldValidation {
     date_created_error: Option<String>,
@@ -293,23 +304,23 @@ impl DateFieldValidation {
             || check_error(&self.date_created_fix_error)
     }
 
-    fn create_validation_error(&self, props: &Properties) -> DateValidationError {
+    fn create_validation_error(&self, fm: &FrontMatter) -> DateValidationError {
         DateValidationError {
-            date_created: props.date_created.clone(),
+            date_created: fm.date_created().cloned(),
             date_created_error: self.date_created_error.clone(),
-            date_modified: props.date_modified.clone(),
+            date_modified: fm.date_modified().cloned(),
             date_modified_error: self.date_modified_error.clone(),
-            date_created_fix: props.date_created_fix.clone(),
+            date_created_fix: fm.date_created_fix().cloned(),
             date_created_fix_error: self.date_created_fix_error.clone(),
         }
     }
 }
 
-fn validate_date_fields(props: &Properties) -> DateFieldValidation {
+fn validate_date_fields(fm: &FrontMatter) -> DateFieldValidation {
     DateFieldValidation {
-        date_created_error: check_date_validity(props.date_created.as_ref()),
-        date_modified_error: check_date_validity(props.date_modified.as_ref()),
-        date_created_fix_error: check_date_validity(props.date_created_fix.as_ref()),
+        date_created_error: check_date_validity(fm.date_created()),
+        date_modified_error: check_date_validity(fm.date_modified()),
+        date_created_fix_error: check_date_validity(fm.date_created_fix()),
     }
 }
 
@@ -340,31 +351,51 @@ fn check_date_validity(date: Option<&String>) -> Option<String> {
 fn process_valid_dates(
     results: &mut DateValidationResults,
     context: &FileValidationContext,
-    props: &Properties,
-) {
-    // First check if we should add this to date_created_entries
+    fm: &FrontMatter,
+    config: &ValidatedConfig,  // Add config parameter
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let mut updates = DateUpdates {
+        date_created: None,
+        date_modified: None,
+        date_created_fix: None,
+    };
+
     let should_add =
-        props.date_created_fix.is_some() ||
-            props.date_created.is_none() ||
-            props.date_created.as_ref().map_or(false, |d| !is_wikilink(Some(d)));
+        fm.date_created_fix().is_some() ||
+            fm.date_created().is_none() ||
+            fm.date_created().map_or(false, |d| !is_wikilink(Some(d)));
 
     if should_add {
         let final_set_value = calculate_final_set_value(
-            props.date_created.as_ref(),
-            props.date_created_fix.as_ref(),
+            fm.date_created(),
+            fm.date_created_fix(),
         );
 
         let date_info = DateInfo {
             created_timestamp: context.created_time,
-            date_created: props.date_created.clone(),
-            date_modified: props.date_modified.clone(),
-            date_created_fix: props.date_created_fix.clone(),
+            date_created: fm.date_created().cloned(),
+            date_modified: fm.date_modified().cloned(),
+            date_created_fix: fm.date_created_fix().cloned(),
             updated_property: determine_updated_property(
-                props.date_created.as_ref(),
-                props.date_created_fix.as_ref(),
+                fm.date_created(),
+                fm.date_created_fix(),
                 context.created_time,
             ),
         };
+
+        // Prepare date_created update if needed
+        match &date_info.updated_property {
+            DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix) => {
+                updates.date_created = Some(ensure_wikilink_format(fix));
+            }
+            DateCreatedPropertyUpdate::UseDateCreatedProperty(date) => {
+                updates.date_created = Some(ensure_wikilink_format(date));
+            }
+            DateCreatedPropertyUpdate::UseFileCreationDate(date) => {
+                updates.date_created = Some(format!("[[{}]]", date));
+            }
+            DateCreatedPropertyUpdate::NoChange => {}
+        }
 
         results.date_created_entries.push((
             context.path.clone(),
@@ -373,13 +404,14 @@ fn process_valid_dates(
         ));
     }
 
-    // Always check date_modified, including when it's missing
+    // Handle date_modified updates
     let today = Local::now().format("[[%Y-%m-%d]]").to_string();
 
-    match &props.date_modified {
+    match fm.date_modified() {
         Some(date_modified) => {
             if !is_wikilink(Some(date_modified)) && validate_wikilink_and_date(date_modified).1 {
                 let fix = format!("[[{}]]", date_modified);
+                updates.date_modified = Some(fix.clone());
                 results.date_modified_entries.push((
                     context.path.clone(),
                     date_modified.clone(),
@@ -388,7 +420,7 @@ fn process_valid_dates(
             }
         },
         None => {
-            // Handle missing date_modified
+            updates.date_modified = Some(today.clone());
             results.date_modified_entries.push((
                 context.path.clone(),
                 "missing".to_string(),
@@ -396,6 +428,37 @@ fn process_valid_dates(
             ));
         }
     }
+
+    // Apply updates if we have any
+    if config.apply_changes() && (updates.date_created.is_some() || updates.date_modified.is_some() || updates.date_created_fix.is_some()) {
+        apply_date_changes(&context.path, &updates, config)?;
+    }
+
+    Ok(())
+}
+
+fn apply_date_changes(
+    path: &Path,
+    updates: &DateUpdates,
+    config: &ValidatedConfig,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if !config.apply_changes() {
+        return Ok(());
+    }
+
+    frontmatter::update_file_frontmatter(path, |fm| {
+        if let Some(date_created) = &updates.date_created {
+            fm.update_date_created(Some(date_created.clone()));
+        }
+        if let Some(date_modified) = &updates.date_modified {
+            fm.update_date_modified(Some(date_modified.clone()));
+        }
+        if let Some(date_created_fix) = &updates.date_created_fix {
+            fm.update_date_created_fix(Some(date_created_fix.clone()));
+        }
+    })?;
+
+    Ok(())
 }
 
 fn determine_updated_property(
@@ -610,15 +673,6 @@ fn ensure_wikilink_format(date: &str) -> String {
     }
 }
 
-// Helper function to strip wikilinks
-fn strip_wikilinks(text: &str) -> String {
-    if text.starts_with("[[") && text.ends_with("]]") {
-        text[2..text.len()-2].to_string()
-    } else {
-        text.to_string()
-    }
-}
-
 fn write_date_modified_table(
     entries: &[(PathBuf, String, String)],
     writer: &ThreadSafeWriter,
@@ -691,35 +745,4 @@ fn write_property_errors_table(
     )?;
 
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use crate::scan::Properties;
-    use crate::yaml_utils::deserialize_yaml_frontmatter;
-
-    #[test]
-    fn test_yaml_parsing() {
-        let yaml = r#"---
-date_created: "[[2023-10-23]]"
-date_modified: "[[2023-10-23]]"
-date_created_fix: "[[2023-10-23]]"
----"#;
-
-        let props: Properties = deserialize_yaml_frontmatter(yaml).unwrap();
-
-        assert_eq!(
-            props.date_created.as_ref().map(|d| d.as_str()),
-            Some("[[2023-10-23]]")
-        );
-        assert_eq!(
-            props.date_modified.as_ref().map(|d| d.as_str()),
-            Some("[[2023-10-23]]")
-        );
-        assert_eq!(
-            props.date_created_fix.as_ref().map(|d| d.as_str()),
-            Some("[[2023-10-23]]")
-        );
-    }
-
 }

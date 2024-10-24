@@ -3,6 +3,7 @@ mod cleanup_images;
 mod config;
 mod constants;
 mod file_utils;
+mod frontmatter;
 mod scan;
 mod sha256_cache;
 mod simplify_wikilinks;
