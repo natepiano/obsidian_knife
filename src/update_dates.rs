@@ -1,4 +1,4 @@
-use crate::scan::MarkdownFileInfo;
+use crate::scan::{MarkdownFileInfo, Properties};
 use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use chrono::{DateTime, Local, NaiveDate};
@@ -7,13 +7,76 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// these are all the resulting tables we could write
+#[derive(Debug)]
+struct DateValidationResults {
+    invalid_entries: Vec<(PathBuf, DateValidationError)>,
+    date_created_entries: Vec<(PathBuf, DateInfo, SetFileCreationDateWith)>,
+    date_modified_entries: Vec<(PathBuf, String, String)>,
+    property_errors: Vec<(PathBuf, String)>,
+}
+
+impl DateValidationResults {
+    pub fn new() -> Self {
+        DateValidationResults {
+            invalid_entries: Vec::new(),
+            date_created_entries: Vec::new(),
+            date_modified_entries: Vec::new(),
+            property_errors: Vec::new(),
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.property_errors.is_empty()
+            && self.invalid_entries.is_empty()
+            && self.date_created_entries.is_empty()
+            && self.date_modified_entries.is_empty()
+    }
+
+    pub fn write_tables(&self, writer: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if self.is_empty() {
+            writer.writeln("", "No date issues found.")?;
+            return Ok(());
+        }
+
+        // Write tables in order of priority
+        if !self.property_errors.is_empty() {
+            write_property_errors_table(&self.property_errors, writer)?;
+        }
+
+        if !self.invalid_entries.is_empty() {
+            write_invalid_dates_table(&self.invalid_entries, writer)?;
+        }
+
+        if !self.date_modified_entries.is_empty() {
+            write_date_modified_table(&self.date_modified_entries, writer)?;
+        }
+
+        if !self.date_created_entries.is_empty() {
+            write_date_created_table(&self.date_created_entries, writer)?;
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Debug)]
+struct FileValidationContext {
+    path: PathBuf,
+    created_time: DateTime<Local>,
+    properties: Option<Properties>,
+    property_error: Option<String>,
+}
+#[derive(Clone, Debug)]
 struct DateInfo {
     created_timestamp: DateTime<Local>,
     date_created: Option<String>,
     date_modified: Option<String>,
     date_created_fix: Option<String>,
+    updated_property: DateCreatedPropertyUpdate, // New field
 }
 
+#[derive(Debug)]
 struct DateValidationError {
     date_created: Option<String>,
     date_created_error: Option<String>,
@@ -44,164 +107,309 @@ impl<T> SortByFilename for Vec<(PathBuf, T)> {
     }
 }
 
+// Update SortByFilename trait to handle Vecs with 3 elements in tuples generically
+impl<T1, T2> SortByFilename for Vec<(PathBuf, T1, T2)> {
+    fn sort_by_filename(&mut self) {
+        self.sort_by(|(a_path, _, _), (b_path, _, _)| {
+            get_filename_lowercase(a_path).cmp(&get_filename_lowercase(b_path))
+        });
+    }
+}
+
+// Define the enum for final set value
+#[derive(Debug, PartialEq)]
+enum SetFileCreationDateWith {
+    FileCreationTime,                 // Set date_created to file creation time if missing
+    CreatedFixWithTimestamp,          // Concatenate date_created_fix with file creation timestamp
+    NoChange,                         // No final value, used for invalid entries
+}
+
+
+// Implement a function to convert the enum into the corresponding string value
+impl SetFileCreationDateWith {
+    fn to_string(&self, timestamp: DateTime<Local>, date_created_fix: Option<&String>) -> String {
+        match self {
+            SetFileCreationDateWith::FileCreationTime => {
+                // Use the file creation timestamp without wikilinks
+                timestamp.format("%Y-%m-%d %H:%M:%S").to_string()
+            }
+            SetFileCreationDateWith::CreatedFixWithTimestamp => {
+                // Concatenate date_created_fix with the file creation timestamp
+                // Strip wikilinks from date_created_fix if present
+                if let Some(fix) = date_created_fix {
+                    let clean_fix = if fix.starts_with("[[") && fix.ends_with("]]") {
+                        &fix[2..fix.len()-2]
+                    } else {
+                        fix
+                    };
+                    format!("{} {}", clean_fix, timestamp.format("%H:%M:%S"))
+                } else {
+                    String::new()
+                }
+            }
+            SetFileCreationDateWith::NoChange => {
+                "no change".to_string() // Changed from empty string to "no change"
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+enum DateCreatedPropertyUpdate {
+    UseDateCreatedFixProperty(String),      // 1. date_created_fix is not empty
+    UseDateCreatedProperty(String),         // 2. date_created is present but missing wikilink
+    UseFileCreationDate(String),    // 3. date_created is missing and date_created_fix is empty
+    NoChange,                    // 4. No change needed
+}
+
+
+// Update process_dates to use the new implementation
 pub fn process_dates(
     collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("#", "update dates")?;
 
-    let (valid_entries, invalid_entries, property_errors) = collect_date_entries(collected_files)?;
-
-    if property_errors.is_empty() && valid_entries.is_empty() && invalid_entries.is_empty() {
-        writer.writeln("", "no create dates fixes found")?;
-        return Ok(());
-    }
-
-    // Output property errors first
-    if !property_errors.is_empty() {
-        write_property_errors_table(&property_errors, writer)?;
-    }
-
-    // Output invalid dates table
-    if !invalid_entries.is_empty() {
-        write_invalid_dates_table(&invalid_entries, writer)?;
-    }
-
-    // Output valid dates table
-    if !valid_entries.is_empty() {
-        write_valid_dates_table(&valid_entries, writer)?;
-    }
+    let results = collect_date_entries(collected_files)?;
+    results.write_tables(writer)?;
 
     Ok(())
 }
 
-fn validate_date_field(
-    date: Option<&String>,
-    check_wikilink: bool,
-    allow_missing: bool,
-) -> Option<String> {
-    match date {
-        Some(d) if d.is_empty() && allow_missing => Some("missing date".to_string()), // Check for missing date
-        Some(d) => {
-            if check_wikilink {
-                let error_msg = build_error_message(d);
-                if let Some(msg) = error_msg {
-                    return Some(msg);
-                }
-            } else {
-                let (_, is_valid_date) = validate_wikilink_and_date(d);
-                if !is_valid_date {
-                    return Some("invalid date".to_string());
-                }
-            }
-            None
-        }
-        None if allow_missing => Some("missing date".to_string()), // Date is None and allow missing check
-        None => None, // Date is None and allow missing date is false
-    }
-}
-
 fn collect_date_entries(
     collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
-) -> Result<
-    (
-        Vec<(PathBuf, DateInfo)>,
-        Vec<(PathBuf, DateValidationError)>,
-        Vec<(PathBuf, String)>,
-    ),
-    Box<dyn Error + Send + Sync>,
-> {
-    let mut valid_entries = Vec::new();
-    let mut invalid_entries = Vec::new();
-    let mut property_errors = Vec::new();
+) -> Result<DateValidationResults, Box<dyn Error + Send + Sync>> {
+    let mut results = DateValidationResults::new();
 
     for (path, file_info) in collected_files {
-        // Collect property_error if exists
-        if let Some(error) = &file_info.property_error {
-            property_errors.push((path.clone(), error.clone()));
-        }
-
-        if let Some(props) = &file_info.properties {
-            let mut validation_error = DateValidationError {
-                date_created: props.date_created.clone(),
-                date_created_error: None,
-                date_modified: props.date_modified.clone(),
-                date_modified_error: None,
-                date_created_fix: props.date_created_fix.clone(),
-                date_created_fix_error: None,
-            };
-
-            let mut has_error = false;
-
-            // Validate date_created
-            if let Some(error) = validate_date_field(props.date_created.as_ref(), true, true) {
-                validation_error.date_created_error = Some(error);
-                has_error = true;
-            }
-
-            // Validate date_modified
-            if let Some(error) = validate_date_field(props.date_modified.as_ref(), true, true) {
-                validation_error.date_modified_error = Some(error);
-                has_error = true;
-            }
-
-            // Validate date_created_fix but only output invalid date errors
-            if let Some(error) = validate_date_field(props.date_created_fix.as_ref(), false, false)
-            {
-                validation_error.date_created_fix_error = Some(error);
-                has_error = true;
-            }
-
-            if has_error {
-                invalid_entries.push((path.clone(), validation_error));
-            }
-
-            // Files with a valid date_created_fix should be added to valid_entries
-            if let Some(date_fix) = &props.date_created_fix {
-                if validate_wikilink_and_date(date_fix).1 {
-                    // Check if it's a valid date
-                    if let Ok(created) = get_file_creation_time(path) {
-                        let date_info = DateInfo {
-                            created_timestamp: created,
-                            date_created: props.date_created.clone(),
-                            date_modified: props.date_modified.clone(),
-                            date_created_fix: props.date_created_fix.clone(),
-                        };
-                        valid_entries.push((path.clone(), date_info));
-                    }
-                }
-            }
-        }
+        let context = create_validation_context(path, file_info)?;
+        process_file(&mut results, context);
     }
 
-    // Sort entries
-    valid_entries.sort_by_filename();
-    invalid_entries.sort_by_filename();
-    property_errors.sort_by_filename();
+    // Sort all results by filename
+    results.invalid_entries.sort_by_filename();
+    results.date_created_entries.sort_by_filename();
+    results.date_modified_entries.sort_by_filename();
+    results.property_errors.sort_by_filename();
 
-    Ok((valid_entries, invalid_entries, property_errors))
+    Ok(results)
 }
 
-fn build_error_message(date: &str) -> Option<String> {
-    let (is_wikilink, is_valid_date) = validate_wikilink_and_date(date);
+fn create_validation_context(
+    path: &PathBuf,
+    file_info: &MarkdownFileInfo,
+) -> Result<FileValidationContext, Box<dyn Error + Send + Sync>> {
+    Ok(FileValidationContext {
+        path: path.clone(),
+        created_time: get_file_creation_time(path)
+            .unwrap_or_else(|_| Local::now()),
+        properties: file_info.properties.clone(),
+        property_error: file_info.property_error.clone(),
+    })
+}
 
-    let mut error_msg = String::new();
-
-    if !is_wikilink {
-        error_msg.push_str("invalid wikilink");
+fn process_file(results: &mut DateValidationResults, context: FileValidationContext) {
+    // Handle property errors first
+    if let Some(error) = context.property_error {
+        results.property_errors.push((context.path, error));
+        return;
     }
 
-    if !is_valid_date {
-        if !error_msg.is_empty() {
-            error_msg.push_str(", ");
+    // Early return if no properties
+    let props = match &context.properties {
+        Some(props) => props,
+        None => return,
+    };
+
+    let validation = validate_date_fields(props);
+    let has_invalid_dates = validation.has_invalid_dates();
+
+    // Process invalid dates separately from invalid wikilinks
+    if has_invalid_dates {
+        results.invalid_entries.push((
+            context.path,
+            validation.create_validation_error(props),
+        ));
+        return;
+    }
+
+    // Process valid dates but possibly invalid wikilinks
+    process_valid_dates(results, &context, props);
+}
+
+
+struct DateFieldValidation {
+    date_created_error: Option<String>,
+    date_modified_error: Option<String>,
+    date_created_fix_error: Option<String>,
+}
+
+// Update DateFieldValidation to distinguish between invalid dates and invalid wikilinks
+impl DateFieldValidation {
+    fn has_invalid_dates(&self) -> bool {
+        self.has_error_containing("invalid date")
+    }
+
+    fn has_error_containing(&self, error_text: &str) -> bool {
+        let check_error = |error: &Option<String>| {
+            error
+                .as_ref()
+                .map_or(false, |e| e.contains(error_text))
+        };
+
+        check_error(&self.date_created_error)
+            || check_error(&self.date_modified_error)
+            || check_error(&self.date_created_fix_error)
+    }
+
+    fn create_validation_error(&self, props: &Properties) -> DateValidationError {
+        DateValidationError {
+            date_created: props.date_created.clone(),
+            date_created_error: self.date_created_error.clone(),
+            date_modified: props.date_modified.clone(),
+            date_modified_error: self.date_modified_error.clone(),
+            date_created_fix: props.date_created_fix.clone(),
+            date_created_fix_error: self.date_created_fix_error.clone(),
         }
-        error_msg.push_str("invalid date");
+    }
+}
+
+fn validate_date_fields(props: &Properties) -> DateFieldValidation {
+    DateFieldValidation {
+        date_created_error: check_date_validity(props.date_created.as_ref()),
+        date_modified_error: check_date_validity(props.date_modified.as_ref()),
+        date_created_fix_error: check_date_validity(props.date_created_fix.as_ref()),
+    }
+}
+
+fn check_date_validity(date: Option<&String>) -> Option<String> {
+    if let Some(d) = date {
+        let (is_wikilink, is_valid_date) = validate_wikilink_and_date(d);
+
+        if !is_valid_date || !is_wikilink {
+            let mut errors = Vec::new();
+
+            if !is_wikilink {
+                errors.push("invalid wikilink");
+            }
+
+            if !is_valid_date {
+                errors.push("invalid date");
+            }
+
+            Some(errors.join(", "))
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+fn process_valid_dates(
+    results: &mut DateValidationResults,
+    context: &FileValidationContext,
+    props: &Properties,
+) {
+    // First check if we should add this to date_created_entries
+    let should_add =
+        props.date_created_fix.is_some() ||
+            props.date_created.is_none() ||
+            props.date_created.as_ref().map_or(false, |d| !is_wikilink(Some(d)));
+
+    if should_add {
+        let final_set_value = calculate_final_set_value(
+            props.date_created.as_ref(),
+            props.date_created_fix.as_ref(),
+        );
+
+        let date_info = DateInfo {
+            created_timestamp: context.created_time,
+            date_created: props.date_created.clone(),
+            date_modified: props.date_modified.clone(),
+            date_created_fix: props.date_created_fix.clone(),
+            updated_property: determine_updated_property(
+                props.date_created.as_ref(),
+                props.date_created_fix.as_ref(),
+                context.created_time,
+            ),
+        };
+
+        results.date_created_entries.push((
+            context.path.clone(),
+            date_info,
+            final_set_value,
+        ));
     }
 
-    if error_msg.is_empty() {
-        None
+    // Always check date_modified, including when it's missing
+    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+
+    match &props.date_modified {
+        Some(date_modified) => {
+            if !is_wikilink(Some(date_modified)) && validate_wikilink_and_date(date_modified).1 {
+                let fix = format!("[[{}]]", date_modified);
+                results.date_modified_entries.push((
+                    context.path.clone(),
+                    date_modified.clone(),
+                    fix,
+                ));
+            }
+        },
+        None => {
+            // Handle missing date_modified
+            results.date_modified_entries.push((
+                context.path.clone(),
+                "missing".to_string(),
+                today,
+            ));
+        }
+    }
+}
+
+fn determine_updated_property(
+    date_created: Option<&String>,
+    date_created_fix: Option<&String>,
+    created_time: DateTime<Local>,
+) -> DateCreatedPropertyUpdate {
+    match (date_created, date_created_fix) {
+        // date_created_fix takes precedence
+        (_, Some(fix)) => DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix.clone()),
+
+        // date_created exists but needs wikilink
+        (Some(d), None) if !is_wikilink(Some(d)) =>
+            DateCreatedPropertyUpdate::UseDateCreatedProperty(d.clone()),
+
+        // date_created is missing completely
+        (None, None) => DateCreatedPropertyUpdate::UseFileCreationDate(
+            created_time.format("%Y-%m-%d").to_string(),
+        ),
+
+        // No changes needed
+        _ => DateCreatedPropertyUpdate::NoChange,
+    }
+}
+
+/// Helper function to calculate the final set value for date_created
+fn calculate_final_set_value(
+    date_created: Option<&String>,
+    date_created_fix: Option<&String>,
+) -> SetFileCreationDateWith {
+    match (date_created, date_created_fix) {
+        // If date_created_fix exists, use it with timestamp
+        (_, Some(_)) => SetFileCreationDateWith::CreatedFixWithTimestamp,
+        // If date_created is missing, use file creation time
+        (None, None) => SetFileCreationDateWith::FileCreationTime,
+        // If date_created exists, no final value needed
+        _ => SetFileCreationDateWith::NoChange
+    }
+}
+
+fn is_wikilink(date: Option<&String>) -> bool {
+    if let Some(d) = date {
+        d.starts_with("[[") && d.ends_with("]]")
     } else {
-        Some(error_msg)
+        false
     }
 }
 
@@ -231,12 +439,6 @@ fn validate_wikilink_and_date(date: &str) -> (bool, bool) {
     (is_wikilink, is_valid_date)
 }
 
-fn format_date_created_fix(date: &str, timestamp: &DateTime<Local>) -> String {
-    let clean_date = date.trim_start_matches("[[").trim_end_matches("]]").trim();
-
-    format!("[[{}]] {}", clean_date, timestamp.format("%H:%M:%S"))
-}
-
 fn get_file_creation_time(path: &Path) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
     let metadata = fs::metadata(path)?;
     let created = metadata.created()?;
@@ -252,7 +454,6 @@ fn write_invalid_dates_table(
 
     let headers = &[
         "file",
-        "created", // New "created" column
         "date_created",
         "error",
         "date_modified",
@@ -264,21 +465,14 @@ fn write_invalid_dates_table(
     let rows: Vec<Vec<String>> = entries
         .iter()
         .map(|(path, error)| {
-            // Get the creation time from the file system
-            let created_time = match get_file_creation_time(path) {
-                Ok(time) => time.format("%Y-%m-%d %H:%M:%S").to_string(),
-                Err(_) => "N/A".to_string(), // Handle case where the creation time can't be retrieved
-            };
-
             vec![
-                format_wikilink(path),                                  // File path
-                created_time,                                           // New "created" column
-                error.date_created.clone().unwrap_or_default(),         // Date created
-                error.date_created_error.clone().unwrap_or_default(),   // Error for date_created
-                error.date_modified.clone().unwrap_or_default(),        // Date modified
-                error.date_modified_error.clone().unwrap_or_default(),  // Error for date_modified
-                error.date_created_fix.clone().unwrap_or_default(),     // Date created fix
-                error.date_created_fix_error.clone().unwrap_or_default(), // Error for date_created_fix
+                format_wikilink(path),
+                error.date_created.clone().unwrap_or_default(),
+                error.date_created_error.clone().unwrap_or_default(),
+                error.date_modified.clone().unwrap_or_default(),
+                error.date_modified_error.clone().unwrap_or_default(),
+                error.date_created_fix.clone().unwrap_or_default(),
+                error.date_created_fix_error.clone().unwrap_or_default(),
             ]
         })
         .collect();
@@ -287,7 +481,6 @@ fn write_invalid_dates_table(
         headers,
         &rows,
         Some(&[
-            ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
@@ -301,45 +494,59 @@ fn write_invalid_dates_table(
     Ok(())
 }
 
-
-fn write_valid_dates_table(
-    entries: &[(PathBuf, DateInfo)],
+fn write_date_created_table(
+    entries: &[(PathBuf, DateInfo, SetFileCreationDateWith)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "update create dates to value in date_created_fix")?;
-    writer.writeln("", &format!("{} files will be updated\n", entries.len()))?;
+    writer.writeln("##", "date created issues and fixes")?;
+    writer.writeln("", &format!("{} files have issues with date_created\n", entries.len()))?;
 
     let headers = &[
         "file",
-        "created",
+        "created (from file)",
         "date_created",
-        "date_modified",
         "date_created_fix",
+        "updated property",
+        "updated file creation date",
     ];
+
     let rows: Vec<Vec<String>> = entries
         .iter()
-        .map(|(path, info)| {
+        .map(|(path, info, final_set_value)| {
+            let created_time = info.created_timestamp;
+
+            // Strip wikilinks from display values
+            let date_created_display = info.date_created
+                .as_ref()
+                .map(|d| d.clone())
+                .unwrap_or_else(|| "missing".to_string());
+
+            let date_created_fix_display = info.date_created_fix
+                .as_ref()
+                .map(|d| d.clone())
+                .unwrap_or_default();
+
+            // Updated property - make sure there's a wikilink
+            let updated_property_str = match &info.updated_property {
+                DateCreatedPropertyUpdate::UseDateCreatedFixProperty(fix) => {
+                    ensure_wikilink_format(fix)
+                },
+                DateCreatedPropertyUpdate::UseDateCreatedProperty(d) => {
+                    ensure_wikilink_format(d)
+                },
+                DateCreatedPropertyUpdate::UseFileCreationDate(date) => {
+                    format!("[[{}]]", date)
+                },
+                DateCreatedPropertyUpdate::NoChange => String::from("no change"),
+            };
+
             vec![
                 format_wikilink(path),
-                info.created_timestamp
-                    .format("%Y-%m-%d %H:%M:%S")
-                    .to_string(),
-                info.date_created
-                    .as_ref()
-                    .map(|d| d.clone())
-                    .unwrap_or_default(),
-                info.date_modified
-                    .as_ref()
-                    .map(|d| d.clone())
-                    .unwrap_or_default(),
-                format_date_created_fix(
-                    &info
-                        .date_created_fix
-                        .as_ref()
-                        .map(|d| d.clone())
-                        .unwrap_or_default(),
-                    &info.created_timestamp,
-                ),
+                created_time.format("%Y-%m-%d %H:%M:%S").to_string(),
+                date_created_display,
+                date_created_fix_display,
+                updated_property_str,
+                final_set_value.to_string(created_time, info.date_created_fix.as_ref()),
             ]
         })
         .collect();
@@ -353,8 +560,51 @@ fn write_valid_dates_table(
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
+            ColumnAlignment::Left,
         ]),
     )?;
+
+    Ok(())
+}
+
+// Helper function to ensure a date string has wikilink format
+fn ensure_wikilink_format(date: &str) -> String {
+    if date.starts_with("[[") && date.ends_with("]]") {
+        date.to_string()
+    } else {
+        format!("[[{}]]", date)
+    }
+}
+
+// Helper function to strip wikilinks
+fn strip_wikilinks(text: &str) -> String {
+    if text.starts_with("[[") && text.ends_with("]]") {
+        text[2..text.len()-2].to_string()
+    } else {
+        text.to_string()
+    }
+}
+
+fn write_date_modified_table(
+    entries: &[(PathBuf, String, String)],
+    writer: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    writer.writeln("##", "date modified issues and fixes")?;
+    writer.writeln(
+        "",
+        &format!("{} files have issues with date_modified\n", entries.len()),
+    )?;
+
+    let headers = &["file", "date_modified", "updated property"];  // Changed from "fix" to "updated property"
+
+    let rows: Vec<Vec<String>> = entries
+        .iter()
+        .map(|(path, date_modified, fix)| {
+            vec![format_wikilink(path), date_modified.clone(), fix.clone()]
+        })
+        .collect();
+
+    writer.write_markdown_table(headers, &rows, Some(&[ColumnAlignment::Left; 3]))?;
 
     Ok(())
 }
@@ -391,10 +641,8 @@ fn write_property_errors_table(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::scan::Properties;
     use crate::yaml_utils::deserialize_yaml_frontmatter;
-    use chrono::Timelike;
 
     #[test]
     fn test_yaml_parsing() {
@@ -420,26 +668,4 @@ date_created_fix: "[[2023-10-23]]"
         );
     }
 
-    #[test]
-    fn test_format_date_created_fix() {
-        // Create a timestamp at a specific local time
-        let local_time = Local::now()
-            .with_hour(8)
-            .unwrap()
-            .with_minute(0)
-            .unwrap()
-            .with_second(0)
-            .unwrap()
-            .with_nanosecond(0)
-            .unwrap();
-
-        assert_eq!(
-            format_date_created_fix("[[2023-01-01]]", &local_time),
-            "[[2023-01-01]] 08:00:00"
-        );
-        assert_eq!(
-            format_date_created_fix("2023-01-01", &local_time),
-            "[[2023-01-01]] 08:00:00"
-        );
-    }
 }

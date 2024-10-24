@@ -17,7 +17,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
 
-#[derive(Debug, Deserialize)]
+#[derive(Clone,Debug, Deserialize)]
 pub struct Properties {
     pub date_created: Option<String>,
     pub date_created_fix: Option<String>,
