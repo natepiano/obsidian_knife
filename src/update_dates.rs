@@ -446,6 +446,9 @@ fn apply_date_changes(
         return Ok(());
     }
 
+    todo!("invoke set_file_times if date_created_fix exists");
+    todo!("change DateUpdates so that we're not indicating we want to update date_created_fix, but rather to remove it");
+
     frontmatter::update_file_frontmatter(path, |fm| {
         if let Some(date_created) = &updates.date_created {
             fm.update_date_created(Some(date_created.clone()));
@@ -745,10 +748,10 @@ fn write_property_errors_table(
     entries: &[(PathBuf, String)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "property errors")?;
+    writer.writeln("##", "yaml frontmatter property errors")?;
     writer.writeln(
         "",
-        &format!("{} files have property errors\n", entries.len()),
+        &format!("{} files have yaml property errors\n", entries.len()),
     )?;
 
     let headers = &["file", "error"];
