@@ -4,6 +4,7 @@ use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::Validate
 
 use rayon::prelude::*;
 
+use crate::frontmatter::FrontMatter;
 use regex::Regex;
 use std::cmp::Reverse;
 use std::collections::HashMap;
@@ -14,7 +15,6 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
-use crate::frontmatter::FrontMatter;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -592,5 +592,4 @@ mod tests {
 
         // The "Ed: something else" shouldn't be included as it's not a wikilink
     }
-
 }

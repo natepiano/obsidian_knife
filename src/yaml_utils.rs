@@ -13,7 +13,9 @@ impl std::fmt::Display for YamlError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             YamlError::Missing => write!(f, "file must start with YAML frontmatter (---)"),
-            YamlError::Invalid(msg) => write!(f, "file must have closing YAML frontmatter (---): {}", msg),
+            YamlError::Invalid(msg) => {
+                write!(f, "file must have closing YAML frontmatter (---): {}", msg)
+            }
             YamlError::Parse(msg) => write!(f, "error parsing YAML frontmatter: {}", msg),
         }
     }
@@ -136,5 +138,4 @@ value: 42"#;
             Some(YamlError::Invalid(_))
         ));
     }
-
 }

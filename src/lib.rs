@@ -12,7 +12,6 @@ mod update_dates;
 mod validated_config;
 mod yaml_utils;
 
-use chrono::Local;
 use std::error::Error;
 
 // Re-export types for main

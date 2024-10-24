@@ -1,11 +1,12 @@
+use crate::yaml_utils;
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
-use crate::yaml_utils;
 
+// when we set date_created_fix to None it won't serialize - cool
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FrontMatter {
     // Fields we explicitly care about
@@ -89,8 +90,7 @@ pub fn update_frontmatter(
     }
 }
 
-
-/// Update frontmatter in a file
+// Update frontmatter in a file
 pub fn update_file_frontmatter(
     file_path: &Path,
     update_fn: impl FnOnce(&mut FrontMatter),
@@ -101,18 +101,18 @@ pub fn update_file_frontmatter(
     update_fn(&mut frontmatter);
 
     let updated_content = update_frontmatter(&content, &frontmatter)?;
+
     fs::write(file_path, updated_content)?;
 
     Ok(())
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde_yaml::{Mapping, Number};
     use std::fs::File;
     use std::io::Write;
-    use serde_yaml::{Mapping, Number};
     use tempfile::TempDir;
 
     // Test the basic functionality of updating frontmatter fields
@@ -136,7 +136,7 @@ tags:
         update_file_frontmatter(&file_path, |frontmatter| {
             frontmatter.update_date_modified(Some("[[2023-10-24]]".to_string()));
         })
-            .unwrap();
+        .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = deserialize_frontmatter(&updated_content).unwrap();
@@ -190,7 +190,7 @@ boolean_field: true
         update_file_frontmatter(&file_path, |fm| {
             fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
         })
-            .unwrap();
+        .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = deserialize_frontmatter(&updated_content).unwrap();
@@ -200,7 +200,10 @@ boolean_field: true
         assert_eq!(updated_fm.date_created, Some("2024-01-01".to_string()));
 
         // Verify the structure of nested fields
-        assert_eq!(updated_fm.other_fields.get("custom_field"), Some(&Value::String("value".to_string())));
+        assert_eq!(
+            updated_fm.other_fields.get("custom_field"),
+            Some(&Value::String("value".to_string()))
+        );
         assert!(updated_fm.other_fields.contains_key("nested"));
         assert!(updated_fm.other_fields.contains_key("array_field"));
         assert!(updated_fm.other_fields.contains_key("boolean_field"));
@@ -218,7 +221,10 @@ invalid: [yaml
 ---"#;
 
         let result = deserialize_frontmatter(invalid_content);
-        assert!(result.is_err(), "Expected deserialization of invalid YAML to fail");
+        assert!(
+            result.is_err(),
+            "Expected deserialization of invalid YAML to fail"
+        );
     }
 
     // Focused test for complex field preservation, combining tests for complex/nested values
@@ -234,10 +240,19 @@ invalid: [yaml
             date_created_fix: None,
             other_fields: {
                 let mut map = HashMap::new();
-                map.insert("complex_field".to_string(), Value::String(complex_str.to_string()));
+                map.insert(
+                    "complex_field".to_string(),
+                    Value::String(complex_str.to_string()),
+                );
                 let mut nested_map = Mapping::new();
-                nested_map.insert(Value::String("name".to_string()), Value::String("item1".to_string()));
-                nested_map.insert(Value::String("value".to_string()), Value::Number(Number::from(100)));
+                nested_map.insert(
+                    Value::String("name".to_string()),
+                    Value::String("item1".to_string()),
+                );
+                nested_map.insert(
+                    Value::String("value".to_string()),
+                    Value::Number(Number::from(100)),
+                );
                 map.insert("nested_field".to_string(), Value::Mapping(nested_map));
                 map
             },
@@ -255,7 +270,7 @@ invalid: [yaml
         update_file_frontmatter(&file_path, |fm| {
             fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
         })
-            .unwrap();
+        .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
 

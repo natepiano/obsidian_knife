@@ -1,8 +1,8 @@
+use chrono::Local;
 use obsidian_knife::*;
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;
-use chrono::Local;
 
 // Custom error type for main specific errors
 #[derive(Debug)]
@@ -24,7 +24,7 @@ impl Error for MainError {}
 fn handle_error(
     e: Box<dyn Error + Send + Sync>,
     writer: &ThreadSafeWriter,
-    start_time: Instant
+    start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
 
@@ -54,7 +54,7 @@ fn handle_error(
 fn handle_success(
     config_file: &str,
     writer: &ThreadSafeWriter,
-    start_time: Instant
+    start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
     writer.writeln(
@@ -80,7 +80,7 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
 
     if args.len() != 2 {
         return Err(Box::new(MainError::Usage(
-            "usage: obsidian_knife <obsidian_folder/config_file.md>".into()
+            "usage: obsidian_knife <obsidian_folder/config_file.md>".into(),
         )));
     }
 
@@ -89,7 +89,7 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
 
 // Initialize configuration and writer
 fn initialize_config(
-    config_path: PathBuf
+    config_path: PathBuf,
 ) -> Result<(ValidatedConfig, ThreadSafeWriter), Box<dyn Error + Send + Sync>> {
     let config = Config::from_obsidian_file(&config_path)?;
     let validated_config = config.validate()?;
@@ -153,8 +153,12 @@ mod tests {
         fs::create_dir(obsidian_path.join(".obsidian")).unwrap();
 
         // Ensure path exists and get canonical path
-        assert!(obsidian_path.exists(), "Obsidian path does not exist after creation");
-        let canonical_path = obsidian_path.canonicalize()
+        assert!(
+            obsidian_path.exists(),
+            "Obsidian path does not exist after creation"
+        );
+        let canonical_path = obsidian_path
+            .canonicalize()
             .expect("Failed to get canonical path");
 
         // Create output directory
@@ -174,7 +178,10 @@ output_folder: output
         let mut file = File::create(&config_path).unwrap();
         write!(file, "{}", config_content).unwrap();
 
-        assert!(config_path.exists(), "Config file does not exist after creation");
+        assert!(
+            config_path.exists(),
+            "Config file does not exist after creation"
+        );
 
         (temp_dir, config_path)
     }
@@ -194,11 +201,15 @@ output_folder: output
         match initialize_config(config_path) {
             Ok((config, _)) => {
                 assert!(!config.apply_changes(), "apply_changes should be false");
-                assert!(config.obsidian_path().exists(), "Obsidian path should exist");
-            },
-            Err(e) => panic!("Failed to initialize config: {} (Obsidian path exists: {})",
-                             e,
-                             _temp_dir.path().join("vault").exists()
+                assert!(
+                    config.obsidian_path().exists(),
+                    "Obsidian path should exist"
+                );
+            }
+            Err(e) => panic!(
+                "Failed to initialize config: {} (Obsidian path exists: {})",
+                e,
+                _temp_dir.path().join("vault").exists()
             ),
         }
     }

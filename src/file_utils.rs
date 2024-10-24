@@ -1,9 +1,9 @@
 use chrono::{Local, NaiveDateTime};
 use regex::Regex;
 use std::error::Error;
-use std::{fs, io};
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::{fs, io};
 
 pub fn update_file<P: AsRef<Path>>(
     path: P,
@@ -91,9 +91,14 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     path.to_path_buf()
 }
 
-pub fn set_file_times(file_path: &Path, creation_date: NaiveDateTime) -> io::Result<()> {
+pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> io::Result<()> {
     // Format the date with hh:mm:ss included
     let formatted_date = creation_date.format("%m/%d/%Y %H:%M:%S").to_string();
+
+    println!(
+        "formatted_date to set: {:?} - not enabled yet",
+        formatted_date
+    );
 
     Command::new("SetFile")
         .arg("-d")
@@ -103,7 +108,6 @@ pub fn set_file_times(file_path: &Path, creation_date: NaiveDateTime) -> io::Res
 
     Ok(())
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -124,7 +128,10 @@ mod tests {
         // Expected format: MM/DD/YYYY HH:MM:SS
         let date_time_str = output_str.trim();
         NaiveDateTime::parse_from_str(date_time_str, "%m/%d/%Y %H:%M:%S").map_err(|e| {
-            io::Error::new(io::ErrorKind::InvalidData, format!("Failed to parse date: {}", e))
+            io::Error::new(
+                io::ErrorKind::InvalidData,
+                format!("Failed to parse date: {}", e),
+            )
         })
     }
 
@@ -237,10 +244,11 @@ mod tests {
         writeln!(file, "Temporary content").unwrap();
 
         // Arbitrary date and time for testing
-        let test_date_time = NaiveDateTime::parse_from_str("2023-10-24 15:45:30", "%Y-%m-%d %H:%M:%S").unwrap();
+        let test_date_time =
+            NaiveDateTime::parse_from_str("2023-10-24 15:45:30", "%Y-%m-%d %H:%M:%S").unwrap();
 
         // Set the creation time of the file to the specified date and time
-        set_file_times(&file_path, test_date_time).unwrap();
+        set_file_create_date(&file_path, test_date_time).unwrap();
 
         // Verify the creation time using GetFileInfo
         let creation_time = get_creation_time(&file_path).unwrap();
@@ -262,19 +270,26 @@ mod tests {
         writeln!(file, "Edge case test").unwrap();
 
         // Test with midnight time
-        let midnight_time = NaiveDateTime::parse_from_str("2024-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-        set_file_times(&file_path, midnight_time).unwrap();
+        let midnight_time =
+            NaiveDateTime::parse_from_str("2024-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
+        set_file_create_date(&file_path, midnight_time).unwrap();
 
         // Verify the creation date was set correctly to midnight
         let creation_time = get_creation_time(&file_path).unwrap();
-        assert_eq!(creation_time, midnight_time, "The midnight creation time was not set correctly");
+        assert_eq!(
+            creation_time, midnight_time,
+            "The midnight creation time was not set correctly"
+        );
 
         // Test with a random time of day
-        let random_time = NaiveDateTime::parse_from_str("2024-06-15 13:22:11", "%Y-%m-%d %H:%M:%S").unwrap();
-        set_file_times(&file_path, random_time).unwrap();
+        let random_time =
+            NaiveDateTime::parse_from_str("2024-06-15 13:22:11", "%Y-%m-%d %H:%M:%S").unwrap();
+        set_file_create_date(&file_path, random_time).unwrap();
 
         let creation_time = get_creation_time(&file_path).unwrap();
-        assert_eq!(creation_time, random_time, "The random time of day was not set correctly");
+        assert_eq!(
+            creation_time, random_time,
+            "The random time of day was not set correctly"
+        );
     }
-
 }
