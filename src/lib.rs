@@ -16,6 +16,7 @@ use std::error::Error;
 
 // Re-export types for main
 pub use config::Config;
+pub use constants::*;
 pub use thread_safe_writer::ThreadSafeWriter;
 pub use validated_config::ValidatedConfig;
 

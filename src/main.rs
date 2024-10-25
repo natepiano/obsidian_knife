@@ -28,7 +28,7 @@ fn handle_error(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
 
-    writer.writeln("## error occurred", "error occurred during processing:")?;
+    writer.writeln(LEVEL2, "error occurred during processing:")?;
     writer.writeln(
         "- **error type:** ",
         &format!("{}", std::any::type_name_of_val(&*e)),

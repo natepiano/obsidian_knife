@@ -1,15 +1,19 @@
-use crate::constants::{pluralize, Phrase, SECTION_IMAGE_CLEANUP};
+use crate::constants::{
+    pluralize, Phrase, LEVEL1, LEVEL2, MISSING_IMAGE_REFERENCES, SECTION_IMAGE_CLEANUP,
+    TIFF_EXTENSION,
+};
 use crate::file_utils::update_file;
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
+use crate::LEVEL3;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-// New enum to represent different types of image groups
+// represent different types of image groups
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ImageGroupType {
     TiffImage,
@@ -37,7 +41,7 @@ impl GroupedImages {
         }
     }
 
-    fn add(&mut self, group_type: ImageGroupType, image: ImageGroup) {
+    fn add_or_update(&mut self, group_type: ImageGroupType, image: ImageGroup) {
         self.groups.entry(group_type).or_default().push(image);
     }
 
@@ -48,12 +52,9 @@ impl GroupedImages {
     fn get_duplicate_groups(&self) -> Vec<(&String, &Vec<ImageGroup>)> {
         self.groups
             .iter()
-            .filter_map(|(key, group)| {
-                if let ImageGroupType::DuplicateGroup(hash) = key {
-                    Some((hash, group))
-                } else {
-                    None
-                }
+            .filter_map(|(key, group)| match key {
+                ImageGroupType::DuplicateGroup(hash) if group.len() > 1 => Some((hash, group)),
+                _ => None,
             })
             .collect()
     }
@@ -64,14 +65,18 @@ pub fn cleanup_images(
     collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("#", SECTION_IMAGE_CLEANUP)?;
+    writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
 
     let grouped_images = group_images(&collected_files.image_map);
     let missing_references = generate_missing_references(&collected_files)?;
 
     let empty_vec = Vec::new();
-    let tiff_images = grouped_images.get(&ImageGroupType::TiffImage).unwrap_or(&empty_vec);
-    let zero_byte_images = grouped_images.get(&ImageGroupType::ZeroByteImage).unwrap_or(&empty_vec);
+    let tiff_images = grouped_images
+        .get(&ImageGroupType::TiffImage)
+        .unwrap_or(&empty_vec);
+    let zero_byte_images = grouped_images
+        .get(&ImageGroupType::ZeroByteImage)
+        .unwrap_or(&empty_vec);
     let unreferenced_images = grouped_images
         .get(&ImageGroupType::UnreferencedImage)
         .unwrap_or(&empty_vec);
@@ -153,10 +158,13 @@ fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> GroupedImages {
 
     for (path, info) in image_map {
         let group_type = determine_group_type(path, info);
-        groups.add(group_type, ImageGroup {
-            path: path.clone(),
-            info: info.clone(),
-        });
+        groups.add_or_update(
+            group_type,
+            ImageGroup {
+                path: path.clone(),
+                info: info.clone(),
+            },
+        );
     }
 
     // Sort groups by path
@@ -168,7 +176,11 @@ fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> GroupedImages {
 }
 
 fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
-    if path.extension().and_then(|ext| ext.to_str()) == Some("tiff") {
+    if path
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .map_or(false, |ext| ext.eq_ignore_ascii_case(TIFF_EXTENSION))
+    {
         ImageGroupType::TiffImage
     } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {
         ImageGroupType::ZeroByteImage
@@ -212,7 +224,7 @@ fn write_missing_references_table(
         return Ok(());
     }
 
-    writer.writeln("## missing image references", "")?;
+    writer.writeln(LEVEL2, MISSING_IMAGE_REFERENCES)?;
     writer.writeln_pluralized(missing_references.len(), Phrase::MissingImageReferences)?;
 
     let headers = &["markdown file", "missing image reference", "action"];
@@ -297,7 +309,7 @@ fn write_special_group_table(
     groups: &[ImageGroup],
     phrase: Phrase,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", group_type)?;
+    writer.writeln(LEVEL2, group_type)?;
 
     let description = format!("{} {}", groups.len(), pluralize(groups.len(), phrase));
     writer.writeln("", &format!("{}\n", description))?;
@@ -312,8 +324,8 @@ fn write_duplicate_group_table(
     group_hash: &str,
     groups: &[ImageGroup],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("## duplicate images with references", "")?;
-    writer.writeln("###", &format!("image file hash: {}", group_hash))?;
+    writer.writeln(LEVEL2, "duplicate images with references")?;
+    writer.writeln(LEVEL3, &format!("image file hash: {}", group_hash))?;
     writer.writeln_pluralized(groups.len(), Phrase::DuplicateImages)?;
     let total_references: usize = groups.iter().map(|g| g.info.references.len()).sum();
     let references_string = pluralize(total_references, Phrase::Files);
@@ -538,7 +550,7 @@ fn create_image_regex(filename: &str) -> Regex {
         regex::escape(filename),
         regex::escape(filename),
     ))
-        .unwrap()
+    .unwrap()
 }
 
 fn process_content(content: &str, regex: &Regex, new_path: Option<&Path>) -> String {
@@ -551,7 +563,12 @@ fn process_content(content: &str, regex: &Regex, new_path: Option<&Path>) -> Str
         .join("\n")
 }
 
-fn process_line(line: &str, regex: &Regex, new_path: Option<&Path>, in_frontmatter: &mut bool) -> String {
+fn process_line(
+    line: &str,
+    regex: &Regex,
+    new_path: Option<&Path>,
+    in_frontmatter: &mut bool,
+) -> String {
     if line == "---" {
         *in_frontmatter = !*in_frontmatter;
         return line.to_string();
@@ -571,7 +588,10 @@ fn replace_image_reference(line: &str, regex: &Regex, new_path: &Path) -> String
         .replace_all(line, |caps: &regex::Captures| {
             let matched = caps.get(0).unwrap().as_str();
             let relative_path = extract_relative_path(matched);
-            let new_name = new_path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let new_name = new_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or_default();
             let new_relative = format!("{}/{}", relative_path, new_name);
 
             if matched.starts_with("![[") {
@@ -943,7 +963,7 @@ Some text"#;
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         assert!(result.contains("title: Test Document"));
@@ -967,7 +987,7 @@ Some content here."#;
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         let today = Local::now().format("[[%Y-%m-%d]]").to_string();
@@ -999,11 +1019,7 @@ Some content here."#;
 
         for old_file in old_files {
             let old_path = temp_dir.path().join(old_file);
-            handle_file_operation(
-                &file_path,
-                FileOperation::RemoveReference(old_path),
-            )
-                .unwrap();
+            handle_file_operation(&file_path, FileOperation::RemoveReference(old_path)).unwrap();
         }
 
         let result = fs::read_to_string(&file_path).unwrap();
@@ -1024,11 +1040,7 @@ Some content here."#;
         let (temp_dir, file_path) = setup_test_file(content);
 
         // Create nested directory structure
-        let paths = [
-            "deeply/nested/path",
-            "another/path",
-            "current/path",
-        ];
+        let paths = ["deeply/nested/path", "another/path", "current/path"];
 
         for path in paths.iter() {
             fs::create_dir_all(temp_dir.path().join(path)).unwrap();
@@ -1036,11 +1048,7 @@ Some content here."#;
 
         let test_path = temp_dir.path().join("deeply/nested/path/test.jpg");
 
-        handle_file_operation(
-            &file_path,
-            FileOperation::RemoveReference(test_path),
-        )
-            .unwrap();
+        handle_file_operation(&file_path, FileOperation::RemoveReference(test_path)).unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         assert!(!result.contains("deeply/nested/path/test.jpg"));
@@ -1062,15 +1070,12 @@ Some text"#;
             &file_path,
             FileOperation::RemoveReference(image_path.clone()),
         )
-            .unwrap();
+        .unwrap();
 
         let result = fs::read_to_string(&file_path).unwrap();
         let today = Local::now().format("[[%Y-%m-%d]]").to_string();
         // Our cleanup function is designed to remove empty lines and simplify to just the text
-        let expected_content = format!(
-            "---\ndate_modified: \"{}\"\n---\n# Test\nSome text",
-            today
-        );
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
         assert_eq!(result, expected_content);
         assert!(!result.contains("test.jpg"));
     }
@@ -1091,30 +1096,45 @@ Some text"#;
         File::create(&zero_byte_path).unwrap();
 
         // Add test entries to image_map
-        image_map.insert(tiff_path.clone(), ImageInfo {
-            hash: "hash1".to_string(),
-            references: vec!["ref1".to_string()],
-        });
+        image_map.insert(
+            tiff_path.clone(),
+            ImageInfo {
+                hash: "hash1".to_string(),
+                references: vec!["ref1".to_string()],
+            },
+        );
 
-        image_map.insert(zero_byte_path.clone(), ImageInfo {
-            hash: "hash2".to_string(),
-            references: vec!["ref2".to_string()],
-        });
+        image_map.insert(
+            zero_byte_path.clone(),
+            ImageInfo {
+                hash: "hash2".to_string(),
+                references: vec!["ref2".to_string()],
+            },
+        );
 
-        image_map.insert(unreferenced_path.clone(), ImageInfo {
-            hash: "hash3".to_string(),
-            references: vec![],
-        });
+        image_map.insert(
+            unreferenced_path.clone(),
+            ImageInfo {
+                hash: "hash3".to_string(),
+                references: vec![],
+            },
+        );
 
         let duplicate_hash = "hash4".to_string();
-        image_map.insert(duplicate_path1.clone(), ImageInfo {
-            hash: duplicate_hash.clone(),
-            references: vec!["ref3".to_string()],
-        });
-        image_map.insert(duplicate_path2.clone(), ImageInfo {
-            hash: duplicate_hash.clone(),
-            references: vec!["ref4".to_string()],
-        });
+        image_map.insert(
+            duplicate_path1.clone(),
+            ImageInfo {
+                hash: duplicate_hash.clone(),
+                references: vec!["ref3".to_string()],
+            },
+        );
+        image_map.insert(
+            duplicate_path2.clone(),
+            ImageInfo {
+                hash: duplicate_hash.clone(),
+                references: vec!["ref4".to_string()],
+            },
+        );
 
         // Group the images
         let grouped = group_images(&image_map);
@@ -1141,6 +1161,29 @@ Some text"#;
         assert!(group.iter().any(|g| g.path == duplicate_path1));
         assert!(group.iter().any(|g| g.path == duplicate_path2));
     }
+
+    #[test]
+    fn test_determine_group_type_case_insensitive() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Test different case variations of TIFF extension
+        let extensions = ["tiff", "TIFF", "Tiff", "TiFf"];
+
+        for ext in extensions {
+            let path = temp_dir.path().join(format!("test.{}", ext));
+            File::create(&path).unwrap();
+
+            let info = ImageInfo {
+                hash: "hash1".to_string(),
+                references: vec!["ref1".to_string()],
+            };
+
+            let group_type = determine_group_type(&path, &info);
+            assert!(
+                matches!(group_type, ImageGroupType::TiffImage),
+                "Failed to match TIFF extension: {}",
+                ext
+            );
+        }
+    }
 }
-
-

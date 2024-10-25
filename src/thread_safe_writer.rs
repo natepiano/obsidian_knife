@@ -186,6 +186,7 @@ impl ThreadSafeWriter {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::LEVEL2;
     use std::fs;
     use tempfile::TempDir;
 
@@ -195,7 +196,7 @@ mod tests {
         let writer = ThreadSafeWriter::new(temp_dir.path())?;
 
         writer.writeln_pluralized(1, Phrase::InvalidDates)?;
-        writer.write_count_with_prefix("##", 2, Phrase::InvalidDates)?;
+        writer.write_count_with_prefix(LEVEL2, 2, Phrase::InvalidDates)?;
 
         let content = fs::read_to_string(temp_dir.path().join("obsidian knife output.md"))?;
         assert!(content.contains("file has an invalid date"));

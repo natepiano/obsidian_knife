@@ -1,10 +1,16 @@
-pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
-pub const CACHE_FOLDER: &str = ".obsidian_knife";
-
-pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
-
 // only enable file updates during tests for now
 // pub const ENABLE_FILE_UPDATES: bool = cfg!(test);
+
+pub const LEVEL1: &str = "#";
+pub const LEVEL2: &str = "##";
+pub const LEVEL3: &str = "###";
+
+// image stuff
+pub const CACHE_FOLDER: &str = ".obsidian_knife";
+pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
+pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
+pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
+pub const TIFF_EXTENSION: &str = "tiff";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

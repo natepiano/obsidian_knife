@@ -2,6 +2,7 @@ use crate::file_utils::update_file;
 use crate::scan::MarkdownFileInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
+use crate::LEVEL1;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -21,7 +22,7 @@ pub fn process_simplify_wikilinks(
     let simplify_patterns = match config.simplify_wikilinks() {
         Some(patterns) if !patterns.is_empty() => patterns,
         _ => {
-            writer.writeln("#", "simplify wikilinks")?;
+            writer.writeln(LEVEL1, "simplify wikilinks")?;
             writer.writeln("", "no wikilink patterns specified")?;
             return Ok(());
         }
@@ -52,7 +53,7 @@ fn write_wikilinks_table_header(
     simplify_patterns: &&[String],
     total_wikilinks: &usize,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("#", "simplify wikilinks")?;
+    writer.writeln(LEVEL1, "simplify wikilinks")?;
 
     // Display specified patterns
     writer.writeln(

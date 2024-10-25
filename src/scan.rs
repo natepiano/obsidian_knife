@@ -1,9 +1,10 @@
 use crate::sha256_cache::{CacheFileStatus, Sha256Cache};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig};
+use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, LEVEL3};
 
 use rayon::prelude::*;
 
+use crate::constants::{LEVEL1, LEVEL2};
 use crate::frontmatter::FrontMatter;
 use regex::Regex;
 use std::cmp::Reverse;
@@ -116,7 +117,7 @@ fn write_cache_file_info(
     cache_file_path: &PathBuf,
     cache_file_status: CacheFileStatus,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "collecting image file info")?;
+    writer.writeln(LEVEL2, "collecting image file info")?;
 
     match cache_file_status {
         CacheFileStatus::ReadFromCache => {
@@ -175,7 +176,7 @@ fn write_cache_contents_info(
     ];
 
     let alignments = [ColumnAlignment::Left, ColumnAlignment::Right];
-    writer.writeln("###", "Cache Statistics")?;
+    writer.writeln(LEVEL3, "Cache Statistics")?;
     writer.write_markdown_table(headers, &rows, Some(&alignments))?;
     println!();
 
@@ -434,13 +435,13 @@ fn write_file_info(
     collected_files: &CollectedFiles,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
-    writer.writeln("##", "file counts")?;
+    writer.writeln(LEVEL2, "file counts")?;
     writer.writeln(
-        "###",
+        LEVEL3,
         &format!("markdown files: {}", collected_files.markdown_files.len()),
     )?;
     writer.writeln(
-        "###",
+        LEVEL3,
         &format!("image files: {}", collected_files.image_map.len()),
     )?;
 
@@ -461,7 +462,7 @@ fn write_file_info(
     )?;
 
     writer.writeln(
-        "###",
+        LEVEL3,
         &format!("other files: {}", collected_files.other_files.len()),
     )?;
 
@@ -479,8 +480,8 @@ fn write_scan_start(
     config: &ValidatedConfig,
     output: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    output.writeln("#", "scanning")?;
-    output.writeln("## scan details", "")?;
+    output.writeln(LEVEL1, "scanning")?;
+    output.writeln(LEVEL2, "scan details")?;
     output.writeln("", &format!("scanning: {:?}", config.obsidian_path()))?;
     Ok(())
 }

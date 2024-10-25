@@ -3,7 +3,7 @@ use crate::frontmatter::FrontMatter;
 use crate::scan::MarkdownFileInfo;
 use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::{file_utils, frontmatter, ValidatedConfig};
+use crate::{file_utils, frontmatter, ValidatedConfig, LEVEL1, LEVEL2};
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 use std::collections::HashMap;
 use std::error::Error;
@@ -208,7 +208,7 @@ pub fn process_dates(
     collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("#", "update dates")?;
+    writer.writeln(LEVEL1, "update dates")?;
 
     let results = collect_date_entries(collected_files, config)?;
     results.write_tables(writer, config.apply_changes())?;
@@ -567,7 +567,7 @@ fn write_invalid_dates_table(
     entries: &[(PathBuf, DateValidationError)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "invalid date values")?;
+    writer.writeln(LEVEL2, "invalid date values")?;
 
     writer.writeln_pluralized(entries.len(), Phrase::InvalidDates)?;
 
@@ -618,7 +618,7 @@ fn write_date_created_table(
     writer: &ThreadSafeWriter,
     show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "date_created fixes")?;
+    writer.writeln(LEVEL2, "date_created fixes")?;
     writer.writeln_pluralized(entries.len(), Phrase::DateCreated)?;
 
     let mut headers = vec![
@@ -703,7 +703,7 @@ fn write_date_modified_table(
     writer: &ThreadSafeWriter,
     show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "date modified issues and fixes")?;
+    writer.writeln(LEVEL2, "date modified issues and fixes")?;
     writer.writeln_pluralized(entries.len(), Phrase::DateModified)?;
 
     let mut headers = vec!["file", "date_modified", "updated property"];
@@ -760,7 +760,7 @@ fn write_property_errors_table(
     entries: &[(PathBuf, String)],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "yaml frontmatter property errors")?;
+    writer.writeln(LEVEL2, "yaml frontmatter property errors")?;
     writer.writeln_pluralized(entries.len(), Phrase::PropertyErrors)?;
 
     let headers = &["file", "error"];
