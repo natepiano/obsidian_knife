@@ -1,6 +1,6 @@
 use crate::sha256_cache::{CacheFileStatus, Sha256Cache};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, LEVEL3};
+use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, CACHE_FILE, LEVEL3};
 
 use rayon::prelude::*;
 
@@ -68,7 +68,7 @@ fn get_image_info_map(
     let cache_file_path = config
         .obsidian_path()
         .join(crate::constants::CACHE_FOLDER)
-        .join("image_cache.json");
+        .join(CACHE_FILE);
     let (mut cache, cache_file_status) = Sha256Cache::new(cache_file_path.clone())?;
 
     write_cache_file_info(writer, &cache_file_path, cache_file_status)?;

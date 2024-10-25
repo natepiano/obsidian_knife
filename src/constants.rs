@@ -1,17 +1,21 @@
 // only enable file updates during tests for now
 // pub const ENABLE_FILE_UPDATES: bool = cfg!(test);
 
-pub const LEVEL1: &str = "#";
-pub const LEVEL2: &str = "##";
-pub const LEVEL3: &str = "###";
+// cache stuff
+pub const CACHE_FOLDER: &str = ".obsidian_knife";
+pub const CACHE_FILE: &str = "image_cache.json";
 
 // image stuff
-pub const CACHE_FOLDER: &str = ".obsidian_knife";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
 pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
 pub const TIFF_EXTENSION: &str = "tiff";
+
+//markdown stuff
+pub const LEVEL1: &str = "#";
+pub const LEVEL2: &str = "##";
+pub const LEVEL3: &str = "###";
 
 // regex stuff
 pub const CLOSING_BRACKET: char = ']';
