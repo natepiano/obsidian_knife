@@ -1,3 +1,4 @@
+use crate::constants::{pluralize, Phrase};
 use crate::file_utils::update_file;
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
@@ -34,8 +35,8 @@ pub fn cleanup_images(
         .iter()
         .filter(|(key, group)| {
             *key != "TIFF Images"
-                && *key != "zero-byte images"
-                && *key != "unreferenced images"
+                && *key != "Zero-Byte Images"
+                && *key != "Unreferenced Images"
                 && group.len() > 1
         })
         .collect();
@@ -75,53 +76,32 @@ fn write_tables(
     write_missing_references_table(config, missing_references, writer)?;
 
     if !tiff_images.is_empty() {
-        let description = format!(
-            "The following {} {} may not render correctly in Obsidian:",
-            tiff_images.len(),
-            if tiff_images.len() == 1 {
-                "TIFF image"
-            } else {
-                "TIFF images"
-            }
-        );
-        write_special_group_table(config, writer, "TIFF Images", tiff_images, &description)?;
-    }
-
-    if !zero_byte_images.is_empty() {
-        let description = format!(
-            "The following {} {} zero bytes and may be corrupted:",
-            zero_byte_images.len(),
-            if zero_byte_images.len() == 1 {
-                "image has"
-            } else {
-                "images have"
-            }
-        );
         write_special_group_table(
             config,
             writer,
-            "Zero-Byte Images",
+            "TIFF Images",
+            tiff_images,
+            Phrase::TiffImages,
+        )?;
+    }
+
+    if !zero_byte_images.is_empty() {
+        write_special_group_table(
+            config,
+            writer,
+            "zero-byte images",
             zero_byte_images,
-            &description,
+            Phrase::ZeroByteImages,
         )?;
     }
 
     if !unreferenced_images.is_empty() {
-        let description = format!(
-            "The following {} {} not referenced by any files:",
-            unreferenced_images.len(),
-            if unreferenced_images.len() == 1 {
-                "image is"
-            } else {
-                "images are"
-            }
-        );
         write_special_group_table(
             config,
             writer,
             "Unreferenced Images",
             unreferenced_images,
-            &description,
+            Phrase::UnreferencedImages,
         )?;
     }
 
@@ -196,13 +176,10 @@ fn write_missing_references_table(
         return Ok(());
     }
 
-    writer.writeln("## Missing Image References", "")?;
-    writer.writeln(
-        "",
-        "The following markdown files refer to missing local image files:\n",
-    )?;
+    writer.writeln("## missing image references", "")?;
+    writer.writeln_pluralized(missing_references.len(), Phrase::MissingImageReferences)?;
 
-    let headers = &["Markdown File", "Missing Image Reference", "Action"];
+    let headers = &["markdown file", "missing image reference", "action"];
 
     // Group missing references by markdown file
     let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
@@ -282,11 +259,14 @@ fn write_special_group_table(
     writer: &ThreadSafeWriter,
     group_type: &str,
     groups: &[ImageGroup],
-    description: &str,
+    phrase: Phrase,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", group_type)?;
+
+    let description = format!("{} {}", groups.len(), pluralize(groups.len(), phrase));
     writer.writeln("", &format!("{}\n", description))?;
-    write_group_table(config, writer, groups, false, true)?; // Note the added `true` parameter
+
+    write_group_table(config, writer, groups, false, true)?;
     Ok(())
 }
 
@@ -296,12 +276,17 @@ fn write_duplicate_group_table(
     group_hash: &str,
     groups: &[ImageGroup],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("## Duplicate Images with References", "")?;
+    writer.writeln("## duplicate images with references", "")?;
     writer.writeln("###", &format!("image file hash: {}", group_hash))?;
-    writer.writeln("", &format!("{} duplicates", groups.len() - 1))?;
+    writer.writeln_pluralized(groups.len(), Phrase::DuplicateImages)?;
     let total_references: usize = groups.iter().map(|g| g.info.references.len()).sum();
-    writer.writeln("", &format!("referenced by {} files\n", total_references))?;
-    write_group_table(config, writer, groups, true, false)?; // Note the added `false` parameter
+    let references_string = pluralize(total_references, Phrase::Files);
+    writer.writeln(
+        "",
+        &format!("referenced by {} {}\n", total_references, references_string),
+    )?;
+
+    write_group_table(config, writer, groups, true, false)?;
     Ok(())
 }
 
@@ -501,35 +486,125 @@ fn update_file_content(
     new_path: Option<&Path>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     update_file(file_path, |content| {
-        let old_name = old_path.file_name().unwrap().to_str().unwrap();
-        let regex = Regex::new(&format!(
-            r"(!?\[.*?\]\({}(?:\|.*?)?\))|(!\[\[{}(?:\|.*?)?\]\])",
-            regex::escape(old_name),
-            regex::escape(old_name)
-        ))
-        .unwrap();
+        let old_name = old_path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
 
-        let new_content = regex.replace_all(&content, |caps: &regex::Captures| {
-            let matched = caps.get(0).unwrap().as_str();
-            if let Some(new_path) = new_path {
-                let new_name = new_path.file_name().unwrap().to_str().unwrap();
-                matched.replace(old_name, new_name)
-            } else {
-                String::new()
-            }
-        });
-
-        // Clean up empty lines when content was removed
-        if new_path.is_none() {
-            new_content
-                .lines()
-                .filter(|&line| !line.trim().is_empty())
-                .collect::<Vec<_>>()
-                .join("\n")
-        } else {
-            new_content.into_owned()
-        }
+        let regex = create_image_regex(old_name);
+        process_content(content, &regex, new_path)
     })
+}
+
+fn create_image_regex(filename: &str) -> Regex {
+    Regex::new(&format!(
+        r"(!?\[.*?\]\([^)]*{}(?:\|[^)]*)?\)|!\[\[[^]\n]*{}(?:\|[^\]]*?)?\]\])",
+        regex::escape(filename),
+        regex::escape(filename),
+    ))
+        .unwrap()
+}
+
+fn process_content(content: &str, regex: &Regex, new_path: Option<&Path>) -> String {
+    let mut in_frontmatter = false;
+    content
+        .lines()
+        .map(|line| process_line(line, regex, new_path, &mut in_frontmatter))
+        .filter(|line| !line.is_empty())
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+fn process_line(line: &str, regex: &Regex, new_path: Option<&Path>, in_frontmatter: &mut bool) -> String {
+    if line == "---" {
+        *in_frontmatter = !*in_frontmatter;
+        return line.to_string();
+    }
+    if *in_frontmatter {
+        return line.to_string();
+    }
+
+    match new_path {
+        Some(new_path) => replace_image_reference(line, regex, new_path),
+        None => remove_image_reference(line, regex),
+    }
+}
+
+fn replace_image_reference(line: &str, regex: &Regex, new_path: &Path) -> String {
+    regex
+        .replace_all(line, |caps: &regex::Captures| {
+            let matched = caps.get(0).unwrap().as_str();
+            let relative_path = extract_relative_path(matched);
+            let new_name = new_path.file_name().and_then(|n| n.to_str()).unwrap_or_default();
+            let new_relative = format!("{}/{}", relative_path, new_name);
+
+            if matched.starts_with("![[") {
+                format!("![[{}]]", new_relative)
+            } else {
+                let alt_text = extract_alt_text(matched);
+                format!("![{}]({})", alt_text, new_relative)
+            }
+        })
+        .into_owned()
+}
+
+fn remove_image_reference(line: &str, regex: &Regex) -> String {
+    let processed = regex.replace_all(line, "");
+    let cleaned = processed.trim();
+
+    if should_remove_line(cleaned) {
+        String::new()
+    } else if regex.find(line).is_none() {
+        processed.into_owned()
+    } else {
+        normalize_spaces(processed.trim())
+    }
+}
+
+fn extract_relative_path(matched: &str) -> String {
+    if !matched.contains('/') {
+        return "conf/media".to_string();
+    }
+
+    let old_name = matched.split('/').last().unwrap_or("");
+    if let Some(path_start) = matched.find(old_name) {
+        let prefix = &matched[..path_start];
+        prefix
+            .rfind(|c| c == '(' || c == '[')
+            .map(|pos| &prefix[pos + 1..])
+            .map(|p| p.trim_end_matches('/'))
+            .filter(|p| !p.is_empty())
+            .unwrap_or("conf/media")
+            .to_string()
+    } else {
+        "conf/media".to_string()
+    }
+}
+
+fn extract_alt_text(matched: &str) -> &str {
+    if matched.starts_with("![") {
+        if let Some(alt_end) = matched.find(']') {
+            &matched[2..alt_end]
+        } else {
+            "Image"
+        }
+    } else {
+        "Image"
+    }
+}
+
+fn should_remove_line(line: &str) -> bool {
+    line.is_empty() || line == ":" || line.ends_with(":") || line.ends_with(": ")
+}
+
+fn normalize_spaces(text: &str) -> String {
+    text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+fn create_path_pattern(path: &Path) -> String {
+    path.to_str()
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| path.to_string_lossy().to_string())
 }
 
 #[cfg(test)]
@@ -646,4 +721,329 @@ mod tests {
             "UpdateReference operation should fail with wikilink path"
         );
     }
+
+    #[test]
+    fn test_remove_reference_with_path() {
+        let content =
+            "# Test\n![[conf/media/test.jpg]]\nSome text\n![Image](conf/media/test.jpg)\nMore text";
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("conf").join("media").join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text",
+            today
+        );
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_update_reference_with_path() {
+        let content =
+            "# Test\n![[conf/media/old.jpg]]\nSome text\n![Image](conf/media/old.jpg)\nMore text";
+        let (temp_dir, file_path) = setup_test_file(content);
+        let old_path = temp_dir.path().join("conf").join("media").join("old.jpg");
+        let new_path = temp_dir.path().join("conf").join("media").join("new.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::UpdateReference(old_path.clone(), new_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\n![[conf/media/new.jpg]]\nSome text\n![Image](conf/media/new.jpg)\nMore text",
+            today
+        );
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_update_reference_path_variants() {
+        let content = r#"# Test
+Normal link: ![Alt](test.jpg)
+Wiki link: ![[test.jpg]]
+Path link: ![Alt](path/to/test.jpg)
+Path wiki: ![[path/to/test.jpg]]
+More text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg"); // Note: just using test.jpg
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_mixed_reference_styles() {
+        let content = r#"# Test
+![Simple](test.jpg)
+![[test.jpg]]
+![Full Path](conf/media/test.jpg)
+![[conf/media/test.jpg]]
+More text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("conf").join("media").join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_reference_with_spaces() {
+        let content = r#"# Test
+![Alt text](my test.jpg)
+![[my test.jpg]]
+More text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("my test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
+
+        assert_eq!(result, expected_content);
+    }
+    #[test]
+    fn test_cleanup_with_labels() {
+        let content = r#"# Test
+Label 1: ![Alt](test.jpg) text
+Label 2: ![[test.jpg]] more text
+Just label: ![[test.jpg]]
+Mixed: ![Alt](test.jpg) ![[test.jpg]]
+More text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nLabel 1: text\nLabel 2: more text\nMore text",
+            today
+        );
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_reference_with_inline_text() {
+        let content = r#"# Test
+Before ![Alt](test.jpg) after
+Text before ![[test.jpg]] and after
+More text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+        .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nBefore after\nText before and after\nMore text",
+            today
+        );
+
+        assert_eq!(result, expected_content);
+    }
+
+    #[test]
+    fn test_frontmatter_preservation() {
+        let content = r#"---
+title: Test Document
+tags: [test, image]
+date: 2024-01-01
+---
+# Test
+![Image](test.jpg)
+Some text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+            .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        assert!(result.contains("title: Test Document"));
+        assert!(result.contains("tags: [test, image]"));
+        assert!(result.contains("date: 2024-01-01"));
+    }
+
+    #[test]
+    fn test_multiple_references_same_image() {
+        let content = r#"# Test
+First reference: ![Alt](test.jpg)
+Second reference: ![[test.jpg]]
+Third reference in path: ![Alt](conf/media/test.jpg)
+Fourth reference: ![[conf/media/test.jpg]]
+Some content here."#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+            .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nSome content here.",
+            today
+        );
+
+        assert_eq!(result, expected_content);
+        assert!(!result.contains("test.jpg"));
+        assert!(!result.contains("reference:")); // Verify labels are removed
+    }
+
+    #[test]
+    fn test_update_reference_with_special_characters() {
+        let content = r#"# Test
+![Alt](test-with-dashes.jpg)
+![[test with spaces.jpg]]
+![Alt](test_with_underscores.jpg)
+![[test.with.dots.jpg]]"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let old_files = vec![
+            "test-with-dashes.jpg",
+            "test with spaces.jpg",
+            "test_with_underscores.jpg",
+            "test.with.dots.jpg",
+        ];
+
+        for old_file in old_files {
+            let old_path = temp_dir.path().join(old_file);
+            handle_file_operation(
+                &file_path,
+                FileOperation::RemoveReference(old_path),
+            )
+                .unwrap();
+        }
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        assert!(!result.contains("test-with-dashes.jpg"));
+        assert!(!result.contains("test with spaces.jpg"));
+        assert!(!result.contains("test_with_underscores.jpg"));
+        assert!(!result.contains("test.with.dots.jpg"));
+    }
+
+    #[test]
+    fn test_nested_directories() {
+        let content = r#"# Test
+![Alt](deeply/nested/path/test.jpg)
+![[another/path/test.jpg]]
+![Alt](../relative/path/test.jpg)
+![[./current/path/test.jpg]]"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+
+        // Create nested directory structure
+        let paths = [
+            "deeply/nested/path",
+            "another/path",
+            "current/path",
+        ];
+
+        for path in paths.iter() {
+            fs::create_dir_all(temp_dir.path().join(path)).unwrap();
+        }
+
+        let test_path = temp_dir.path().join("deeply/nested/path/test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(test_path),
+        )
+            .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        assert!(!result.contains("deeply/nested/path/test.jpg"));
+    }
+
+    #[test]
+    fn test_image_reference_with_metadata() {
+        let content = r#"# Test
+Standard link: ![Alt|size=200](test.jpg)
+Wiki with size: ![[test.jpg|200]]
+Wiki with caption: ![[test.jpg|This is a caption]]
+Multiple params: ![[test.jpg|200|caption text]]
+Some text"#;
+
+        let (temp_dir, file_path) = setup_test_file(content);
+        let image_path = temp_dir.path().join("test.jpg");
+
+        handle_file_operation(
+            &file_path,
+            FileOperation::RemoveReference(image_path.clone()),
+        )
+            .unwrap();
+
+        let result = fs::read_to_string(&file_path).unwrap();
+        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        // Our cleanup function is designed to remove empty lines and simplify to just the text
+        let expected_content = format!(
+            "---\ndate_modified: \"{}\"\n---\n# Test\nSome text",
+            today
+        );
+        assert_eq!(result, expected_content);
+        assert!(!result.contains("test.jpg"));
+    }
 }
+
+

@@ -1,3 +1,4 @@
+use crate::constants::Phrase;
 use crate::frontmatter::FrontMatter;
 use crate::scan::MarkdownFileInfo;
 use crate::simplify_wikilinks::format_wikilink;
@@ -567,7 +568,8 @@ fn write_invalid_dates_table(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", "invalid date values")?;
-    writer.writeln("", &format!("{} files have invalid dates\n", entries.len()))?;
+
+    writer.writeln_pluralized(entries.len(), Phrase::InvalidDates)?;
 
     let headers = &[
         "file",
@@ -616,11 +618,8 @@ fn write_date_created_table(
     writer: &ThreadSafeWriter,
     show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("##", "date created issues and fixes")?;
-    writer.writeln(
-        "",
-        &format!("{} files have issues with date_created\n", entries.len()),
-    )?;
+    writer.writeln("##", "date_created fixes")?;
+    writer.writeln_pluralized(entries.len(), Phrase::DateCreated)?;
 
     let mut headers = vec![
         "file",
@@ -705,10 +704,7 @@ fn write_date_modified_table(
     show_updates: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", "date modified issues and fixes")?;
-    writer.writeln(
-        "",
-        &format!("{} files have issues with date_modified\n", entries.len()),
-    )?;
+    writer.writeln_pluralized(entries.len(), Phrase::DateModified)?;
 
     let mut headers = vec!["file", "date_modified", "updated property"];
     if show_updates {
@@ -765,10 +761,7 @@ fn write_property_errors_table(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln("##", "yaml frontmatter property errors")?;
-    writer.writeln(
-        "",
-        &format!("{} files have yaml property errors\n", entries.len()),
-    )?;
+    writer.writeln_pluralized(entries.len(), Phrase::PropertyErrors)?;
 
     let headers = &["file", "error"];
     let rows: Vec<Vec<String>> = entries

@@ -95,11 +95,6 @@ pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> i
     // Format the date with hh:mm:ss included
     let formatted_date = creation_date.format("%m/%d/%Y %H:%M:%S").to_string();
 
-    println!(
-        "formatted_date to set: {:?} - not enabled yet",
-        formatted_date
-    );
-
     Command::new("SetFile")
         .arg("-d")
         .arg(&formatted_date)

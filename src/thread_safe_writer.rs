@@ -1,3 +1,4 @@
+use crate::constants::{pluralize, Phrase};
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
@@ -7,6 +8,7 @@ pub struct ThreadSafeWriter {
     console: io::Stdout,
     buffer: Arc<Mutex<Vec<u8>>>,
     file: Arc<Mutex<std::fs::File>>,
+    console_enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -30,6 +32,7 @@ impl ThreadSafeWriter {
             console: io::stdout(),
             buffer: Arc::new(Mutex::new(Vec::new())),
             file: Arc::new(Mutex::new(file)),
+            console_enabled: !cfg!(test), // Automatically disable console in tests
         })
     }
 
@@ -93,6 +96,10 @@ impl ThreadSafeWriter {
     }
 
     fn write_table_to_console(&self, headers: &[&str], rows: &[Vec<String>]) -> io::Result<()> {
+        if !self.console_enabled {
+            return Ok(());
+        }
+
         let mut console = self.console.lock();
 
         // Write headers
@@ -131,20 +138,17 @@ impl ThreadSafeWriter {
     }
 
     pub fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
-        if !message.is_empty() {
+        if !message.is_empty() && self.console_enabled {
             let console_message = format!("{}\n", message);
-
-            // Write to console (without markdown prefix)
             self.console.lock().write_all(console_message.as_bytes())?;
             self.console.lock().flush()?;
 
-            // Write to buffer (without markdown prefix)
             let mut buffer = self.buffer.lock().unwrap();
             buffer.extend_from_slice(console_message.as_bytes());
         }
 
-        // Ensure there's a space between the prefix and the message
-        let markdown_prefix = if markdown_prefix.is_empty() {
+        // Create the prefix string first
+        let prefix = if markdown_prefix.is_empty() {
             String::new()
         } else if markdown_prefix.ends_with(' ') {
             markdown_prefix.to_string()
@@ -152,12 +156,50 @@ impl ThreadSafeWriter {
             format!("{} ", markdown_prefix)
         };
 
-        // Always write to file, even if message is empty
-        let file_message = format!("{}{}\n", markdown_prefix, message);
+        // Then use it to create the full message
+        let file_message = format!("{}{}\n", prefix, message);
         let mut file = self.file.lock().unwrap();
         file.write_all(file_message.as_bytes())?;
         file.flush()?;
 
+        Ok(())
+    }
+
+    /// Writes a count-based phrase with newlines and proper pluralization
+    pub fn writeln_pluralized(&self, count: usize, phrase: Phrase) -> io::Result<()> {
+        let message = pluralize(count, phrase);
+        self.writeln("", &format!("{} {}\n", count, message))
+    }
+
+    /// Same as write_count but with a markdown prefix
+    pub fn write_count_with_prefix(
+        &self,
+        prefix: &str,
+        count: usize,
+        phrase: Phrase,
+    ) -> io::Result<()> {
+        let message = pluralize(count, phrase);
+        self.writeln(prefix, &format!("{}\n", message))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_write_count() -> io::Result<()> {
+        let temp_dir = TempDir::new().unwrap();
+        let writer = ThreadSafeWriter::new(temp_dir.path())?;
+
+        writer.writeln_pluralized(1, Phrase::InvalidDates)?;
+        writer.write_count_with_prefix("##", 2, Phrase::InvalidDates)?;
+
+        let content = fs::read_to_string(temp_dir.path().join("obsidian knife output.md"))?;
+        assert!(content.contains("file has an invalid date"));
+        assert!(content.contains("## files have invalid dates"));
         Ok(())
     }
 }
