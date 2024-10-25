@@ -8,9 +8,29 @@ pub const LEVEL3: &str = "###";
 // image stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
+pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
 pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
 pub const TIFF_EXTENSION: &str = "tiff";
+
+// regex stuff
+pub const CLOSING_BRACKET: char = ']';
+pub const CLOSING_WIKILINK: &str = "]]";
+pub const FORWARD_SLASH: char = '/';
+pub const OPENING_BRACKET: char = '[';
+pub const OPENING_IMAGE_LINK_BRACKET: &str = "!["; // for external style "![]()"
+pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";
+pub const OPENING_PAREN: char = '(';
+pub const OPENING_WIKILINK: &str = "[[";
+
+pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
+    if let Some(test_wikilink) = potential_wikilink {
+        test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
+    } else {
+        false
+    }
+}
+
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

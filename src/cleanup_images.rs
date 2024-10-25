@@ -1,12 +1,8 @@
-use crate::constants::{
-    pluralize, Phrase, LEVEL1, LEVEL2, MISSING_IMAGE_REFERENCES, SECTION_IMAGE_CLEANUP,
-    TIFF_EXTENSION,
-};
+use crate::constants::*;
 use crate::file_utils::update_file;
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::LEVEL3;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
@@ -273,7 +269,7 @@ fn write_missing_references_table(
 
 fn extract_local_image_filename(image_link: &str) -> Option<String> {
     // Handle Obsidian-style links (always local)
-    if image_link.starts_with("![[") && image_link.ends_with("]]") {
+    if image_link.starts_with(OPENING_IMAGE_WIKILINK_BRACKET) && image_link.ends_with(CLOSING_WIKILINK) {
         let inner = &image_link[3..image_link.len() - 2];
         let filename = inner.split('|').next().unwrap_or(inner).trim();
         Some(filename.to_lowercase())
@@ -287,7 +283,7 @@ fn extract_local_image_filename(image_link: &str) -> Option<String> {
 
         // Check if the URL is local (doesn't start with http:// or https://)
         if !url.starts_with("http://") && !url.starts_with("https://") {
-            url.rsplit('/').next().map(|s| s.to_lowercase())
+            url.rsplit(FORWARD_SLASH).next().map(|s| s.to_lowercase())
         } else {
             None
         }
@@ -506,7 +502,7 @@ fn handle_file_operation(
     // Check if the path is a wikilink
     if path
         .to_str()
-        .map_or(false, |s| s.contains("[[") && s.contains("]]"))
+        .map_or(false, |s| s.contains(OPENING_WIKILINK) && s.contains(CLOSING_WIKILINK))
     {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
@@ -594,7 +590,7 @@ fn replace_image_reference(line: &str, regex: &Regex, new_path: &Path) -> String
                 .unwrap_or_default();
             let new_relative = format!("{}/{}", relative_path, new_name);
 
-            if matched.starts_with("![[") {
+            if matched.starts_with(OPENING_IMAGE_WIKILINK_BRACKET) {
                 format!("![[{}]]", new_relative)
             } else {
                 let alt_text = extract_alt_text(matched);
@@ -618,17 +614,17 @@ fn remove_image_reference(line: &str, regex: &Regex) -> String {
 }
 
 fn extract_relative_path(matched: &str) -> String {
-    if !matched.contains('/') {
+    if !matched.contains(FORWARD_SLASH) {
         return "conf/media".to_string();
     }
 
-    let old_name = matched.split('/').last().unwrap_or("");
+    let old_name = matched.split(FORWARD_SLASH).last().unwrap_or("");
     if let Some(path_start) = matched.find(old_name) {
         let prefix = &matched[..path_start];
         prefix
-            .rfind(|c| c == '(' || c == '[')
+            .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
             .map(|pos| &prefix[pos + 1..])
-            .map(|p| p.trim_end_matches('/'))
+            .map(|p| p.trim_end_matches(FORWARD_SLASH))
             .filter(|p| !p.is_empty())
             .unwrap_or("conf/media")
             .to_string()
@@ -638,16 +634,13 @@ fn extract_relative_path(matched: &str) -> String {
 }
 
 fn extract_alt_text(matched: &str) -> &str {
-    if matched.starts_with("![") {
-        if let Some(alt_end) = matched.find(']') {
-            &matched[2..alt_end]
-        } else {
-            "Image"
-        }
+    if matched.starts_with(OPENING_IMAGE_LINK_BRACKET) {
+        matched.find(CLOSING_BRACKET).map(|alt_end| &matched[2..alt_end]).unwrap_or(IMAGE_ALT_TEXT_DEFAULT)
     } else {
-        "Image"
+        IMAGE_ALT_TEXT_DEFAULT
     }
 }
+
 
 fn should_remove_line(line: &str) -> bool {
     line.is_empty() || line == ":" || line.ends_with(":") || line.ends_with(": ")

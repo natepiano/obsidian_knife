@@ -1,10 +1,11 @@
-use crate::constants::Phrase;
+use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::scan::MarkdownFileInfo;
 use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::{file_utils, frontmatter, ValidatedConfig, LEVEL1, LEVEL2};
+use crate::{file_utils, frontmatter, ValidatedConfig};
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
+
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
@@ -177,7 +178,8 @@ impl SetFileCreationDateWith {
                 // Concatenate date_created_fix with the file creation timestamp
                 // Strip wikilinks from date_created_fix if present
                 if let Some(fix) = date_created_fix {
-                    let clean_fix = if fix.starts_with("[[") && fix.ends_with("]]") {
+                   let clean_fix = if fix.starts_with(OPENING_WIKILINK) && fix.ends_with(CLOSING_WIKILINK) {
+                   // let clean_fix = if is_wikilink(Some(fix)) {
                         &fix[2..fix.len() - 2]
                     } else {
                         fix
@@ -251,7 +253,7 @@ fn create_validation_context(
 fn process_file(
     results: &mut DateValidationResults,
     context: FileValidationContext,
-    config: &ValidatedConfig, // Add config parameter
+    config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Handle property errors first
     if let Some(error) = context.property_error {
@@ -355,6 +357,9 @@ fn process_valid_dates(
         file_creation_time: None,
         remove_date_created_fix: false,
     };
+
+    println!("date_created_fix: {:?} {:?}", fm.date_created_fix(), context.path);
+
 
     let should_add = fm.date_created_fix().is_some()
         || fm.date_created().is_none()
@@ -523,30 +528,22 @@ fn calculate_file_creation_date_approach(
     }
 }
 
-fn is_wikilink(date: Option<&String>) -> bool {
-    if let Some(d) = date {
-        d.starts_with("[[") && d.ends_with("]]")
-    } else {
-        false
-    }
-}
-
 fn validate_wikilink_and_date(date: &str) -> (bool, bool) {
     // First, trim any surrounding whitespace from the string
     let date = date.trim();
 
     // Check if the date starts with exactly `[[` and ends with exactly `]]`
-    let is_wikilink = date.starts_with("[[") && date.ends_with("]]");
+    let is_wikilink = date.starts_with(OPENING_WIKILINK) && date.ends_with(CLOSING_WIKILINK);
 
     // Ensure there are exactly two opening and two closing brackets
-    let valid_bracket_count = date.matches('[').count() == 2 && date.matches(']').count() == 2;
+    let valid_bracket_count = date.matches('[').count() == 2 && date.matches(CLOSING_BRACKET).count() == 2;
 
     // Combine both checks to ensure it's a proper wikilink
     let is_wikilink = is_wikilink && valid_bracket_count;
 
     // If it's a wikilink, validate the inner date; otherwise, validate the raw string
     let clean_date = if is_wikilink {
-        date.trim_start_matches("[[").trim_end_matches("]]").trim()
+        date.trim_start_matches(OPENING_WIKILINK).trim_end_matches(CLOSING_WIKILINK).trim()
     } else {
         date.trim()
     };
@@ -691,7 +688,7 @@ fn write_date_created_table(
 
 // Helper function to ensure a date string has wikilink format
 fn ensure_wikilink_format(date: &str) -> String {
-    if date.starts_with("[[") && date.ends_with("]]") {
+    if date.starts_with(OPENING_WIKILINK) && date.ends_with(CLOSING_WIKILINK) {
         date.to_string()
     } else {
         format!("[[{}]]", date)
