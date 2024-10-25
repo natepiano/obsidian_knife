@@ -1,4 +1,4 @@
-use crate::constants::{pluralize, Phrase};
+use crate::constants::{pluralize, Phrase, SECTION_IMAGE_CLEANUP};
 use crate::file_utils::update_file;
 use crate::scan::{CollectedFiles, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
@@ -9,10 +9,54 @@ use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
+// New enum to represent different types of image groups
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub enum ImageGroupType {
+    TiffImage,
+    ZeroByteImage,
+    UnreferencedImage,
+    DuplicateGroup(String), // String is the hash value
+}
+
 #[derive(Clone)]
 struct ImageGroup {
     path: PathBuf,
     info: ImageInfo,
+}
+
+// New struct to hold grouped images
+#[derive(Default)]
+struct GroupedImages {
+    groups: HashMap<ImageGroupType, Vec<ImageGroup>>,
+}
+
+impl GroupedImages {
+    fn new() -> Self {
+        Self {
+            groups: HashMap::new(),
+        }
+    }
+
+    fn add(&mut self, group_type: ImageGroupType, image: ImageGroup) {
+        self.groups.entry(group_type).or_default().push(image);
+    }
+
+    fn get(&self, group_type: &ImageGroupType) -> Option<&Vec<ImageGroup>> {
+        self.groups.get(group_type)
+    }
+
+    fn get_duplicate_groups(&self) -> Vec<(&String, &Vec<ImageGroup>)> {
+        self.groups
+            .iter()
+            .filter_map(|(key, group)| {
+                if let ImageGroupType::DuplicateGroup(hash) = key {
+                    Some((hash, group))
+                } else {
+                    None
+                }
+            })
+            .collect()
+    }
 }
 
 pub fn cleanup_images(
@@ -20,26 +64,18 @@ pub fn cleanup_images(
     collected_files: &CollectedFiles,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("#", "image cleanup")?;
+    writer.writeln("#", SECTION_IMAGE_CLEANUP)?;
 
-    let image_groups = group_images(&collected_files.image_map);
+    let grouped_images = group_images(&collected_files.image_map);
     let missing_references = generate_missing_references(&collected_files)?;
 
     let empty_vec = Vec::new();
-    let tiff_images = image_groups.get("TIFF Images").unwrap_or(&empty_vec);
-    let zero_byte_images = image_groups.get("Zero-Byte Images").unwrap_or(&empty_vec);
-    let unreferenced_images = image_groups
-        .get("Unreferenced Images")
+    let tiff_images = grouped_images.get(&ImageGroupType::TiffImage).unwrap_or(&empty_vec);
+    let zero_byte_images = grouped_images.get(&ImageGroupType::ZeroByteImage).unwrap_or(&empty_vec);
+    let unreferenced_images = grouped_images
+        .get(&ImageGroupType::UnreferencedImage)
         .unwrap_or(&empty_vec);
-    let duplicate_groups: Vec<_> = image_groups
-        .iter()
-        .filter(|(key, group)| {
-            *key != "TIFF Images"
-                && *key != "Zero-Byte Images"
-                && *key != "Unreferenced Images"
-                && group.len() > 1
-        })
-        .collect();
+    let duplicate_groups = grouped_images.get_duplicate_groups();
 
     if tiff_images.is_empty()
         && zero_byte_images.is_empty()
@@ -112,34 +148,34 @@ fn write_tables(
     Ok(())
 }
 
-fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> HashMap<String, Vec<ImageGroup>> {
-    let mut groups: HashMap<String, Vec<ImageGroup>> = HashMap::new();
+fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> GroupedImages {
+    let mut groups = GroupedImages::new();
 
     for (path, info) in image_map {
         let group_type = determine_group_type(path, info);
-        groups.entry(group_type).or_default().push(ImageGroup {
+        groups.add(group_type, ImageGroup {
             path: path.clone(),
             info: info.clone(),
         });
     }
 
     // Sort groups by path
-    for group in groups.values_mut() {
+    for group in groups.groups.values_mut() {
         group.sort_by(|a, b| a.path.cmp(&b.path));
     }
 
     groups
 }
 
-fn determine_group_type(path: &Path, info: &ImageInfo) -> String {
+fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
     if path.extension().and_then(|ext| ext.to_str()) == Some("tiff") {
-        "TIFF Images".to_string()
+        ImageGroupType::TiffImage
     } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {
-        "Zero-Byte Images".to_string()
+        ImageGroupType::ZeroByteImage
     } else if info.references.is_empty() {
-        "Unreferenced Images".to_string()
+        ImageGroupType::UnreferencedImage
     } else {
-        info.hash.clone()
+        ImageGroupType::DuplicateGroup(info.hash.clone())
     }
 }
 
@@ -601,12 +637,6 @@ fn normalize_spaces(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
-fn create_path_pattern(path: &Path) -> String {
-    path.to_str()
-        .map(|s| s.to_string())
-        .unwrap_or_else(|| path.to_string_lossy().to_string())
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1043,6 +1073,73 @@ Some text"#;
         );
         assert_eq!(result, expected_content);
         assert!(!result.contains("test.jpg"));
+    }
+
+    #[test]
+    fn test_group_images() {
+        let temp_dir = TempDir::new().unwrap();
+        let mut image_map = HashMap::new();
+
+        // Create test files
+        let tiff_path = temp_dir.path().join("test.tiff");
+        let zero_byte_path = temp_dir.path().join("empty.jpg");
+        let unreferenced_path = temp_dir.path().join("unreferenced.jpg");
+        let duplicate_path1 = temp_dir.path().join("duplicate1.jpg");
+        let duplicate_path2 = temp_dir.path().join("duplicate2.jpg");
+
+        // Create empty file
+        File::create(&zero_byte_path).unwrap();
+
+        // Add test entries to image_map
+        image_map.insert(tiff_path.clone(), ImageInfo {
+            hash: "hash1".to_string(),
+            references: vec!["ref1".to_string()],
+        });
+
+        image_map.insert(zero_byte_path.clone(), ImageInfo {
+            hash: "hash2".to_string(),
+            references: vec!["ref2".to_string()],
+        });
+
+        image_map.insert(unreferenced_path.clone(), ImageInfo {
+            hash: "hash3".to_string(),
+            references: vec![],
+        });
+
+        let duplicate_hash = "hash4".to_string();
+        image_map.insert(duplicate_path1.clone(), ImageInfo {
+            hash: duplicate_hash.clone(),
+            references: vec!["ref3".to_string()],
+        });
+        image_map.insert(duplicate_path2.clone(), ImageInfo {
+            hash: duplicate_hash.clone(),
+            references: vec!["ref4".to_string()],
+        });
+
+        // Group the images
+        let grouped = group_images(&image_map);
+
+        // Verify TIFF images
+        assert!(grouped.get(&ImageGroupType::TiffImage).is_some());
+
+        // Verify zero-byte images
+        let zero_byte_group = grouped.get(&ImageGroupType::ZeroByteImage).unwrap();
+        assert_eq!(zero_byte_group.len(), 1);
+        assert_eq!(zero_byte_group[0].path, zero_byte_path);
+
+        // Verify unreferenced images
+        let unreferenced_group = grouped.get(&ImageGroupType::UnreferencedImage).unwrap();
+        assert_eq!(unreferenced_group.len(), 1);
+        assert_eq!(unreferenced_group[0].path, unreferenced_path);
+
+        // Verify duplicate groups
+        let duplicate_groups = grouped.get_duplicate_groups();
+        assert_eq!(duplicate_groups.len(), 1);
+        let (hash, group) = duplicate_groups[0];
+        assert_eq!(hash, &duplicate_hash);
+        assert_eq!(group.len(), 2);
+        assert!(group.iter().any(|g| g.path == duplicate_path1));
+        assert!(group.iter().any(|g| g.path == duplicate_path2));
     }
 }
 
