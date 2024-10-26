@@ -14,7 +14,7 @@ use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use walkdir::{DirEntry, WalkDir};
 use crate::wikilink::CompiledWikilink;
 
@@ -34,7 +34,6 @@ pub struct SimplifyWikilinkInfo {
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
-    pub all_wikilinks: HashSet<CompiledWikilink>, // New field for all unique wikilinks
     pub frontmatter: Option<FrontMatter>,
     pub image_links: Vec<String>,
     pub property_error: Option<String>,
@@ -44,7 +43,6 @@ pub struct MarkdownFileInfo {
 impl MarkdownFileInfo {
     pub fn new() -> Self {
         MarkdownFileInfo {
-            all_wikilinks: HashSet::new(),
             frontmatter: None,
             image_links: Vec::new(),
             property_error: None,
@@ -55,6 +53,7 @@ impl MarkdownFileInfo {
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
+    pub all_wikilinks: HashSet<CompiledWikilink>, // New field for all unique wikilinks
     pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
@@ -66,11 +65,11 @@ pub fn scan_obsidian_folder(
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
 
-    let collected_files = scan_folders(&config, writer)?;
+    let obsidian_repository_info = scan_folders(&config, writer)?;
 
-    write_file_info(writer, &collected_files)?;
+    write_file_info(writer, &obsidian_repository_info)?;
 
-    Ok(collected_files)
+    Ok(obsidian_repository_info)
 }
 
 fn get_image_info_map(
@@ -222,7 +221,7 @@ fn scan_folders(
     let mut markdown_files = Vec::new();
     let mut image_files = Vec::new();
 
-    // create the list of files to operate on
+    // Create the list of files to operate on
     for entry in WalkDir::new(config.obsidian_path())
         .follow_links(true)
         .into_iter()
@@ -250,8 +249,12 @@ fn scan_folders(
         }
     }
 
-    obsidian_repository_info.markdown_files = scan_markdown_files(&markdown_files, config)?;
+    // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
+    let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files, config)?;
+    obsidian_repository_info.markdown_files = markdown_info;
+    obsidian_repository_info.all_wikilinks = all_wikilinks;
 
+    // Process image info
     obsidian_repository_info.image_map =
         get_image_info_map(&config, &obsidian_repository_info, &image_files, &writer)?;
 
@@ -261,7 +264,7 @@ fn scan_folders(
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
     config: &ValidatedConfig,
-) -> Result<HashMap<PathBuf, MarkdownFileInfo>, Box<dyn Error + Send + Sync>> {
+) -> Result<(HashMap<PathBuf, MarkdownFileInfo>, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
@@ -271,21 +274,28 @@ fn scan_markdown_files(
     let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
     let ignore_patterns = config.ignore_text().unwrap_or_default();
 
-    let markdown_info: HashMap<PathBuf, MarkdownFileInfo> = markdown_files
-        .par_iter()
-        .filter_map(|file_path| {
-            scan_markdown_file(
-                file_path,
-                &image_regex,
-                &simplify_patterns,
-                &ignore_patterns,
-            )
-            .map(|info| (file_path.clone(), info))
-            .ok()
-        })
-        .collect();
+    // Use Arc<Mutex<...>> for safe shared collection
+    let markdown_info = Arc::new(Mutex::new(HashMap::new()));
+    let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
-    Ok(markdown_info)
+    markdown_files.par_iter().for_each(|file_path| {
+        if let Ok((file_info, wikilinks)) = scan_markdown_file(
+            file_path,
+            &image_regex,
+            &simplify_patterns,
+            &ignore_patterns,
+        ) {
+            // Collect results with locking to avoid race conditions
+            markdown_info.lock().unwrap().insert(file_path.clone(), file_info);
+            all_wikilinks.lock().unwrap().extend(wikilinks);
+        }
+    });
+
+    // Extract data from Arc<Mutex<...>>
+    let markdown_info = Arc::try_unwrap(markdown_info).unwrap().into_inner().unwrap();
+    let all_wikilinks = Arc::try_unwrap(all_wikilinks).unwrap().into_inner().unwrap();
+
+    Ok((markdown_info, all_wikilinks))
 }
 
 fn scan_markdown_file(
@@ -293,7 +303,7 @@ fn scan_markdown_file(
     image_regex: &Arc<Regex>,
     simplify_patterns: &[String],
     ignore_patterns: &[String],
-) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
+) -> Result<(MarkdownFileInfo, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
 
     let (frontmatter, property_error) = match frontmatter::deserialize_frontmatter(&content) {
@@ -304,6 +314,15 @@ fn scan_markdown_file(
     let mut file_info = MarkdownFileInfo::new();
     file_info.frontmatter = frontmatter;
     file_info.property_error = property_error;
+
+    // Get filename for wikilink collection
+    let filename = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+
+    // Collect wikilinks but return them separately
+    let wikilinks = wikilink::collect_all_wikilinks(&content, &file_info.frontmatter, filename);
 
     let reader = BufReader::new(content.as_bytes());
 
@@ -321,7 +340,7 @@ fn scan_markdown_file(
         );
     }
 
-    Ok(file_info)
+    Ok((file_info, wikilinks))
 }
 
 fn collect_simplify_wikilink_info(
@@ -626,4 +645,137 @@ mod tests {
         assert!(file_info.simplify_wikilink_info.iter().any(|info|
             info.search_text.contains("Target|Aliased Link")));
     }
+
+    #[test]
+    fn test_scan_markdown_file_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test_note.md");
+
+        // Create test content with different types of wikilinks
+        let content = r#"---
+aliases:
+  - "Alias One"
+  - "Second Alias"
+---
+# Test Note
+
+Here's a [[Simple Link]] and [[Target Page|Display Text]].
+Also linking to [[Alias One]] which is defined in frontmatter.
+"#;
+
+        // Write content to temporary file
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        // Test patterns
+        let simplify_patterns: Vec<String> = vec![];
+        let ignore_patterns: Vec<String> = vec![];
+        let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
+
+        // Scan the markdown file
+        let (file_info, wikilinks) = scan_markdown_file(
+            &file_path,
+            &image_regex,
+            &simplify_patterns,
+            &ignore_patterns,
+        )
+            .unwrap();
+
+        // Collect display texts for verification
+        let wikilink_texts: Vec<String> = wikilinks
+            .iter()
+            .map(|w| w.wikilink.display_text.clone())
+            .collect();
+
+        // Print collected wikilinks for debugging
+        println!("Collected wikilinks: {:?}", wikilink_texts);
+
+        // Check for the expected wikilinks
+        assert!(wikilink_texts.contains(&"test_note".to_string()), "Should contain filename-based wikilink");
+        assert!(wikilink_texts.contains(&"Alias One".to_string()), "Should contain first alias");
+        assert!(wikilink_texts.contains(&"Second Alias".to_string()), "Should contain second alias");
+        assert!(wikilink_texts.contains(&"Simple Link".to_string()), "Should contain simple wikilink");
+        assert!(wikilink_texts.contains(&"Display Text".to_string()), "Should contain aliased display text");
+
+        // Verify total count
+        assert_eq!(wikilink_texts.len(), 5, "Should have collected all unique wikilinks");
+    }
+
+    #[test]
+    fn test_scan_folders_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create test files with different wikilinks
+        let files = [
+            ("note1.md", r#"---
+aliases:
+  - "Alias One"
+---
+# Note 1
+[[Simple Link]]"#),
+            ("note2.md", r#"---
+aliases:
+  - "Alias Two"
+---
+# Note 2
+[[Target|Display Text]]
+[[Simple Link]]"#),
+        ];
+
+        // Create the files in the temp directory
+        for (filename, content) in files.iter() {
+            let file_path = temp_dir.path().join(filename);
+            let mut file = File::create(&file_path).unwrap();
+            write!(file, "{}", content).unwrap();
+        }
+
+        // Create minimal validated config
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Create writer for testing
+        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
+
+        // Scan the folders
+        let repo_info = scan_folders(&config, &writer).unwrap();
+
+        // Filter for .md files only and exclude "obsidian knife output" explicitly
+        let wikilinks: HashSet<String> = repo_info.markdown_files.keys()
+            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md"))
+            .flat_map(|file_path| {
+                let (_, file_wikilinks) = scan_markdown_file(
+                    file_path,
+                    &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
+                    &[],
+                    &[],
+                )
+                    .unwrap();
+                file_wikilinks.into_iter()
+                    .map(|w| w.wikilink.display_text)
+            })
+            .filter(|link| link != "obsidian knife output") // Exclude "obsidian knife output"
+            .collect();
+
+        // Print all collected wikilinks for debugging
+        println!("Collected wikilinks: {:?}", wikilinks);
+
+        // Verify expected wikilinks are present
+        assert!(wikilinks.contains("note1"), "Should contain first filename");
+        assert!(wikilinks.contains("note2"), "Should contain second filename");
+        assert!(wikilinks.contains("Alias One"), "Should contain first alias");
+        assert!(wikilinks.contains("Alias Two"), "Should contain second alias");
+        assert!(wikilinks.contains("Simple Link"), "Should contain simple link");
+        assert!(wikilinks.contains("Display Text"), "Should contain display text from alias");
+
+        // Verify total count
+        assert_eq!(wikilinks.len(), 6, "Should have collected all unique wikilinks");
+    }
+
+
 }
