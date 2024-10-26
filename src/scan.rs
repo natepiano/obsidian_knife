@@ -796,30 +796,23 @@ aliases:
             markdown_files.insert(file_path, info);
         }
 
-        // Helper functions to avoid duplication
+        // Common filter logic
+        fn has_common_image(info: &MarkdownFileInfo) -> bool {
+            info.image_links.iter().any(|link| link.contains("common.jpg"))
+        }
+
+        // Helper functions using shared filter
         fn process_parallel(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
             files
                 .par_iter()
-                .filter_map(|(path, info)| {
-                    if info.image_links.iter().any(|link| link.contains("common.jpg")) {
-                        Some(path.clone())
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|(path, info)| has_common_image(info).then(|| path.clone()))
                 .collect()
         }
 
         fn process_sequential(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
             files
                 .iter()
-                .filter_map(|(path, info)| {
-                    if info.image_links.iter().any(|link| link.contains("common.jpg")) {
-                        Some(path.clone())
-                    } else {
-                        None
-                    }
-                })
+                .filter_map(|(path, info)| has_common_image(info).then(|| path.clone()))
                 .collect()
         }
 
