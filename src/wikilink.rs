@@ -193,8 +193,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{frontmatter, wikilink};
-    use crate::scan::MarkdownFileInfo;
+    use crate::frontmatter;
 
     #[test]
     fn test_collect_all_wikilinks() {
