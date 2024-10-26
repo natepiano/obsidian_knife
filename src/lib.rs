@@ -10,6 +10,7 @@ mod simplify_wikilinks;
 mod thread_safe_writer;
 mod update_dates;
 mod validated_config;
+mod wikilink;
 mod yaml_utils;
 
 use std::error::Error;
