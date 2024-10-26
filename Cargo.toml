@@ -13,6 +13,7 @@ path = "src/main.rs"
 
 [dependencies]
 chrono = "0.4"
+fancy-regex = "0.14.0"
 filetime = "0.2.25"
 rayon = "1.10.0"
 regex = "1.11.0"
@@ -23,6 +24,7 @@ sha2 = "0.10.7"
 tempfile = "3.13.0"
 walkdir = "2.5.0"
 unicode-segmentation = "1.12.0"
+lazy_static = "1.5.0"
 
 [profile.dev.package."*"]
 opt-level = 3

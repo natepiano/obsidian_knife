@@ -207,12 +207,12 @@ enum DateCreatedPropertyUpdate {
 // Update process_dates to use the new implementation
 pub fn process_dates(
     config: &ValidatedConfig,
-    collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, "update dates")?;
 
-    let results = collect_date_entries(collected_files, config)?;
+    let results = collect_date_entries(markdown_files, config)?;
     results.write_tables(writer, config.apply_changes())?;
 
     Ok(())
@@ -357,9 +357,6 @@ fn process_valid_dates(
         file_creation_time: None,
         remove_date_created_fix: false,
     };
-
-    println!("date_created_fix: {:?} {:?}", fm.date_created_fix(), context.path);
-
 
     let should_add = fm.date_created_fix().is_some()
         || fm.date_created().is_none()

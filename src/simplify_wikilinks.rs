@@ -16,7 +16,7 @@ pub fn format_wikilink(path: &Path) -> String {
 
 pub fn process_simplify_wikilinks(
     config: &ValidatedConfig,
-    collected_files: &HashMap<PathBuf, crate::scan::MarkdownFileInfo>,
+    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let simplify_patterns = match config.simplify_wikilinks() {
@@ -29,20 +29,20 @@ pub fn process_simplify_wikilinks(
     };
 
     // Count total wikilinks
-    let total_wikilinks: usize = collected_files
+    let total_wikilinks: usize = markdown_files
         .values()
-        .map(|file_info| file_info.wikilinks.len())
+        .map(|file_info| file_info.simplify_wikilink_info.len())
         .sum();
 
     write_wikilinks_table_header(writer, &simplify_patterns, &total_wikilinks)?;
 
     // If there are wikilinks that match patterns, show the table
     if total_wikilinks > 0 {
-        let table_data = get_wikilink_table_data(config, collected_files, simplify_patterns);
+        let table_data = get_wikilink_table_data(config, markdown_files, simplify_patterns);
 
         write_wikilinks_table(writer, table_data)?;
 
-        apply_simplifications(config, collected_files, writer)?;
+        apply_simplifications(config, markdown_files, writer)?;
     }
 
     Ok(())
@@ -82,7 +82,7 @@ fn get_wikilink_table_data(
     let mut table_data = Vec::new();
 
     for (file_path, file_info) in collected_files {
-        for wikilink in &file_info.wikilinks {
+        for wikilink in &file_info.simplify_wikilink_info {
             let file_wikilink = format_wikilink(file_path);
             let will_replace = simplify_patterns.contains(&wikilink.replace_text);
             let replaced = if will_replace {
@@ -159,7 +159,7 @@ fn apply_simplifications(
 
         update_file(file_path, |content| {
             let mut updated_content = content.to_string();
-            for wikilink in &file_info.wikilinks {
+            for wikilink in &file_info.simplify_wikilink_info {
                 if simplify_patterns.contains(&wikilink.replace_text) {
                     updated_content =
                         updated_content.replace(&wikilink.search_text, &wikilink.replace_text);

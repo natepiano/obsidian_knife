@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::file_utils::update_file;
-use crate::scan::{CollectedFiles, ImageInfo};
+use crate::scan::{ObsidianRepositoryInfo, ImageInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;
@@ -58,7 +58,7 @@ impl GroupedImages {
 
 pub fn cleanup_images(
     config: &ValidatedConfig,
-    collected_files: &CollectedFiles,
+    collected_files: &ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
@@ -188,7 +188,7 @@ fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
 }
 
 fn generate_missing_references(
-    collected_files: &CollectedFiles,
+    collected_files: &ObsidianRepositoryInfo,
 ) -> Result<Vec<(&PathBuf, String)>, Box<dyn Error + Send + Sync>> {
     let mut missing_references = Vec::new();
     let image_filenames: HashSet<String> = collected_files

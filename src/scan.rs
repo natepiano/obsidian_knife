@@ -1,6 +1,6 @@
 use crate::sha256_cache::{CacheFileStatus, Sha256Cache};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, CACHE_FILE, LEVEL3};
+use crate::{constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, wikilink, CACHE_FILE, LEVEL3};
 
 use rayon::prelude::*;
 
@@ -8,7 +8,7 @@ use crate::constants::{LEVEL1, LEVEL2};
 use crate::frontmatter::FrontMatter;
 use regex::Regex;
 use std::cmp::Reverse;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
@@ -16,6 +16,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::Arc;
 use walkdir::{DirEntry, WalkDir};
+use crate::wikilink::CompiledWikilink;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -24,23 +25,36 @@ pub struct ImageInfo {
 }
 
 #[derive(Debug, Clone)]
-pub struct WikilinkInfo {
+pub struct SimplifyWikilinkInfo {
     pub line: usize,
     pub line_text: String,
     pub search_text: String,
     pub replace_text: String,
 }
 
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct MarkdownFileInfo {
-    pub image_links: Vec<String>,
+    pub all_wikilinks: HashSet<CompiledWikilink>, // New field for all unique wikilinks
     pub frontmatter: Option<FrontMatter>,
+    pub image_links: Vec<String>,
     pub property_error: Option<String>,
-    pub wikilinks: Vec<WikilinkInfo>,
+    pub simplify_wikilink_info: Vec<SimplifyWikilinkInfo>,  // Existing field for simplification targets
+}
+
+impl MarkdownFileInfo {
+    pub fn new() -> Self {
+        MarkdownFileInfo {
+            all_wikilinks: HashSet::new(),
+            frontmatter: None,
+            image_links: Vec::new(),
+            property_error: None,
+            simplify_wikilink_info: Vec::new(),
+        }
+    }
 }
 
 #[derive(Default)]
-pub struct CollectedFiles {
+pub struct ObsidianRepositoryInfo {
     pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
@@ -49,10 +63,10 @@ pub struct CollectedFiles {
 pub fn scan_obsidian_folder(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
-) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
+) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
 
-    let collected_files = collect_files(&config, writer)?;
+    let collected_files = scan_folders(&config, writer)?;
 
     write_file_info(writer, &collected_files)?;
 
@@ -61,7 +75,7 @@ pub fn scan_obsidian_folder(
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    collected_files: &CollectedFiles,
+    collected_files: &ObsidianRepositoryInfo,
     image_files: &[PathBuf],
     writer: &ThreadSafeWriter,
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
@@ -199,12 +213,12 @@ fn is_not_ignored(entry: &DirEntry, ignore_folders: &[PathBuf], writer: &ThreadS
     !is_ignored
 }
 
-fn collect_files(
+fn scan_folders(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
-) -> Result<CollectedFiles, Box<dyn Error + Send + Sync>> {
+) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
-    let mut collected_files = CollectedFiles::default();
+    let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
     let mut markdown_files = Vec::new();
     let mut image_files = Vec::new();
 
@@ -231,17 +245,17 @@ fn collect_files(
                 Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => {
                     image_files.push(path.to_path_buf())
                 }
-                _ => collected_files.other_files.push(path.to_path_buf()),
+                _ => obsidian_repository_info.other_files.push(path.to_path_buf()),
             }
         }
     }
 
-    collected_files.markdown_files = scan_markdown_files(&markdown_files, config)?;
+    obsidian_repository_info.markdown_files = scan_markdown_files(&markdown_files, config)?;
 
-    collected_files.image_map =
-        get_image_info_map(&config, &collected_files, &image_files, &writer)?;
+    obsidian_repository_info.image_map =
+        get_image_info_map(&config, &obsidian_repository_info, &image_files, &writer)?;
 
-    Ok(collected_files)
+    Ok(obsidian_repository_info)
 }
 
 fn scan_markdown_files(
@@ -253,7 +267,6 @@ fn scan_markdown_files(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
         extensions_pattern
     ))?);
-    let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]")?);
 
     let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
     let ignore_patterns = config.ignore_text().unwrap_or_default();
@@ -264,7 +277,6 @@ fn scan_markdown_files(
             scan_markdown_file(
                 file_path,
                 &image_regex,
-                &wikilink_regex,
                 &simplify_patterns,
                 &ignore_patterns,
             )
@@ -279,7 +291,6 @@ fn scan_markdown_files(
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
-    wikilink_regex: &Arc<Regex>,
     simplify_patterns: &[String],
     ignore_patterns: &[String],
 ) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
@@ -290,7 +301,7 @@ fn scan_markdown_file(
         Err(e) => (None, Some(e.to_string())),
     };
 
-    let mut file_info = MarkdownFileInfo::default();
+    let mut file_info = MarkdownFileInfo::new();
     file_info.frontmatter = frontmatter;
     file_info.property_error = property_error;
 
@@ -301,8 +312,7 @@ fn scan_markdown_file(
 
         collect_image_reference(image_regex, &mut file_info, &line);
 
-        collect_wikilink_info(
-            wikilink_regex,
+        collect_simplify_wikilink_info(
             simplify_patterns,
             ignore_patterns,
             &mut file_info,
@@ -314,8 +324,7 @@ fn scan_markdown_file(
     Ok(file_info)
 }
 
-fn collect_wikilink_info(
-    wikilink_regex: &Arc<Regex>,
+fn collect_simplify_wikilink_info(
     simplify_patterns: &[String],
     ignore_patterns: &[String],
     file_info: &mut MarkdownFileInfo,
@@ -327,16 +336,16 @@ fn collect_wikilink_info(
     let mut last_end = 0;
 
     // Step 1: Render all wikilinks and save their positions
-    for capture in wikilink_regex.captures_iter(line) {
-        if let (Some(whole_match), Some(inner_content)) = (capture.get(0), capture.get(1)) {
-            rendered_line.push_str(&line[last_end..whole_match.start()]);
-            let start = rendered_line.len();
-            let rendered = render_wikilink(inner_content.as_str());
+    for wikilink_match in wikilink::find_wikilinks_in_line(line) {
+        rendered_line.push_str(&line[last_end..wikilink_match.start()]);
+        let start = rendered_line.len();
+        if let Some(wikilink) = wikilink::parse_wikilink(&line[wikilink_match.start()..wikilink_match.end()]) {
+            let rendered = render_wikilink(&wikilink.display_text);
             rendered_line.push_str(&rendered);
             let end = rendered_line.len();
-            wikilink_positions.push((start, end, whole_match.start(), whole_match.end()));
-            last_end = whole_match.end();
+            wikilink_positions.push((start, end, wikilink_match.start(), wikilink_match.end()));
         }
+        last_end = wikilink_match.end();
     }
     rendered_line.push_str(&line[last_end..]);
 
@@ -382,7 +391,7 @@ fn collect_wikilink_info(
                     let search_text = line[original_start..original_end].to_string();
                     let replace_text = pattern.to_string();
 
-                    file_info.wikilinks.push(WikilinkInfo {
+                    file_info.simplify_wikilink_info.push(SimplifyWikilinkInfo {
                         line: line_number + 1,
                         line_text: line.to_string(),
                         search_text,
@@ -432,7 +441,7 @@ fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, us
 
 fn write_file_info(
     writer: &ThreadSafeWriter,
-    collected_files: &CollectedFiles,
+    collected_files: &ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
     writer.writeln(LEVEL2, "file counts")?;
@@ -505,16 +514,14 @@ mod tests {
         file.write_all(content.as_bytes()).unwrap();
 
         // Set up test environment
-        let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
         let simplify_patterns = vec!["Ed:".to_string(), "Éd:".to_string(), "Bob Rock".to_string()];
         let ignore_patterns = vec![]; // Add an empty ignore patterns vector
-        let mut file_info = MarkdownFileInfo::default();
+        let mut file_info = MarkdownFileInfo::new();
 
         // Read the file and process each line
         let file_content = fs::read_to_string(&file_path).unwrap();
         for (line_number, line) in file_content.lines().enumerate() {
-            collect_wikilink_info(
-                &wikilink_regex,
+            collect_simplify_wikilink_info(
                 &simplify_patterns,
                 &ignore_patterns, // Pass the ignore patterns
                 &mut file_info,
@@ -524,31 +531,31 @@ mod tests {
         }
 
         // Assertions
-        assert_eq!(file_info.wikilinks.len(), 4);
+        assert_eq!(file_info.simplify_wikilink_info.len(), 4);
 
         // Check the first wikilink
-        assert_eq!(file_info.wikilinks[0].line, 1);
-        assert_eq!(file_info.wikilinks[0].search_text, "[[Ed Barnes|Ed]]:");
-        assert_eq!(file_info.wikilinks[0].replace_text, "Ed:");
+        assert_eq!(file_info.simplify_wikilink_info[0].line, 1);
+        assert_eq!(file_info.simplify_wikilink_info[0].search_text, "[[Ed Barnes|Ed]]:");
+        assert_eq!(file_info.simplify_wikilink_info[0].replace_text, "Ed:");
 
         // Check the second wikilink (with UTF-8 characters)
-        assert_eq!(file_info.wikilinks[1].line, 2);
-        assert_eq!(file_info.wikilinks[1].search_text, "[[Éd Bârnes|Éd]]:");
-        assert_eq!(file_info.wikilinks[1].replace_text, "Éd:");
+        assert_eq!(file_info.simplify_wikilink_info[1].line, 2);
+        assert_eq!(file_info.simplify_wikilink_info[1].search_text, "[[Éd Bârnes|Éd]]:");
+        assert_eq!(file_info.simplify_wikilink_info[1].replace_text, "Éd:");
 
         // Check the third wikilink (adjacent wikilinks)
-        assert_eq!(file_info.wikilinks[2].line, 3);
-        assert_eq!(file_info.wikilinks[2].search_text, "[[Bob]] [[Rock]]");
-        assert_eq!(file_info.wikilinks[2].replace_text, "Bob Rock");
+        assert_eq!(file_info.simplify_wikilink_info[2].line, 3);
+        assert_eq!(file_info.simplify_wikilink_info[2].search_text, "[[Bob]] [[Rock]]");
+        assert_eq!(file_info.simplify_wikilink_info[2].replace_text, "Bob Rock");
 
         // Check the fourth wikilink (partial wikilink)
-        assert_eq!(file_info.wikilinks[3].line, 4);
-        assert_eq!(file_info.wikilinks[3].search_text, "Bob [[Rock]]");
-        assert_eq!(file_info.wikilinks[3].replace_text, "Bob Rock");
+        assert_eq!(file_info.simplify_wikilink_info[3].line, 4);
+        assert_eq!(file_info.simplify_wikilink_info[3].search_text, "Bob [[Rock]]");
+        assert_eq!(file_info.simplify_wikilink_info[3].replace_text, "Bob Rock");
     }
 
     #[test]
-    fn test_collect_wikilink_info_with_ignore() {
+    fn test_collect_simplify_wikilink_info_with_ignore() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.md");
 
@@ -560,16 +567,14 @@ mod tests {
         file.write_all(content.as_bytes()).unwrap();
 
         // Set up test environment
-        let wikilink_regex = Arc::new(Regex::new(r"\[\[([^]]+)]]").unwrap());
         let simplify_patterns = vec!["Ed:".to_string()];
         let ignore_patterns = vec!["Ed: music reco:".to_string()];
-        let mut file_info = MarkdownFileInfo::default();
+        let mut file_info = MarkdownFileInfo::new();
 
         // Read the file and process each line
         let file_content = fs::read_to_string(&file_path).unwrap();
         for (line_number, line) in file_content.lines().enumerate() {
-            collect_wikilink_info(
-                &wikilink_regex,
+            collect_simplify_wikilink_info(
                 &simplify_patterns,
                 &ignore_patterns,
                 &mut file_info,
@@ -580,17 +585,45 @@ mod tests {
 
         // Assertions
         assert_eq!(
-            file_info.wikilinks.len(),
+            file_info.simplify_wikilink_info.len(),
             1,
             "Expected 1 wikilink, found {}",
-            file_info.wikilinks.len()
+            file_info.simplify_wikilink_info.len()
         );
 
         // Check the wikilink (should be simplified, not ignored)
-        assert_eq!(file_info.wikilinks[0].line, 2);
-        assert_eq!(file_info.wikilinks[0].search_text, "[[Ed Barnes|Ed]]:");
-        assert_eq!(file_info.wikilinks[0].replace_text, "Ed:");
+        assert_eq!(file_info.simplify_wikilink_info[0].line, 2);
+        assert_eq!(file_info.simplify_wikilink_info[0].search_text, "[[Ed Barnes|Ed]]:");
+        assert_eq!(file_info.simplify_wikilink_info[0].replace_text, "Ed:");
 
         // The "Ed: something else" shouldn't be included as it's not a wikilink
+    }
+
+    #[test]
+    fn test_collect_simplify_wikilink_info_with_aliases() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create a test markdown file with aliased wikilinks
+        let content = "Here is a [[Simple Link]] and a [[Target|Aliased Link]] together";
+        fs::write(&file_path, content).unwrap();
+
+        let mut file_info = MarkdownFileInfo::new();
+        let simplify_patterns = vec!["Simple".to_string(), "Aliased".to_string()];
+        let ignore_patterns = vec![];
+
+        collect_simplify_wikilink_info(
+            &simplify_patterns,
+            &ignore_patterns,
+            &mut file_info,
+            1,
+            content,
+        );
+
+        assert_eq!(file_info.simplify_wikilink_info.len(), 2);
+        assert!(file_info.simplify_wikilink_info.iter().any(|info|
+            info.search_text.contains("Simple Link")));
+        assert!(file_info.simplify_wikilink_info.iter().any(|info|
+            info.search_text.contains("Target|Aliased Link")));
     }
 }
