@@ -9,6 +9,8 @@ use std::path::Path;
 // when we set date_created_fix to None it won't serialize - cool
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct FrontMatter {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub aliases: Option<Vec<String>>,
     // Fields we explicitly care about
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date_created: Option<String>,
@@ -22,16 +24,8 @@ pub struct FrontMatter {
 }
 
 impl FrontMatter {
-    pub fn update_date_created(&mut self, value: Option<String>) {
-        self.date_created = value;
-    }
-
-    pub fn update_date_modified(&mut self, value: Option<String>) {
-        self.date_modified = value;
-    }
-
-    pub fn update_date_created_fix(&mut self, value: Option<String>) {
-        self.date_created_fix = value;
+    pub fn aliases(&self) -> Option<&Vec<String>> {
+        self.aliases.as_ref()
     }
 
     pub fn date_created(&self) -> Option<&String> {
@@ -44,6 +38,18 @@ impl FrontMatter {
 
     pub fn date_created_fix(&self) -> Option<&String> {
         self.date_created_fix.as_ref()
+    }
+
+    pub fn update_date_created(&mut self, value: Option<String>) {
+        self.date_created = value;
+    }
+
+    pub fn update_date_modified(&mut self, value: Option<String>) {
+        self.date_modified = value;
+    }
+
+    pub fn update_date_created_fix(&mut self, value: Option<String>) {
+        self.date_created_fix = value;
     }
 }
 
@@ -235,6 +241,7 @@ invalid: [yaml
 
         let complex_str = "This is a multi-line\nstring value that should\nbe preserved exactly";
         let initial_frontmatter = FrontMatter {
+            aliases: None,
             date_created: None,
             date_modified: Some("2024-01-01".to_string()),
             date_created_fix: None,
@@ -281,5 +288,39 @@ invalid: [yaml
             Some(&Value::String(complex_str.to_string()))
         );
         assert!(updated_fm.other_fields.contains_key("nested_field"));
+    }
+
+    #[test]
+    fn test_frontmatter_with_aliases() {
+        let content = r#"---
+title: Test Note
+aliases:
+  - old name
+  - another name
+date_created: "2024-01-01"
+---
+Some content"#;
+
+        let fm = deserialize_frontmatter(content).unwrap();
+        assert_eq!(
+            fm.aliases,
+            Some(vec!["old name".to_string(), "another name".to_string()])
+        );
+    }
+
+    #[test]
+    fn test_serialize_frontmatter_with_aliases() {
+        let fm = FrontMatter {
+            aliases: Some(vec!["alias1".to_string(), "alias2".to_string()]),
+            date_created: Some("2024-01-01".to_string()),
+            date_modified: None,
+            date_created_fix: None,
+            other_fields: HashMap::new(),
+        };
+
+        let yaml = serde_yaml::to_string(&fm).unwrap();
+        assert!(yaml.contains("aliases:"));
+        assert!(yaml.contains("- alias1"));
+        assert!(yaml.contains("- alias2"));
     }
 }
