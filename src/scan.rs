@@ -74,7 +74,7 @@ pub fn scan_obsidian_folder(
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    collected_files: &ObsidianRepositoryInfo,
+    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     image_files: &[PathBuf],
     writer: &ThreadSafeWriter,
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
@@ -96,9 +96,8 @@ fn get_image_info_map(
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
-        let references: Vec<String> = collected_files
-            .markdown_files
-            .iter()
+        let references: Vec<String> = markdown_files
+            .par_iter()
             .filter_map(|(markdown_path, file_info)| {
                 if file_info
                     .image_links
@@ -256,7 +255,7 @@ fn scan_folders(
 
     // Process image info
     obsidian_repository_info.image_map =
-        get_image_info_map(&config, &obsidian_repository_info, &image_files, &writer)?;
+        get_image_info_map(&config, &obsidian_repository_info.markdown_files, &image_files, &writer)?;
 
     Ok(obsidian_repository_info)
 }
@@ -777,5 +776,71 @@ aliases:
         assert_eq!(wikilinks.len(), 6, "Should have collected all unique wikilinks");
     }
 
+    #[test]
+    fn test_parallel_image_reference_collection() {
+        use rayon::prelude::*;
 
+        let temp_dir = TempDir::new().unwrap();
+        let mut markdown_files = HashMap::new();
+
+        // Create test files
+        for i in 0..100 {
+            let filename = format!("note{}.md", i);
+            let content = format!("![image{}](test{}.jpg)\n![shared](common.jpg)", i, i);
+            let file_path = temp_dir.path().join(&filename);
+            let mut info = MarkdownFileInfo::new();
+            info.image_links = content
+                .split('\n')
+                .map(|s| s.to_string())
+                .collect();
+            markdown_files.insert(file_path, info);
+        }
+
+        // Helper functions to avoid duplication
+        fn process_parallel(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
+            files
+                .par_iter()
+                .filter_map(|(path, info)| {
+                    if info.image_links.iter().any(|link| link.contains("common.jpg")) {
+                        Some(path.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+
+        fn process_sequential(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
+            files
+                .iter()
+                .filter_map(|(path, info)| {
+                    if info.image_links.iter().any(|link| link.contains("common.jpg")) {
+                        Some(path.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect()
+        }
+
+        // Test parallel processing
+        let start_parallel = std::time::Instant::now();
+        let parallel_results = process_parallel(&markdown_files);
+        let parallel_time = start_parallel.elapsed();
+
+        // Test sequential processing
+        let start_sequential = std::time::Instant::now();
+        let sequential_results = process_sequential(&markdown_files);
+        let sequential_time = start_sequential.elapsed();
+
+        // Verify results
+        assert_eq!(parallel_results.len(), sequential_results.len());
+        assert_eq!(parallel_results.len(), 100, "Should find common image in all files");
+
+        println!(
+            "Parallel: {:?}, Sequential: {:?}",
+            parallel_time,
+            sequential_time
+        );
+    }
 }
