@@ -4,12 +4,15 @@ output_folder: conf/obsidian_knife
 
 apply_changes: false
 
+do_not_back_populate: 
+  - "[[mozzarella]] cheese"
+
 ignore_folders:
   - .idea
   - .obsidian
   - conf/templates
 
-ignore_text:
+ignore_rendered_text:
  - "Ed: music reco:"
 
 # anything that renders as the specified string will get replaced with the specified string

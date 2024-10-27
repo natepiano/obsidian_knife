@@ -9,8 +9,9 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
+    do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<String>>,
-    ignore_text: Option<Vec<String>>,
+    ignore_rendered_text: Option<Vec<String>>,
     obsidian_path: String,
     output_folder: Option<String>,
     simplify_wikilinks: Option<Vec<String>>,
@@ -87,30 +88,60 @@ impl Config {
         }
 
         let validated_simplify_wikilinks = self.validate_simplify_wikilinks()?;
-        let ignore_text = self.validate_ignore_text()?;
+        let ignore_rendered_text = self.validate_ignore_rendered_text()?;
+        let validated_do_not_back_populate = self.validate_do_not_back_populate()?;
 
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
+            validated_do_not_back_populate,
             ignore_folders,
-            ignore_text,
+            ignore_rendered_text,
             expanded_path,
             output_folder,
             validated_simplify_wikilinks,
         ))
     }
 
-    fn validate_ignore_text(&self) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
-        match &self.ignore_text {
+
+    fn validate_ignore_rendered_text(&self) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
+        match &self.ignore_rendered_text {
             Some(patterns) => {
                 let mut validated = Vec::new();
                 for (index, pattern) in patterns.iter().enumerate() {
                     let trimmed = pattern.trim();
                     if trimmed.is_empty() {
                         return Err(format!(
-                            "ignore_text: entry at index {} is empty or only contains whitespace",
+                            "ignore_rendered_text: entry at index {} is empty or only contains whitespace",
                             index
                         )
                         .into());
+                    }
+                    validated.push(trimmed.to_string());
+                }
+                if validated.is_empty() {
+                    Ok(None)
+                } else {
+                    Ok(Some(validated))
+                }
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn validate_do_not_back_populate(
+        &self,
+    ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
+        match &self.do_not_back_populate {
+            Some(patterns) => {
+                let mut validated = Vec::new();
+                for (index, pattern) in patterns.iter().enumerate() {
+                    let trimmed = pattern.trim();
+                    if trimmed.is_empty() {
+                        return Err(format!(
+                            "do_not_back_populate: entry at index {} is empty or only contains whitespace",
+                            index
+                        )
+                            .into());
                     }
                     validated.push(trimmed.to_string());
                 }

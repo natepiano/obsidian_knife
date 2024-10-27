@@ -3,8 +3,9 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct ValidatedConfig {
     apply_changes: bool,
+    do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<PathBuf>>,
-    ignore_text: Option<Vec<String>>,
+    ignore_rendered_text: Option<Vec<String>>,
     obsidian_path: PathBuf,
     output_folder: PathBuf,
     simplify_wikilinks: Option<Vec<String>>,
@@ -13,16 +14,18 @@ pub struct ValidatedConfig {
 impl ValidatedConfig {
     pub fn new(
         apply_changes: bool,
+        do_not_back_populate: Option<Vec<String>>,
         ignore_folders: Option<Vec<PathBuf>>,
-        ignore_text: Option<Vec<String>>,
+        ignore_rendered_text: Option<Vec<String>>,
         obsidian_path: PathBuf,
         output_folder: PathBuf,
         simplify_wikilinks: Option<Vec<String>>,
     ) -> Self {
         ValidatedConfig {
             apply_changes,
+            do_not_back_populate,
             ignore_folders,
-            ignore_text,
+            ignore_rendered_text,
             obsidian_path,
             output_folder,
             simplify_wikilinks,
@@ -33,12 +36,16 @@ impl ValidatedConfig {
         self.apply_changes
     }
 
+    pub fn do_not_back_populate(&self) -> Option<&[String]> {
+        self.do_not_back_populate.as_deref()
+    }
+
     pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
         self.ignore_folders.as_deref()
     }
 
-    pub fn ignore_text(&self) -> Option<&[String]> {
-        self.ignore_text.as_deref()
+    pub fn ignore_rendered_text(&self) -> Option<&[String]> {
+        self.ignore_rendered_text.as_deref()
     }
 
     pub fn obsidian_path(&self) -> &Path {

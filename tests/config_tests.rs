@@ -59,10 +59,10 @@ fn test_validate_example_config() {
     let cache_path = temp_dir.path().join(".obsidian_knife");
     assert!(ignore_folders.contains(&cache_path));
 
-    // Test ignore_text patterns
-    let ignore_text = validated_config.ignore_text().unwrap();
-    assert_eq!(ignore_text.len(), 1);
-    assert_eq!(ignore_text[0], "Ed: music reco:");
+    // Test ignore_rendered_text patterns
+    let ignore_rendered_text = validated_config.ignore_rendered_text().unwrap();
+    assert_eq!(ignore_rendered_text.len(), 1);
+    assert_eq!(ignore_rendered_text[0], "Ed: music reco:");
 
     // Test simplify_wikilinks patterns
     let simplify_patterns = validated_config.simplify_wikilinks().unwrap();

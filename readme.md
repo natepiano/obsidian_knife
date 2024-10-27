@@ -69,6 +69,11 @@ might get replaced with a case insensitive replacement a la:
 # false = dry-run, true=destructive 
 apply_changes: false
 
+# when back populating there are some strings you don't want to 
+# be replaced, such as the cheese in [[mozzarella]] cheese
+do_not_back_populate: 
+  - "[[mozzarella]] cheese"
+
 # add this value to name a property used in your md containing a file creation date you want to set
 # if you set (for example) the date_creation property to a valid date in "[[yyyy-mm-dd]]" format then 
 # the actual file creation date will be updated to this, and then the date_creation property will be removed from the md
@@ -81,7 +86,7 @@ ignore_folders:
 - conf/templates
 
 # when scanning markdown for replacements, ignore any with this exact text
-ignore_text:
+ignore_rendered_text:
 - "Ed: music reco:"
 
 # path to obsidian folder - ~ welcome

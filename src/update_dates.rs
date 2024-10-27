@@ -3,7 +3,9 @@ use crate::frontmatter::FrontMatter;
 use crate::scan::MarkdownFileInfo;
 use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::wikilink::is_wikilink;
 use crate::{file_utils, frontmatter, ValidatedConfig};
+
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 
 use std::collections::HashMap;
@@ -178,12 +180,13 @@ impl SetFileCreationDateWith {
                 // Concatenate date_created_fix with the file creation timestamp
                 // Strip wikilinks from date_created_fix if present
                 if let Some(fix) = date_created_fix {
-                   let clean_fix = if fix.starts_with(OPENING_WIKILINK) && fix.ends_with(CLOSING_WIKILINK) {
-                   // let clean_fix = if is_wikilink(Some(fix)) {
-                        &fix[2..fix.len() - 2]
-                    } else {
-                        fix
-                    };
+                    let clean_fix =
+                        if fix.starts_with(OPENING_WIKILINK) && fix.ends_with(CLOSING_WIKILINK) {
+                            // let clean_fix = if is_wikilink(Some(fix)) {
+                            &fix[2..fix.len() - 2]
+                        } else {
+                            fix
+                        };
                     format!("{} {}", clean_fix, timestamp.format("%H:%M:%S"))
                 } else {
                     String::new()
@@ -533,14 +536,17 @@ fn validate_wikilink_and_date(date: &str) -> (bool, bool) {
     let is_wikilink = date.starts_with(OPENING_WIKILINK) && date.ends_with(CLOSING_WIKILINK);
 
     // Ensure there are exactly two opening and two closing brackets
-    let valid_bracket_count = date.matches('[').count() == 2 && date.matches(CLOSING_BRACKET).count() == 2;
+    let valid_bracket_count =
+        date.matches('[').count() == 2 && date.matches(CLOSING_BRACKET).count() == 2;
 
     // Combine both checks to ensure it's a proper wikilink
     let is_wikilink = is_wikilink && valid_bracket_count;
 
     // If it's a wikilink, validate the inner date; otherwise, validate the raw string
     let clean_date = if is_wikilink {
-        date.trim_start_matches(OPENING_WIKILINK).trim_end_matches(CLOSING_WIKILINK).trim()
+        date.trim_start_matches(OPENING_WIKILINK)
+            .trim_end_matches(CLOSING_WIKILINK)
+            .trim()
     } else {
         date.trim()
     };

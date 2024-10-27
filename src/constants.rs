@@ -9,8 +9,12 @@ pub const CACHE_FILE: &str = "image_cache.json";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
+pub const NO_IMAGE_ISSUES: &str = "no issues found during image analysis";
 pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
 pub const TIFF_EXTENSION: &str = "tiff";
+pub const TIFF_IMAGES: &str = "TIFF images";
+pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
+pub const ZERO_BYTE_IMAGES: &str = "zero-byte images";
 
 //markdown stuff
 pub const LEVEL1: &str = "#";
@@ -27,14 +31,8 @@ pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";
 pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
-pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
-    if let Some(test_wikilink) = potential_wikilink {
-        test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
-    } else {
-        false
-    }
-}
-
+// wikilink back populate
+pub const BACK_POPULATE: &str = "back populate wikilinks";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

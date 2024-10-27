@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::file_utils::update_file;
-use crate::scan::{ObsidianRepositoryInfo, ImageInfo};
+use crate::scan::{ImageInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;
@@ -84,7 +84,7 @@ pub fn cleanup_images(
         && duplicate_groups.is_empty()
         && missing_references.is_empty()
     {
-        writer.writeln("", "no issues found during image analysis.")?;
+        writer.writeln("", NO_IMAGE_ISSUES)?;
         return Ok(());
     }
 
@@ -113,20 +113,14 @@ fn write_tables(
     write_missing_references_table(config, missing_references, writer)?;
 
     if !tiff_images.is_empty() {
-        write_special_group_table(
-            config,
-            writer,
-            "TIFF Images",
-            tiff_images,
-            Phrase::TiffImages,
-        )?;
+        write_special_group_table(config, writer, TIFF_IMAGES, tiff_images, Phrase::TiffImages)?;
     }
 
     if !zero_byte_images.is_empty() {
         write_special_group_table(
             config,
             writer,
-            "zero-byte images",
+            ZERO_BYTE_IMAGES,
             zero_byte_images,
             Phrase::ZeroByteImages,
         )?;
@@ -136,7 +130,7 @@ fn write_tables(
         write_special_group_table(
             config,
             writer,
-            "Unreferenced Images",
+            UNREFERENCED_IMAGES,
             unreferenced_images,
             Phrase::UnreferencedImages,
         )?;
@@ -269,7 +263,9 @@ fn write_missing_references_table(
 
 fn extract_local_image_filename(image_link: &str) -> Option<String> {
     // Handle Obsidian-style links (always local)
-    if image_link.starts_with(OPENING_IMAGE_WIKILINK_BRACKET) && image_link.ends_with(CLOSING_WIKILINK) {
+    if image_link.starts_with(OPENING_IMAGE_WIKILINK_BRACKET)
+        && image_link.ends_with(CLOSING_WIKILINK)
+    {
         let inner = &image_link[3..image_link.len() - 2];
         let filename = inner.split('|').next().unwrap_or(inner).trim();
         Some(filename.to_lowercase())
@@ -500,10 +496,9 @@ fn handle_file_operation(
     operation: FileOperation,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Check if the path is a wikilink
-    if path
-        .to_str()
-        .map_or(false, |s| s.contains(OPENING_WIKILINK) && s.contains(CLOSING_WIKILINK))
-    {
+    if path.to_str().map_or(false, |s| {
+        s.contains(OPENING_WIKILINK) && s.contains(CLOSING_WIKILINK)
+    }) {
         return Err(Box::new(std::io::Error::new(
             std::io::ErrorKind::InvalidInput,
             format!("Wikilink paths are not allowed: {:?}", path),
@@ -635,12 +630,14 @@ fn extract_relative_path(matched: &str) -> String {
 
 fn extract_alt_text(matched: &str) -> &str {
     if matched.starts_with(OPENING_IMAGE_LINK_BRACKET) {
-        matched.find(CLOSING_BRACKET).map(|alt_end| &matched[2..alt_end]).unwrap_or(IMAGE_ALT_TEXT_DEFAULT)
+        matched
+            .find(CLOSING_BRACKET)
+            .map(|alt_end| &matched[2..alt_end])
+            .unwrap_or(IMAGE_ALT_TEXT_DEFAULT)
     } else {
         IMAGE_ALT_TEXT_DEFAULT
     }
 }
-
 
 fn should_remove_line(line: &str) -> bool {
     line.is_empty() || line == ":" || line.ends_with(":") || line.ends_with(": ")
