@@ -176,7 +176,10 @@ pub fn collect_all_wikilinks(
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    all_wikilinks.insert(compile_wikilink(filename_wikilink));
+    all_wikilinks.insert(compile_wikilink(filename_wikilink.clone()));
+
+    // Track aliases pointing to filename to prevent duplicates
+    let mut frontmatter_aliases = HashSet::new();
 
     // Add frontmatter aliases
     if let Some(fm) = frontmatter {
@@ -184,18 +187,22 @@ pub fn collect_all_wikilinks(
             for alias in aliases {
                 let alias_wikilink = Wikilink {
                     display_text: alias.clone(),
-                    target: alias.clone(),
-                    is_alias: false,
+                    target: filename_wikilink.target.clone(),
+                    is_alias: true,
                 };
                 all_wikilinks.insert(compile_wikilink(alias_wikilink));
+                frontmatter_aliases.insert(alias); // Track each alias added from frontmatter
             }
         }
     }
 
-    // Add wikilinks from content
+    // Add wikilinks from content, skipping duplicates of frontmatter aliases
     let content_wikilinks = extract_wikilinks_from_content(content);
     for wikilink in content_wikilinks {
-        all_wikilinks.insert(compile_wikilink(wikilink));
+        // Only insert content-based wikilink if it's not a frontmatter alias duplicate
+        if !frontmatter_aliases.contains(&wikilink.display_text) {
+            all_wikilinks.insert(compile_wikilink(wikilink));
+        }
     }
 
     all_wikilinks

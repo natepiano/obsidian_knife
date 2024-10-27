@@ -723,43 +723,50 @@ Also linking to [[Alias One]] which is defined in frontmatter.
             &simplify_patterns,
             &ignore_patterns,
         )
-        .unwrap();
+            .unwrap();
 
-        // Collect display texts for verification
-        let wikilink_texts: Vec<String> = wikilinks
+        // Print for debugging
+        for (i, wikilink) in wikilinks.iter().enumerate() {
+            println!("Wikilink #{}: Target: {}, Display: {}", i, wikilink.wikilink.target, wikilink.wikilink.display_text);
+        }
+
+        // Collect unique target-display pairs
+        let wikilink_pairs: HashSet<(String, String)> = wikilinks
             .iter()
-            .map(|w| w.wikilink.display_text.clone())
+            .map(|w| (w.wikilink.target.clone(), w.wikilink.display_text.clone()))
             .collect();
 
-        // Check for the expected wikilinks
+        // Check for the expected unique wikilinks
         assert!(
-            wikilink_texts.contains(&"test_note".to_string()),
+            wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
             "Should contain filename-based wikilink"
         );
         assert!(
-            wikilink_texts.contains(&"Alias One".to_string()),
-            "Should contain first alias"
+            wikilink_pairs.contains(&("test_note".to_string(), "Alias One".to_string())),
+            "Should contain first alias as [[test_note|Alias One]]"
         );
         assert!(
-            wikilink_texts.contains(&"Second Alias".to_string()),
-            "Should contain second alias"
+            wikilink_pairs.contains(&("test_note".to_string(), "Second Alias".to_string())),
+            "Should contain second alias as [[test_note|Second Alias]]"
         );
         assert!(
-            wikilink_texts.contains(&"Simple Link".to_string()),
+            wikilink_pairs.contains(&("Simple Link".to_string(), "Simple Link".to_string())),
             "Should contain simple wikilink"
         );
         assert!(
-            wikilink_texts.contains(&"Display Text".to_string()),
+            wikilink_pairs.contains(&("Target Page".to_string(), "Display Text".to_string())),
             "Should contain aliased display text"
         );
 
-        // Verify total count
+        // Verify total count of unique wikilinks
         assert_eq!(
-            wikilink_texts.len(),
+            wikilink_pairs.len(),
             5,
             "Should have collected all unique wikilinks"
         );
     }
+
+
 
     #[test]
     fn test_scan_folders_wikilink_collection() {
@@ -798,6 +805,7 @@ aliases:
         // Create minimal validated config
         let config = ValidatedConfig::new(
             false,
+            None,
             None,
             None,
             None,

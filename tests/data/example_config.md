@@ -4,6 +4,8 @@ output_folder: conf/obsidian_knife
 
 apply_changes: false
 
+back_populate_file_count: 1
+
 do_not_back_populate: 
   - "[[mozzarella]] cheese"
 

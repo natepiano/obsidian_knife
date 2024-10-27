@@ -69,6 +69,10 @@ might get replaced with a case insensitive replacement a la:
 # false = dry-run, true=destructive 
 apply_changes: false
 
+# the number of files to process for back_populate
+# remove this if you want it to populate all
+back_populate_file_count: 1
+
 # when back populating there are some strings you don't want to 
 # be replaced, such as the cheese in [[mozzarella]] cheese
 do_not_back_populate: 

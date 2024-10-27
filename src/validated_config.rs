@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug)]
 pub struct ValidatedConfig {
     apply_changes: bool,
+    back_populate_file_count: Option<usize>,
     do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<PathBuf>>,
     ignore_rendered_text: Option<Vec<String>>,
@@ -14,6 +15,7 @@ pub struct ValidatedConfig {
 impl ValidatedConfig {
     pub fn new(
         apply_changes: bool,
+        back_populate_file_count: Option<usize>,
         do_not_back_populate: Option<Vec<String>>,
         ignore_folders: Option<Vec<PathBuf>>,
         ignore_rendered_text: Option<Vec<String>>,
@@ -23,6 +25,7 @@ impl ValidatedConfig {
     ) -> Self {
         ValidatedConfig {
             apply_changes,
+            back_populate_file_count,
             do_not_back_populate,
             ignore_folders,
             ignore_rendered_text,
@@ -34,6 +37,10 @@ impl ValidatedConfig {
 
     pub fn apply_changes(&self) -> bool {
         self.apply_changes
+    }
+
+    pub fn back_populate_file_count(&self) -> Option<usize> {
+        self.back_populate_file_count
     }
 
     pub fn do_not_back_populate(&self) -> Option<&[String]> {

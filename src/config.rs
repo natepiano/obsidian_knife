@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
+    back_populate_file_count: Option<usize>,
     do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<String>>,
     ignore_rendered_text: Option<Vec<String>>,
@@ -91,8 +92,16 @@ impl Config {
         let ignore_rendered_text = self.validate_ignore_rendered_text()?;
         let validated_do_not_back_populate = self.validate_do_not_back_populate()?;
 
+        // Validate `back_populate_file_count`
+        let validated_back_populate_file_count = match self.back_populate_file_count {
+            Some(count) if count >= 1 => Some(count),
+            Some(_) => return Err("back_populate_file_count must be >= 1 or None".into()),
+            None => None,
+        };
+
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
+            validated_back_populate_file_count,
             validated_do_not_back_populate,
             ignore_folders,
             ignore_rendered_text,

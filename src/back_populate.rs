@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use crate::constants::*;
 use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
@@ -8,6 +9,10 @@ use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
+use itertools::Itertools;
+
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -52,17 +57,19 @@ pub fn process_back_populate(
     writer.writeln(LEVEL1, BACK_POPULATE)?;
 
     // Sort wikilinks by length (longest first)
+    // Sort wikilinks by length and specificity
     let mut sorted_wikilinks: Vec<&CompiledWikilink> = obsidian_repository_info
         .all_wikilinks
         .iter()
         .collect();
     sorted_wikilinks.sort_by(|a, b| {
-        // Sort by target length first (descending)
-        b.wikilink.target.len().cmp(&a.wikilink.target.len())
-            // Then by the full wikilink string length if targets are equal
-            .then_with(|| b.to_string().len().cmp(&a.to_string().len()))
+        // 1. Sort by display text length (longest first)
+        b.wikilink.display_text.len().cmp(&a.wikilink.display_text.len())
+            // 2. Then by target length if display lengths are equal
+            .then_with(|| b.wikilink.target.len().cmp(&a.wikilink.target.len()))
+            // 3. Finally by display text lexicographically to stabilize order
+            .then_with(|| b.wikilink.display_text.cmp(&a.wikilink.display_text))
     });
-
 
     println!(
         "links to back populate: {} ",
@@ -83,27 +90,64 @@ pub fn process_back_populate(
     Ok(())
 }
 
+
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
     collected_files: &ObsidianRepositoryInfo,
     sorted_wikilinks: &[&CompiledWikilink],
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    let mut matches = Vec::new();
+    let max_files_with_matches = config.back_populate_file_count().unwrap_or(usize::MAX);
+    let match_counter = Arc::new(AtomicUsize::new(0)); // Counter to track files with matches
 
-    for (file_path, _) in &collected_files.markdown_files {
-        process_file(file_path, sorted_wikilinks, config, &mut matches)?;
-    }
+    // Sort files by path first for deterministic ordering
+    let sorted_files: Vec<_> = collected_files
+        .markdown_files
+        .iter()
+        .sorted_by_key(|(file_path, _)| (*file_path).clone())
+        .collect();
 
-    sort_matches(&mut matches);
-    Ok(matches)
+    // Process sorted files in parallel
+    let all_matches: Vec<(String, Vec<BackPopulateMatch>)> = sorted_files
+        .par_iter()
+        .filter_map(|(file_path, _)| {
+            // Stop if we've reached the max number of files with matches
+            if match_counter.load(Ordering::Relaxed) >= max_files_with_matches {
+                return None;
+            }
+
+            // Process the file
+            let file_matches = process_file(file_path, sorted_wikilinks, config).ok();
+
+            // Only keep results if this file has matches
+            if let Some(matches) = file_matches {
+                if !matches.is_empty() {
+                    // Increment the counter for files with matches
+                    match_counter.fetch_add(1, Ordering::Relaxed);
+                    // Return the file path and its matches
+                    return Some((file_path.to_string_lossy().to_string(), matches));
+                }
+            }
+            None // Skip files with no matches
+        })
+        .collect();
+
+    // Limit to the first `max_files_with_matches` files and flatten the matches
+    let limited_matches: Vec<BackPopulateMatch> = all_matches
+        .into_iter()
+        .take(max_files_with_matches) // Limit to the first `n` files with matches
+        .flat_map(|(_, matches)| matches) // Flatten matches from each file
+        .collect();
+
+    Ok(limited_matches)
 }
+
 
 fn process_file(
     file_path: &Path,
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
-    matches: &mut Vec<BackPopulateMatch>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+    let mut matches = Vec::new(); // Local vector to collect matches
     let content = fs::read_to_string(file_path)?;
     let reader = BufReader::new(content.as_bytes());
     let mut frontmatter = FrontmatterState::new();
@@ -115,13 +159,11 @@ fn process_file(
             continue;
         }
 
-        // Split line into non-link text and links
         let mut processed_line = String::new();
         let mut last_pos = 0;
 
         // Regex to match Markdown links `[text](url)`
         for mat in EXTERNAL_MARKDOWN_REGEX.find_iter(&line) {
-            // Get the non-link text before this link
             let non_link_text = &line[last_pos..mat.start()];
             // Process non-link text for matches
             process_line(
@@ -131,7 +173,7 @@ fn process_file(
                 &content,
                 sorted_wikilinks,
                 config,
-                matches,
+                &mut matches, // Use local matches vector here
             )?;
 
             // Add non-link text and link back to processed line
@@ -149,14 +191,12 @@ fn process_file(
             &content,
             sorted_wikilinks,
             config,
-            matches,
+            &mut matches,
         )?;
         processed_line.push_str(remaining_text);
-
-        // `processed_line` now contains the full line with processed text and unprocessed links
     }
 
-    Ok(())
+    Ok(matches) // Return local matches collected in this file
 }
 
 fn process_line(
@@ -173,6 +213,7 @@ fn process_line(
     for wikilink in sorted_wikilinks {
         let mut search_start = 0;
 
+        // Use regex matching and respect the sorted order for specificity
         while search_start < line.len() {
             if let Some(match_info) = find_next_match(
                 wikilink,
@@ -186,18 +227,18 @@ fn process_line(
                 let starts_at = match_info.position;
                 let ends_at = starts_at + match_info.found_text.len();
 
+                // Check for overlapping matches
                 let overlaps = matched_positions.iter().any(|&(start, end)| {
                     (starts_at >= start && starts_at < end) ||
                         (ends_at > start && ends_at <= end) ||
                         (starts_at <= start && ends_at >= end)
                 });
 
-                // Check if this match should be excluded by do_not_back_populate patterns
+                // Check for exclusion patterns
                 let should_exclude = if let Some(exclusion_patterns) = config.do_not_back_populate() {
                     exclusion_patterns.iter().any(|pattern| {
                         if let Some(pattern_start) = line.find(pattern) {
                             let pattern_end = pattern_start + pattern.len();
-                            // Check if the match position overlaps with the exclusion pattern
                             starts_at >= pattern_start && starts_at < pattern_end
                         } else {
                             false
@@ -207,31 +248,40 @@ fn process_line(
                     false
                 };
 
-                if !overlaps && !should_exclude {
-                    println!(
-                        "Match found in '{}' line {} position {}",
-                        match_info.file_path, match_info.line_number, match_info.position
-                    );
-                    println!(" line text:{}", match_info.line_text);
-                    println!(
-                        "  found: '{}' replace with: '{}'",
-                        match_info.found_text, match_info.replacement);
-                    println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
-                    println!();
-
-                    matched_positions.push((starts_at, ends_at));
+                // Skip this match if it overlaps or should be excluded
+                if overlaps || should_exclude {
                     search_start = ends_at;
-                    matches.push(match_info.clone());
-                } else {
-                    search_start = ends_at;
+                    continue;
                 }
+
+                // Debug statement to show the match information
+                println!(
+                    "Match found in '{}' line {} position {}",
+                    match_info.file_path, match_info.line_number, match_info.position
+                );
+                println!(" line text:{}", match_info.line_text);
+                println!(
+                    "  found: '{}' replace with: '{}'",
+                    match_info.found_text, match_info.replacement
+                );
+                println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
+                println!();
+
+                // Store the matched positions and add the match
+                matched_positions.push((starts_at, ends_at));
+                search_start = ends_at;
+                matches.push(match_info.clone());
             } else {
                 break;
             }
         }
     }
+
     Ok(())
 }
+
+
+
 
 fn find_next_match(
     wikilink: &CompiledWikilink,
@@ -301,14 +351,6 @@ fn is_within_external_link(line: &str, position: usize) -> bool {
     false
 }
 
-fn sort_matches(matches: &mut Vec<BackPopulateMatch>) {
-    matches.sort_by(|a, b| {
-        a.file_path
-            .cmp(&b.file_path)
-            .then(a.line_number.cmp(&b.line_number))
-    });
-}
-
 fn is_within_wikilink(line: &str, position: usize) -> bool {
     // Find all wikilink pairs in the line
     let mut current_pos = 0;
@@ -355,50 +397,78 @@ fn is_in_code_block(content: &str, current_line: usize) -> bool {
     false
 }
 
+
 fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(
-        "",
-        &format!("found {} matches to back populate", matches.len()),
-    )?;
+    writer.writeln("", &format!("found {} matches to back populate", matches.len()))?;
 
-    let headers = &[
-        "file",
-        "line",
-        "current text",
-        "found text",
-        "will replace with",
-    ];
+    // Group and sort matches by file path
+    let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
+    for m in matches {
+        let file_key = m.file_path.trim_end_matches(".md").to_string(); // Remove `.md`
+        matches_by_file.entry(file_key).or_default().push(m);
+    }
 
-    let rows: Vec<Vec<String>> = matches
-        .iter()
-        .map(|m| {
-            vec![
-                format!("[[{}]]", m.file_path),
-                m.line_number.to_string(),
-                m.line_text.clone(),
-                m.found_text.clone(),
-                m.replacement.clone(),
-            ]
-        })
-        .collect();
+    for (file_path, file_matches) in &matches_by_file {
+        // Write the file name as a header with change count
+        writer.writeln(
+            "",
+            &format!("### [[{}]] - {}", file_path, file_matches.len()),
+        )?;
 
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[
-            ColumnAlignment::Left,
-            ColumnAlignment::Right,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ]),
-    )?;
+        // Headers for each table
+        let headers = &[
+            "line",
+            "current text",
+            "found text",
+            "will replace with",
+            "escaped replacement"
+        ];
+
+        // Collect rows for this file, with escaped brackets and pipe in the `escaped replacement` column
+        let rows: Vec<Vec<String>> = file_matches
+            .iter()
+            .map(|m| {
+                vec![
+                    m.line_number.to_string(),
+                    escape_pipe(&m.line_text),
+                    escape_pipe(&m.found_text),
+                    escape_pipe(&m.replacement), // Escape for Markdown table
+                    escape_brackets_and_pipe(&m.replacement), // Escaped replacement with brackets
+                ]
+            })
+            .collect();
+
+        writer.write_markdown_table(
+            headers,
+            &rows,
+            Some(&[
+                ColumnAlignment::Right,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+            ]),
+        )?;
+    }
 
     Ok(())
 }
+
+// Helper function to escape pipes in Markdown strings
+fn escape_pipe(text: &str) -> String {
+    text.replace('|', r"\|")
+}
+
+// Helper function to escape pipes and brackets for visual verification in `escaped replacement`
+fn escape_brackets_and_pipe(text: &str) -> String {
+    text.replace('[', r"\[")
+        .replace(']', r"\]")
+        .replace('|', r"\|")
+}
+
 
 fn apply_back_populate_changes(
     config: &ValidatedConfig,
@@ -454,6 +524,7 @@ mod tests {
 
         let config = ValidatedConfig::new(
             false,                            // apply_changes
+            None,                              // back_populate_file_count
             None,                            // do_not_back_populate
             None,                            // ignore_folders
             None,                            // ignore_rendered_text
@@ -667,6 +738,7 @@ mod tests {
             None,
             None,
             None,
+            None,
             temp_dir.path().to_path_buf(),
             temp_dir.path().join("output"),
             None,
@@ -755,6 +827,7 @@ mod tests {
 
         let config = ValidatedConfig::new(
             false,                                                // apply_changes
+            None,
             Some(vec!["[[mozzarella]] cheese".to_string()]),     // do_not_back_populate
             None,                                                // ignore_folders
             None,                                                // ignore_rendered_text
