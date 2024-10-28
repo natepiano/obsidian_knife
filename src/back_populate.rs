@@ -225,17 +225,17 @@ fn process_line(
                 }
 
                 // Debug statement to show the match information
-                println!(
-                    "Match found in '{}' line {} position {}",
-                    match_info.file_path, match_info.line_number, match_info.position
-                );
-                println!(" line text:{}", match_info.line_text);
-                println!(
-                    "  found: '{}' replace with: '{}'",
-                    match_info.found_text, match_info.replacement
-                );
-                println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
-                println!();
+                // println!(
+                //     "Match found in '{}' line {} position {}",
+                //     match_info.file_path, match_info.line_number, match_info.position
+                // );
+                // println!(" line text:{}", match_info.line_text);
+                // println!(
+                //     "  found: '{}' replace with: '{}'",
+                //     match_info.found_text, match_info.replacement
+                // );
+                // println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
+                // println!();
 
                 // Store the matched positions and add the match
                 matched_positions.push((starts_at, ends_at));
@@ -383,10 +383,6 @@ fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(
-        "",
-        &format!("found {} matches to back populate", matches.len()),
-    )?;
 
     // Group and sort matches by file path
     let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
@@ -394,6 +390,11 @@ fn write_back_populate_table(
         let file_key = m.file_path.trim_end_matches(".md").to_string(); // Remove `.md`
         matches_by_file.entry(file_key).or_default().push(m);
     }
+
+    writer.writeln(
+        "",
+        &format!("found {} matches to back populate in {} files", matches.len(), matches_by_file.len()),
+    )?;
 
     for (file_path, file_matches) in &matches_by_file {
         // Write the file name as a header with change count
@@ -453,6 +454,42 @@ fn escape_brackets_and_pipe(text: &str) -> String {
         .replace('|', r"\|")
 }
 
+// fn apply_back_populate_changes(
+//     config: &ValidatedConfig,
+//     matches: &[BackPopulateMatch],
+// ) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     if !config.apply_changes() {
+//         return Ok(());
+//     }
+//
+//     for match_info in matches {
+//         let full_path = config.obsidian_path().join(&match_info.file_path);
+//         let content = fs::read_to_string(&full_path)?;
+//
+//         let updated_content = content
+//             .lines()
+//             .enumerate()
+//             .map(|(idx, line)| {
+//                 if idx + 1 == match_info.line_number {
+//                     let replacement = if is_in_markdown_table(line, &match_info.found_text) {
+//                         // For table cells, escape the | in the replacement wikilink
+//                         match_info.replacement.replace('|', "\\|")
+//                     } else {
+//                         match_info.replacement.clone()
+//                     };
+//                     line.replace(&match_info.found_text, &replacement)
+//                 } else {
+//                     line.to_string()
+//                 }
+//             })
+//             .collect::<Vec<_>>()
+//             .join("\n");
+//
+//         fs::write(full_path, updated_content)?;
+//     }
+//
+//     Ok(())
+// }
 fn apply_back_populate_changes(
     config: &ValidatedConfig,
     matches: &[BackPopulateMatch],
@@ -476,7 +513,13 @@ fn apply_back_populate_changes(
                     } else {
                         match_info.replacement.clone()
                     };
-                    line.replace(&match_info.found_text, &replacement)
+
+                    // Print line before and after replacement
+                    // println!("Before: {}", line);
+                    let new_line = line.replace(&match_info.found_text, &replacement);
+                    // println!("After: {}", new_line);
+
+                    new_line
                 } else {
                     line.to_string()
                 }
@@ -484,11 +527,13 @@ fn apply_back_populate_changes(
             .collect::<Vec<_>>()
             .join("\n");
 
+        // Commented out fs::write to avoid saving changes to disk
         fs::write(full_path, updated_content)?;
     }
 
     Ok(())
 }
+
 
 fn format_relative_path(path: &Path, base_path: &Path) -> String {
     path.strip_prefix(base_path)
