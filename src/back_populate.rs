@@ -117,6 +117,11 @@ fn process_file(
     for (line_idx, line) in reader.lines().enumerate() {
         let line = line?;
 
+        // Skip empty or whitespace-only lines early
+        if line.trim().is_empty() {
+            continue;
+        }
+
         if frontmatter.update_for_line(&line) || frontmatter.in_frontmatter {
             continue;
         }
@@ -254,7 +259,7 @@ fn find_next_match(
     full_content: &str,
     config: &ValidatedConfig,
 ) -> Result<Option<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    if let Ok(Some(mat)) = wikilink.regex.find(&line[start_pos..]) {
+    if let Some(mat) = wikilink.regex.find(&line[start_pos..]) {
         let absolute_start = start_pos + mat.start();
         let absolute_end = start_pos + mat.end();
         let matched_text = &line[absolute_start..absolute_end];
@@ -497,7 +502,7 @@ mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
     use crate::wikilink::{compile_wikilink, CompiledWikilink, Wikilink};
-    use fancy_regex::Regex;
+    use regex;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
@@ -527,7 +532,7 @@ mod tests {
         };
 
         let compiled = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])Test Link(?![^\s\p{P}|])").unwrap(),
+            regex::Regex::new(r"(?i)\bTest Link\b").unwrap(),
             wikilink,
         );
 
@@ -535,6 +540,23 @@ mod tests {
         repo_info.markdown_files = HashMap::new();
 
         (temp_dir, config, repo_info)
+    }
+
+    fn create_test_config(
+        temp_dir: &TempDir,
+        apply_changes: bool,
+        do_not_back_populate: Option<Vec<String>>,
+    ) -> ValidatedConfig {
+        ValidatedConfig::new(
+            apply_changes,
+            None,                  // back_populate_file_count
+            do_not_back_populate,  // do_not_back_populate
+            None,                  // ignore_folders
+            None,                  // ignore_rendered_text
+            temp_dir.path().to_path_buf(), // obsidian_path
+            temp_dir.path().join("output"), // output_folder
+            None,                  // simplify_wikilinks
+        )
     }
 
     #[test]
@@ -773,11 +795,11 @@ mod tests {
         };
 
         let compiled1 = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])Kyri(?![^\s\p{P}|])").unwrap(),
+            regex::Regex::new(r"(?i)\bKyri\b").unwrap(),
             wikilink1,
         );
         let compiled2 = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])Kyri(?![^\s\p{P}|])").unwrap(),
+            regex::Regex::new(r"(?i)\bKyri\b").unwrap(),
             wikilink2,
         );
 
@@ -807,24 +829,18 @@ mod tests {
         };
 
         let compiled = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])cheese(?![^\s\p{P}|])").unwrap(),
+            regex::Regex::new(r"(?i)\bcheese\b").unwrap(),
             wikilink,
         );
 
-        // Store the CompiledWikilink in a variable so we can take a reference
         let compiled_ref = &compiled;
-        let sorted_wikilinks = &[compiled_ref][..]; // Create a slice of references
+        let sorted_wikilinks = &[compiled_ref][..];
         let mut matches = Vec::new();
 
-        let config = ValidatedConfig::new(
-            false, // apply_changes
-            None,
-            Some(vec!["[[mozzarella]] cheese".to_string()]), // do_not_back_populate
-            None,                                            // ignore_folders
-            None,                                            // ignore_rendered_text
-            temp_dir.path().to_path_buf(),                   // obsidian_path
-            temp_dir.path().join("output"),                  // output_folder
-            None,                                            // simplify_wikilinks
+        let config = create_test_config(
+            &temp_dir,
+            false,
+            Some(vec!["[[mozzarella]] cheese".to_string()]),
         );
 
         // Test line with excluded pattern
@@ -872,7 +888,8 @@ mod tests {
         };
 
         let compiled = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])Will(?![^\s\p{P}|])").unwrap(),
+
+            regex::Regex::new(r"(?i)\bWill\b").unwrap(),
             wikilink,
         );
 
@@ -1043,13 +1060,13 @@ mod tests {
             is_alias: false,
         };
 
-        let compiled = crate::wikilink::compile_wikilink(wikilink);
+        let compiled = compile_wikilink(wikilink);
 
         // Test various case combinations
-        assert!(compiled.regex.is_match("test link").unwrap());
-        assert!(compiled.regex.is_match("Test Link").unwrap());
-        assert!(compiled.regex.is_match("TEST LINK").unwrap());
-        assert!(compiled.regex.is_match("tEsT lInK").unwrap());
+        assert!(compiled.regex.is_match("test link"));
+        assert!(compiled.regex.is_match("Test Link"));
+        assert!(compiled.regex.is_match("TEST LINK"));
+        assert!(compiled.regex.is_match("tEsT lInK"));
     }
 
     #[test]
@@ -1059,19 +1076,19 @@ mod tests {
             target: "Test Link".to_string(),
             is_alias: false,
         };
-        let compiled = crate::wikilink::compile_wikilink(wikilink);
+        let compiled = compile_wikilink(wikilink);
 
         // Should match
-        assert!(compiled.regex.is_match("Here is test link.").unwrap());
-        assert!(compiled.regex.is_match("(TEST LINK)").unwrap());
-        assert!(compiled.regex.is_match("test link;").unwrap());
-        assert!(compiled.regex.is_match("[test link]").unwrap());
+        assert!(compiled.regex.is_match("Here is test link."));
+        assert!(compiled.regex.is_match("(TEST LINK)"));
+        assert!(compiled.regex.is_match("test link;"));
+        assert!(compiled.regex.is_match("[test link]"));
 
         // Should not match
-        assert!(!compiled.regex.is_match("testlink").unwrap());
-        assert!(!compiled.regex.is_match("atestlink").unwrap());
-        assert!(!compiled.regex.is_match("testlinka").unwrap());
-        assert!(!compiled.regex.is_match("my-test-link").unwrap());
+        assert!(!compiled.regex.is_match("testlink"));
+        assert!(!compiled.regex.is_match("atestlink"));
+        assert!(!compiled.regex.is_match("testlinka"));
+        assert!(!compiled.regex.is_match("my-test-link"));
     }
 
     #[test]
@@ -1081,21 +1098,19 @@ mod tests {
             target: "Test Link".to_string(),
             is_alias: false,
         };
-        let compiled = crate::wikilink::compile_wikilink(wikilink);
+        let compiled = compile_wikilink(wikilink);
 
         // Test table cell matches
-        assert!(compiled.regex.is_match("| test link |").unwrap());
-        assert!(compiled.regex.is_match("|TEST LINK|").unwrap());
+        assert!(compiled.regex.is_match("| test link |"));
+        assert!(compiled.regex.is_match("|TEST LINK|"));
         assert!(compiled
             .regex
-            .is_match("| Test Link |description|")
-            .unwrap());
+            .is_match("| Test Link |description|"));
 
         // Test with escaped pipes
         assert!(compiled
             .regex
-            .is_match("| test link \\| description |")
-            .unwrap());
+            .is_match("| test link \\| description |"));
     }
     #[test]
     fn test_case_preservation_with_alias() {
@@ -1263,7 +1278,7 @@ mod tests {
         };
 
         let compiled = CompiledWikilink::new(
-            Regex::new(r"(?i)(?<![^\s\p{P}|])cheese(?![^\s\p{P}|])").unwrap(),
+            regex::Regex::new(r"(?i)\bcheese\b").unwrap(),
             wikilink,
         );
 
@@ -1271,15 +1286,10 @@ mod tests {
         let sorted_wikilinks = &[compiled_ref][..];
         let mut matches = Vec::new();
 
-        let config = ValidatedConfig::new(
+        let config = create_test_config(
+            &temp_dir,
             false,
-            None,
-            Some(vec!["[[mozzarella]] cheese".to_string()]), // exclusion pattern in lower case
-            None,
-            None,
-            temp_dir.path().to_path_buf(),
-            temp_dir.path().join("output"),
-            None,
+            Some(vec!["[[mozzarella]] cheese".to_string()]),
         );
 
         // Test with different casings

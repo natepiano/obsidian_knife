@@ -7,7 +7,6 @@ use std::fmt;
 
 lazy_static! {
     static ref WIKILINK_REGEX: fancy_regex::Regex =
-       // fancy_regex::Regex::new(r"\[\[(.*?)(?:\|(.*?))?\]\]").unwrap();
         fancy_regex::Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
 
     pub static ref EXTERNAL_MARKDOWN_REGEX: regex::Regex =
@@ -23,7 +22,7 @@ pub struct Wikilink {
 
 #[derive(Debug, Clone)]
 pub struct CompiledWikilink {
-    pub regex: fancy_regex::Regex,
+    pub regex: regex::Regex,
     pub wikilink: Wikilink,
     hash: u64,
 }
@@ -45,7 +44,7 @@ impl fmt::Display for CompiledWikilink {
 }
 
 impl CompiledWikilink {
-    pub fn new(regex: fancy_regex::Regex, wikilink: Wikilink) -> Self {
+    pub fn new(regex: regex::Regex, wikilink: Wikilink) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         wikilink.hash(&mut hasher);
@@ -103,10 +102,10 @@ pub(crate) fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
     // Escape the text to create a literal match for the exact phrase
     let escaped_pattern = regex::escape(search_text);
 
-    // Add case insensitive flag with simple word boundaries
+    // Add case-insensitive flag with simple word boundaries
     let pattern = format!(r"(?i)\b{}\b", escaped_pattern);
 
-    CompiledWikilink::new(fancy_regex::Regex::new(&pattern).unwrap(), wikilink)
+    CompiledWikilink::new(regex::Regex::new(&pattern).unwrap(), wikilink)
 }
 
 pub fn parse_wikilink(text: &str) -> Option<Wikilink> {
@@ -284,9 +283,9 @@ Also [[Alias One]] is referenced"#;
         };
         let compiled = compile_wikilink(wikilink);
 
-        assert!(compiled.regex.is_match("Here is Test Link here").unwrap());
-        assert!(!compiled.regex.is_match("TestLink").unwrap());
-        assert!(!compiled.regex.is_match("The TestLink is here").unwrap());
+        assert!(compiled.regex.is_match("Here is Test Link here"));
+        assert!(!compiled.regex.is_match("TestLink"));
+        assert!(!compiled.regex.is_match("The TestLink is here"));
     }
 
     #[test]
@@ -298,10 +297,10 @@ Also [[Alias One]] is referenced"#;
         };
         let compiled = compile_wikilink(wikilink);
 
-        assert!(compiled.regex.is_match("Here is Test Link.").unwrap());
-        assert!(compiled.regex.is_match("(Test Link)").unwrap());
-        assert!(compiled.regex.is_match("Test Link;").unwrap());
-        assert!(compiled.regex.is_match("'Test Link'").unwrap());
+        assert!(compiled.regex.is_match("Here is Test Link."));
+        assert!(compiled.regex.is_match("(Test Link)"));
+        assert!(compiled.regex.is_match("Test Link;"));
+        assert!(compiled.regex.is_match("'Test Link'"));
     }
 
     #[test]
