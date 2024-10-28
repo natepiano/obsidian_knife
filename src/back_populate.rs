@@ -1,17 +1,14 @@
 use crate::constants::*;
+use crate::deterministic_file_search::DeterministicSearch;
 use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, EXTERNAL_MARKDOWN_REGEX};
-use itertools::Itertools;
-use rayon::prelude::*;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -56,7 +53,6 @@ pub fn process_back_populate(
     writer.writeln(LEVEL1, BACK_POPULATE)?;
 
     // Sort wikilinks by length (longest first)
-    // Sort wikilinks by length and specificity
     let mut sorted_wikilinks: Vec<&CompiledWikilink> =
         obsidian_repository_info.all_wikilinks.iter().collect();
     sorted_wikilinks.sort_by(|a, b| {
@@ -82,7 +78,6 @@ pub fn process_back_populate(
     }
 
     write_back_populate_table(writer, &matches)?;
-
     apply_back_populate_changes(config, &matches)?;
 
     Ok(())
@@ -93,49 +88,20 @@ fn find_all_back_populate_matches(
     collected_files: &ObsidianRepositoryInfo,
     sorted_wikilinks: &[&CompiledWikilink],
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    let max_files_with_matches = config.back_populate_file_count().unwrap_or(usize::MAX);
-    let match_counter = Arc::new(AtomicUsize::new(0)); // Counter to track files with matches
+    let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
-    // Sort files by path first for deterministic ordering
-    let sorted_files: Vec<_> = collected_files
-        .markdown_files
-        .iter()
-        .sorted_by_key(|(file_path, _)| (*file_path).clone())
-        .collect();
+    let wikilinks = sorted_wikilinks.to_vec();
 
-    // Process sorted files in parallel
-    let all_matches: Vec<(String, Vec<BackPopulateMatch>)> = sorted_files
-        .par_iter()
-        .filter_map(|(file_path, _)| {
-            // Stop if we've reached the max number of files with matches
-            if match_counter.load(Ordering::Relaxed) >= max_files_with_matches {
-                return None;
-            }
+    let matches =
+        searcher.search_with_info(
+            &collected_files.markdown_files,
+            |file_path, _| match process_file(file_path, &wikilinks, config) {
+                Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
+                _ => None,
+            },
+        );
 
-            // Process the file
-            let file_matches = process_file(file_path, sorted_wikilinks, config).ok();
-
-            // Only keep results if this file has matches
-            if let Some(matches) = file_matches {
-                if !matches.is_empty() {
-                    // Increment the counter for files with matches
-                    match_counter.fetch_add(1, Ordering::Relaxed);
-                    // Return the file path and its matches
-                    return Some((file_path.to_string_lossy().to_string(), matches));
-                }
-            }
-            None // Skip files with no matches
-        })
-        .collect();
-
-    // Limit to the first `max_files_with_matches` files and flatten the matches
-    let limited_matches: Vec<BackPopulateMatch> = all_matches
-        .into_iter()
-        .take(max_files_with_matches) // Limit to the first `n` files with matches
-        .flat_map(|(_, matches)| matches) // Flatten matches from each file
-        .collect();
-
-    Ok(limited_matches)
+    Ok(matches.into_iter().flatten().collect())
 }
 
 fn process_file(

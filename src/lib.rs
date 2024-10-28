@@ -2,6 +2,7 @@ mod back_populate;
 mod cleanup_images;
 mod config;
 mod constants;
+mod deterministic_file_search;
 mod file_utils;
 mod frontmatter;
 mod scan;
