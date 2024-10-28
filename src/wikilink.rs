@@ -57,17 +57,6 @@ impl CompiledWikilink {
             hash,
         }
     }
-
-    pub fn to_string(&self) -> String {
-        if self.wikilink.is_alias {
-            format!(
-                "[[{}|{}]]",
-                self.wikilink.target, self.wikilink.display_text
-            )
-        } else {
-            format!("[[{}]]", self.wikilink.target)
-        }
-    }
 }
 
 impl std::hash::Hash for CompiledWikilink {
@@ -108,19 +97,17 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     }
 }
 
-pub fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
+pub(crate) fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
     let search_text = &wikilink.display_text;
 
     // Escape the text to create a literal match for the exact phrase
     let escaped_pattern = regex::escape(search_text);
 
-    // No boundaries or lookaheads/behinds, just match the exact phrase
-    let pattern = format!(r"\b{}\b", escaped_pattern);
+    // Add case insensitive flag with simple word boundaries
+    let pattern = format!(r"(?i)\b{}\b", escaped_pattern);
 
-    // Compile the regex
     CompiledWikilink::new(fancy_regex::Regex::new(&pattern).unwrap(), wikilink)
 }
-
 
 pub fn parse_wikilink(text: &str) -> Option<Wikilink> {
     if let Ok(Some(cap)) = WIKILINK_REGEX.captures(text) {
@@ -498,10 +485,16 @@ But [[regular|alias]] works
 "#;
         let wikilinks = extract_wikilinks_from_content(content);
 
-        assert_eq!(wikilinks.len(), 2, "Should only extract non-image wikilinks");
+        assert_eq!(
+            wikilinks.len(),
+            2,
+            "Should only extract non-image wikilinks"
+        );
 
         assert!(wikilinks.iter().any(|w| w.target == "normal link"));
-        assert!(wikilinks.iter().any(|w| w.target == "regular" && w.display_text == "alias"));
+        assert!(wikilinks
+            .iter()
+            .any(|w| w.target == "regular" && w.display_text == "alias"));
 
         assert!(!wikilinks.iter().any(|w| w.target.ends_with(".png")));
         assert!(!wikilinks.iter().any(|w| w.target.ends_with(".jpg")));
@@ -519,7 +512,9 @@ Some more ![[coconut_oil.jpg|200]] images
 
         assert_eq!(wikilinks.len(), 2, "Should only have non-image wikilinks");
         assert!(wikilinks.iter().any(|w| w.target == "Shea Butter"));
-        assert!(wikilinks.iter().any(|w| w.target == "Coconut Oil" && w.display_text == "Coconut"));
+        assert!(wikilinks
+            .iter()
+            .any(|w| w.target == "Coconut Oil" && w.display_text == "Coconut"));
     }
 
     #[test]

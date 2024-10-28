@@ -1,18 +1,17 @@
-use std::collections::BTreeMap;
 use crate::constants::*;
 use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, EXTERNAL_MARKDOWN_REGEX};
+use itertools::Itertools;
 use rayon::prelude::*;
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use itertools::Itertools;
-
+use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -58,25 +57,24 @@ pub fn process_back_populate(
 
     // Sort wikilinks by length (longest first)
     // Sort wikilinks by length and specificity
-    let mut sorted_wikilinks: Vec<&CompiledWikilink> = obsidian_repository_info
-        .all_wikilinks
-        .iter()
-        .collect();
+    let mut sorted_wikilinks: Vec<&CompiledWikilink> =
+        obsidian_repository_info.all_wikilinks.iter().collect();
     sorted_wikilinks.sort_by(|a, b| {
         // 1. Sort by display text length (longest first)
-        b.wikilink.display_text.len().cmp(&a.wikilink.display_text.len())
+        b.wikilink
+            .display_text
+            .len()
+            .cmp(&a.wikilink.display_text.len())
             // 2. Then by target length if display lengths are equal
             .then_with(|| b.wikilink.target.len().cmp(&a.wikilink.target.len()))
             // 3. Finally by display text lexicographically to stabilize order
             .then_with(|| b.wikilink.display_text.cmp(&a.wikilink.display_text))
     });
 
-    println!(
-        "links to back populate: {} ",
-        sorted_wikilinks.len()
-    );
+    println!("links to back populate: {} ", sorted_wikilinks.len());
 
-    let matches = find_all_back_populate_matches(config, obsidian_repository_info, &sorted_wikilinks)?;
+    let matches =
+        find_all_back_populate_matches(config, obsidian_repository_info, &sorted_wikilinks)?;
 
     if matches.is_empty() {
         writer.writeln("", "no back population matches found")?;
@@ -89,7 +87,6 @@ pub fn process_back_populate(
 
     Ok(())
 }
-
 
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
@@ -140,7 +137,6 @@ fn find_all_back_populate_matches(
 
     Ok(limited_matches)
 }
-
 
 fn process_file(
     file_path: &Path,
@@ -229,15 +225,18 @@ fn process_line(
 
                 // Check for overlapping matches
                 let overlaps = matched_positions.iter().any(|&(start, end)| {
-                    (starts_at >= start && starts_at < end) ||
-                        (ends_at > start && ends_at <= end) ||
-                        (starts_at <= start && ends_at >= end)
+                    (starts_at >= start && starts_at < end)
+                        || (ends_at > start && ends_at <= end)
+                        || (starts_at <= start && ends_at >= end)
                 });
 
-                // Check for exclusion patterns
-                let should_exclude = if let Some(exclusion_patterns) = config.do_not_back_populate() {
+                // Check for exclusion patterns - now case-insensitive
+                let should_exclude = if let Some(exclusion_patterns) = config.do_not_back_populate()
+                {
                     exclusion_patterns.iter().any(|pattern| {
-                        if let Some(pattern_start) = line.find(pattern) {
+                        if let Some(pattern_start) =
+                            line.to_lowercase().find(&pattern.to_lowercase())
+                        {
                             let pattern_end = pattern_start + pattern.len();
                             starts_at >= pattern_start && starts_at < pattern_end
                         } else {
@@ -280,9 +279,6 @@ fn process_line(
     Ok(())
 }
 
-
-
-
 fn find_next_match(
     wikilink: &CompiledWikilink,
     line: &str,
@@ -297,13 +293,31 @@ fn find_next_match(
         let absolute_end = start_pos + mat.end();
         let matched_text = &line[absolute_start..absolute_end];
 
-        if should_create_match(line, absolute_start, matched_text, line_idx, full_content, file_path) {
+        if should_create_match(
+            line,
+            absolute_start,
+            matched_text,
+            line_idx,
+            full_content,
+            file_path,
+        ) {
+            let replacement = if wikilink.wikilink.is_alias {
+                // For alias matches, preserve the case of the found text in the alias portion
+                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
+            } else if matched_text != wikilink.wikilink.target {
+                // For non-alias matches where case differs, create new alias
+                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
+            } else {
+                // Case matches exactly, use simple wikilink
+                format!("[[{}]]", wikilink.wikilink.target)
+            };
+
             let match_info = BackPopulateMatch {
                 file_path: format_relative_path(file_path, config.obsidian_path()),
                 line_number: line_idx + 1,
                 line_text: line.to_string(),
                 found_text: matched_text.to_string(),
-                replacement: wikilink.to_string(),
+                replacement,
                 position: absolute_start,
             };
 
@@ -329,12 +343,9 @@ fn should_create_match(
     }
 
     !is_within_wikilink(line, absolute_start)
-        && !is_in_markdown_table(line, matched_text)
         && !is_in_code_block(full_content, line_idx)
         && !is_within_external_link(line, absolute_start)
 }
-
-
 
 fn is_within_external_link(line: &str, position: usize) -> bool {
     // Look for Markdown links, e.g., [text](url)
@@ -397,12 +408,14 @@ fn is_in_code_block(content: &str, current_line: usize) -> bool {
     false
 }
 
-
 fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln("", &format!("found {} matches to back populate", matches.len()))?;
+    writer.writeln(
+        "",
+        &format!("found {} matches to back populate", matches.len()),
+    )?;
 
     // Group and sort matches by file path
     let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
@@ -424,7 +437,7 @@ fn write_back_populate_table(
             "current text",
             "found text",
             "will replace with",
-            "escaped replacement"
+            "escaped replacement",
         ];
 
         // Collect rows for this file, with escaped brackets and pipe in the `escaped replacement` column
@@ -469,7 +482,6 @@ fn escape_brackets_and_pipe(text: &str) -> String {
         .replace('|', r"\|")
 }
 
-
 fn apply_back_populate_changes(
     config: &ValidatedConfig,
     matches: &[BackPopulateMatch],
@@ -487,7 +499,13 @@ fn apply_back_populate_changes(
             .enumerate()
             .map(|(idx, line)| {
                 if idx + 1 == match_info.line_number {
-                    line.replace(&match_info.found_text, &match_info.replacement)
+                    let replacement = if is_in_markdown_table(line, &match_info.found_text) {
+                        // For table cells, escape the | in the replacement wikilink
+                        match_info.replacement.replace('|', "\\|")
+                    } else {
+                        match_info.replacement.clone()
+                    };
+                    line.replace(&match_info.found_text, &replacement)
                 } else {
                     line.to_string()
                 }
@@ -512,7 +530,7 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
-    use crate::wikilink::{CompiledWikilink, Wikilink};
+    use crate::wikilink::{compile_wikilink, CompiledWikilink, Wikilink};
     use fancy_regex::Regex;
     use std::collections::HashMap;
     use std::fs::File;
@@ -523,14 +541,14 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         let config = ValidatedConfig::new(
-            false,                            // apply_changes
-            None,                              // back_populate_file_count
-            None,                            // do_not_back_populate
-            None,                            // ignore_folders
-            None,                            // ignore_rendered_text
-            temp_dir.path().to_path_buf(),   // obsidian_path
-            temp_dir.path().join("output"),  // output_folder
-            None,                            // simplify_wikilinks
+            false,                          // apply_changes
+            None,                           // back_populate_file_count
+            None,                           // do_not_back_populate
+            None,                           // ignore_folders
+            None,                           // ignore_rendered_text
+            temp_dir.path().to_path_buf(),  // obsidian_path
+            temp_dir.path().join("output"), // output_folder
+            None,                           // simplify_wikilinks
         );
 
         let mut repo_info = ObsidianRepositoryInfo::default();
@@ -571,7 +589,7 @@ mod tests {
         // Check various positions in complex_line
         assert!(is_within_wikilink(complex_line, 43)); // Position within "Oleksiy Blavat|Oleksiy"
         assert!(!is_within_wikilink(complex_line, 35)); // Position in "that "
-        assert!(is_within_wikilink(complex_line, 2));  // Position within "India"
+        assert!(is_within_wikilink(complex_line, 2)); // Position within "India"
 
         // Test aliased wikilinks
         assert!(is_within_wikilink("[[Person|Name]]", 9)); // Within alias part
@@ -593,7 +611,7 @@ mod tests {
                 is_within_wikilink(line, i),
                 "Position {} should be within wikilink: '{}'",
                 i,
-                &line[i..i+1]
+                &line[i..i + 1]
             );
         }
     }
@@ -615,7 +633,8 @@ mod tests {
         // Convert HashSet to sorted Vec
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         assert_eq!(
             matches.len(),
@@ -646,7 +665,8 @@ mod tests {
         // Convert HashSet to sorted Vec
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -683,7 +703,8 @@ mod tests {
         // Convert HashSet to sorted Vec
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -730,7 +751,8 @@ mod tests {
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
         // Find matches
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         // Create a config that allows changes
         let config_with_changes = ValidatedConfig::new(
@@ -768,7 +790,9 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", content).unwrap();
 
-        repo_info.markdown_files.insert(file_path.clone(), MarkdownFileInfo::new());
+        repo_info
+            .markdown_files
+            .insert(file_path.clone(), MarkdownFileInfo::new());
 
         // Add the overlapping wikilinks to repo_info
         let wikilink1 = Wikilink {
@@ -797,7 +821,8 @@ mod tests {
         // Convert HashSet to sorted Vec
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         // We should only get one match for "Kyri" at position 28
         assert_eq!(matches.len(), 1, "Expected exactly one match");
@@ -822,18 +847,18 @@ mod tests {
 
         // Store the CompiledWikilink in a variable so we can take a reference
         let compiled_ref = &compiled;
-        let sorted_wikilinks = &[compiled_ref][..];  // Create a slice of references
+        let sorted_wikilinks = &[compiled_ref][..]; // Create a slice of references
         let mut matches = Vec::new();
 
         let config = ValidatedConfig::new(
-            false,                                                // apply_changes
+            false, // apply_changes
             None,
-            Some(vec!["[[mozzarella]] cheese".to_string()]),     // do_not_back_populate
-            None,                                                // ignore_folders
-            None,                                                // ignore_rendered_text
-            temp_dir.path().to_path_buf(),                       // obsidian_path
-            temp_dir.path().join("output"),                      // output_folder
-            None,                                                // simplify_wikilinks
+            Some(vec!["[[mozzarella]] cheese".to_string()]), // do_not_back_populate
+            None,                                            // ignore_folders
+            None,                                            // ignore_rendered_text
+            temp_dir.path().to_path_buf(),                   // obsidian_path
+            temp_dir.path().join("output"),                  // output_folder
+            None,                                            // simplify_wikilinks
         );
 
         // Test line with excluded pattern
@@ -847,7 +872,7 @@ mod tests {
             &config,
             &mut matches,
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(matches.len(), 0, "Match should be excluded");
 
@@ -863,7 +888,7 @@ mod tests {
             &config,
             &mut matches,
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(matches.len(), 1, "Match should be included");
         assert_eq!(matches[0].found_text, "cheese");
@@ -894,23 +919,446 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", content).unwrap();
 
-        repo_info.markdown_files.insert(file_path, MarkdownFileInfo::new());
+        repo_info
+            .markdown_files
+            .insert(file_path, MarkdownFileInfo::new());
 
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
-        assert_eq!(matches.len(), 0, "Should not find matches on page's own name");
+        assert_eq!(
+            matches.len(),
+            0,
+            "Should not find matches on page's own name"
+        );
 
         // Test with different file using same text
         let other_file_path = temp_dir.path().join("Other.md");
         let mut other_file = File::create(&other_file_path).unwrap();
         write!(other_file, "{}", content).unwrap();
 
-        repo_info.markdown_files.insert(other_file_path, MarkdownFileInfo::new());
+        repo_info
+            .markdown_files
+            .insert(other_file_path, MarkdownFileInfo::new());
 
-        let matches = find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+        let matches =
+            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 1, "Should find match on other pages");
     }
 
+    #[test]
+    fn test_should_create_match_in_table() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Test simple table cell match
+        assert!(should_create_match(
+            "| Test Link | description |",
+            2,
+            "Test Link",
+            0,
+            "| Test Link | description |",
+            &file_path
+        ));
+
+        // Test match in table with existing wikilinks
+        assert!(should_create_match(
+            "| Test Link | [[Other]] |",
+            2,
+            "Test Link",
+            0,
+            "| Test Link | [[Other]] |",
+            &file_path
+        ));
+    }
+
+    #[test]
+    fn test_back_populate_table_content() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create test content with table
+        let content = "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let matches = vec![BackPopulateMatch {
+            file_path: "test.md".into(),
+            line_number: 4,
+            line_text: "Test Link|Sample text".into(),
+            found_text: "Test Link".into(),
+            replacement: "[[Test Link|Another Name]]".into(),
+            position: 0,
+        }];
+
+        let config = ValidatedConfig::new(
+            true,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        apply_back_populate_changes(&config, &matches).unwrap();
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        assert!(updated_content.contains("[[Test Link\\|Another Name]]|Sample text"));
+    }
+
+    #[test]
+    fn test_back_populate_mixed_content() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create test content with both table and regular text
+        let content = "# Mixed Content\n\
+            Regular Test Link here\n\
+            |Name|Description|\n\
+            |---|---|\n\
+            |Test Link|Sample|\n\
+            More Test Link text";
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let matches = vec![
+            BackPopulateMatch {
+                file_path: "test.md".into(),
+                line_number: 2,
+                line_text: "Regular Test Link here".into(),
+                found_text: "Test Link".into(),
+                replacement: "[[Test Link]]".into(),
+                position: 8,
+            },
+            BackPopulateMatch {
+                file_path: "test.md".into(),
+                line_number: 5,
+                line_text: "|Test Link|Sample|".into(),
+                found_text: "Test Link".into(),
+                replacement: "[[Test Link|Display]]".into(),
+                position: 1,
+            },
+        ];
+
+        let config = ValidatedConfig::new(
+            true,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        apply_back_populate_changes(&config, &matches).unwrap();
+
+        let updated_content = fs::read_to_string(&file_path).unwrap();
+        assert!(updated_content.contains("Regular [[Test Link]] here"));
+        assert!(updated_content.contains("|[[Test Link\\|Display]]|Sample|"));
+    }
+
+    #[test]
+    fn test_case_insensitive_matching() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        let content = "# Test\nThis test LINK here\nAlso test Link and TEST link";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let wikilink = Wikilink {
+            display_text: "Test Link".to_string(),
+            target: "Test Link".to_string(),
+            is_alias: false,
+        };
+
+        let compiled = crate::wikilink::compile_wikilink(wikilink);
+
+        // Test various case combinations
+        assert!(compiled.regex.is_match("test link").unwrap());
+        assert!(compiled.regex.is_match("Test Link").unwrap());
+        assert!(compiled.regex.is_match("TEST LINK").unwrap());
+        assert!(compiled.regex.is_match("tEsT lInK").unwrap());
+    }
+
+    #[test]
+    fn test_case_insensitive_boundary_matching() {
+        let wikilink = Wikilink {
+            display_text: "Test Link".to_string(),
+            target: "Test Link".to_string(),
+            is_alias: false,
+        };
+        let compiled = crate::wikilink::compile_wikilink(wikilink);
+
+        // Should match
+        assert!(compiled.regex.is_match("Here is test link.").unwrap());
+        assert!(compiled.regex.is_match("(TEST LINK)").unwrap());
+        assert!(compiled.regex.is_match("test link;").unwrap());
+        assert!(compiled.regex.is_match("[test link]").unwrap());
+
+        // Should not match
+        assert!(!compiled.regex.is_match("testlink").unwrap());
+        assert!(!compiled.regex.is_match("atestlink").unwrap());
+        assert!(!compiled.regex.is_match("testlinka").unwrap());
+        assert!(!compiled.regex.is_match("my-test-link").unwrap());
+    }
+
+    #[test]
+    fn test_case_insensitive_in_tables() {
+        let wikilink = Wikilink {
+            display_text: "Test Link".to_string(),
+            target: "Test Link".to_string(),
+            is_alias: false,
+        };
+        let compiled = crate::wikilink::compile_wikilink(wikilink);
+
+        // Test table cell matches
+        assert!(compiled.regex.is_match("| test link |").unwrap());
+        assert!(compiled.regex.is_match("|TEST LINK|").unwrap());
+        assert!(compiled
+            .regex
+            .is_match("| Test Link |description|")
+            .unwrap());
+
+        // Test with escaped pipes
+        assert!(compiled
+            .regex
+            .is_match("| test link \\| description |")
+            .unwrap());
+    }
+    #[test]
+    fn test_case_preservation_with_alias() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        let content = "- send josh a clip";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        // Create wikilink with alias
+        let wikilink = Wikilink {
+            display_text: "josh".to_string(),
+            target: "Joshua Strayhorn".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Test matching
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(match_result.replacement, "[[Joshua Strayhorn|josh]]");
+    }
+
+    #[test]
+    fn test_case_mismatch_creates_alias() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        let content = "Configure Apple Home settings";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        // Create wikilink without alias
+        let wikilink = Wikilink {
+            display_text: "apple home".to_string(),
+            target: "apple home".to_string(),
+            is_alias: false,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Test matching
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(match_result.replacement, "[[apple home|Apple Home]]");
+    }
+
+    #[test]
+    fn test_exact_case_match_no_alias() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        let content = "Configure apple home settings";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        // Create wikilink without alias
+        let wikilink = Wikilink {
+            display_text: "apple home".to_string(),
+            target: "apple home".to_string(),
+            is_alias: false,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Test matching
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+
+        assert_eq!(match_result.replacement, "[[apple home]]");
+    }
+
+    #[test]
+    fn test_mixed_case_scenarios() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        let content = "Testing\n- josh likes apples\n- JOSH ate lunch\n- Josh went home";
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        // Create wikilink with alias
+        let wikilink = Wikilink {
+            display_text: "josh".to_string(),
+            target: "Joshua Strayhorn".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Test each line separately
+        let lines: Vec<&str> = content.lines().collect();
+
+        // Test "josh likes apples"
+        let match1 = find_next_match(&compiled, lines[1], 0, 1, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+        assert_eq!(match1.replacement, "[[Joshua Strayhorn|josh]]");
+
+        // Test "JOSH ate lunch"
+        let match2 = find_next_match(&compiled, lines[2], 0, 2, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+        assert_eq!(match2.replacement, "[[Joshua Strayhorn|JOSH]]");
+
+        // Test "Josh went home"
+        let match3 = find_next_match(&compiled, lines[3], 0, 3, &file_path, content, &config)
+            .unwrap()
+            .unwrap();
+        assert_eq!(match3.replacement, "[[Joshua Strayhorn|Josh]]");
+    }
+
+    #[test]
+    fn test_case_insensitive_exclusion() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let wikilink = Wikilink {
+            display_text: "cheese".to_string(),
+            target: "fromage".to_string(),
+            is_alias: true,
+        };
+
+        let compiled = CompiledWikilink::new(
+            Regex::new(r"(?i)(?<![^\s\p{P}|])cheese(?![^\s\p{P}|])").unwrap(),
+            wikilink,
+        );
+
+        let compiled_ref = &compiled;
+        let sorted_wikilinks = &[compiled_ref][..];
+        let mut matches = Vec::new();
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            Some(vec!["[[mozzarella]] cheese".to_string()]), // exclusion pattern in lower case
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+            None,
+        );
+
+        // Test with different casings
+        let test_cases = vec![
+            "- 1 1/2 cup [[mozzarella]] cheese shredded",
+            "- 1 1/2 cup [[Mozzarella]] Cheese shredded",
+            "- 1 1/2 cup [[MOZZARELLA]] CHEESE shredded",
+        ];
+
+        for line in test_cases {
+            matches.clear();
+            process_line(
+                0,
+                line,
+                &file_path,
+                line,
+                sorted_wikilinks,
+                &config,
+                &mut matches,
+            )
+            .unwrap();
+
+            assert_eq!(
+                matches.len(),
+                0,
+                "Match should be excluded regardless of case: {}",
+                line
+            );
+        }
+
+        // Test that other cheese references still match
+        let line = "I love Cheese on my pizza";
+        matches.clear();
+        process_line(
+            0,
+            line,
+            &file_path,
+            line,
+            sorted_wikilinks,
+            &config,
+            &mut matches,
+        )
+        .unwrap();
+
+        assert_eq!(matches.len(), 1, "Match should be included");
+        assert_eq!(matches[0].found_text, "Cheese");
+    }
 }

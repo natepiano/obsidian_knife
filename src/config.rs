@@ -111,8 +111,9 @@ impl Config {
         ))
     }
 
-
-    fn validate_ignore_rendered_text(&self) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
+    fn validate_ignore_rendered_text(
+        &self,
+    ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
         match &self.ignore_rendered_text {
             Some(patterns) => {
                 let mut validated = Vec::new();

@@ -723,12 +723,7 @@ Also linking to [[Alias One]] which is defined in frontmatter.
             &simplify_patterns,
             &ignore_patterns,
         )
-            .unwrap();
-
-        // Print for debugging
-        for (i, wikilink) in wikilinks.iter().enumerate() {
-            println!("Wikilink #{}: Target: {}, Display: {}", i, wikilink.wikilink.target, wikilink.wikilink.display_text);
-        }
+        .unwrap();
 
         // Collect unique target-display pairs
         let wikilink_pairs: HashSet<(String, String)> = wikilinks
@@ -765,8 +760,6 @@ Also linking to [[Alias One]] which is defined in frontmatter.
             "Should have collected all unique wikilinks"
         );
     }
-
-
 
     #[test]
     fn test_scan_folders_wikilink_collection() {
