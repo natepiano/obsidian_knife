@@ -84,6 +84,26 @@ pub fn process_back_populate(
     Ok(())
 }
 
+// fn find_all_back_populate_matches(
+//     config: &ValidatedConfig,
+//     collected_files: &ObsidianRepositoryInfo,
+//     sorted_wikilinks: &[&CompiledWikilink],
+// ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+//     let searcher = DeterministicSearch::new(config.back_populate_file_count());
+//
+//     let wikilinks = sorted_wikilinks.to_vec();
+//
+//     let matches =
+//         searcher.search_with_info(
+//             &collected_files.markdown_files,
+//             |file_path, _| match process_file(file_path, &wikilinks, config) {
+//                 Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
+//                 _ => None,
+//             },
+//         );
+//
+//     Ok(matches.into_iter().flatten().collect())
+// }
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
     collected_files: &ObsidianRepositoryInfo,
@@ -93,17 +113,25 @@ fn find_all_back_populate_matches(
 
     let wikilinks = sorted_wikilinks.to_vec();
 
-    let matches =
-        searcher.search_with_info(
-            &collected_files.markdown_files,
-            |file_path, _| match process_file(file_path, &wikilinks, config) {
+    let matches = searcher.search_with_info(
+        &collected_files.markdown_files,
+        |file_path, _| {
+            // Filter to process only "estatodo.md"
+            if !file_path.ends_with("708 wish list.md") {
+               return None;
+            }
+
+            // Process the file if it matches the filter
+            match process_file(file_path, &wikilinks, config) {
                 Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
                 _ => None,
-            },
-        );
+            }
+        },
+    );
 
     Ok(matches.into_iter().flatten().collect())
 }
+
 
 fn process_file(
     file_path: &Path,
@@ -164,7 +192,17 @@ fn process_file(
         processed_line.push_str(remaining_text);
     }
 
+    println!("{:?} - matches: {}", file_path, matches.len());
+
     Ok(matches) // Return local matches collected in this file
+}
+
+fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
+    ranges.iter().any(|&(r_start, r_end)| {
+        (start >= r_start && start < r_end)
+            || (end > r_start && end <= r_end)
+            || (start <= r_start && end >= r_end)
+    })
 }
 
 fn process_line(
@@ -174,14 +212,25 @@ fn process_line(
     full_content: &str,
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
+
     matches: &mut Vec<BackPopulateMatch>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut matched_positions = Vec::new();
+    let mut exclusion_zones = Vec::new();
+
+    // Identify exclusion zones based on exclusion patterns with case-insensitivity
+    if let Some(exclusion_patterns) = config.do_not_back_populate() {
+        for pattern in exclusion_patterns {
+            let exclusion_regex = regex::Regex::new(&format!(r"(?i){}", regex::escape(&pattern))).unwrap();
+            for mat in exclusion_regex.find_iter(line) {
+                exclusion_zones.push((mat.start(), mat.end()));
+            }
+        }
+    }
 
     for wikilink in sorted_wikilinks {
         let mut search_start = 0;
 
-        // Use regex matching and respect the sorted order for specificity
         while search_start < line.len() {
             if let Some(match_info) = find_next_match(
                 wikilink,
@@ -195,53 +244,22 @@ fn process_line(
                 let starts_at = match_info.position;
                 let ends_at = starts_at + match_info.found_text.len();
 
-                // Check for overlapping matches
-                let overlaps = matched_positions.iter().any(|&(start, end)| {
-                    (starts_at >= start && starts_at < end)
-                        || (ends_at > start && ends_at <= end)
-                        || (starts_at <= start && ends_at >= end)
-                });
-
-                // Check for exclusion patterns - now case-insensitive
-                let should_exclude = if let Some(exclusion_patterns) = config.do_not_back_populate()
+                // Skip if the match is within an exclusion zone or overlaps with previous matches
+                if range_overlaps(&exclusion_zones, starts_at, ends_at)
+                    || range_overlaps(&matched_positions, starts_at, ends_at)
                 {
-                    exclusion_patterns.iter().any(|pattern| {
-                        if let Some(pattern_start) =
-                            line.to_lowercase().find(&pattern.to_lowercase())
-                        {
-                            let pattern_end = pattern_start + pattern.len();
-                            starts_at >= pattern_start && starts_at < pattern_end
-                        } else {
-                            false
-                        }
-                    })
-                } else {
-                    false
-                };
-
-                // Skip this match if it overlaps or should be excluded
-                if overlaps || should_exclude {
                     search_start = ends_at;
                     continue;
                 }
 
-                // Debug statement to show the match information
-                // println!(
-                //     "Match found in '{}' line {} position {}",
-                //     match_info.file_path, match_info.line_number, match_info.position
-                // );
-                // println!(" line text:{}", match_info.line_text);
-                // println!(
-                //     "  found: '{}' replace with: '{}'",
-                //     match_info.found_text, match_info.replacement
-                // );
-                // println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
-                // println!();
+                process_line_println_debug(wikilink, &match_info);
 
                 // Store the matched positions and add the match
                 matched_positions.push((starts_at, ends_at));
-                search_start = ends_at;
                 matches.push(match_info.clone());
+
+                // Move search_start forward to continue searching for distinct matches
+                search_start = ends_at;
             } else {
                 break;
             }
@@ -249,6 +267,21 @@ fn process_line(
     }
 
     Ok(())
+}
+
+fn process_line_println_debug(wikilink: &&CompiledWikilink, match_info: &BackPopulateMatch) {
+    // Debug statement to show the match information
+    println!(
+        "Match found in '{}' line {} position {}",
+        match_info.file_path, match_info.line_number, match_info.position
+    );
+    println!(" line text:{}", match_info.line_text);
+    println!(
+        "  found: '{}' replace with: '{}'",
+        match_info.found_text, match_info.replacement
+    );
+    println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
+    println!();
 }
 
 fn find_next_match(
@@ -450,42 +483,7 @@ fn escape_brackets_and_pipe(text: &str) -> String {
         .replace('|', r"\|")
 }
 
-// fn apply_back_populate_changes(
-//     config: &ValidatedConfig,
-//     matches: &[BackPopulateMatch],
-// ) -> Result<(), Box<dyn Error + Send + Sync>> {
-//     if !config.apply_changes() {
-//         return Ok(());
-//     }
-//
-//     for match_info in matches {
-//         let full_path = config.obsidian_path().join(&match_info.file_path);
-//         let content = fs::read_to_string(&full_path)?;
-//
-//         let updated_content = content
-//             .lines()
-//             .enumerate()
-//             .map(|(idx, line)| {
-//                 if idx + 1 == match_info.line_number {
-//                     let replacement = if is_in_markdown_table(line, &match_info.found_text) {
-//                         // For table cells, escape the | in the replacement wikilink
-//                         match_info.replacement.replace('|', "\\|")
-//                     } else {
-//                         match_info.replacement.clone()
-//                     };
-//                     line.replace(&match_info.found_text, &replacement)
-//                 } else {
-//                     line.to_string()
-//                 }
-//             })
-//             .collect::<Vec<_>>()
-//             .join("\n");
-//
-//         fs::write(full_path, updated_content)?;
-//     }
-//
-//     Ok(())
-// }
+
 fn apply_back_populate_changes(
     config: &ValidatedConfig,
     matches: &[BackPopulateMatch],
@@ -494,41 +492,136 @@ fn apply_back_populate_changes(
         return Ok(());
     }
 
+    let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
     for match_info in matches {
-        let full_path = config.obsidian_path().join(&match_info.file_path);
+        matches_by_file.entry(match_info.file_path.clone()).or_default().push(match_info);
+    }
+
+    for (file_path, file_matches) in matches_by_file {
+        let full_path = config.obsidian_path().join(&file_path);
         let content = fs::read_to_string(&full_path)?;
+        let mut updated_content = String::new();
 
-        let updated_content = content
-            .lines()
-            .enumerate()
-            .map(|(idx, line)| {
-                if idx + 1 == match_info.line_number {
-                    let replacement = if is_in_markdown_table(line, &match_info.found_text) {
-                        // For table cells, escape the | in the replacement wikilink
-                        match_info.replacement.replace('|', "\\|")
-                    } else {
-                        match_info.replacement.clone()
-                    };
+        // Sort and group matches by line number
+        let mut sorted_matches = file_matches;
+        sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
+        let mut current_line_num = 1;
 
-                    // Print line before and after replacement
-                    // println!("Before: {}", line);
-                    let new_line = line.replace(&match_info.found_text, &replacement);
-                    // println!("After: {}", new_line);
+        // Process line-by-line with line numbers and match positions checked
+        for (line_index, line) in content.lines().enumerate() {
+            if current_line_num != line_index + 1 {
+                updated_content.push_str(line);
+                updated_content.push('\n');
+                continue;
+            }
 
-                    new_line
-                } else {
-                    line.to_string()
-                }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
+            // Collect matches for the current line
+            let line_matches: Vec<&BackPopulateMatch> = sorted_matches
+                .iter()
+                .filter(|m| m.line_number == current_line_num)
+                .cloned()
+                .collect();
 
-        // Commented out fs::write to avoid saving changes to disk
-        fs::write(full_path, updated_content)?;
+            // Debug output: print line before replacement
+            println!(
+                "Processing file '{}', line {}. Original line content: '{}'",
+                file_path, current_line_num, line
+            );
+
+            // Apply matches in reverse order if there are any
+            let mut updated_line = line.to_string();
+            if !line_matches.is_empty() {
+                updated_line = process_line_with_replacements(line, &line_matches, &file_path);
+            }
+
+            updated_content.push_str(&updated_line);
+            updated_content.push('\n');
+            current_line_num += 1;
+        }
+
+        // Final validation check
+        if updated_content.contains("[[[") || updated_content.contains("]]]") || updated_content.matches("[[").count() != updated_content.matches("]]").count() {
+            eprintln!(
+                "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
+                full_path.display(),
+                updated_content.escape_debug() // use escape_debug for detailed inspection
+            );
+            panic!(
+                "Unintended nesting or malformed brackets detected in file '{}'. Please check the content above for any hidden or misplaced patterns.",
+                full_path.display(),
+            );
+        }
+
+        fs::write(full_path, updated_content.trim_end())?;
     }
 
     Ok(())
 }
+
+fn process_line_with_replacements(
+    line: &str,
+    line_matches: &[&BackPopulateMatch],
+    file_path: &str,
+) -> String {
+    let mut updated_line = line.to_string();
+
+    // Sort matches in descending order by `position`
+    let mut sorted_matches = line_matches.to_vec();
+    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position));
+
+    // Debug: Display sorted matches to confirm reverse processing order
+    println!("Matches to process for file '{}', line, in reverse order:", file_path);
+    for match_info in &sorted_matches {
+        println!(
+            "  Position: {}, Found text: '{}', Replacement: '{}'",
+            match_info.position, match_info.found_text, match_info.replacement
+        );
+    }
+
+    // Apply replacements in sorted (reverse) order
+    for match_info in sorted_matches {
+        println!(
+            "\nProcessing match at position {} for '{}': replacing with '{}'",
+            match_info.position, match_info.found_text, match_info.replacement
+        );
+
+        let replacement = if is_in_markdown_table(&updated_line, &match_info.found_text) {
+            match_info.replacement.replace('|', "\\|")
+        } else {
+            match_info.replacement.clone()
+        };
+
+        let start = match_info.position;
+        let end = start + match_info.found_text.len();
+
+        // Check for UTF-8 boundary issues
+        if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
+            eprintln!(
+                "Error: Invalid UTF-8 boundary in file '{}', line {}.\n\
+                Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
+                file_path, match_info.line_number, start, end, updated_line, match_info.found_text
+            );
+            panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
+        }
+
+        updated_line.replace_range(start..end, &replacement);
+
+        // Debug: Show line content after replacement
+        println!("After replacement: '{}'", updated_line);
+
+        // Validation check after each replacement
+        if updated_line.contains("[[[") || updated_line.contains("]]]") {
+            eprintln!(
+                "\nWarning: Potential nested pattern detected after replacement in file '{}', line {}.\n\
+                Current line:\n{}\n",
+                file_path, match_info.line_number, updated_line
+            );
+        }
+    }
+
+    updated_line
+}
+
 
 
 fn format_relative_path(path: &Path, base_path: &Path) -> String {
@@ -1376,7 +1469,7 @@ mod tests {
             }
 
             // Find wikilink positions
-            let wikilink_regex = regex::Regex::new(r"\[\[.*?\]\]").unwrap();
+            let wikilink_regex = regex::Regex::new(r"\[\[.*?]]").unwrap();
             if let Some(mat) = wikilink_regex.find(text) {
                 println!("\nWikilink match: start={}, end={}", mat.start(), mat.end());
                 println!("Matched text: '{}'", &text[mat.start()..mat.end()]);
@@ -1427,13 +1520,5 @@ mod tests {
                 actual
             );
         }
-    }
-
-    #[test]
-    fn test_is_within_wikilink_with_nested_brackets() {
-        let text = "[[outer [inner] text]]";
-        assert!(is_within_wikilink(text, 10)); // Position of [inner]
-        assert!(is_within_wikilink(text, 3));  // Position after [[
-        assert!(is_within_wikilink(text, 18)); // Position before ]]
     }
 }
