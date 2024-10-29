@@ -115,8 +115,8 @@ fn find_all_back_populate_matches(
 
     let matches = searcher.search_with_info(&collected_files.markdown_files, |file_path, _| {
         // Filter to process only "estatodo.md"
-        if !file_path.ends_with("708 wish list.md") {
-            return None;
+        if !file_path.ends_with("natekids - historical.md") {
+            //return None;
         }
 
         // Process the file if it matches the filter
