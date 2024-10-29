@@ -6,10 +6,8 @@ pub struct ValidatedConfig {
     back_populate_file_count: Option<usize>,
     do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<PathBuf>>,
-    ignore_rendered_text: Option<Vec<String>>,
     obsidian_path: PathBuf,
     output_folder: PathBuf,
-    simplify_wikilinks: Option<Vec<String>>,
 }
 
 impl ValidatedConfig {
@@ -18,20 +16,16 @@ impl ValidatedConfig {
         back_populate_file_count: Option<usize>,
         do_not_back_populate: Option<Vec<String>>,
         ignore_folders: Option<Vec<PathBuf>>,
-        ignore_rendered_text: Option<Vec<String>>,
         obsidian_path: PathBuf,
         output_folder: PathBuf,
-        simplify_wikilinks: Option<Vec<String>>,
     ) -> Self {
         ValidatedConfig {
             apply_changes,
             back_populate_file_count,
             do_not_back_populate,
             ignore_folders,
-            ignore_rendered_text,
             obsidian_path,
             output_folder,
-            simplify_wikilinks,
         }
     }
 
@@ -51,11 +45,7 @@ impl ValidatedConfig {
         self.ignore_folders.as_deref()
     }
 
-    pub fn ignore_rendered_text(&self) -> Option<&[String]> {
-        self.ignore_rendered_text.as_deref()
-    }
-
-    pub fn obsidian_path(&self) -> &Path {
+     pub fn obsidian_path(&self) -> &Path {
         &self.obsidian_path
     }
 
@@ -63,7 +53,4 @@ impl ValidatedConfig {
         &self.output_folder
     }
 
-    pub fn simplify_wikilinks(&self) -> Option<&[String]> {
-        self.simplify_wikilinks.as_deref()
-    }
 }

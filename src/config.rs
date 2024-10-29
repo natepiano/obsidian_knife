@@ -13,10 +13,8 @@ pub struct Config {
     back_populate_file_count: Option<usize>,
     do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<String>>,
-    ignore_rendered_text: Option<Vec<String>>,
     obsidian_path: String,
     output_folder: Option<String>,
-    simplify_wikilinks: Option<Vec<String>>,
 }
 
 impl Config {
@@ -76,7 +74,7 @@ impl Config {
         let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
         let mut folders_to_add = vec![
             output_folder.clone(),
-            expanded_path.join(crate::constants::CACHE_FOLDER),
+            expanded_path.join(CACHE_FOLDER),
         ];
 
         if let Some(ref mut folders) = ignore_folders {
@@ -85,8 +83,6 @@ impl Config {
             ignore_folders = Some(folders_to_add);
         }
 
-        let validated_simplify_wikilinks = self.validate_simplify_wikilinks()?;
-        let ignore_rendered_text = self.validate_ignore_rendered_text()?;
         let validated_do_not_back_populate = self.validate_do_not_back_populate()?;
 
         // Validate `back_populate_file_count`
@@ -101,38 +97,9 @@ impl Config {
             validated_back_populate_file_count,
             validated_do_not_back_populate,
             ignore_folders,
-            ignore_rendered_text,
             expanded_path,
             output_folder,
-            validated_simplify_wikilinks,
         ))
-    }
-
-    fn validate_ignore_rendered_text(
-        &self,
-    ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
-        match &self.ignore_rendered_text {
-            Some(patterns) => {
-                let mut validated = Vec::new();
-                for (index, pattern) in patterns.iter().enumerate() {
-                    let trimmed = pattern.trim();
-                    if trimmed.is_empty() {
-                        return Err(format!(
-                            "ignore_rendered_text: entry at index {} is empty or only contains whitespace",
-                            index
-                        )
-                        .into());
-                    }
-                    validated.push(trimmed.to_string());
-                }
-                if validated.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(validated))
-                }
-            }
-            None => Ok(None),
-        }
     }
 
     fn validate_do_not_back_populate(
@@ -189,33 +156,6 @@ impl Config {
             None
         };
         Ok(ignore_folders)
-    }
-
-    fn validate_simplify_wikilinks(
-        &self,
-    ) -> Result<Option<Vec<String>>, Box<dyn Error + Send + Sync>> {
-        match &self.simplify_wikilinks {
-            Some(patterns) => {
-                let mut validated = Vec::new();
-                for (index, pattern) in patterns.iter().enumerate() {
-                    let trimmed = pattern.trim();
-                    if trimmed.is_empty() {
-                        return Err(format!(
-                            "simplify_wikilinks: entry at index {} is empty or only contains whitespace",
-                            index
-                        )
-                            .into());
-                    }
-                    validated.push(trimmed.to_string());
-                }
-                if validated.is_empty() {
-                    Ok(None)
-                } else {
-                    Ok(Some(validated))
-                }
-            }
-            None => Ok(None),
-        }
     }
 }
 
@@ -359,62 +299,5 @@ obsidian_path: {}"#,
 
         let expected_output = temp_dir.path().join("obsidian_knife");
         assert_eq!(validated.output_folder(), expected_output.as_path());
-    }
-
-    #[test]
-    fn test_validate_simplify_wikilinks() {
-        // Test valid config
-        let yaml = r#"
-        obsidian_path: ~/Documents/brain
-        apply_changes: false
-        cleanup_image_files: true
-        ignore_folders:
-          - .idea
-          - .obsidian
-        simplify_wikilinks:
-          - "Ed:"
-          - "  Valid Entry  "
-        "#;
-
-        let config: Config = serde_yaml::from_str(yaml).unwrap();
-        let result = config.validate_simplify_wikilinks().unwrap();
-        assert_eq!(
-            result,
-            Some(vec![String::from("Ed:"), String::from("Valid Entry")])
-        );
-
-        // Test config with empty entry
-        let yaml_with_empty = r#"
-        obsidian_path: ~/Documents/brain
-        simplify_wikilinks:
-          - "Ed:"
-          - ""
-          - "Valid Entry"
-        "#;
-
-        let config_with_empty: Config = serde_yaml::from_str(yaml_with_empty).unwrap();
-        let result = config_with_empty.validate_simplify_wikilinks();
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "simplify_wikilinks: entry at index 1 is empty or only contains whitespace"
-        );
-
-        // Test config with whitespace-only entry
-        let yaml_with_whitespace = r#"
-        obsidian_path: ~/Documents/brain
-        simplify_wikilinks:
-          - "Ed:"
-          - "  "
-          - "Valid Entry"
-        "#;
-
-        let config_with_whitespace: Config = serde_yaml::from_str(yaml_with_whitespace).unwrap();
-        let result = config_with_whitespace.validate_simplify_wikilinks();
-        assert!(result.is_err());
-        assert_eq!(
-            result.unwrap_err().to_string(),
-            "simplify_wikilinks: entry at index 1 is empty or only contains whitespace"
-        );
     }
 }

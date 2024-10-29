@@ -7,7 +7,6 @@ mod file_utils;
 mod frontmatter;
 mod scan;
 mod sha256_cache;
-mod simplify_wikilinks;
 mod thread_safe_writer;
 mod update_dates;
 mod validated_config;
@@ -31,11 +30,6 @@ pub fn process_config(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let obsidian_repository_info = scan::scan_obsidian_folder(&config, writer)?;
     cleanup_images::cleanup_images(&config, &obsidian_repository_info, writer)?;
-    simplify_wikilinks::process_simplify_wikilinks(
-        &config,
-        &obsidian_repository_info.markdown_files,
-        writer,
-    )?;
     update_dates::process_dates(&config, &obsidian_repository_info.markdown_files, writer)?;
     back_populate::process_back_populate(&config, &obsidian_repository_info, &writer)?;
     Ok(())

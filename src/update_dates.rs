@@ -1,9 +1,8 @@
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::scan::MarkdownFileInfo;
-use crate::simplify_wikilinks::format_wikilink;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::wikilink::is_wikilink;
+use crate::wikilink::{format_wikilink, is_wikilink};
 use crate::{file_utils, frontmatter, ValidatedConfig};
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};

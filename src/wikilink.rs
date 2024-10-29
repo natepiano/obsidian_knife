@@ -4,6 +4,7 @@ use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::fmt;
+use std::path::Path;
 
 lazy_static! {
     static ref WIKILINK_REGEX: fancy_regex::Regex =
@@ -78,12 +79,6 @@ pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
         false
     }
 }
-pub fn find_wikilinks_in_line(line: &str) -> Vec<fancy_regex::Match> {
-    WIKILINK_REGEX
-        .find_iter(line)
-        .filter_map(|m| m.ok())
-        .collect()
-}
 
 pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     let display_text = filename.strip_suffix(".md").unwrap_or(filename).to_string();
@@ -93,6 +88,13 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
         target: display_text,
         is_alias: false,
     }
+}
+
+pub fn format_wikilink(path: &Path) -> String {
+    path.file_stem()
+        .and_then(|s| s.to_str())
+        .map(|s| format!("[[{}]]", s))
+        .unwrap_or_else(|| "[[]]".to_string())
 }
 
 pub(crate) fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
@@ -373,22 +375,6 @@ Also [[Alias One]] is referenced"#;
     }
 
     #[test]
-    fn test_find_wikilinks_in_line() {
-        let line = "Here is a [[Simple Link]] and a [[Target|Aliased Link]] together";
-        let matches = find_wikilinks_in_line(line);
-
-        assert_eq!(matches.len(), 2);
-        assert_eq!(
-            &line[matches[0].start()..matches[0].end()],
-            "[[Simple Link]]"
-        );
-        assert_eq!(
-            &line[matches[1].start()..matches[1].end()],
-            "[[Target|Aliased Link]]"
-        );
-    }
-
-    #[test]
     fn test_parse_wikilink_with_escaped_chars() {
         // Test with escaped pipe
         let wikilink = parse_wikilink(r"[[Nathan Dye\|Nate]]").unwrap();
@@ -526,5 +512,32 @@ text! ![[image2.jpg]] (exclamation before image)
 
         assert_eq!(wikilinks.len(), 1, "Should only extract the normal link");
         assert_eq!(wikilinks[0].target, "normal link");
+    }
+
+    #[test]
+    fn test_word_boundary_with_punctuation() {
+        let wikilink = Wikilink {
+            display_text: "Ed".to_string(),
+            target: "Ed Barnes".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        // Punctuation creates word boundaries
+        assert!(compiled.regex.is_match("(Ed)"), "Parentheses create word boundaries");
+        assert!(compiled.regex.is_match("[Ed]"), "Brackets create word boundaries");
+        assert!(compiled.regex.is_match(".Ed."), "Periods create word boundaries");
+        assert!(compiled.regex.is_match(",Ed,"), "Commas create word boundaries");
+        assert!(compiled.regex.is_match("Ed:"), "Colon creates word boundary");
+        assert!(compiled.regex.is_match("Ed: note"), "Colon creates word boundary");
+
+        // No word boundaries within words
+        assert!(!compiled.regex.is_match("Editor"), "Should not match within word");
+        assert!(!compiled.regex.is_match("fedEx"), "Should not match within word");
+
+        // Space + punctuation combinations
+        assert!(compiled.regex.is_match("Hello (Ed)"), "Space + parens works");
+        assert!(compiled.regex.is_match("Hello [Ed]"), "Space + brackets works");
+        assert!(compiled.regex.is_match("Hello Ed!"), "Space + exclamation works");
     }
 }

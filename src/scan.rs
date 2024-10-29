@@ -27,20 +27,12 @@ pub struct ImageInfo {
     pub(crate) references: Vec<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct SimplifyWikilinkInfo {
-    pub line: usize,
-    pub line_text: String,
-    pub search_text: String,
-    pub replace_text: String,
-}
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub frontmatter: Option<FrontMatter>,
     pub image_links: Vec<String>,
     pub property_error: Option<String>,
-    pub simplify_wikilink_info: Vec<SimplifyWikilinkInfo>, // Existing field for simplification targets
 }
 
 impl MarkdownFileInfo {
@@ -49,7 +41,6 @@ impl MarkdownFileInfo {
             frontmatter: None,
             image_links: Vec::new(),
             property_error: None,
-            simplify_wikilink_info: Vec::new(),
         }
     }
 }
@@ -254,7 +245,7 @@ fn scan_folders(
     }
 
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
-    let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files, config)?;
+    let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files)?;
     obsidian_repository_info.markdown_files = markdown_info;
     obsidian_repository_info.all_wikilinks = all_wikilinks;
 
@@ -271,7 +262,6 @@ fn scan_folders(
 
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
-    config: &ValidatedConfig,
 ) -> Result<
     (
         HashMap<PathBuf, MarkdownFileInfo>,
@@ -285,9 +275,6 @@ fn scan_markdown_files(
         extensions_pattern
     ))?);
 
-    let simplify_patterns = config.simplify_wikilinks().unwrap_or_default();
-    let ignore_patterns = config.ignore_rendered_text().unwrap_or_default();
-
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_info = Arc::new(Mutex::new(HashMap::new()));
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
@@ -296,8 +283,6 @@ fn scan_markdown_files(
         if let Ok((file_info, wikilinks)) = scan_markdown_file(
             file_path,
             &image_regex,
-            &simplify_patterns,
-            &ignore_patterns,
         ) {
             // Collect results with locking to avoid race conditions
             markdown_info
@@ -324,8 +309,6 @@ fn scan_markdown_files(
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
-    simplify_patterns: &[String],
-    ignore_patterns: &[String],
 ) -> Result<(MarkdownFileInfo, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
 
@@ -349,107 +332,12 @@ fn scan_markdown_file(
 
     let reader = BufReader::new(content.as_bytes());
 
-    for (line_number, line) in reader.lines().enumerate() {
+    for (_, line) in reader.lines().enumerate() {
         let line = line?;
-
         collect_image_reference(image_regex, &mut file_info, &line);
-
-        collect_simplify_wikilink_info(
-            simplify_patterns,
-            ignore_patterns,
-            &mut file_info,
-            line_number,
-            &line,
-        );
     }
 
     Ok((file_info, wikilinks))
-}
-
-fn collect_simplify_wikilink_info(
-    simplify_patterns: &[String],
-    ignore_patterns: &[String],
-    file_info: &mut MarkdownFileInfo,
-    line_number: usize,
-    line: &str,
-) {
-    let mut rendered_line = String::new();
-    let mut wikilink_positions = Vec::new();
-    let mut last_end = 0;
-
-    // Step 1: Render all wikilinks and save their positions
-    for wikilink_match in wikilink::find_wikilinks_in_line(line) {
-        rendered_line.push_str(&line[last_end..wikilink_match.start()]);
-        let start = rendered_line.len();
-        if let Some(wikilink) =
-            wikilink::parse_wikilink(&line[wikilink_match.start()..wikilink_match.end()])
-        {
-            let rendered = render_wikilink(&wikilink.display_text);
-            rendered_line.push_str(&rendered);
-            let end = rendered_line.len();
-            wikilink_positions.push((start, end, wikilink_match.start(), wikilink_match.end()));
-        }
-        last_end = wikilink_match.end();
-    }
-    rendered_line.push_str(&line[last_end..]);
-
-    // Step 2 & 3: Check for exact matches and find overlapping wikilinks
-    for pattern in simplify_patterns {
-        let mut start_index = 0;
-        while let Some(match_start) = rendered_line[start_index..].find(pattern) {
-            let match_start = start_index + match_start;
-            let match_end = match_start + pattern.len();
-
-            // Check if the match is within an ignore pattern
-            let should_ignore = ignore_patterns.iter().any(|ignore_pattern| {
-                let ignore_regex =
-                    Regex::new(&format!(r"{}.*", regex::escape(ignore_pattern))).unwrap();
-                let ignore_match = ignore_regex.is_match(&rendered_line[match_start..]);
-                ignore_match
-            });
-
-            if !should_ignore {
-                let overlapping_wikilinks: Vec<_> = wikilink_positions
-                    .iter()
-                    .filter(|&&(start, end, _, _)| {
-                        (start <= match_start && end > match_start)
-                            || (start < match_end && end >= match_end)
-                            || (start >= match_start && end <= match_end)
-                    })
-                    .collect();
-
-                if !overlapping_wikilinks.is_empty() {
-                    // Step 4 & 5: Create replacement
-                    let original_start = if match_start < overlapping_wikilinks[0].0 {
-                        match_start - (overlapping_wikilinks[0].0 - overlapping_wikilinks[0].2)
-                    } else {
-                        overlapping_wikilinks[0].2
-                    };
-                    let original_end = if match_end > overlapping_wikilinks.last().unwrap().1 {
-                        overlapping_wikilinks.last().unwrap().3
-                            + (match_end - overlapping_wikilinks.last().unwrap().1)
-                    } else {
-                        overlapping_wikilinks.last().unwrap().3
-                    };
-
-                    let search_text = line[original_start..original_end].to_string();
-                    let replace_text = pattern.to_string();
-
-                    file_info.simplify_wikilink_info.push(SimplifyWikilinkInfo {
-                        line: line_number + 1,
-                        line_text: line.to_string(),
-                        search_text,
-                        replace_text,
-                    });
-                }
-            }
-            start_index = match_end;
-        }
-    }
-}
-
-fn render_wikilink(wikilink: &str) -> String {
-    wikilink.split('|').last().unwrap_or(wikilink).to_string()
 }
 
 fn collect_image_reference(
@@ -542,153 +430,9 @@ fn write_scan_start(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::{self, File};
+    use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
-
-    #[test]
-    fn test_collect_wikilink_info() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create a test markdown file with various wikilink scenarios
-        let content = "[[Ed Barnes|Ed]]: music reco\n[[Éd Bârnes|Éd]]: mûsîc récô\nloves [[Bob]] [[Rock]] yeah\nBob [[Rock]] is cool";
-
-        let mut file = File::create(&file_path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-
-        // Set up test environment
-        let simplify_patterns = vec!["Ed:".to_string(), "Éd:".to_string(), "Bob Rock".to_string()];
-        let ignore_patterns = vec![]; // Add an empty ignore patterns vector
-        let mut file_info = MarkdownFileInfo::new();
-
-        // Read the file and process each line
-        let file_content = fs::read_to_string(&file_path).unwrap();
-        for (line_number, line) in file_content.lines().enumerate() {
-            collect_simplify_wikilink_info(
-                &simplify_patterns,
-                &ignore_patterns, // Pass the ignore patterns
-                &mut file_info,
-                line_number,
-                line,
-            );
-        }
-
-        // Assertions
-        assert_eq!(file_info.simplify_wikilink_info.len(), 4);
-
-        // Check the first wikilink
-        assert_eq!(file_info.simplify_wikilink_info[0].line, 1);
-        assert_eq!(
-            file_info.simplify_wikilink_info[0].search_text,
-            "[[Ed Barnes|Ed]]:"
-        );
-        assert_eq!(file_info.simplify_wikilink_info[0].replace_text, "Ed:");
-
-        // Check the second wikilink (with UTF-8 characters)
-        assert_eq!(file_info.simplify_wikilink_info[1].line, 2);
-        assert_eq!(
-            file_info.simplify_wikilink_info[1].search_text,
-            "[[Éd Bârnes|Éd]]:"
-        );
-        assert_eq!(file_info.simplify_wikilink_info[1].replace_text, "Éd:");
-
-        // Check the third wikilink (adjacent wikilinks)
-        assert_eq!(file_info.simplify_wikilink_info[2].line, 3);
-        assert_eq!(
-            file_info.simplify_wikilink_info[2].search_text,
-            "[[Bob]] [[Rock]]"
-        );
-        assert_eq!(file_info.simplify_wikilink_info[2].replace_text, "Bob Rock");
-
-        // Check the fourth wikilink (partial wikilink)
-        assert_eq!(file_info.simplify_wikilink_info[3].line, 4);
-        assert_eq!(
-            file_info.simplify_wikilink_info[3].search_text,
-            "Bob [[Rock]]"
-        );
-        assert_eq!(file_info.simplify_wikilink_info[3].replace_text, "Bob Rock");
-    }
-
-    #[test]
-    fn test_collect_simplify_wikilink_info_with_ignore() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create a test markdown file with various wikilink scenarios
-        let content =
-            "[[Ed Barnes|Ed]]: music reco:\n[[Ed Barnes|Ed]]: is cool\nEd: something else";
-
-        let mut file = File::create(&file_path).unwrap();
-        file.write_all(content.as_bytes()).unwrap();
-
-        // Set up test environment
-        let simplify_patterns = vec!["Ed:".to_string()];
-        let ignore_patterns = vec!["Ed: music reco:".to_string()];
-        let mut file_info = MarkdownFileInfo::new();
-
-        // Read the file and process each line
-        let file_content = fs::read_to_string(&file_path).unwrap();
-        for (line_number, line) in file_content.lines().enumerate() {
-            collect_simplify_wikilink_info(
-                &simplify_patterns,
-                &ignore_patterns,
-                &mut file_info,
-                line_number,
-                line,
-            );
-        }
-
-        // Assertions
-        assert_eq!(
-            file_info.simplify_wikilink_info.len(),
-            1,
-            "Expected 1 wikilink, found {}",
-            file_info.simplify_wikilink_info.len()
-        );
-
-        // Check the wikilink (should be simplified, not ignored)
-        assert_eq!(file_info.simplify_wikilink_info[0].line, 2);
-        assert_eq!(
-            file_info.simplify_wikilink_info[0].search_text,
-            "[[Ed Barnes|Ed]]:"
-        );
-        assert_eq!(file_info.simplify_wikilink_info[0].replace_text, "Ed:");
-
-        // The "Ed: something else" shouldn't be included as it's not a wikilink
-    }
-
-    #[test]
-    fn test_collect_simplify_wikilink_info_with_aliases() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create a test markdown file with aliased wikilinks
-        let content = "Here is a [[Simple Link]] and a [[Target|Aliased Link]] together";
-        fs::write(&file_path, content).unwrap();
-
-        let mut file_info = MarkdownFileInfo::new();
-        let simplify_patterns = vec!["Simple".to_string(), "Aliased".to_string()];
-        let ignore_patterns = vec![];
-
-        collect_simplify_wikilink_info(
-            &simplify_patterns,
-            &ignore_patterns,
-            &mut file_info,
-            1,
-            content,
-        );
-
-        assert_eq!(file_info.simplify_wikilink_info.len(), 2);
-        assert!(file_info
-            .simplify_wikilink_info
-            .iter()
-            .any(|info| info.search_text.contains("Simple Link")));
-        assert!(file_info
-            .simplify_wikilink_info
-            .iter()
-            .any(|info| info.search_text.contains("Target|Aliased Link")));
-    }
 
     #[test]
     fn test_scan_markdown_file_wikilink_collection() {
@@ -712,16 +456,12 @@ Also linking to [[Alias One]] which is defined in frontmatter.
         write!(file, "{}", content).unwrap();
 
         // Test patterns
-        let simplify_patterns: Vec<String> = vec![];
-        let ignore_patterns: Vec<String> = vec![];
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
 
         // Scan the markdown file
         let (_file_info, wikilinks) = scan_markdown_file(
             &file_path,
             &image_regex,
-            &simplify_patterns,
-            &ignore_patterns,
         )
         .unwrap();
 
@@ -801,10 +541,8 @@ aliases:
             None,
             None,
             None,
-            None,
             temp_dir.path().to_path_buf(),
             temp_dir.path().join("output"),
-            None,
         );
 
         // Create writer for testing
@@ -822,8 +560,6 @@ aliases:
                 let (_, file_wikilinks) = scan_markdown_file(
                     file_path,
                     &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
-                    &[],
-                    &[],
                 )
                 .unwrap();
                 file_wikilinks.into_iter().map(|w| w.wikilink.display_text)
