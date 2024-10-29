@@ -1,9 +1,13 @@
 // only enable file updates during tests for now
 // pub const ENABLE_FILE_UPDATES: bool = cfg!(test);
 
+// processing stuff
+pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
+pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
+
 // cache stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";
-pub const CACHE_FILE: &str = "image_cache.json";
+pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
 
 // image stuff
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];

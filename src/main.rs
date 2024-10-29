@@ -129,9 +129,9 @@ pub fn write_execution_start(
     writer.writeln("# ", "starting obsidian_knife")?;
 
     if validated_config.apply_changes() {
-        writer.writeln("", "apply_changes enabled: changes will be applied")?;
+        writer.writeln("", MODE_APPLY_CHANGES)?;
     } else {
-        writer.writeln("", "apply_changes disabled: no changes will be applied")?;
+        writer.writeln("", MODE_DRY_RUN)?;
     }
     println!();
     Ok(())
