@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::file_utils::expand_tilde;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_utils::deserialize_yaml_frontmatter;
@@ -36,16 +37,12 @@ impl Config {
                 if e.kind() == std::io::ErrorKind::NotFound {
                     Box::new(std::io::Error::new(
                         std::io::ErrorKind::NotFound,
-                        format!("config file not found: {}", expanded_path.display()),
+                        format!("{}{}", ERROR_NOT_FOUND, expanded_path.display()),
                     ))
                 } else {
                     Box::new(std::io::Error::new(
                         e.kind(),
-                        format!(
-                            "error reading config file '{}': {}",
-                            expanded_path.display(),
-                            e
-                        ),
+                        format!("{}'{}': {}", ERROR_READING, expanded_path.display(), e),
                     ))
                 }
             })?;

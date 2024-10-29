@@ -4,12 +4,12 @@ use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, EXTERNAL_MARKDOWN_REGEX};
+use lazy_static::lazy_static;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use lazy_static::lazy_static;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -113,21 +113,18 @@ fn find_all_back_populate_matches(
 
     let wikilinks = sorted_wikilinks.to_vec();
 
-    let matches = searcher.search_with_info(
-        &collected_files.markdown_files,
-        |file_path, _| {
-            // Filter to process only "estatodo.md"
-            if !file_path.ends_with("708 wish list.md") {
-               // return None;
-            }
+    let matches = searcher.search_with_info(&collected_files.markdown_files, |file_path, _| {
+        // Filter to process only "estatodo.md"
+        if !file_path.ends_with("708 wish list.md") {
+            return None;
+        }
 
-            // Process the file if it matches the filter
-            match process_file(file_path, &wikilinks, config) {
-                Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
-                _ => None,
-            }
-        },
-    );
+        // Process the file if it matches the filter
+        match process_file(file_path, &wikilinks, config) {
+            Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
+            _ => None,
+        }
+    });
 
     Ok(matches.into_iter().flatten().collect())
 }
@@ -194,7 +191,8 @@ fn process_line(
     // Identify exclusion zones based on exclusion patterns with case-insensitivity
     if let Some(exclusion_patterns) = config.do_not_back_populate() {
         for pattern in exclusion_patterns {
-            let exclusion_regex = regex::Regex::new(&format!(r"(?i){}", regex::escape(&pattern))).unwrap();
+            let exclusion_regex =
+                regex::Regex::new(&format!(r"(?i){}", regex::escape(&pattern))).unwrap();
             for mat in exclusion_regex.find_iter(line) {
                 exclusion_zones.push((mat.start(), mat.end()));
             }
@@ -252,8 +250,6 @@ fn process_line(
 
     Ok(())
 }
-
-
 
 fn process_line_println_debug(wikilink: &&CompiledWikilink, match_info: &BackPopulateMatch) {
     // Debug statement to show the match information
@@ -358,8 +354,8 @@ fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     }
 
     for mat in WIKILINK_FINDER.find_iter(line) {
-        let content_start = mat.start() + 2;  // Start of link content, after "[["
-        let content_end = mat.end() - 2;      // End of link content, before "]]"
+        let content_start = mat.start() + 2; // Start of link content, after "[["
+        let content_end = mat.end() - 2; // End of link content, before "]]"
 
         // Return true only if the byte_position falls within the link content
         if byte_position >= content_start && byte_position < content_end {
@@ -398,7 +394,6 @@ fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     // Group and sort matches by file path
     let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
     for m in matches {
@@ -408,7 +403,11 @@ fn write_back_populate_table(
 
     writer.writeln(
         "",
-        &format!("found {} matches to back populate in {} files", matches.len(), matches_by_file.len()),
+        &format!(
+            "found {} matches to back populate in {} files",
+            matches.len(),
+            matches_by_file.len()
+        ),
     )?;
 
     for (file_path, file_matches) in &matches_by_file {
@@ -469,7 +468,6 @@ fn escape_brackets_and_pipe(text: &str) -> String {
         .replace('|', r"\|")
 }
 
-
 fn apply_back_populate_changes(
     config: &ValidatedConfig,
     matches: &[BackPopulateMatch],
@@ -480,7 +478,10 @@ fn apply_back_populate_changes(
 
     let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
     for match_info in matches {
-        matches_by_file.entry(match_info.file_path.clone()).or_default().push(match_info);
+        matches_by_file
+            .entry(match_info.file_path.clone())
+            .or_default()
+            .push(match_info);
     }
 
     for (file_path, file_matches) in matches_by_file {
@@ -526,7 +527,10 @@ fn apply_back_populate_changes(
         }
 
         // Final validation check
-        if updated_content.contains("[[[") || updated_content.contains("]]]") || updated_content.matches("[[").count() != updated_content.matches("]]").count() {
+        if updated_content.contains("[[[")
+            || updated_content.contains("]]]")
+            || updated_content.matches("[[").count() != updated_content.matches("]]").count()
+        {
             eprintln!(
                 "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
                 full_path.display(),
@@ -619,8 +623,6 @@ fn process_line_with_replacements(
     updated_line
 }
 
-
-
 fn format_relative_path(path: &Path, base_path: &Path) -> String {
     path.strip_prefix(base_path)
         .unwrap_or(path)
@@ -662,10 +664,8 @@ mod tests {
             is_alias: false,
         };
 
-        let compiled = CompiledWikilink::new(
-            regex::Regex::new(r"(?i)\bTest Link\b").unwrap(),
-            wikilink,
-        );
+        let compiled =
+            CompiledWikilink::new(regex::Regex::new(r"(?i)\bTest Link\b").unwrap(), wikilink);
 
         repo_info.all_wikilinks.insert(compiled);
         repo_info.markdown_files = HashMap::new();
@@ -680,13 +680,13 @@ mod tests {
     ) -> ValidatedConfig {
         ValidatedConfig::new(
             apply_changes,
-            None,                  // back_populate_file_count
-            do_not_back_populate,  // do_not_back_populate
-            None,                  // ignore_folders
-            None,                  // ignore_rendered_text
-            temp_dir.path().to_path_buf(), // obsidian_path
+            None,                           // back_populate_file_count
+            do_not_back_populate,           // do_not_back_populate
+            None,                           // ignore_folders
+            None,                           // ignore_rendered_text
+            temp_dir.path().to_path_buf(),  // obsidian_path
             temp_dir.path().join("output"), // output_folder
-            None,                  // simplify_wikilinks
+            None,                           // simplify_wikilinks
         )
     }
 
@@ -911,14 +911,10 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled1 = CompiledWikilink::new(
-            regex::Regex::new(r"(?i)\bKyri\b").unwrap(),
-            wikilink1,
-        );
-        let compiled2 = CompiledWikilink::new(
-            regex::Regex::new(r"(?i)\bKyri\b").unwrap(),
-            wikilink2,
-        );
+        let compiled1 =
+            CompiledWikilink::new(regex::Regex::new(r"(?i)\bKyri\b").unwrap(), wikilink1);
+        let compiled2 =
+            CompiledWikilink::new(regex::Regex::new(r"(?i)\bKyri\b").unwrap(), wikilink2);
 
         repo_info.all_wikilinks.insert(compiled1);
         repo_info.all_wikilinks.insert(compiled2);
@@ -945,10 +941,8 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(
-            regex::Regex::new(r"(?i)\bcheese\b").unwrap(),
-            wikilink,
-        );
+        let compiled =
+            CompiledWikilink::new(regex::Regex::new(r"(?i)\bcheese\b").unwrap(), wikilink);
 
         let compiled_ref = &compiled;
         let sorted_wikilinks = &[compiled_ref][..];
@@ -1004,11 +998,7 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(
-
-            regex::Regex::new(r"(?i)\bWill\b").unwrap(),
-            wikilink,
-        );
+        let compiled = CompiledWikilink::new(regex::Regex::new(r"(?i)\bWill\b").unwrap(), wikilink);
 
         repo_info.all_wikilinks.clear();
         repo_info.all_wikilinks.insert(compiled);
@@ -1220,14 +1210,10 @@ mod tests {
         // Test table cell matches
         assert!(compiled.regex.is_match("| test link |"));
         assert!(compiled.regex.is_match("|TEST LINK|"));
-        assert!(compiled
-            .regex
-            .is_match("| Test Link |description|"));
+        assert!(compiled.regex.is_match("| Test Link |description|"));
 
         // Test with escaped pipes
-        assert!(compiled
-            .regex
-            .is_match("| test link \\| description |"));
+        assert!(compiled.regex.is_match("| test link \\| description |"));
     }
     #[test]
     fn test_case_preservation_with_alias() {
@@ -1394,10 +1380,8 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(
-            regex::Regex::new(r"(?i)\bcheese\b").unwrap(),
-            wikilink,
-        );
+        let compiled =
+            CompiledWikilink::new(regex::Regex::new(r"(?i)\bcheese\b").unwrap(), wikilink);
 
         let compiled_ref = &compiled;
         let sorted_wikilinks = &[compiled_ref][..];
@@ -1483,26 +1467,24 @@ mod tests {
 
         let cases = vec![
             // ASCII cases - fixed expectations
-            (ascii_text, 7, false),    // First [ - should be FALSE (it's markup)
-            (ascii_text, 8, false),    // Second [ - should be FALSE (it's markup)
-            (ascii_text, 9, true),     // 'l' - should be TRUE (it's content)
-            (ascii_text, 10, true),    // 'i' - should be TRUE (it's content)
-            (ascii_text, 11, true),    // 'n' - should be TRUE (it's content)
-            (ascii_text, 12, true),    // 'k' - should be TRUE (it's content)
-            (ascii_text, 13, false),   // First ] - should be FALSE (it's markup)
-            (ascii_text, 14, false),   // Second ] - should be FALSE (it's markup)
-
+            (ascii_text, 7, false),  // First [ - should be FALSE (it's markup)
+            (ascii_text, 8, false),  // Second [ - should be FALSE (it's markup)
+            (ascii_text, 9, true),   // 'l' - should be TRUE (it's content)
+            (ascii_text, 10, true),  // 'i' - should be TRUE (it's content)
+            (ascii_text, 11, true),  // 'n' - should be TRUE (it's content)
+            (ascii_text, 12, true),  // 'k' - should be TRUE (it's content)
+            (ascii_text, 13, false), // First ] - should be FALSE (it's markup)
+            (ascii_text, 14, false), // Second ] - should be FALSE (it's markup)
             // UTF-8 cases - fixed expectations
-            (utf8_text, 13, false),    // First [ - should be FALSE (it's markup)
-            (utf8_text, 14, false),    // Second [ - should be FALSE (it's markup)
-            (utf8_text, 15, true),     // Inside link text (с) - should be TRUE (it's content)
-            (utf8_text, 25, true),     // Inside link text (a) - should be TRUE (it's content)
-            (utf8_text, 27, false),    // First ] - should be FALSE (it's markup)
-            (utf8_text, 28, false),    // Second ] - should be FALSE (it's markup)
-            (utf8_text, 12, false),    // Space before [[ - should be FALSE (outside)
-            (utf8_text, 29, false),    // Space after ]] - should be FALSE (outside)
+            (utf8_text, 13, false), // First [ - should be FALSE (it's markup)
+            (utf8_text, 14, false), // Second [ - should be FALSE (it's markup)
+            (utf8_text, 15, true),  // Inside link text (с) - should be TRUE (it's content)
+            (utf8_text, 25, true),  // Inside link text (a) - should be TRUE (it's content)
+            (utf8_text, 27, false), // First ] - should be FALSE (it's markup)
+            (utf8_text, 28, false), // Second ] - should be FALSE (it's markup)
+            (utf8_text, 12, false), // Space before [[ - should be FALSE (outside)
+            (utf8_text, 29, false), // Space after ]] - should be FALSE (outside)
         ];
-
 
         for (text, pos, expected) in cases {
             let actual = is_within_wikilink(text, pos);

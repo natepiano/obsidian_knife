@@ -8,7 +8,6 @@ use std::fmt;
 lazy_static! {
     static ref WIKILINK_REGEX: fancy_regex::Regex =
         fancy_regex::Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
-
     pub static ref EXTERNAL_MARKDOWN_REGEX: regex::Regex =
         regex::Regex::new(r"\[.*?\]\((http[s]?://[^\)]+)\)").unwrap();
 }

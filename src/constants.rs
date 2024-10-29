@@ -2,8 +2,25 @@
 // pub const ENABLE_FILE_UPDATES: bool = cfg!(test);
 
 // processing stuff
+pub const ERROR_DETAILS: &str = "**error details:**";
+pub const ERROR_DURATION: &str = "total processing time before error:";
+pub const ERROR_OCCURRED: &str = "error occurred";
+pub const ERROR_SOURCE: &str = "**error source:**";
+pub const ERROR_TYPE: &str = "error type:";
+pub const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
 pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
 pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
+pub const PROCESSING_DURATION: &str = "total processing time:";
+pub const PROCESSING_FINAL_MESSAGE: &str = "obsidian_knife made the cut using:";
+pub const PROCESSING_START: &str = "starting obsidian_knife";
+pub const SECONDS: &str = "seconds";
+pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
+pub const YAML_TIMESTAMP: &str = "time_stamp: ";
+pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
+
+// config stuff
+pub const ERROR_NOT_FOUND: &str = "config file not found: ";
+pub const ERROR_READING: &str = "error reading config file ";
 
 // cache stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";

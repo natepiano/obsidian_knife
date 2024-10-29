@@ -26,28 +26,33 @@ fn handle_error(
     writer: &ThreadSafeWriter,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let duration = start_time.elapsed();
-
-    writer.writeln(LEVEL2, "error occurred during processing:")?;
-    writer.writeln(
-        "- **error type:** ",
-        &format!("{}", std::any::type_name_of_val(&*e)),
-    )?;
-    writer.writeln("- **error details:** ", &format!("{}", e))?;
+    writer.writeln(LEVEL1, ERROR_OCCURRED)?;
+    writer.writeln(LEVEL2, ERROR_TYPE)?;
+    writer.writeln("", &format!("{}", std::any::type_name_of_val(&*e)))?;
+    writer.writeln(ERROR_DETAILS, &format!("{}", e))?;
 
     if let Some(source) = e.source() {
-        writer.writeln("- **caused by:** ", &format!("{}", source))?;
+        writer.writeln(ERROR_SOURCE, &format!("{}", source))?;
     }
 
-    writer.writeln(
-        "",
-        &format!(
-            "total processing time before error: {:.2} seconds",
-            duration.as_secs_f64()
-        ),
-    )?;
+    output_duration(ERROR_DURATION, writer, start_time)?;
 
     Err(e)
+}
+
+fn output_duration(
+    prefix: &str,
+    writer: &ThreadSafeWriter,
+    start_time: Instant,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let duration = start_time.elapsed();
+    let duration_string = &format!("{:.2}", duration.as_secs_f64());
+
+    writer.writeln(
+        prefix,
+        &format!("{} {} {}", prefix, duration_string, SECONDS),
+    )?;
+    Ok(())
 }
 
 // Process successful execution
@@ -58,18 +63,11 @@ fn handle_success(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!();
     writer.writeln(
-        "# ",
-        &format!("obsidian_knife made the cut using {}", config_file),
+        LEVEL1,
+        &format!("{} {}", PROCESSING_FINAL_MESSAGE, config_file),
     )?;
 
-    let duration = start_time.elapsed();
-    writer.writeln(
-        "",
-        &format!(
-            "total processing time: {:.2} seconds",
-            duration.as_secs_f64()
-        ),
-    )?;
+    output_duration(PROCESSING_DURATION, writer, start_time)?;
 
     Ok(())
 }
@@ -79,9 +77,7 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
     let args: Vec<String> = std::env::args().collect();
 
     if args.len() != 2 {
-        return Err(Box::new(MainError::Usage(
-            "usage: obsidian_knife <obsidian_folder/config_file.md>".into(),
-        )));
+        return Err(Box::new(MainError::Usage(USAGE.into())));
     }
 
     Ok(PathBuf::from(&args[1]))
@@ -118,15 +114,17 @@ pub fn write_execution_start(
     validated_config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let timestamp = Local::now().format("%Y-%m-%d %H:%M:%S");
+    let timestamp = Local::now().format(FORMAT_TIME_STAMP);
     let properties = format!(
-        "time_stamp: {}\napply_changes: {}\n",
+        "{}{}\n{}{}\n",
+        YAML_TIMESTAMP,
         timestamp,
+        YAML_APPLY_CHANGES,
         validated_config.apply_changes(),
     );
 
     writer.write_properties(&properties)?;
-    writer.writeln("# ", "starting obsidian_knife")?;
+    writer.writeln(LEVEL1, PROCESSING_START)?;
 
     if validated_config.apply_changes() {
         writer.writeln("", MODE_APPLY_CHANGES)?;
