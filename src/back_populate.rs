@@ -118,7 +118,7 @@ fn find_all_back_populate_matches(
         |file_path, _| {
             // Filter to process only "estatodo.md"
             if !file_path.ends_with("708 wish list.md") {
-               return None;
+              // return None;
             }
 
             // Process the file if it matches the filter
@@ -131,7 +131,6 @@ fn find_all_back_populate_matches(
 
     Ok(matches.into_iter().flatten().collect())
 }
-
 
 fn process_file(
     file_path: &Path,
@@ -155,41 +154,16 @@ fn process_file(
             continue;
         }
 
-        let mut processed_line = String::new();
-        let mut last_pos = 0;
-
-        // Regex to match Markdown links `[text](url)`
-        for mat in EXTERNAL_MARKDOWN_REGEX.find_iter(&line) {
-            let non_link_text = &line[last_pos..mat.start()];
-            // Process non-link text for matches
-            process_line(
-                line_idx,
-                non_link_text,
-                file_path,
-                &content,
-                sorted_wikilinks,
-                config,
-                &mut matches, // Use local matches vector here
-            )?;
-
-            // Add non-link text and link back to processed line
-            processed_line.push_str(non_link_text);
-            processed_line.push_str(mat.as_str());
-            last_pos = mat.end();
-        }
-
-        // Process any remaining non-link text after the last link
-        let remaining_text = &line[last_pos..];
+        // Process entire line for wikilink matches and external link exclusions
         process_line(
             line_idx,
-            remaining_text,
+            &line,
             file_path,
             &content,
             sorted_wikilinks,
             config,
             &mut matches,
         )?;
-        processed_line.push_str(remaining_text);
     }
 
     println!("{:?} - matches: {}", file_path, matches.len());
@@ -212,7 +186,6 @@ fn process_line(
     full_content: &str,
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
-
     matches: &mut Vec<BackPopulateMatch>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut matched_positions = Vec::new();
@@ -228,11 +201,16 @@ fn process_line(
         }
     }
 
+    // Include external Markdown links as exclusion zones
+    for mat in EXTERNAL_MARKDOWN_REGEX.find_iter(line) {
+        exclusion_zones.push((mat.start(), mat.end()));
+    }
+
     for wikilink in sorted_wikilinks {
         let mut search_start = 0;
 
         while search_start < line.len() {
-            if let Some(match_info) = find_next_match(
+            if let Some(mut match_info) = find_next_match(
                 wikilink,
                 line,
                 search_start,
@@ -252,13 +230,19 @@ fn process_line(
                     continue;
                 }
 
+                // Determine if the line is part of a table and escape `|` if necessary
+                if line.trim().starts_with('|') {
+                    match_info.replacement = match_info.replacement.replace('|', r"\|");
+                }
+
+                // Print debug information
                 process_line_println_debug(wikilink, &match_info);
 
-                // Store the matched positions and add the match
+                // Store matched positions and add the match
                 matched_positions.push((starts_at, ends_at));
                 matches.push(match_info.clone());
 
-                // Move search_start forward to continue searching for distinct matches
+                // Update search_start to continue searching after the current match
                 search_start = ends_at;
             } else {
                 break;
@@ -268,6 +252,8 @@ fn process_line(
 
     Ok(())
 }
+
+
 
 fn process_line_println_debug(wikilink: &&CompiledWikilink, match_info: &BackPopulateMatch) {
     // Debug statement to show the match information
@@ -570,20 +556,20 @@ fn process_line_with_replacements(
     sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position));
 
     // Debug: Display sorted matches to confirm reverse processing order
-    println!("Matches to process for file '{}', line, in reverse order:", file_path);
-    for match_info in &sorted_matches {
-        println!(
-            "  Position: {}, Found text: '{}', Replacement: '{}'",
-            match_info.position, match_info.found_text, match_info.replacement
-        );
-    }
+    // println!("Matches to process for file '{}', line, in reverse order:", file_path);
+    // for match_info in &sorted_matches {
+    //     println!(
+    //         "  Position: {}, Found text: '{}', Replacement: '{}'",
+    //         match_info.position, match_info.found_text, match_info.replacement
+    //     );
+    // }
 
     // Apply replacements in sorted (reverse) order
     for match_info in sorted_matches {
-        println!(
-            "\nProcessing match at position {} for '{}': replacing with '{}'",
-            match_info.position, match_info.found_text, match_info.replacement
-        );
+        // println!(
+        //     "\nProcessing match at position {} for '{}': replacing with '{}'",
+        //     match_info.position, match_info.found_text, match_info.replacement
+        // );
 
         let replacement = if is_in_markdown_table(&updated_line, &match_info.found_text) {
             match_info.replacement.replace('|', "\\|")
@@ -604,10 +590,18 @@ fn process_line_with_replacements(
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
 
+        // Debug information about slices involved in replacement
+        //let before_slice = &updated_line[..start];
+        //let after_slice = &updated_line[end..];
+        // println!("Before match slice: '{}'", before_slice);
+        // println!("Match slice: '{}'", &updated_line[start..end]);
+        // println!("After match slice: '{}'", after_slice);
+
+        // Perform the replacement
         updated_line.replace_range(start..end, &replacement);
 
         // Debug: Show line content after replacement
-        println!("After replacement: '{}'", updated_line);
+        // println!("Updated line after replacement: '{}'", updated_line);
 
         // Validation check after each replacement
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
@@ -618,6 +612,9 @@ fn process_line_with_replacements(
             );
         }
     }
+
+    // Final debug statement to show the fully updated line after all replacements
+    // println!("Final updated line: '{}'", updated_line);
 
     updated_line
 }
@@ -1090,10 +1087,10 @@ mod tests {
         let matches = vec![BackPopulateMatch {
             file_path: "test.md".into(),
             line_number: 4,
-            line_text: "Test Link|Sample text".into(),
+            line_text: "|Test Link|Sample text|".into(),
             found_text: "Test Link".into(),
             replacement: "[[Test Link|Another Name]]".into(),
-            position: 0,
+            position: 1,
         }];
 
         let config = ValidatedConfig::new(
