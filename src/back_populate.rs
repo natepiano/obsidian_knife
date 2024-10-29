@@ -9,6 +9,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use lazy_static::lazy_static;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -332,23 +333,18 @@ fn is_within_external_link(line: &str, position: usize) -> bool {
 
     false
 }
+fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
+    lazy_static! {
+        static ref WIKILINK_FINDER: regex::Regex = regex::Regex::new(r"\[\[.*?\]\]").unwrap();
+    }
 
-fn is_within_wikilink(line: &str, position: usize) -> bool {
-    // Find all wikilink pairs in the line
-    let mut current_pos = 0;
-    while let Some(start) = line[current_pos..].find("[[") {
-        let start_pos = current_pos + start;
-        if let Some(end) = line[start_pos..].find("]]") {
-            let end_pos = start_pos + end + 2; // +2 to include the closing brackets
+    for mat in WIKILINK_FINDER.find_iter(line) {
+        let content_start = mat.start() + 2;  // Start of link content, after "[["
+        let content_end = mat.end() - 2;      // End of link content, before "]]"
 
-            // Check if our position falls within this wikilink
-            if position >= start_pos && position < end_pos {
-                return true;
-            }
-
-            current_pos = end_pos;
-        } else {
-            break; // No more closing brackets
+        // Return true only if the byte_position falls within the link content
+        if byte_position >= content_start && byte_position < content_end {
+            return true;
         }
     }
     false
@@ -636,20 +632,6 @@ mod tests {
     }
 
     #[test]
-    fn test_wikilink_exact_positions() {
-        let line = "[[Oleksiy Blavat|Oleksiy]]";
-        // Test every position in the wikilink
-        for i in 0..line.len() {
-            assert!(
-                is_within_wikilink(line, i),
-                "Position {} should be within wikilink: '{}'",
-                i,
-                &line[i..i + 1]
-            );
-        }
-    }
-
-    #[test]
     fn test_find_back_populate_matches() {
         let (temp_dir, config, mut repo_info) = create_test_environment();
 
@@ -743,6 +725,7 @@ mod tests {
 
         // First line has one match
         let first_line_matches: Vec<_> = matches.iter().filter(|m| m.line_number == 1).collect();
+
         assert_eq!(
             first_line_matches.len(),
             1,
@@ -752,7 +735,6 @@ mod tests {
                 .map(|m| &m.found_text)
                 .collect::<Vec<_>>()
         );
-
         // Second line has two matches
         let second_line_matches: Vec<_> = matches.iter().filter(|m| m.line_number == 2).collect();
         assert_eq!(
@@ -1381,5 +1363,77 @@ mod tests {
 
         assert_eq!(matches.len(), 1, "Match should be included");
         assert_eq!(matches[0].found_text, "Cheese");
+    }
+
+    #[test]
+    fn test_is_within_wikilink_byte_offsets() {
+        // Debug print function
+        fn print_char_positions(text: &str) {
+            println!("\nAnalyzing text: {}", text);
+            println!("Total bytes: {}", text.len());
+            for (i, (byte_pos, ch)) in text.char_indices().enumerate() {
+                println!("char '{}' at index {}: byte position {}", ch, i, byte_pos);
+            }
+
+            // Find wikilink positions
+            let wikilink_regex = regex::Regex::new(r"\[\[.*?\]\]").unwrap();
+            if let Some(mat) = wikilink_regex.find(text) {
+                println!("\nWikilink match: start={}, end={}", mat.start(), mat.end());
+                println!("Matched text: '{}'", &text[mat.start()..mat.end()]);
+                println!("Link content starts at: {}", mat.start() + 2);
+                println!("Link content ends at: {}", mat.end() - 2);
+            }
+        }
+
+        let ascii_text = "before [[link]] after";
+        let utf8_text = "привет [[ссылка]] текст";
+
+        print_char_positions(ascii_text);
+        print_char_positions(utf8_text);
+
+        let cases = vec![
+            // ASCII cases - fixed expectations
+            (ascii_text, 7, false),    // First [ - should be FALSE (it's markup)
+            (ascii_text, 8, false),    // Second [ - should be FALSE (it's markup)
+            (ascii_text, 9, true),     // 'l' - should be TRUE (it's content)
+            (ascii_text, 10, true),    // 'i' - should be TRUE (it's content)
+            (ascii_text, 11, true),    // 'n' - should be TRUE (it's content)
+            (ascii_text, 12, true),    // 'k' - should be TRUE (it's content)
+            (ascii_text, 13, false),   // First ] - should be FALSE (it's markup)
+            (ascii_text, 14, false),   // Second ] - should be FALSE (it's markup)
+
+            // UTF-8 cases - fixed expectations
+            (utf8_text, 13, false),    // First [ - should be FALSE (it's markup)
+            (utf8_text, 14, false),    // Second [ - should be FALSE (it's markup)
+            (utf8_text, 15, true),     // Inside link text (с) - should be TRUE (it's content)
+            (utf8_text, 25, true),     // Inside link text (a) - should be TRUE (it's content)
+            (utf8_text, 27, false),    // First ] - should be FALSE (it's markup)
+            (utf8_text, 28, false),    // Second ] - should be FALSE (it's markup)
+            (utf8_text, 12, false),    // Space before [[ - should be FALSE (outside)
+            (utf8_text, 29, false),    // Space after ]] - should be FALSE (outside)
+        ];
+
+
+        for (text, pos, expected) in cases {
+            let actual = is_within_wikilink(text, pos);
+            assert_eq!(
+                actual,
+                expected,
+                "Failed for text '{}' at position {} (char '{}')\nExpected: {}, Got: {}",
+                text,
+                pos,
+                text.chars().nth(text[..pos].chars().count()).unwrap_or('?'),
+                expected,
+                actual
+            );
+        }
+    }
+
+    #[test]
+    fn test_is_within_wikilink_with_nested_brackets() {
+        let text = "[[outer [inner] text]]";
+        assert!(is_within_wikilink(text, 10)); // Position of [inner]
+        assert!(is_within_wikilink(text, 3));  // Position after [[
+        assert!(is_within_wikilink(text, 18)); // Position before ]]
     }
 }
