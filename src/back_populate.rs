@@ -100,7 +100,7 @@ fn find_all_back_populate_matches(
     let matches = searcher.search_with_info(&markdown_files, |file_path, markdown_file_info| {
         // Filter to process only "estatodo.md"
         if !cfg!(test) && !file_path.ends_with("obsidian_knife") {
-           return None;
+           // return None;
         }
 
         // Process the file if it matches the filter

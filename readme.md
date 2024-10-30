@@ -89,21 +89,11 @@ ignore_folders:
 - .obsidian
 - conf/templates
 
-# when scanning markdown for replacements, ignore any with this exact text
-ignore_rendered_text:
-- "Ed: music reco:"
-
 # path to obsidian folder - ~ welcome
 obsidian_path: ~/Documents/obsidian_folder
 
 # path to where you want the "obsidian knife output.md" file placed - defaults to "obsidian_knife"
 output_folder: conf/obsidian_knife
-
-# text you want to find that if it contains a wikilink, to then remove the wikilink from it
-# i.e., "Bob [[Rock]]" would become "Bob Rock"
-simplify_wikilinks:
-- Ed:
-- Bob Rock
 ```
 # todo
 - replace create date on markdown file using defined property - also update date_created property in frontmatter
