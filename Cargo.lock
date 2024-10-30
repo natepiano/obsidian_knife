@@ -335,6 +335,7 @@ dependencies = [
 name = "obsidian_knife"
 version = "0.1.0"
 dependencies = [
+ "aho-corasick",
  "chrono",
  "fancy-regex",
  "filetime",
