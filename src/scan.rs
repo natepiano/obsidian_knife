@@ -30,6 +30,7 @@ pub struct ImageInfo {
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
+    pub do_not_back_populate: Option<Vec<String>>,
     pub frontmatter: Option<FrontMatter>,
     pub image_links: Vec<String>,
     pub property_error: Option<String>,
@@ -38,6 +39,7 @@ pub struct MarkdownFileInfo {
 impl MarkdownFileInfo {
     pub fn new() -> Self {
         MarkdownFileInfo {
+            do_not_back_populate: None,
             frontmatter: None,
             image_links: Vec::new(),
             property_error: None,
@@ -318,8 +320,19 @@ fn scan_markdown_file(
     };
 
     let mut file_info = MarkdownFileInfo::new();
-    file_info.frontmatter = frontmatter;
+    file_info.frontmatter = frontmatter.clone();
     file_info.property_error = property_error;
+
+    // Extract do_not_back_populate from frontmatter and add aliases
+    if let Some(fm) = &frontmatter {
+        let mut do_not_populate = fm.do_not_back_populate.clone().unwrap_or_default();
+        if let Some(aliases) = fm.aliases() {
+            do_not_populate.extend(aliases.iter().cloned());
+        }
+        if !do_not_populate.is_empty() {
+            file_info.do_not_back_populate = Some(do_not_populate);
+        }
+    }
 
     // Get filename for wikilink collection
     let filename = file_path
@@ -664,5 +677,81 @@ aliases:
             "Parallel: {:?}, Sequential: {:?}",
             parallel_time, sequential_time
         );
+    }
+
+    #[test]
+    fn test_scan_markdown_file_with_do_not_back_populate() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let content = r#"---
+do_not_back_populate:
+ - "test phrase"
+ - "another phrase"
+---
+# Test Content"#;
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
+        let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+
+        assert!(file_info.do_not_back_populate.is_some());
+        let patterns = file_info.do_not_back_populate.unwrap();
+        assert_eq!(patterns.len(), 2);
+        assert!(patterns.contains(&"test phrase".to_string()));
+        assert!(patterns.contains(&"another phrase".to_string()));
+    }
+
+    #[test]
+    fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let content = r#"---
+aliases:
+ - "First Alias"
+ - "Second Alias"
+do_not_back_populate:
+ - "exclude this"
+---
+# Test Content"#;
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
+        let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+
+        assert!(file_info.do_not_back_populate.is_some());
+        let patterns = file_info.do_not_back_populate.unwrap();
+        assert_eq!(patterns.len(), 3);
+        assert!(patterns.contains(&"First Alias".to_string()));
+        assert!(patterns.contains(&"Second Alias".to_string()));
+        assert!(patterns.contains(&"exclude this".to_string()));
+    }
+
+    #[test]
+    fn test_scan_markdown_file_aliases_only() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let content = r#"---
+aliases:
+ - "Only Alias"
+---
+# Test Content"#;
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
+        let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+
+        assert!(file_info.do_not_back_populate.is_some());
+        let patterns = file_info.do_not_back_populate.unwrap();
+        assert_eq!(patterns.len(), 1);
+        assert!(patterns.contains(&"Only Alias".to_string()));
     }
 }

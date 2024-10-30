@@ -1,15 +1,15 @@
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
-use crate::scan::ObsidianRepositoryInfo;
+use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, EXTERNAL_MARKDOWN_REGEX};
 use lazy_static::lazy_static;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -71,7 +71,7 @@ pub fn process_back_populate(
     println!("links to back populate: {} ", sorted_wikilinks.len());
 
     let matches =
-        find_all_back_populate_matches(config, obsidian_repository_info, &sorted_wikilinks)?;
+        find_all_back_populate_matches(config, &obsidian_repository_info.markdown_files, &sorted_wikilinks)?;
 
     if matches.is_empty() {
         writer.writeln("", "no back population matches found")?;
@@ -84,24 +84,23 @@ pub fn process_back_populate(
     Ok(())
 }
 
-
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
-    collected_files: &ObsidianRepositoryInfo,
+    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     sorted_wikilinks: &[&CompiledWikilink],
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
     let wikilinks = sorted_wikilinks.to_vec();
 
-    let matches = searcher.search_with_info(&collected_files.markdown_files, |file_path, _| {
+    let matches = searcher.search_with_info(&markdown_files, |file_path, markdown_file_info| {
         // Filter to process only "estatodo.md"
         if !cfg!(test) && !file_path.ends_with("frontmatter.md") {
             return None;
         }
 
         // Process the file if it matches the filter
-        match process_file(file_path, &wikilinks, config) {
+        match process_file(file_path, &wikilinks, config, markdown_file_info) {
             Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
             _ => None,
         }
@@ -114,6 +113,7 @@ fn process_file(
     file_path: &Path,
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
+    markdown_file_info: &MarkdownFileInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let mut matches = Vec::new(); // Local vector to collect matches
     let content = fs::read_to_string(file_path)?;
@@ -141,6 +141,7 @@ fn process_file(
             sorted_wikilinks,
             config,
             &mut matches,
+            markdown_file_info,
         )?;
     }
 
@@ -157,6 +158,42 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
     })
 }
 
+fn collect_exclusion_zones(
+    line: &str,
+    config_patterns: Option<&[String]>,
+    file_patterns: Option<&[String]>,
+) -> Vec<(usize, usize)> {
+    let mut exclusion_zones = Vec::new();
+
+    // Helper closure to process patterns
+    let mut add_zones = |patterns: &[String]| {
+        for pattern in patterns {
+            let exclusion_regex = regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern)))
+                .unwrap();
+            for mat in exclusion_regex.find_iter(line) {
+                exclusion_zones.push((mat.start(), mat.end()));
+            }
+        }
+    };
+
+    // Process global config patterns
+    if let Some(patterns) = config_patterns {
+        add_zones(patterns);
+    }
+
+    // Process file-specific patterns
+    if let Some(patterns) = file_patterns {
+        add_zones(patterns);
+    }
+
+    // Add external markdown links as exclusion zones
+    for mat in EXTERNAL_MARKDOWN_REGEX.find_iter(line) {
+        exclusion_zones.push((mat.start(), mat.end()));
+    }
+
+    exclusion_zones
+}
+
 fn process_line(
     line_idx: usize,
     line: &str,
@@ -165,25 +202,16 @@ fn process_line(
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
     matches: &mut Vec<BackPopulateMatch>,
+    markdown_file_info: &MarkdownFileInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut matched_positions = Vec::new();
-    let mut exclusion_zones = Vec::new();
 
-    // Identify exclusion zones based on exclusion patterns with case-insensitivity
-    if let Some(exclusion_patterns) = config.do_not_back_populate() {
-        for pattern in exclusion_patterns {
-            let exclusion_regex =
-                regex::Regex::new(&format!(r"(?i){}", regex::escape(&pattern))).unwrap();
-            for mat in exclusion_regex.find_iter(line) {
-                exclusion_zones.push((mat.start(), mat.end()));
-            }
-        }
-    }
-
-    // Include external Markdown links as exclusion zones
-    for mat in EXTERNAL_MARKDOWN_REGEX.find_iter(line) {
-        exclusion_zones.push((mat.start(), mat.end()));
-    }
+    // Collect exclusion zones from both config and file patterns
+    let exclusion_zones = collect_exclusion_zones(
+        line,
+        config.do_not_back_populate(),
+        markdown_file_info.do_not_back_populate.as_deref()
+    );
 
     for wikilink in sorted_wikilinks {
         let mut search_start = 0;
@@ -197,11 +225,11 @@ fn process_line(
                 file_path,
                 full_content,
                 config,
+                markdown_file_info,
             )? {
                 let starts_at = match_info.position;
                 let ends_at = starts_at + match_info.found_text.len();
 
-                // Skip if the match is within an exclusion zone or overlaps with previous matches
                 if range_overlaps(&exclusion_zones, starts_at, ends_at)
                     || range_overlaps(&matched_positions, starts_at, ends_at)
                 {
@@ -209,19 +237,15 @@ fn process_line(
                     continue;
                 }
 
-                // Determine if the line is part of a table and escape `|` if necessary
                 if line.trim().starts_with('|') {
                     match_info.replacement = match_info.replacement.replace('|', r"\|");
                 }
 
-                // Print debug information
                 process_line_println_debug(wikilink, &match_info);
 
-                // Store matched positions and add the match
                 matched_positions.push((starts_at, ends_at));
                 matches.push(match_info.clone());
 
-                // Update search_start to continue searching after the current match
                 search_start = ends_at;
             } else {
                 break;
@@ -255,6 +279,7 @@ fn find_next_match(
     file_path: &Path,
     full_content: &str,
     config: &ValidatedConfig,
+    markdown_file_info: &MarkdownFileInfo,
 ) -> Result<Option<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     if let Some(mat) = wikilink.regex.find(&line[start_pos..]) {
         let absolute_start = start_pos + mat.start();
@@ -268,6 +293,7 @@ fn find_next_match(
             line_idx,
             full_content,
             file_path,
+            markdown_file_info,
         ) {
             let replacement = if wikilink.wikilink.is_alias {
                 // For alias matches, preserve the case of the found text in the alias portion
@@ -302,11 +328,21 @@ fn should_create_match(
     line_idx: usize,
     full_content: &str,
     file_path: &Path,
+    markdown_file_info: &MarkdownFileInfo,
 ) -> bool {
-    // First check if this is the text's own page
+    // Check if this is the text's own page or matches any frontmatter aliases
     if let Some(stem) = file_path.file_stem().and_then(|s| s.to_str()) {
         if stem.eq_ignore_ascii_case(matched_text) {
             return false;
+        }
+
+        // Check against frontmatter aliases
+        if let Some(frontmatter) = &markdown_file_info.frontmatter {
+            if let Some(aliases) = frontmatter.aliases() {
+                if aliases.iter().any(|alias| alias.eq_ignore_ascii_case(matched_text)) {
+                    return false;
+                }
+            }
         }
     }
 
@@ -621,6 +657,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
+    use crate::frontmatter;
 
     fn create_test_environment() -> (TempDir, ValidatedConfig, ObsidianRepositoryInfo) {
         let temp_dir = TempDir::new().unwrap();
@@ -722,7 +759,7 @@ mod tests {
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -760,7 +797,7 @@ mod tests {
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -808,7 +845,7 @@ mod tests {
 
         // Find matches
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         // Create a config that allows changes
         let config_with_changes = ValidatedConfig::new(
@@ -872,7 +909,7 @@ mod tests {
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
 
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         // We should only get one match for "Kyri" at position 28
         assert_eq!(matches.len(), 1, "Expected exactly one match");
@@ -903,6 +940,9 @@ mod tests {
             Some(vec!["[[mozzarella]] cheese".to_string()]),
         );
 
+        let markdown_info = MarkdownFileInfo::new();
+
+
         // Test line with excluded pattern
         let line = "- 1 1/2 cup [[mozzarella]] cheese shredded";
         process_line(
@@ -913,6 +953,7 @@ mod tests {
             sorted_wikilinks,
             &config,
             &mut matches,
+            &markdown_info,
         )
         .unwrap();
 
@@ -929,6 +970,7 @@ mod tests {
             sorted_wikilinks,
             &config,
             &mut matches,
+            &markdown_info,
         )
         .unwrap();
 
@@ -964,7 +1006,7 @@ mod tests {
 
         let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         assert_eq!(
             matches.len(),
@@ -982,7 +1024,7 @@ mod tests {
             .insert(other_file_path, MarkdownFileInfo::new());
 
         let matches =
-            find_all_back_populate_matches(&config, &repo_info, &sorted_wikilinks).unwrap();
+            find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks).unwrap();
 
         assert_eq!(matches.len(), 1, "Should find match on other pages");
     }
@@ -992,6 +1034,8 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.md");
 
+        let markdown_info = MarkdownFileInfo::new();
+
         // Test simple table cell match
         assert!(should_create_match(
             "| Test Link | description |",
@@ -999,7 +1043,8 @@ mod tests {
             "Test Link",
             0,
             "| Test Link | description |",
-            &file_path
+            &file_path,
+            &markdown_info,
         ));
 
         // Test match in table with existing wikilinks
@@ -1009,7 +1054,8 @@ mod tests {
             "Test Link",
             0,
             "| Test Link | [[Other]] |",
-            &file_path
+            &file_path,
+            &markdown_info,
         ));
     }
 
@@ -1185,8 +1231,10 @@ mod tests {
             temp_dir.path().join("output"),
         );
 
+        let markdown_file_info = MarkdownFileInfo::new();
+
         // Test matching
-        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
 
@@ -1218,8 +1266,10 @@ mod tests {
             temp_dir.path().join("output"),
         );
 
+        let markdown_file_info = MarkdownFileInfo::new();
+
         // Test matching
-        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
 
@@ -1251,8 +1301,10 @@ mod tests {
             temp_dir.path().join("output"),
         );
 
+        let markdown_file_info = MarkdownFileInfo::new();
+
         // Test matching
-        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config)
+        let match_result = find_next_match(&compiled, content, 0, 0, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
 
@@ -1287,20 +1339,22 @@ mod tests {
         // Test each line separately
         let lines: Vec<&str> = content.lines().collect();
 
+        let markdown_file_info = MarkdownFileInfo::new();
+
         // Test "josh likes apples"
-        let match1 = find_next_match(&compiled, lines[1], 0, 1, &file_path, content, &config)
+        let match1 = find_next_match(&compiled, lines[1], 0, 1, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
         assert_eq!(match1.replacement, "[[Joshua Strayhorn|josh]]");
 
         // Test "JOSH ate lunch"
-        let match2 = find_next_match(&compiled, lines[2], 0, 2, &file_path, content, &config)
+        let match2 = find_next_match(&compiled, lines[2], 0, 2, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
         assert_eq!(match2.replacement, "[[Joshua Strayhorn|JOSH]]");
 
         // Test "Josh went home"
-        let match3 = find_next_match(&compiled, lines[3], 0, 3, &file_path, content, &config)
+        let match3 = find_next_match(&compiled, lines[3], 0, 3, &file_path, content, &config, &markdown_file_info)
             .unwrap()
             .unwrap();
         assert_eq!(match3.replacement, "[[Joshua Strayhorn|Josh]]");
@@ -1337,6 +1391,7 @@ mod tests {
             "- 1 1/2 cup [[MOZZARELLA]] CHEESE shredded",
         ];
 
+        let markdown_file_info =MarkdownFileInfo::new();
         for line in test_cases {
             matches.clear();
             process_line(
@@ -1347,6 +1402,7 @@ mod tests {
                 sorted_wikilinks,
                 &config,
                 &mut matches,
+                &markdown_file_info,
             )
             .unwrap();
 
@@ -1358,6 +1414,7 @@ mod tests {
             );
         }
 
+        let markdown_file_info = MarkdownFileInfo::new();
         // Test that other cheese references still match
         let line = "I love Cheese on my pizza";
         matches.clear();
@@ -1369,6 +1426,7 @@ mod tests {
             sorted_wikilinks,
             &config,
             &mut matches,
+            &markdown_file_info,
         )
         .unwrap();
 
@@ -1436,5 +1494,185 @@ mod tests {
                 actual
             );
         }
+    }
+
+    #[test]
+    fn test_no_matches_for_frontmatter_aliases() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create test content with frontmatter containing aliases
+        let content = r#"---
+aliases:
+  - "Johnny"
+  - "John D"
+---
+# John Doe
+Mentions of Johnny and John D should not be replaced.
+But other Johns should be replaced."#;
+
+        let mut file = File::create(&file_path).unwrap();
+        write!(file, "{}", content).unwrap();
+
+        let wikilink = Wikilink {
+            display_text: "Johnny".to_string(),
+            target: "John Doe".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let mut markdown_info = MarkdownFileInfo::new();
+        markdown_info.frontmatter = frontmatter::deserialize_frontmatter(content).ok();
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let match_result = find_next_match(
+            &compiled,
+            "Mentions of Johnny and John D",
+            0,
+            0,
+            &file_path,
+            content,
+            &config,
+            &markdown_info,
+        )
+            .unwrap();
+
+        assert!(match_result.is_none(), "Should not match text that appears in frontmatter aliases");
+    }
+
+    #[test]
+    fn test_collect_exclusion_zones() {
+        let line = "Test phrase and Another Phrase with EXTERNAL [link](http://test.com)";
+
+        let config_patterns = Some(vec!["test phrase".to_string()]);
+        let file_patterns = Some(vec!["another phrase".to_string()]);
+
+        let zones = collect_exclusion_zones(line, config_patterns.as_deref(), file_patterns.as_deref());
+
+        assert_eq!(zones.len(), 3); // Two patterns + external link
+
+        // Check first zone contains "Test phrase"
+        assert!(line[zones[0].0..zones[0].1].to_lowercase().contains("test phrase"));
+
+        // Check second zone contains "Another Phrase"
+        assert!(line[zones[1].0..zones[1].1].to_lowercase().contains("another phrase"));
+
+        // Check last zone contains the external link
+        assert!(line[zones[2].0..zones[2].1].contains("[link](http://test.com)"));
+    }
+
+    #[test]
+    fn test_mixed_case_exclusions() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let wikilink = Wikilink {
+            display_text: "test".to_string(),
+            target: "target".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let mut markdown_info = MarkdownFileInfo::new();
+        markdown_info.do_not_back_populate = Some(vec!["Test Phrase".to_string()]);
+
+        let test_cases = vec![
+            "TEST PHRASE here",
+            "test phrase there",
+            "Test Phrase somewhere",
+        ];
+
+        for line in test_cases {
+            let mut matches = Vec::new();
+            process_line(
+                0,
+                line,
+                &file_path,
+                line,
+                &[&compiled],
+                &ValidatedConfig::new(false, None, None, None, file_path.clone(), file_path.clone()),
+                &mut matches,
+                &markdown_info,
+            ).unwrap();
+
+            assert!(matches.is_empty(), "Should exclude matches regardless of case: {}", line);
+        }
+    }
+
+    #[test]
+    fn test_multi_word_pattern_exclusions() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let wikilink = Wikilink {
+            display_text: "hill".to_string(),
+            target: "target".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let mut markdown_info = MarkdownFileInfo::new();
+        markdown_info.do_not_back_populate = Some(vec!["Federal Hill Baltimore".to_string()]);
+
+        let mut matches = Vec::new();
+        process_line(
+            0,
+            "Federal Hill Baltimore is nice",
+            &file_path,
+            "test content",
+            &[&compiled],
+            &ValidatedConfig::new(false, None, None, None, file_path.clone(), file_path.clone()),
+            &mut matches,
+            &markdown_info,
+        ).unwrap();
+
+        assert!(matches.is_empty(), "Should not match 'hill' within multi-word pattern");
+    }
+
+    #[test]
+    fn test_overlapping_exclusions() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        let wikilink = Wikilink {
+            display_text: "test".to_string(),
+            target: "target".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        let mut markdown_info = MarkdownFileInfo::new();
+        markdown_info.do_not_back_populate = Some(vec!["file test".to_string()]);
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            Some(vec!["test pattern".to_string()]),
+            None,
+            file_path.clone(),
+            file_path.clone(),
+        );
+
+        let mut matches = Vec::new();
+        process_line(
+            0,
+            "file test pattern here",
+            &file_path,
+            "test content",
+            &[&compiled],
+            &config,
+            &mut matches,
+            &markdown_info,
+        ).unwrap();
+
+        assert!(matches.is_empty(), "Should exclude matches in overlapping patterns");
     }
 }

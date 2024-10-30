@@ -18,6 +18,8 @@ pub struct FrontMatter {
     pub date_created_fix: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub date_modified: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub do_not_back_populate: Option<Vec<String>>,
     // Catch-all field for unknown properties
     #[serde(flatten)]
     other_fields: HashMap<String, Value>,
@@ -245,6 +247,7 @@ invalid: [yaml
             date_created: None,
             date_modified: Some("2024-01-01".to_string()),
             date_created_fix: None,
+            do_not_back_populate: None,
             other_fields: {
                 let mut map = HashMap::new();
                 map.insert(
@@ -315,6 +318,7 @@ Some content"#;
             date_created: Some("2024-01-01".to_string()),
             date_modified: None,
             date_created_fix: None,
+            do_not_back_populate: None,
             other_fields: HashMap::new(),
         };
 
