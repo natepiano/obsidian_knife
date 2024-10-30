@@ -109,51 +109,6 @@ pub(crate) fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
     CompiledWikilink::new(regex::Regex::new(&pattern).unwrap(), wikilink)
 }
 
-pub fn parse_wikilink(text: &str) -> Option<Wikilink> {
-    if let Ok(Some(cap)) = WIKILINK_REGEX.captures(text) {
-        if let Some(full_phrase) = cap.get(1).map(|m| m.as_str()) {
-            // Clean up target by removing escaped characters
-            let clean_target = normalize_target(full_phrase);
-
-            if let Some(alias) = cap.get(2).map(|m| m.as_str()) {
-                // For aliased wikilinks, clean both target and alias
-                Some(Wikilink {
-                    display_text: normalize_target(alias),
-                    target: clean_target,
-                    is_alias: true,
-                })
-            } else {
-                // For regular wikilinks, use the same cleaned text for both
-                Some(Wikilink {
-                    display_text: clean_target.clone(),
-                    target: clean_target,
-                    is_alias: false,
-                })
-            }
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-// Updated helper function to handle trailing backslashes
-fn normalize_target(text: &str) -> String {
-    let trimmed = text.trim();
-
-    // If it ends with an odd number of backslashes, remove the last one
-    if trimmed.ends_with('\\') {
-        let backslash_count = trimmed.chars().rev().take_while(|&c| c == '\\').count();
-        if backslash_count % 2 == 1 {
-            // Remove trailing backslash if it's not escaped
-            return trimmed[..trimmed.len() - 1].to_string();
-        }
-    }
-
-    trimmed.replace(r"\|", "|") // Remove escaped pipes
-}
-
 pub fn collect_all_wikilinks(
     content: &str,
     frontmatter: &Option<FrontMatter>,
@@ -165,32 +120,23 @@ pub fn collect_all_wikilinks(
     let filename_wikilink = create_filename_wikilink(filename);
     all_wikilinks.insert(compile_wikilink(filename_wikilink.clone()));
 
-    // Track aliases pointing to filename to prevent duplicates
-    let mut frontmatter_aliases = HashSet::new();
-
     // Add frontmatter aliases
     if let Some(fm) = frontmatter {
         if let Some(aliases) = fm.aliases() {
-            for alias in aliases {
-                let alias_wikilink = Wikilink {
+            all_wikilinks.extend(aliases.iter().map(|alias| {
+                compile_wikilink(Wikilink {
                     display_text: alias.clone(),
                     target: filename_wikilink.target.clone(),
                     is_alias: true,
-                };
-                all_wikilinks.insert(compile_wikilink(alias_wikilink));
-                frontmatter_aliases.insert(alias); // Track each alias added from frontmatter
-            }
+                })
+            }));
         }
     }
 
-    // Add wikilinks from content, skipping duplicates of frontmatter aliases
-    let content_wikilinks = extract_wikilinks_from_content(content);
-    for wikilink in content_wikilinks {
-        // Only insert content-based wikilink if it's not a frontmatter alias duplicate
-        if !frontmatter_aliases.contains(&wikilink.display_text) {
-            all_wikilinks.insert(compile_wikilink(wikilink));
-        }
-    }
+    // Add wikilinks from content
+    all_wikilinks.extend(extract_wikilinks_from_content(content)
+        .into_iter()
+        .map(compile_wikilink));
 
     all_wikilinks
 }
@@ -318,24 +264,6 @@ Also [[Alias One]] is referenced"#;
     }
 
     #[test]
-    fn test_parse_wikilink() {
-        // Test regular wikilink
-        let wikilink = parse_wikilink("[[Test Link]]").unwrap();
-        assert_eq!(wikilink.display_text, "Test Link");
-        assert_eq!(wikilink.target, "Test Link");
-        assert!(!wikilink.is_alias);
-
-        // Test aliased wikilink
-        let wikilink = parse_wikilink("[[Target|Display Text]]").unwrap();
-        assert_eq!(wikilink.display_text, "Display Text");
-        assert_eq!(wikilink.target, "Target");
-        assert!(wikilink.is_alias);
-
-        // Test invalid wikilink
-        assert!(parse_wikilink("Not a wikilink").is_none());
-    }
-
-    #[test]
     fn test_hash_equality() {
         use std::collections::HashSet;
 
@@ -356,52 +284,6 @@ Also [[Alias One]] is referenced"#;
         let mut set = HashSet::new();
         set.insert(compiled1);
         assert!(!set.insert(compiled2), "Duplicate wikilink was inserted");
-    }
-
-    #[test]
-    fn test_alias_wikilink_parsing() {
-        let wikilink = parse_wikilink("[[Target|Display Text]]").unwrap();
-        assert_eq!(wikilink.display_text, "Display Text");
-        assert_eq!(wikilink.target, "Target");
-        assert!(wikilink.is_alias);
-
-        let extracted =
-            extract_wikilinks_from_content("Here is a [[Target|Display Text]] with alias");
-        assert_eq!(extracted.len(), 1);
-        let first = &extracted[0];
-        assert_eq!(first.display_text, "Display Text");
-        assert_eq!(first.target, "Target");
-        assert!(first.is_alias);
-    }
-
-    #[test]
-    fn test_parse_wikilink_with_escaped_chars() {
-        // Test with escaped pipe
-        let wikilink = parse_wikilink(r"[[Nathan Dye\|Nate]]").unwrap();
-        assert_eq!(wikilink.target, "Nathan Dye");
-        assert_eq!(wikilink.display_text, "Nate");
-        assert!(wikilink.is_alias);
-
-        // Test with trailing backslash
-        let wikilink = parse_wikilink(r"[[Nathan Dye\|Nate]]").unwrap();
-        assert_eq!(wikilink.target, "Nathan Dye");
-        assert_eq!(wikilink.display_text, "Nate");
-        assert!(wikilink.is_alias);
-
-        // Test that identical wikilinks with different escaping produce same result
-        let wikilink1 = parse_wikilink("[[Nathan Dye|Nate]]").unwrap();
-        let wikilink2 = parse_wikilink(r"[[Nathan Dye\|Nate]]").unwrap();
-        assert_eq!(wikilink1.target, wikilink2.target);
-        assert_eq!(wikilink1.display_text, wikilink2.display_text);
-    }
-
-    #[test]
-    fn test_normalize_target() {
-        assert_eq!(normalize_target("Nathan Dye\\"), "Nathan Dye");
-        assert_eq!(normalize_target(r"Nathan Dye\|Nate"), "Nathan Dye|Nate");
-        assert_eq!(normalize_target(r"Nathan Dye\\"), r"Nathan Dye\\"); // Double backslash stays
-        assert_eq!(normalize_target(r"Nathan Dye\\\"), r"Nathan Dye\\"); // Triple becomes double
-        assert_eq!(normalize_target(r" spaced \\\ "), r"spaced \\"); // Handles spaces and trailing backslashes
     }
 
     #[test]

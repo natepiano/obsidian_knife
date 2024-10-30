@@ -96,7 +96,7 @@ fn find_all_back_populate_matches(
 
     let matches = searcher.search_with_info(&collected_files.markdown_files, |file_path, _| {
         // Filter to process only "estatodo.md"
-        if !cfg!(test) && !file_path.ends_with("bookshelf in portland.md") {
+        if !cfg!(test) && !file_path.ends_with("frontmatter.md") {
             return None;
         }
 

@@ -471,18 +471,18 @@ Also linking to [[Alias One]] which is defined in frontmatter.
             .map(|w| (w.wikilink.target.clone(), w.wikilink.display_text.clone()))
             .collect();
 
-        // Check for the expected unique wikilinks
+        // Updated assertions
         assert!(
             wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
             "Should contain filename-based wikilink"
         );
         assert!(
             wikilink_pairs.contains(&("test_note".to_string(), "Alias One".to_string())),
-            "Should contain first alias as [[test_note|Alias One]]"
+            "Should contain first alias from frontmatter"
         );
         assert!(
             wikilink_pairs.contains(&("test_note".to_string(), "Second Alias".to_string())),
-            "Should contain second alias as [[test_note|Second Alias]]"
+            "Should contain second alias from frontmatter"
         );
         assert!(
             wikilink_pairs.contains(&("Simple Link".to_string(), "Simple Link".to_string())),
@@ -492,12 +492,17 @@ Also linking to [[Alias One]] which is defined in frontmatter.
             wikilink_pairs.contains(&("Target Page".to_string(), "Display Text".to_string())),
             "Should contain aliased display text"
         );
+        assert!(
+            wikilink_pairs.contains(&("Alias One".to_string(), "Alias One".to_string())),
+            "Should contain content wikilink to Alias One"
+        );
 
-        // Verify total count of unique wikilinks
+        // note Alias One is technically a mistake on the user's part but let's deal with that
+        // with a scan to find wikilinks that target nothing
         assert_eq!(
             wikilink_pairs.len(),
-            5,
-            "Should have collected all unique wikilinks"
+            6,
+            "Should have collected all unique wikilinks including content reference to Alias One"
         );
     }
 
