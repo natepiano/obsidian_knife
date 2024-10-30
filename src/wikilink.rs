@@ -540,4 +540,33 @@ text! ![[image2.jpg]] (exclamation before image)
         assert!(compiled.regex.is_match("Hello [Ed]"), "Space + brackets works");
         assert!(compiled.regex.is_match("Hello Ed!"), "Space + exclamation works");
     }
+
+    #[test]
+    fn test_word_boundaries_with_different_apostrophes() {
+        let wikilink = Wikilink {
+            display_text: "t".to_string(),
+            target: "test".to_string(),
+            is_alias: true,
+        };
+        let compiled = compile_wikilink(wikilink);
+
+        // Testing with straight apostrophe (U+0027)
+        assert!(compiled.regex.is_match("don't"), "Should match 't' after straight apostrophe");
+        assert!(compiled.regex.is_match("can't"), "Should match 't' in another contraction");
+
+        // Testing with curly apostrophe (U+2019)
+        assert!(compiled.regex.is_match("don\u{2019}t"), "Should match 't' after curly apostrophe");
+        assert!(compiled.regex.is_match("can\u{2019}t"), "Should match 't' in another contraction");
+
+        // Test that 'don' is also a separate word
+        let don_wikilink = Wikilink {
+            display_text: "don".to_string(),
+            target: "do not".to_string(),
+            is_alias: true,
+        };
+        let don_compiled = compile_wikilink(don_wikilink);
+
+        assert!(don_compiled.regex.is_match("don't"), "Should match 'don' before straight apostrophe");
+        assert!(don_compiled.regex.is_match("don\u{2019}t"), "Should match 'don' before curly apostrophe");
+    }
 }
