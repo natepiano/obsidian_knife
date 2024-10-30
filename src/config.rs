@@ -72,10 +72,7 @@ impl Config {
 
         // Add output folder and cache folder to ignored folders
         let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
-        let mut folders_to_add = vec![
-            output_folder.clone(),
-            expanded_path.join(CACHE_FOLDER),
-        ];
+        let mut folders_to_add = vec![output_folder.clone(), expanded_path.join(CACHE_FOLDER)];
 
         if let Some(ref mut folders) = ignore_folders {
             folders.append(&mut folders_to_add);

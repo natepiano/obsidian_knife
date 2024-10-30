@@ -9,8 +9,7 @@ use std::path::Path;
 lazy_static! {
     static ref WIKILINK_REGEX: fancy_regex::Regex =
         fancy_regex::Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
-    pub static ref EXTERNAL_MARKDOWN_REGEX: regex::Regex =
-        regex::Regex::new(r"\[.*?\]\((http[s]?://[^\)]+)\)").unwrap();
+    pub static ref MARKDOWN_REGEX: regex::Regex = regex::Regex::new(r"\[.*?\]\(.*?\)").unwrap();
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -134,9 +133,11 @@ pub fn collect_all_wikilinks(
     }
 
     // Add wikilinks from content
-    all_wikilinks.extend(extract_wikilinks_from_content(content)
-        .into_iter()
-        .map(compile_wikilink));
+    all_wikilinks.extend(
+        extract_wikilinks_from_content(content)
+            .into_iter()
+            .map(compile_wikilink),
+    );
 
     all_wikilinks
 }
@@ -406,21 +407,54 @@ text! ![[image2.jpg]] (exclamation before image)
         let compiled = compile_wikilink(wikilink);
 
         // Punctuation creates word boundaries
-        assert!(compiled.regex.is_match("(Ed)"), "Parentheses create word boundaries");
-        assert!(compiled.regex.is_match("[Ed]"), "Brackets create word boundaries");
-        assert!(compiled.regex.is_match(".Ed."), "Periods create word boundaries");
-        assert!(compiled.regex.is_match(",Ed,"), "Commas create word boundaries");
-        assert!(compiled.regex.is_match("Ed:"), "Colon creates word boundary");
-        assert!(compiled.regex.is_match("Ed: note"), "Colon creates word boundary");
+        assert!(
+            compiled.regex.is_match("(Ed)"),
+            "Parentheses create word boundaries"
+        );
+        assert!(
+            compiled.regex.is_match("[Ed]"),
+            "Brackets create word boundaries"
+        );
+        assert!(
+            compiled.regex.is_match(".Ed."),
+            "Periods create word boundaries"
+        );
+        assert!(
+            compiled.regex.is_match(",Ed,"),
+            "Commas create word boundaries"
+        );
+        assert!(
+            compiled.regex.is_match("Ed:"),
+            "Colon creates word boundary"
+        );
+        assert!(
+            compiled.regex.is_match("Ed: note"),
+            "Colon creates word boundary"
+        );
 
         // No word boundaries within words
-        assert!(!compiled.regex.is_match("Editor"), "Should not match within word");
-        assert!(!compiled.regex.is_match("fedEx"), "Should not match within word");
+        assert!(
+            !compiled.regex.is_match("Editor"),
+            "Should not match within word"
+        );
+        assert!(
+            !compiled.regex.is_match("fedEx"),
+            "Should not match within word"
+        );
 
         // Space + punctuation combinations
-        assert!(compiled.regex.is_match("Hello (Ed)"), "Space + parens works");
-        assert!(compiled.regex.is_match("Hello [Ed]"), "Space + brackets works");
-        assert!(compiled.regex.is_match("Hello Ed!"), "Space + exclamation works");
+        assert!(
+            compiled.regex.is_match("Hello (Ed)"),
+            "Space + parens works"
+        );
+        assert!(
+            compiled.regex.is_match("Hello [Ed]"),
+            "Space + brackets works"
+        );
+        assert!(
+            compiled.regex.is_match("Hello Ed!"),
+            "Space + exclamation works"
+        );
     }
 
     #[test]
@@ -433,12 +467,24 @@ text! ![[image2.jpg]] (exclamation before image)
         let compiled = compile_wikilink(wikilink);
 
         // Testing with straight apostrophe (U+0027)
-        assert!(compiled.regex.is_match("don't"), "Should match 't' after straight apostrophe");
-        assert!(compiled.regex.is_match("can't"), "Should match 't' in another contraction");
+        assert!(
+            compiled.regex.is_match("don't"),
+            "Should match 't' after straight apostrophe"
+        );
+        assert!(
+            compiled.regex.is_match("can't"),
+            "Should match 't' in another contraction"
+        );
 
         // Testing with curly apostrophe (U+2019)
-        assert!(compiled.regex.is_match("don\u{2019}t"), "Should match 't' after curly apostrophe");
-        assert!(compiled.regex.is_match("can\u{2019}t"), "Should match 't' in another contraction");
+        assert!(
+            compiled.regex.is_match("don\u{2019}t"),
+            "Should match 't' after curly apostrophe"
+        );
+        assert!(
+            compiled.regex.is_match("can\u{2019}t"),
+            "Should match 't' in another contraction"
+        );
 
         // Test that 'don' is also a separate word
         let don_wikilink = Wikilink {
@@ -448,7 +494,52 @@ text! ![[image2.jpg]] (exclamation before image)
         };
         let don_compiled = compile_wikilink(don_wikilink);
 
-        assert!(don_compiled.regex.is_match("don't"), "Should match 'don' before straight apostrophe");
-        assert!(don_compiled.regex.is_match("don\u{2019}t"), "Should match 'don' before curly apostrophe");
+        assert!(
+            don_compiled.regex.is_match("don't"),
+            "Should match 'don' before straight apostrophe"
+        );
+        assert!(
+            don_compiled.regex.is_match("don\u{2019}t"),
+            "Should match 'don' before curly apostrophe"
+        );
+    }
+
+    #[test]
+    fn test_markdown_links() {
+        let regex = MARKDOWN_REGEX.clone();
+
+        // External links
+        assert!(regex.is_match("[text](https://example.com)"));
+        assert!(regex.is_match("[link](http://test.com)"));
+
+        // Internal links
+        assert!(regex.is_match("[page](folder/page.md)"));
+        assert!(regex.is_match("[img](../images/test.png)"));
+
+        // Links with titles
+        assert!(regex.is_match("[text](path 'title')"));
+        assert!(regex.is_match("[text](path \"title\")"));
+
+        // Invalid links that should still be excluded
+        assert!(regex.is_match("[](path)"));
+        assert!(regex.is_match("[text]()"));
+        assert!(regex.is_match("[]()"));
+
+        // Non-matches
+        assert!(!regex.is_match("plain text"));
+        assert!(!regex.is_match("[[wikilink]]"));
+        assert!(!regex.is_match("![[imagelink]]"));
+        assert!(!regex.is_match("[incomplete"));
+    }
+
+    #[test]
+    fn test_markdown_link_extraction() {
+        let regex = MARKDOWN_REGEX.clone();
+        let text = "Here is [one](link1) and [two](link2) and normal text";
+
+        let links: Vec<_> = regex.find_iter(text).map(|m| m.as_str()).collect();
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0], "[one](link1)");
+        assert_eq!(links[1], "[two](link2)");
     }
 }

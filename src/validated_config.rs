@@ -45,12 +45,11 @@ impl ValidatedConfig {
         self.ignore_folders.as_deref()
     }
 
-     pub fn obsidian_path(&self) -> &Path {
+    pub fn obsidian_path(&self) -> &Path {
         &self.obsidian_path
     }
 
     pub fn output_folder(&self) -> &Path {
         &self.output_folder
     }
-
 }

@@ -27,7 +27,6 @@ pub struct ImageInfo {
     pub(crate) references: Vec<String>,
 }
 
-
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
@@ -282,10 +281,7 @@ fn scan_markdown_files(
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
     markdown_files.par_iter().for_each(|file_path| {
-        if let Ok((file_info, wikilinks)) = scan_markdown_file(
-            file_path,
-            &image_regex,
-        ) {
+        if let Ok((file_info, wikilinks)) = scan_markdown_file(file_path, &image_regex) {
             // Collect results with locking to avoid race conditions
             markdown_info
                 .lock()
@@ -472,11 +468,7 @@ Also linking to [[Alias One]] which is defined in frontmatter.
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
 
         // Scan the markdown file
-        let (_file_info, wikilinks) = scan_markdown_file(
-            &file_path,
-            &image_regex,
-        )
-        .unwrap();
+        let (_file_info, wikilinks) = scan_markdown_file(&file_path, &image_regex).unwrap();
 
         // Collect unique target-display pairs
         let wikilink_pairs: HashSet<(String, String)> = wikilinks
