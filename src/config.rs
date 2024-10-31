@@ -6,13 +6,14 @@ use serde::Deserialize;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use sha2::digest::typenum::private::Trim;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {
     apply_changes: Option<bool>,
     back_populate_file_count: Option<usize>,
     do_not_back_populate: Option<Vec<String>>,
-    ignore_folders: Option<Vec<String>>,
+    ignore_folders: Option<Vec<PathBuf>>,
     obsidian_path: String,
     output_folder: Option<String>,
 }
@@ -136,7 +137,8 @@ impl Config {
             } else {
                 let mut validated_folders = Vec::new();
                 for (index, folder) in folders.iter().enumerate() {
-                    if folder.trim().is_empty() {
+                    // Convert PathBuf to string and check if it's empty
+                    if folder.to_string_lossy().trim().is_empty() {
                         return Err(format!(
                             "ignore_folders: entry at index {} is empty or only contains whitespace",
                             index
@@ -144,7 +146,6 @@ impl Config {
                             .into());
                     }
                     let full_path = expanded_path.join(folder);
-                    // Note: We are not checking the existence of each ignore folder
                     validated_folders.push(full_path);
                 }
                 Some(validated_folders)

@@ -19,6 +19,8 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use itertools::Itertools;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Clone)]
@@ -48,10 +50,12 @@ impl MarkdownFileInfo {
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
-    pub all_wikilinks: HashSet<CompiledWikilink>, // New field for all unique wikilinks
     pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
+    pub wikilinks_ac: Option<AhoCorasick>,  // Add the new field
+    pub wikilinks_sorted: Vec<CompiledWikilink>, // New field for all unique wikilinks
+
 }
 
 pub fn scan_obsidian_folder(
@@ -248,7 +252,34 @@ fn scan_folders(
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
     let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files)?;
     obsidian_repository_info.markdown_files = markdown_info;
-    obsidian_repository_info.all_wikilinks = all_wikilinks;
+
+    // Convert HashSet to sorted Vec and store in repository info
+    // Use sorted_by to directly create the sorted vector
+    obsidian_repository_info.wikilinks_sorted = all_wikilinks
+        .into_iter()
+        .sorted_by(|a, b| {
+            b.wikilink
+                .display_text
+                .len()
+                .cmp(&a.wikilink.display_text.len())
+                .then_with(|| b.wikilink.target.len().cmp(&a.wikilink.target.len()))
+                .then_with(|| b.wikilink.display_text.cmp(&a.wikilink.display_text))
+        })
+        .collect();
+
+    // Build the AC pattern from sorted wikilinks
+    let patterns: Vec<&str> = obsidian_repository_info.wikilinks_sorted
+        .iter()
+        .map(|w| w.wikilink.display_text.as_str())
+        .collect();
+
+    obsidian_repository_info.wikilinks_ac = Some(
+        AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(&patterns)
+            .expect("Failed to build Aho-Corasick automaton for wikilinks")
+    );
 
     // Process image info
     obsidian_repository_info.image_map = get_image_info_map(
@@ -280,16 +311,22 @@ fn scan_markdown_files(
     let markdown_info = Arc::new(Mutex::new(HashMap::new()));
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
-    markdown_files.par_iter().for_each(|file_path| {
-        if let Ok((file_info, wikilinks)) = scan_markdown_file(file_path, &image_regex) {
-            // Collect results with locking to avoid race conditions
-            markdown_info
-                .lock()
-                .unwrap()
-                .insert(file_path.clone(), file_info);
-            all_wikilinks.lock().unwrap().extend(wikilinks);
+    markdown_files.par_iter().try_for_each(|file_path| {
+        match scan_markdown_file(file_path, &image_regex) {
+            Ok((file_info, wikilinks)) => {
+                markdown_info
+                    .lock()
+                    .unwrap()
+                    .insert(file_path.clone(), file_info);
+                all_wikilinks.lock().unwrap().extend(wikilinks);
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("Error processing file {:?}: {}", file_path, e);
+                Err(e)
+            }
         }
-    });
+    })?;
 
     // Extract data from Arc<Mutex<...>>
     let markdown_info = Arc::try_unwrap(markdown_info)
@@ -337,7 +374,17 @@ fn scan_markdown_file(
         .unwrap_or_default();
 
     // Collect wikilinks but return them separately
-    let wikilinks = wikilink::collect_all_wikilinks(&content, &file_info.frontmatter, filename);
+    // Collect wikilinks with file path context
+    let wikilinks = wikilink::collect_all_wikilinks(
+        &content,
+        &file_info.frontmatter,
+        filename,
+        Some(file_path.as_path()),
+    )
+    .map_err(|e| {
+        eprintln!("Error processing wikilinks: {}", e);
+        Box::new(e) as Box<dyn Error + Send + Sync>
+    })?;
 
     let reader = BufReader::new(content.as_bytes());
 

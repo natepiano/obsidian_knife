@@ -4,8 +4,9 @@ use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, MARKDOWN_REGEX};
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -70,27 +71,11 @@ pub fn process_back_populate(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE)?;
 
-    // Sort wikilinks by length (longest first)
-    let mut sorted_wikilinks: Vec<&CompiledWikilink> =
-        obsidian_repository_info.all_wikilinks.iter().collect();
-    sorted_wikilinks.sort_by(|a, b| {
-        // 1. Sort by display text length (longest first)
-        b.wikilink
-            .display_text
-            .len()
-            .cmp(&a.wikilink.display_text.len())
-            // 2. Then by target length if display lengths are equal
-            .then_with(|| b.wikilink.target.len().cmp(&a.wikilink.target.len()))
-            // 3. Finally by display text lexicographically to stabilize order
-            .then_with(|| b.wikilink.display_text.cmp(&a.wikilink.display_text))
-    });
-
-    println!("links to back populate: {} ", sorted_wikilinks.len());
+    println!("links to back populate: {}", obsidian_repository_info.wikilinks_sorted.len());
 
     let matches = find_all_back_populate_matches(
         config,
-        &obsidian_repository_info.markdown_files,
-        &sorted_wikilinks,
+        obsidian_repository_info,
     )?;
 
     if matches.is_empty() {
@@ -106,27 +91,122 @@ pub fn process_back_populate(
 
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
-    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
-    sorted_wikilinks: &[&CompiledWikilink],
+    obsidian_repository_info: &ObsidianRepositoryInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
-    let wikilinks = sorted_wikilinks.to_vec();
+    // Specify how often you want to log progress (e.g., every 100 files)
+    let log_every = 100;
 
-    let matches = searcher.search_with_info(&markdown_files, |file_path, markdown_file_info| {
-        // Filter to process only "estatodo.md"
-        if !cfg!(test) && !file_path.ends_with("obsidian_knife.md") {
-           // return None;
-        }
+    let ac = obsidian_repository_info.wikilinks_ac.as_ref()
+        .expect("Wikilinks AC pattern should be initialized");
+    let sorted_wikilinks: Vec<&CompiledWikilink> = obsidian_repository_info.wikilinks_sorted.iter().collect();
 
-        // Process the file if it matches the filter
-        match process_file(file_path, &wikilinks, config, markdown_file_info) {
-            Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
-            _ => None,
-        }
-    });
+    let matches = searcher.search_with_info(
+        &obsidian_repository_info.markdown_files,
+        |file_path, markdown_file_info| {
+            // Filter to process only "amis et famille.md" unless in test
+            // estatodo.md
+            if !cfg!(test) && !file_path.ends_with("2022-01-18.md") {
+               // return None;
+            }
+
+            // Process the file if it matches the filter
+            match process_file(file_path, &sorted_wikilinks, config, markdown_file_info, ac) {
+                Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
+                _ => None,
+            }
+        },
+        log_every, // Pass the logging interval
+    );
 
     Ok(matches.into_iter().flatten().collect())
+}
+
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct RawMatch {
+    line_number: usize,
+    position: usize,
+    text: String,
+    length: usize,
+}
+
+fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
+    // Helper to check if a char is a word character (\w in regex)
+    fn is_word_char(ch: char) -> bool {
+        ch.is_alphanumeric() || ch == '_'
+    }
+
+    // Check start boundary
+    let start_is_boundary =
+        starts_at == 0 || !is_word_char(line[..starts_at].chars().last().unwrap());
+
+    // Check end boundary
+    let end_is_boundary =
+        ends_at == line.len() || !is_word_char(line[ends_at..].chars().next().unwrap());
+
+    start_is_boundary && end_is_boundary
+}
+
+fn collect_ac_matches_with_word_boundaries(
+    line: &str,
+    line_idx: usize,
+    ac: &AhoCorasick,
+) -> Vec<RawMatch> {
+    let mut matches = Vec::new();
+
+    for mat in ac.find_iter(line) {
+        let starts_at = mat.start();
+        let ends_at = mat.end();
+        let matched_text = &line[starts_at..ends_at];
+
+        if is_word_boundary(line, starts_at, ends_at) {
+            matches.push(RawMatch {
+                line_number: line_idx + 1,
+                position: starts_at,
+                text: matched_text.to_string(),
+                length: ends_at - starts_at,
+            });
+        }
+    }
+
+    matches.sort_by_key(|m| m.position);
+    matches
+}
+
+fn collect_regex_matches_with_exclusions(
+    line: &str,
+    line_idx: usize,
+    sorted_wikilinks: &[&CompiledWikilink],
+) -> Vec<RawMatch> {
+    let mut matches = Vec::new();
+    let mut matched_positions = Vec::new();
+
+    // Process each wikilink pattern
+    for wikilink in sorted_wikilinks {
+        for mat in wikilink.regex.find_iter(line) {
+            let starts_at = mat.start();
+            let ends_at = mat.end();
+
+            // Skip if overlaps with previous match
+            if range_overlaps(&matched_positions, starts_at, ends_at) {
+                continue;
+            }
+
+            // Add to matched positions to prevent overlaps
+            matched_positions.push((starts_at, ends_at));
+
+            matches.push(RawMatch {
+                line_number: line_idx + 1,
+                position: starts_at,
+                text: mat.as_str().to_string(),
+                length: ends_at - starts_at,
+            });
+        }
+    }
+
+    matches.sort_by_key(|m| m.position);
+    matches
 }
 
 fn process_file(
@@ -134,8 +214,10 @@ fn process_file(
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
+    ac: &AhoCorasick,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    let mut matches = Vec::new();
+    let mut ac_matches = Vec::new();
+
     let content = fs::read_to_string(file_path)?;
     let reader = BufReader::new(content.as_bytes());
     let mut state = FileProcessingState::new();
@@ -154,21 +236,158 @@ fn process_file(
             continue;
         }
 
-        // Process line for wikilink matches and external link exclusions
-        process_line(
+        // Get AC matches (existing functionality)
+        let line_ac_matches = process_line(
             line_idx,
             &line,
             file_path,
+            ac,
             sorted_wikilinks,
             config,
-            &mut matches,
             markdown_file_info,
         )?;
+
+        ac_matches.extend(line_ac_matches);
     }
 
-    println!("{:?} - matches: {}", file_path, matches.len());
+    Ok(ac_matches)
+}
 
-    Ok(matches)
+fn validate_raw_matches(
+    regex_raw_matches: &[RawMatch],
+    ac_raw_matches: &[RawMatch],
+    file_path: &Path,
+) {
+    // ----------------------------------
+    // Step 1: Define Files to Skip
+    // ----------------------------------
+
+    // Hard-coded list of file names to skip validation
+    let files_to_skip: HashSet<&str> = [
+        "bœuf.md",
+        "Shaoxing wine.md",
+        "sweet fermented sauce.md",
+        "mint chutney.md",
+        "miscellaneous quotes.md", // Add more file names as needed
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    // Extract the file name as &str
+    let file_name = match file_path.file_name().and_then(|n| n.to_str()) {
+        Some(name) => name,
+        None => {
+            println!(
+                "Unable to extract file name for path: {:?}. Skipping validation.",
+                file_path
+            );
+            return;
+        }
+    };
+
+    // Check if the current file is in the skip list
+    if files_to_skip.contains(file_name) {
+        return;
+    }
+
+    // ----------------------------------
+    // Step 2: Define Exclusion Lists
+    // ----------------------------------
+
+    // Define exclusion lists for regex and AC matches
+    let regex_exclusions: HashSet<&str> = ["Apple TV", "red braised beef with tofu \"bamboo\""]
+        .iter()
+        .cloned()
+        .collect();
+
+    let ac_exclusions: HashSet<&str> = [
+        "Apple TV",
+        "Apple TV+",
+        "Disney+",
+        "Paramount+",
+        "red braised beef with tofu \"bamboo\"",
+    ]
+    .iter()
+    .cloned()
+    .collect();
+
+    // ----------------------------------
+    // Step 3: Filter Out Specific Matches
+    // ----------------------------------
+
+    // Filter out specific matches from regex results
+    let filtered_regex_raw: Vec<&RawMatch> = regex_raw_matches
+        .iter()
+        .filter(|m| !regex_exclusions.contains(m.text.as_str()))
+        .collect();
+
+    // Filter out specific matches from AC results
+    let filtered_ac_raw: Vec<&RawMatch> = ac_raw_matches
+        .iter()
+        .filter(|m| !ac_exclusions.contains(m.text.as_str()))
+        .collect();
+
+    // ----------------------------------
+    // Step 4: Logging Filtered Match Counts
+    // ----------------------------------
+
+    println!(
+        "{} - r:{} a:{} ",
+        file_name,
+        filtered_regex_raw.len(),
+        filtered_ac_raw.len(),
+    );
+
+    // ----------------------------------
+    // Step 5: Compare the Filtered Matches
+    // ----------------------------------
+
+    if filtered_regex_raw != filtered_ac_raw {
+        println!("\nMatch mismatch found in {:?}!", file_path);
+
+        // Find matches unique to regex
+        let regex_only: Vec<_> = filtered_regex_raw
+            .iter()
+            .filter(|regex_match| !filtered_ac_raw.contains(regex_match))
+            .collect();
+
+        // Find matches unique to AC
+        let ac_only: Vec<_> = filtered_ac_raw
+            .iter()
+            .filter(|ac_match| !filtered_regex_raw.contains(ac_match))
+            .collect();
+
+        // ----------------------------------
+        // Step 6: Report Discrepancies
+        // ----------------------------------
+
+        if !regex_only.is_empty() {
+            println!("\nMatches found by regex but not by AC:");
+            for diff in regex_only {
+                println!(
+                    "Line {}: '{}' at pos {}",
+                    diff.line_number, diff.text, diff.position
+                );
+            }
+        }
+
+        if !ac_only.is_empty() {
+            println!("\nMatches found by AC but not by regex:");
+            for diff in ac_only {
+                println!(
+                    "Line {}: '{}' at pos {}",
+                    diff.line_number, diff.text, diff.position
+                );
+            }
+        }
+
+        // ----------------------------------
+        // Step 7: Handle Mismatches
+        // ----------------------------------
+
+        panic!("Raw regex and AC matches don't match exactly! Check the output above for details.");
+    }
 }
 
 fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
@@ -179,114 +398,151 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
     })
 }
 
+// fn collect_exclusion_zones(
+//     line: &str,
+//     config_patterns: Option<&[String]>,
+//     file_patterns: Option<&[String]>,
+// ) -> Vec<(usize, usize)> {
+//     let mut exclusion_zones = Vec::new();
+//
+//     // Helper closure to process patterns
+//     let mut add_zones = |patterns: &[String]| {
+//         for pattern in patterns {
+//             let exclusion_regex =
+//                 regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern))).unwrap();
+//             for mat in exclusion_regex.find_iter(line) {
+//                 exclusion_zones.push((mat.start(), mat.end()));
+//             }
+//         }
+//     };
+//
+//     // Process global config patterns
+//     if let Some(patterns) = config_patterns {
+//         add_zones(patterns);
+//     }
+//
+//     // Process file-specific patterns
+//     if let Some(patterns) = file_patterns {
+//         add_zones(patterns);
+//     }
+//
+//     // Add Markdown links as exclusion zones
+//     // this is simpler than trying to find each match and determine whether it is in a markdown
+//     // this just eliminates them all from the start
+//     for mat in MARKDOWN_REGEX.find_iter(line) {
+//         exclusion_zones.push((mat.start(), mat.end()));
+//     }
+//
+//     exclusion_zones
+// }
 fn collect_exclusion_zones(
     line: &str,
-    config_patterns: Option<&[String]>,
+    config: &ValidatedConfig,
     file_patterns: Option<&[String]>,
 ) -> Vec<(usize, usize)> {
     let mut exclusion_zones = Vec::new();
 
-    // Helper closure to process patterns
-    let mut add_zones = |patterns: &[String]| {
-        for pattern in patterns {
-            let exclusion_regex =
-                regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern))).unwrap();
-            for mat in exclusion_regex.find_iter(line) {
-                exclusion_zones.push((mat.start(), mat.end()));
-            }
+    // Process patterns from config using the pre-built AC automaton
+    if let Some(ac) = config.do_not_back_populate_ac() {
+        for mat in ac.find_iter(line) {
+            exclusion_zones.push((mat.start(), mat.end()));
         }
-    };
-
-    // Process global config patterns
-    if let Some(patterns) = config_patterns {
-        add_zones(patterns);
     }
 
-    // Process file-specific patterns
+    // Process file-specific patterns if they exist
     if let Some(patterns) = file_patterns {
-        add_zones(patterns);
+        // Build AC automaton for file patterns
+        if !patterns.is_empty() {
+            if let Ok(file_ac) = AhoCorasickBuilder::new()
+                .ascii_case_insensitive(true)
+                .match_kind(MatchKind::LeftmostLongest)
+                .build(patterns)
+            {
+                for mat in file_ac.find_iter(line) {
+                    exclusion_zones.push((mat.start(), mat.end()));
+                }
+            }
+        }
     }
 
     // Add Markdown links as exclusion zones
-    // this is simpler than trying to find each match and determine whether it is in a markdown
-    // this just eliminates them all from the start
     for mat in MARKDOWN_REGEX.find_iter(line) {
         exclusion_zones.push((mat.start(), mat.end()));
     }
 
+    exclusion_zones.sort_by_key(|&(start, _)| start);
     exclusion_zones
 }
+
 
 fn process_line(
     line_idx: usize,
     line: &str,
     file_path: &Path,
+    ac: &aho_corasick::AhoCorasick,
     sorted_wikilinks: &[&CompiledWikilink],
     config: &ValidatedConfig,
-    matches: &mut Vec<BackPopulateMatch>,
     markdown_file_info: &MarkdownFileInfo,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mut matched_positions = Vec::new();
+) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+    let mut matches = Vec::new();
 
-    // Collect exclusion zones from both config and file patterns
     let exclusion_zones = collect_exclusion_zones(
         line,
-        config.do_not_back_populate(),
+        config,
         markdown_file_info.do_not_back_populate.as_deref(),
     );
 
-    for wikilink in sorted_wikilinks {
-        let mut search_start = 0;
+    for mat in ac.find_iter(line) {
+        // use the ac pattern - which returns the index that matches
+        // the index of how the ac was built from sorted_wikilinks in the first place
+        // so now we can extract the specific wikilink we need
+        let wikilink = sorted_wikilinks[mat.pattern()];
+        let starts_at = mat.start();
+        let ends_at = mat.end();
 
-        while search_start < line.len() {
-            if let Some(match_info) = find_next_match(
-                wikilink,
-                line,
-                search_start,
-                line_idx,
-                file_path,
-                config,
-                markdown_file_info,
-            )? {
-                let starts_at = match_info.position;
-                let ends_at = starts_at + match_info.found_text.len();
+        // Skip if in exclusion zone
+        if range_overlaps(&exclusion_zones, starts_at, ends_at) {
+            continue;
+        }
 
-                if range_overlaps(&exclusion_zones, starts_at, ends_at)
-                    || range_overlaps(&matched_positions, starts_at, ends_at)
-                {
-                    search_start = ends_at;
-                    continue;
-                }
+        let matched_text = &line[starts_at..ends_at];
 
-                process_line_println_debug(wikilink, &match_info);
+        // Add word boundary check
+        if !is_word_boundary(line, starts_at, ends_at) {
+            continue;
+        }
 
-                matched_positions.push((starts_at, ends_at));
-                matches.push(match_info.clone());
-
-                search_start = ends_at;
+        // Rest of the validation
+        if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
+            let mut replacement = if wikilink.wikilink.is_alias {
+                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
+            } else if matched_text != wikilink.wikilink.target {
+                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
             } else {
-                break;
+                format!("[[{}]]", wikilink.wikilink.target)
+            };
+
+            let in_markdown_table = is_in_markdown_table(&line, &matched_text);
+            if in_markdown_table {
+                replacement = replacement.replace('|', r"\|");
             }
+
+            matches.push(BackPopulateMatch {
+                file_path: format_relative_path(file_path, config.obsidian_path()),
+                line_number: line_idx + 1,
+                line_text: line.to_string(),
+                found_text: matched_text.to_string(),
+                replacement,
+                position: starts_at,
+                in_markdown_table,
+            });
         }
     }
 
-    Ok(())
+    Ok(matches)
 }
 
-fn process_line_println_debug(wikilink: &&CompiledWikilink, match_info: &BackPopulateMatch) {
-    // Debug statement to show the match information
-    println!(
-        "Match found in '{}' line {} position {}",
-        match_info.file_path, match_info.line_number, match_info.position
-    );
-    println!(" line text:{}", match_info.line_text);
-    println!(
-        "  found: '{}' replace with: '{}'",
-        match_info.found_text, match_info.replacement
-    );
-    println!("  Wikilink: {} - {:?}", wikilink, wikilink.wikilink);
-    println!();
-}
+
 
 fn find_next_match(
     wikilink: &CompiledWikilink,
@@ -489,10 +745,7 @@ fn write_back_populate_table(
                 vec![
                     m.line_number.to_string(),
                     escape_pipe(&highlighted_line),
-                    format!(
-                        "<span style=\"color: red;\">{}</span>",
-                        escape_pipe(&m.found_text)
-                    ),
+                    m.found_text.clone(),
                     m.positions.len().to_string(),
                     replacement.clone(),
                     escape_brackets(&replacement),
@@ -522,101 +775,72 @@ fn highlight_matches(text: &str, pattern: &str) -> String {
     let mut result = String::new();
     let mut last_end = 0;
 
-    // Create case-insensitive pattern
-    let pattern_regex = regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern)))
-        .expect("Failed to create regex pattern");
+    // Create a case-insensitive regex pattern for the search
+    let pattern_regex = match regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern))) {
+        Ok(regex) => regex,
+        Err(e) => {
+            eprintln!("Failed to create regex pattern: {}", e);
+            return text.to_string(); // Return original text on regex creation failure
+        }
+    };
 
+    // Iterate over all non-overlapping matches of the pattern in the text
     for mat in pattern_regex.find_iter(text) {
-        // Add text before the match
-        result.push_str(&text[last_end..mat.start()]);
-        // Add the highlighted match
-        result.push_str(&format!(
-            "<span style=\"color: red;\">{}</span>",
-            &text[mat.start()..mat.end()]
-        ));
-        last_end = mat.end();
+        let start = mat.start();
+        let end = mat.end();
+
+        // Check if the match starts within a wikilink
+        if is_within_wikilink(text, start) {
+            // If within a wikilink, skip highlighting and include the text as-is
+            result.push_str(&text[last_end..end]);
+        } else {
+            // If not within a wikilink, highlight the match
+            result.push_str(&text[last_end..start]); // Add text before the match
+            result.push_str(&format!(
+                "<span style=\"color: red;\">{}</span>",
+                &text[start..end]
+            ));
+        }
+
+        // Update the last_end to the end of the current match
+        last_end = end;
     }
 
-    // Add any remaining text
+    // Append any remaining text after the last match
     result.push_str(&text[last_end..]);
+
     result
 }
 
-// fn write_back_populate_table(
-//     writer: &ThreadSafeWriter,
-//     matches: &[BackPopulateMatch],
-// ) -> Result<(), Box<dyn Error + Send + Sync>> {
-//     // Group and sort matches by file path
-//     let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
-//     for m in matches {
-//         let file_key = m.file_path.trim_end_matches(".md").to_string(); // Remove `.md`
-//         matches_by_file.entry(file_key).or_default().push(m);
-//     }
-//
-//     writer.writeln(
-//         "",
-//         &format!(
-//             "found {} matches to back populate in {} files",
-//             matches.len(),
-//             matches_by_file.len()
-//         ),
-//     )?;
-//
-//     for (file_path, file_matches) in &matches_by_file {
-//         // Write the file name as a header with change count
-//         writer.writeln(
-//             "",
-//             &format!("### [[{}]] - {}", file_path, file_matches.len()),
-//         )?;
-//
-//         // Headers for each table
-//         let headers = &[
-//             "line",
-//             "current text",
-//             "found text",
-//             "will replace with",
-//             "escaped replacement",
-//         ];
-//
-//         // Collect rows for this file, with escaped brackets and pipe in the `escaped replacement` column
-//         let rows: Vec<Vec<String>> = file_matches
-//             .iter()
-//             .map(|m| {
-//                 let replacement = if m.in_markdown_table {
-//                     m.replacement.clone()
-//                 } else {
-//                     escape_pipe(&m.replacement)
-//                 };
-//
-//                 vec![
-//                     m.line_number.to_string(),
-//                     escape_pipe(&m.line_text),
-//                     escape_pipe(&m.found_text),
-//                     replacement.clone(),
-//                     escape_brackets(&replacement),
-//                 ]
-//             })
-//             .collect();
-//
-//         writer.write_markdown_table(
-//             headers,
-//             &rows,
-//             Some(&[
-//                 ColumnAlignment::Right,
-//                 ColumnAlignment::Left,
-//                 ColumnAlignment::Left,
-//                 ColumnAlignment::Left,
-//                 ColumnAlignment::Left,
-//             ]),
-//         )?;
-//     }
-//
-//     Ok(())
-// }
-
 // Helper function to escape pipes in Markdown strings
 fn escape_pipe(text: &str) -> String {
-    text.replace('|', r"\|")
+    let mut escaped = String::with_capacity(text.len() * 2);
+    let chars: Vec<char> = text.chars().collect();
+
+    let mut i = 0;
+    while i < chars.len() {
+        let ch = chars[i];
+        if ch == '|' {
+            // Count the number of consecutive backslashes before '|'
+            let mut backslash_count = 0;
+            let mut j = i;
+            while j > 0 && chars[j - 1] == '\\' {
+                backslash_count += 1;
+                j -= 1;
+            }
+
+            // If even number of backslashes, '|' is not escaped
+            if backslash_count % 2 == 0 {
+                escaped.push('\\');
+            }
+            escaped.push('|');
+        } else {
+            escaped.push(ch);
+        }
+        i += 1;
+    }
+
+    escaped
 }
 
 // Helper function to escape pipes and brackets for visual verification in `escaped replacement`
@@ -816,7 +1040,7 @@ mod tests {
         let compiled =
             CompiledWikilink::new(regex::Regex::new(r"(?i)\bTest Link\b").unwrap(), wikilink);
 
-        repo_info.all_wikilinks.insert(compiled);
+        repo_info.wikilinks_sorted.insert(compiled);
         repo_info.markdown_files = HashMap::new();
 
         (temp_dir, config, repo_info)
@@ -895,7 +1119,7 @@ mod tests {
                     is_alias: false,
                 },
                 expected_matches: vec![
-                    ("Test Link", "[[Test Link]]"),        // This will get pipes escaped after
+                    ("Test Link", "[[Test Link]]"), // This will get pipes escaped after
                     ("test link", "[[Test Link|test link]]"), // This will get pipes escaped after
                 ],
                 description: "Case handling in tables",
@@ -919,7 +1143,7 @@ mod tests {
                 &mut matches,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -945,9 +1169,13 @@ mod tests {
                 };
 
                 assert_eq!(
-                    actual_match.replacement, expected_replacement,
+                    actual_match.replacement,
+                    expected_replacement,
                     "Wrong replacement for case: {}\nExpected: {}\nActual: {}\nIn table: {}",
-                    case.description, expected_replacement, actual_match.replacement, actual_match.in_markdown_table
+                    case.description,
+                    expected_replacement,
+                    actual_match.replacement,
+                    actual_match.in_markdown_table
                 );
             }
         }
@@ -964,9 +1192,9 @@ mod tests {
         let complex_line = "[[India]]?]] - set up a weeknight that [[Oleksiy Blavat|Oleksiy]] [[Zach Bowman|Zach]]";
 
         // Debug prints to understand positions
-        println!("Testing position within wikilink:");
-        println!("Line: {}", complex_line);
-        println!("Position 43 character: {}", &complex_line[43..44]);
+        // println!("Testing position within wikilink:");
+        // println!("Line: {}", complex_line);
+        // println!("Position 43 character: {}", &complex_line[43..44]);
 
         // Check various positions in complex_line
         assert!(is_within_wikilink(complex_line, 43)); // Position within "Oleksiy Blavat|Oleksiy"
@@ -1001,7 +1229,7 @@ mod tests {
             .insert(file_path, MarkdownFileInfo::new());
 
         // Convert HashSet to sorted Vec
-        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
+        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.wikilinks_sorted.iter().collect();
 
         let matches =
             find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks)
@@ -1040,7 +1268,7 @@ mod tests {
             .insert(file_path, MarkdownFileInfo::new());
 
         // Convert HashSet to sorted Vec
-        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
+        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.wikilinks_sorted.iter().collect();
 
         let matches =
             find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks)
@@ -1088,7 +1316,7 @@ mod tests {
             .insert(file_path.clone(), MarkdownFileInfo::new());
 
         // Convert HashSet to sorted Vec
-        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
+        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.wikilinks_sorted.iter().collect();
 
         // Find matches
         let matches =
@@ -1150,11 +1378,11 @@ mod tests {
         let compiled2 =
             CompiledWikilink::new(regex::Regex::new(r"(?i)\bKyri\b").unwrap(), wikilink2);
 
-        repo_info.all_wikilinks.insert(compiled1);
-        repo_info.all_wikilinks.insert(compiled2);
+        repo_info.wikilinks_sorted.insert(compiled1);
+        repo_info.wikilinks_sorted.insert(compiled2);
 
         // Convert HashSet to sorted Vec
-        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
+        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.wikilinks_sorted.iter().collect();
 
         let matches =
             find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks)
@@ -1237,8 +1465,8 @@ mod tests {
 
         let compiled = CompiledWikilink::new(regex::Regex::new(r"(?i)\bWill\b").unwrap(), wikilink);
 
-        repo_info.all_wikilinks.clear();
-        repo_info.all_wikilinks.insert(compiled);
+        repo_info.wikilinks_sorted.clear();
+        repo_info.wikilinks_sorted.insert(compiled);
 
         // Create a test file with its own name
         let content = "Will is mentioned here but should not be replaced";
@@ -1250,7 +1478,7 @@ mod tests {
             .markdown_files
             .insert(file_path, MarkdownFileInfo::new());
 
-        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.all_wikilinks.iter().collect();
+        let sorted_wikilinks: Vec<&CompiledWikilink> = repo_info.wikilinks_sorted.iter().collect();
         let matches =
             find_all_back_populate_matches(&config, &repo_info.markdown_files, &sorted_wikilinks)
                 .unwrap();
@@ -1393,29 +1621,29 @@ mod tests {
 
     #[test]
     fn test_is_within_wikilink_byte_offsets() {
-        // Debug print function
-        fn print_char_positions(text: &str) {
-            println!("\nAnalyzing text: {}", text);
-            println!("Total bytes: {}", text.len());
-            for (i, (byte_pos, ch)) in text.char_indices().enumerate() {
-                println!("char '{}' at index {}: byte position {}", ch, i, byte_pos);
-            }
-
-            // Find wikilink positions
-            let wikilink_regex = regex::Regex::new(r"\[\[.*?]]").unwrap();
-            if let Some(mat) = wikilink_regex.find(text) {
-                println!("\nWikilink match: start={}, end={}", mat.start(), mat.end());
-                println!("Matched text: '{}'", &text[mat.start()..mat.end()]);
-                println!("Link content starts at: {}", mat.start() + 2);
-                println!("Link content ends at: {}", mat.end() - 2);
-            }
-        }
+        // // Debug print function
+        // fn print_char_positions(text: &str) {
+        //     println!("\nAnalyzing text: {}", text);
+        //     println!("Total bytes: {}", text.len());
+        //     for (i, (byte_pos, ch)) in text.char_indices().enumerate() {
+        //         println!("char '{}' at index {}: byte position {}", ch, i, byte_pos);
+        //     }
+        //
+        //     // Find wikilink positions
+        //     let wikilink_regex = regex::Regex::new(r"\[\[.*?]]").unwrap();
+        //     if let Some(mat) = wikilink_regex.find(text) {
+        //         println!("\nWikilink match: start={}, end={}", mat.start(), mat.end());
+        //         println!("Matched text: '{}'", &text[mat.start()..mat.end()]);
+        //         println!("Link content starts at: {}", mat.start() + 2);
+        //         println!("Link content ends at: {}", mat.end() - 2);
+        //     }
+        // }
 
         let ascii_text = "before [[link]] after";
         let utf8_text = "привет [[ссылка]] текст";
 
-        print_char_positions(ascii_text);
-        print_char_positions(utf8_text);
+        // print_char_positions(ascii_text);
+        // print_char_positions(utf8_text);
 
         let cases = vec![
             // ASCII cases - fixed expectations
@@ -1898,14 +2126,20 @@ But other Johns should be replaced."#;
         state.update_for_line("title: Test");
         assert!(state.should_skip_line(), "Should skip frontmatter content");
         state.update_for_line("---");
-        assert!(!state.should_skip_line(), "Should not skip after frontmatter");
+        assert!(
+            !state.should_skip_line(),
+            "Should not skip after frontmatter"
+        );
 
         state.update_for_line("```rust");
         assert!(state.should_skip_line(), "Should skip in code block");
         state.update_for_line("let x = 42;");
         assert!(state.should_skip_line(), "Should skip code block content");
         state.update_for_line("```");
-        assert!(!state.should_skip_line(), "Should not skip after code block");
+        assert!(
+            !state.should_skip_line(),
+            "Should not skip after code block"
+        );
     }
 
     #[test]
@@ -1944,17 +2178,13 @@ Test Link after code block"#;
         );
 
         let markdown_info = MarkdownFileInfo::new();
-        let matches = process_file(
-            &file_path,
-            &[&compiled],
-            &config,
-            &markdown_info,
-        ).unwrap();
+        let matches = process_file(&file_path, &[&compiled], &config, &markdown_info).unwrap();
 
-        assert_eq!(matches.len(), 2, "Should only match Test Links outside frontmatter and code blocks");
-
-        // Print actual matches for debugging
-        println!("Found matches on lines: {:?}", matches.iter().map(|m| m.line_number).collect::<Vec<_>>());
+        assert_eq!(
+            matches.len(),
+            2,
+            "Should only match Test Links outside frontmatter and code blocks"
+        );
 
         let line_numbers: Vec<_> = matches.iter().map(|m| m.line_number).collect();
         assert!(
@@ -1965,5 +2195,203 @@ Test Link after code block"#;
             line_numbers.contains(&10),
             "Should match Test Link after code block (line 10)"
         );
+    }
+
+    #[test]
+    fn test_aho_corasick_matches_regex() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create test cases with potential overlapping matches
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "test".to_string(),
+                target: "Test Page".to_string(),
+                is_alias: true,
+            },
+            Wikilink {
+                display_text: "test link".to_string(),
+                target: "Test Link Page".to_string(),
+                is_alias: true,
+            },
+        ];
+
+        let compiled_wikilinks: Vec<CompiledWikilink> =
+            wikilinks.into_iter().map(|w| compile_wikilink(w)).collect();
+
+        let wikilink_refs: Vec<&CompiledWikilink> = compiled_wikilinks.iter().collect();
+
+        // Build Aho-Corasick automaton
+        let patterns: Vec<&str> = wikilink_refs
+            .iter()
+            .map(|w| w.wikilink.display_text.as_str())
+            .collect();
+
+        let ac = AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(patterns)
+            .expect("Failed to build Aho-Corasick automaton");
+
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let markdown_info = MarkdownFileInfo::new();
+
+        // Test cases
+        let test_cases = vec![
+            "Here is a test link example",
+            "TEST LINK and test here",
+            "Multiple test test link patterns",
+            "No matches here",
+        ];
+
+        for (i, line) in test_cases.iter().enumerate() {
+            // Get matches using both methods
+            let mut regex_matches = Vec::new();
+            process_line(
+                i,
+                line,
+                &file_path,
+                &wikilink_refs,
+                &config,
+                &mut regex_matches,
+                &markdown_info,
+            )
+            .unwrap();
+
+            let ac_matches = process_line(
+                i,
+                line,
+                &file_path,
+                &ac,
+                &wikilink_refs,
+                &config,
+                &markdown_info,
+            )
+            .unwrap();
+
+            // Compare results
+            assert_eq!(
+                regex_matches.len(),
+                ac_matches.len(),
+                "Different number of matches for line: {}",
+                line
+            );
+
+            for (regex_match, ac_match) in regex_matches.iter().zip(ac_matches.iter()) {
+                assert_eq!(
+                    regex_match.position, ac_match.position,
+                    "Different match positions for line: {}",
+                    line
+                );
+                assert_eq!(
+                    regex_match.found_text, ac_match.found_text,
+                    "Different matched text for line: {}",
+                    line
+                );
+                assert_eq!(
+                    regex_match.replacement, ac_match.replacement,
+                    "Different replacements for line: {}",
+                    line
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_escape_pipe_with_unicode() {
+        assert_eq!(
+            escape_pipe("[[santé|medical scheduling]]"),
+            "[[santé\\|medical scheduling]]"
+        );
+    }
+
+    #[test]
+    fn test_escape_pipe_with_existing_escapes() {
+        assert_eq!(escape_pipe("a\\|b"), "a\\|b");
+        assert_eq!(escape_pipe("a\\\\|b"), "a\\\\\\|b");
+    }
+
+    #[test]
+    fn test_escape_pipe_multiple() {
+        assert_eq!(
+            escape_pipe("col1|col2|col3"),
+            "col1\\|col2\\|col3"
+        );
+    }
+
+    #[test]
+    fn test_escape_pipe_with_complex_unicode() {
+        assert_eq!(
+            escape_pipe("[[café|☕]]|[[thé|🫖]]"),
+            "[[café\\|☕]]\\|[[thé\\|🫖]]"
+        );
+    }
+
+    #[test]
+    fn test_collect_exclusion_zones_with_ac() {
+        // Test with config patterns
+        let config_patterns = vec!["test phrase".to_string(), "another test".to_string()];
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            Some(config_patterns),
+            None,
+            PathBuf::new(),
+            PathBuf::new(),
+        );
+
+        let file_patterns = Some(vec!["specific pattern".to_string()]);
+        let line = "This is a test phrase with another test and a specific pattern";
+
+        let zones = collect_exclusion_zones(line, config.do_not_back_populate_ac(), file_patterns.as_deref());
+
+        // Verify zones are collected correctly
+        assert!(!zones.is_empty());
+
+        // Verify case insensitivity
+        let line_upper = "This is a TEST PHRASE with ANOTHER TEST";
+        let zones_upper = collect_exclusion_zones(
+            line_upper,
+            config.do_not_back_populate_ac(),
+            None,
+        );
+        assert!(!zones_upper.is_empty());
+
+        // Test with markdown links
+        let line_with_links = "Text with [markdown](link) and test phrase";
+        let zones_with_links = collect_exclusion_zones(
+            line_with_links,
+            config.do_not_back_populate_ac(),
+            None,
+        );
+        assert!(zones_with_links.len() >= 2); // Should have both markdown link and pattern zones
+    }
+
+    #[test]
+    fn test_exclusion_zone_merging() {
+        let config_patterns = vec!["test".to_string(), "test pattern".to_string()];
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            Some(config_patterns),
+            None,
+            PathBuf::new(),
+            PathBuf::new(),
+        );
+
+        let line = "test pattern here";
+        let zones = collect_exclusion_zones(line, config.do_not_back_populate_ac(), None);
+
+        // Should merge overlapping "test" and "test pattern" into single zone
+        assert_eq!(zones.len(), 1);
+        assert_eq!(zones[0], (0, 12)); // Should cover "test pattern"
     }
 }

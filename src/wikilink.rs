@@ -3,6 +3,7 @@ use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+use std::error::Error;
 use std::fmt;
 use std::path::Path;
 
@@ -17,6 +18,76 @@ pub struct Wikilink {
     pub display_text: String,
     pub target: String,
     pub is_alias: bool,
+}
+
+#[derive(Debug)]
+pub struct WikilinkError {
+    pub display_text: String,
+    pub error_type: WikilinkErrorType,
+    pub context: WikilinkErrorContext,
+}
+
+impl WikilinkError {
+    // Add a method to add context to an existing error
+    pub fn with_context(
+        mut self,
+        file_path: Option<&Path>,
+        line_number: Option<usize>,
+        line_content: Option<&str>,
+    ) -> Self {
+        self.context = WikilinkErrorContext {
+            file_path: file_path.map(|p| p.display().to_string()),
+            line_number,
+            line_content: line_content.map(String::from),
+        };
+        self
+    }
+}
+
+impl fmt::Display for WikilinkError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error_msg = match self.error_type {
+            WikilinkErrorType::ContainsOpenBrackets => "contains opening brackets '[['",
+            WikilinkErrorType::ContainsCloseBrackets => "contains closing brackets ']]'",
+            WikilinkErrorType::ContainsPipe => "contains pipe character '|'",
+        };
+        write!(
+            f,
+            "Invalid wikilink pattern: '{}' {}",
+            self.display_text, error_msg
+        )
+    }
+}
+
+impl Error for WikilinkError {}
+
+#[derive(Debug)]
+pub enum WikilinkErrorType {
+    ContainsOpenBrackets,
+    ContainsCloseBrackets,
+    ContainsPipe,
+}
+
+#[derive(Debug, Default)]
+pub struct WikilinkErrorContext {
+    pub file_path: Option<String>,
+    pub line_number: Option<usize>,
+    pub line_content: Option<String>,
+}
+
+impl fmt::Display for WikilinkErrorContext {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if let Some(path) = &self.file_path {
+            writeln!(f, "File: {}", path)?;
+        }
+        if let Some(num) = &self.line_number {
+            writeln!(f, "Line number: {}", num)?;
+        }
+        if let Some(content) = &self.line_content {
+            writeln!(f, "Line content: {}", content)?;
+        }
+        Ok(())
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -96,50 +167,94 @@ pub fn format_wikilink(path: &Path) -> String {
         .unwrap_or_else(|| "[[]]".to_string())
 }
 
-pub(crate) fn compile_wikilink(wikilink: Wikilink) -> CompiledWikilink {
-    let search_text = &wikilink.display_text;
-
-    // Escape the text to create a literal match for the exact phrase
-    let escaped_pattern = regex::escape(search_text);
-
-    // Add case-insensitive flag with simple word boundaries
-    let pattern = format!(r"(?i)\b{}\b", escaped_pattern);
-
-    CompiledWikilink::new(regex::Regex::new(&pattern).unwrap(), wikilink)
+pub fn compile_wikilink_with_context(
+    wikilink: Wikilink,
+    file_path: Option<&Path>,
+    line_number: Option<usize>,
+    line_content: Option<&str>,
+) -> Result<CompiledWikilink, WikilinkError> {
+    compile_wikilink(wikilink).map_err(|e| e.with_context(file_path, line_number, line_content))
 }
 
+pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, WikilinkError> {
+    let search_text = &wikilink.display_text;
+
+    // Check for invalid characters
+    if search_text.contains("[[") {
+        return Err(WikilinkError {
+            display_text: search_text.to_string(),
+            error_type: WikilinkErrorType::ContainsOpenBrackets,
+            context: WikilinkErrorContext::default(),
+        });
+    }
+    if search_text.contains("]]") {
+        return Err(WikilinkError {
+            display_text: search_text.to_string(),
+            error_type: WikilinkErrorType::ContainsCloseBrackets,
+            context: WikilinkErrorContext::default(),
+        });
+    }
+    if search_text.contains("|") {
+        return Err(WikilinkError {
+            display_text: search_text.to_string(),
+            error_type: WikilinkErrorType::ContainsPipe,
+            context: WikilinkErrorContext::default(),
+        });
+    }
+
+    let escaped_pattern = regex::escape(search_text);
+    let pattern = format!(r"(?i)\b{}\b", escaped_pattern);
+
+    Ok(CompiledWikilink::new(
+        regex::Regex::new(&pattern).unwrap(),
+        wikilink,
+    ))
+}
+
+// This becomes the extended version that builds on the basic version
 pub fn collect_all_wikilinks(
     content: &str,
     frontmatter: &Option<FrontMatter>,
     filename: &str,
-) -> HashSet<CompiledWikilink> {
+    file_path: Option<&Path>,
+) -> Result<HashSet<CompiledWikilink>, WikilinkError> {
     let mut all_wikilinks = HashSet::new();
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    all_wikilinks.insert(compile_wikilink(filename_wikilink.clone()));
+    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), file_path, None, None)?;
+    all_wikilinks.insert(compiled);
 
     // Add frontmatter aliases
     if let Some(fm) = frontmatter {
         if let Some(aliases) = fm.aliases() {
-            all_wikilinks.extend(aliases.iter().map(|alias| {
-                compile_wikilink(Wikilink {
+            for alias in aliases {
+                let wikilink = Wikilink {
                     display_text: alias.clone(),
                     target: filename_wikilink.target.clone(),
                     is_alias: true,
-                })
-            }));
+                };
+                let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
+                all_wikilinks.insert(compiled);
+            }
         }
     }
 
-    // Add wikilinks from content
-    all_wikilinks.extend(
-        extract_wikilinks_from_content(content)
-            .into_iter()
-            .map(compile_wikilink),
-    );
+    // Process content line by line to get line numbers for error context
+    for (line_number, line) in content.lines().enumerate() {
+        let wikilinks = extract_wikilinks_from_content(line);
+        for wikilink in wikilinks {
+            let compiled = compile_wikilink_with_context(
+                wikilink,
+                file_path,
+                Some(line_number + 1),
+                Some(line),
+            )?;
+            all_wikilinks.insert(compiled);
+        }
+    }
 
-    all_wikilinks
+    Ok(all_wikilinks)
 }
 
 pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
@@ -541,5 +656,54 @@ text! ![[image2.jpg]] (exclamation before image)
         assert_eq!(links.len(), 2);
         assert_eq!(links[0], "[one](link1)");
         assert_eq!(links[1], "[two](link2)");
+    }
+
+    #[test]
+    fn test_compile_wikilink_invalid_patterns() {
+        let test_cases = vec![
+            (
+                "test[[invalid",
+                WikilinkErrorType::ContainsOpenBrackets,
+                "should reject pattern with opening brackets",
+            ),
+            (
+                "test]]invalid",
+                WikilinkErrorType::ContainsCloseBrackets,
+                "should reject pattern with closing brackets",
+            ),
+            (
+                "test|invalid",
+                WikilinkErrorType::ContainsPipe,
+                "should reject pattern with pipe",
+            ),
+        ];
+
+        for (pattern, expected_error, message) in test_cases {
+            let wikilink = Wikilink {
+                display_text: pattern.to_string(),
+                target: "test".to_string(),
+                is_alias: false,
+            };
+
+            let result = compile_wikilink(wikilink);
+            assert!(result.is_err(), "{}", message);
+
+            if let Err(error) = result {
+                assert!(matches!(error.error_type, expected_error), "{}", message);
+            }
+        }
+    }
+
+    #[test]
+    fn test_wikilink_error_display() {
+        let error = WikilinkError {
+            display_text: "test[[bad]]".to_string(),
+            error_type: WikilinkErrorType::ContainsOpenBrackets,
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Invalid wikilink pattern: 'test[[bad]]' contains opening brackets '[['"
+        );
     }
 }
