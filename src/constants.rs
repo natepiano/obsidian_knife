@@ -19,8 +19,11 @@ pub const YAML_TIMESTAMP: &str = "time_stamp: ";
 pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
 
 // config stuff
+pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub const ERROR_NOT_FOUND: &str = "config file not found: ";
 pub const ERROR_READING: &str = "error reading config file ";
+pub const ERROR_BACK_POPULATE_FILE_FILTER: &str = "back_populate_filter_filter cannot be empty";
+pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
 
 // cache stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";
@@ -53,6 +56,10 @@ pub const OPENING_WIKILINK: &str = "[[";
 
 // wikilink back populate
 pub const BACK_POPULATE: &str = "back populate wikilinks";
+pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
+    "using back_populate_file_filter config parameter: ";
+pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
+    "remove it from config if you want to process all files";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

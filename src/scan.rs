@@ -1,17 +1,15 @@
-use crate::sha256_cache::{CacheFileStatus, Sha256Cache};
-use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::{
-    constants::IMAGE_EXTENSIONS, frontmatter, validated_config::ValidatedConfig, wikilink,
-    CACHE_FILE, LEVEL3,
+    constants::*,
+    frontmatter::{deserialize_frontmatter, FrontMatter},
+    sha256_cache::{CacheFileStatus, Sha256Cache},
+    thread_safe_writer::{ColumnAlignment, ThreadSafeWriter},
+    validated_config::ValidatedConfig,
+    wikilink::{collect_all_wikilinks, CompiledWikilink},
 };
 
-use rayon::prelude::*;
-
-use crate::constants::{LEVEL1, LEVEL2};
-use crate::frontmatter::FrontMatter;
-use crate::wikilink::CompiledWikilink;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
+use rayon::prelude::*;
 use regex::Regex;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
@@ -64,7 +62,6 @@ pub fn scan_obsidian_folder(
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
     let start = Instant::now();
-
 
     let obsidian_repository_info = scan_folders(&config, writer)?;
 
@@ -260,16 +257,38 @@ fn scan_folders(
     obsidian_repository_info.markdown_files = markdown_info;
 
     // Convert HashSet to sorted Vec and store in repository info
-    // Use sorted_by to directly create the sorted vector
+    // Modified sorting logic to ensure total ordering
     obsidian_repository_info.wikilinks_sorted = all_wikilinks
         .into_iter()
         .sorted_by(|a, b| {
-            b.wikilink
+            // First compare by display text length (longer first)
+            let length_cmp = b
+                .wikilink
                 .display_text
                 .len()
-                .cmp(&a.wikilink.display_text.len())
-                .then_with(|| b.wikilink.target.len().cmp(&a.wikilink.target.len()))
-                .then_with(|| b.wikilink.display_text.cmp(&a.wikilink.display_text))
+                .cmp(&a.wikilink.display_text.len());
+            if length_cmp != std::cmp::Ordering::Equal {
+                return length_cmp;
+            }
+
+            // Then compare display texts
+            let display_cmp = a.wikilink.display_text.cmp(&b.wikilink.display_text);
+            if display_cmp != std::cmp::Ordering::Equal {
+                return display_cmp;
+            }
+
+            // For same display text, prefer aliases over non-aliases
+            let alias_cmp = match (a.wikilink.is_alias, b.wikilink.is_alias) {
+                (true, false) => std::cmp::Ordering::Less,
+                (false, true) => std::cmp::Ordering::Greater,
+                _ => std::cmp::Ordering::Equal,
+            };
+            if alias_cmp != std::cmp::Ordering::Equal {
+                return alias_cmp;
+            }
+
+            // If everything else is equal, compare targets to ensure total ordering
+            a.wikilink.target.cmp(&b.wikilink.target)
         })
         .collect();
 
@@ -354,7 +373,7 @@ fn scan_markdown_file(
 ) -> Result<(MarkdownFileInfo, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
 
-    let (frontmatter, property_error) = match frontmatter::deserialize_frontmatter(&content) {
+    let (frontmatter, property_error) = match deserialize_frontmatter(&content) {
         Ok(fm) => (Some(fm), None),
         Err(e) => (None, Some(e.to_string())),
     };
@@ -382,7 +401,7 @@ fn scan_markdown_file(
 
     // Collect wikilinks but return them separately
     // Collect wikilinks with file path context
-    let wikilinks = wikilink::collect_all_wikilinks(
+    let wikilinks = collect_all_wikilinks(
         &content,
         &file_info.frontmatter,
         filename,
@@ -605,6 +624,7 @@ aliases:
             None,
             None,
             None,
+            None,
             temp_dir.path().to_path_buf(),
             temp_dir.path().join("output"),
         );
@@ -790,5 +810,90 @@ aliases:
         let patterns = file_info.do_not_back_populate.unwrap();
         assert_eq!(patterns.len(), 1);
         assert!(patterns.contains(&"Only Alias".to_string()));
+    }
+    #[test]
+    fn test_wikilink_sorting_with_aliases() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create test files with different wikilinks
+        let files = [
+            (
+                "tomato.md",
+                r#"---
+aliases:
+  - "tomatoes"
+---
+# Tomato
+Basic tomato info"#,
+            ),
+            (
+                "recipe.md",
+                r#"# Recipe
+Using tomatoes in cooking"#,
+            ),
+            (
+                "other.md",
+                r#"# Other
+[[tomatoes]] reference that might confuse things"#,
+            ),
+        ];
+
+        // Create test environment and files
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
+
+        // Create the files in the temp directory
+        for (filename, content) in files.iter() {
+            let file_path = temp_dir.path().join(filename);
+            let mut file = File::create(&file_path).unwrap();
+            write!(file, "{}", content).unwrap();
+        }
+
+        // Scan folders and check results
+        let repo_info = scan_folders(&config, &writer).unwrap();
+
+        // Find the wikilinks for "tomatoes" in the sorted list
+        let tomatoes_wikilinks: Vec<_> = repo_info
+            .wikilinks_sorted
+            .iter()
+            .filter(|w| w.wikilink.display_text.eq_ignore_ascii_case("tomatoes"))
+            .collect();
+
+        // Verify we found the wikilinks
+        assert!(
+            !tomatoes_wikilinks.is_empty(),
+            "Should find wikilinks for 'tomatoes'"
+        );
+
+        // The first occurrence should be the alias version
+        let first_tomatoes = &tomatoes_wikilinks[0].wikilink;
+        assert!(
+            first_tomatoes.is_alias && first_tomatoes.target == "tomato",
+            "First 'tomatoes' wikilink should be the alias version targeting 'tomato'"
+        );
+
+        // Add test for total ordering property
+        let sorted = repo_info.wikilinks_sorted;
+        for i in 1..sorted.len() {
+            let comparison = sorted[i - 1]
+                .wikilink
+                .display_text
+                .len()
+                .cmp(&sorted[i].wikilink.display_text.len());
+            assert!(
+                comparison != std::cmp::Ordering::Less,
+                "Sorting violates length ordering at index {}",
+                i
+            );
+        }
     }
 }

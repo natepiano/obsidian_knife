@@ -3,7 +3,7 @@ use crate::deterministic_file_search::DeterministicSearch;
 use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::{CompiledWikilink, MARKDOWN_REGEX};
+use crate::wikilink::{CompiledWikilink, ToWikilink, MARKDOWN_REGEX};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap};
@@ -79,6 +79,17 @@ pub fn process_back_populate(
     );
 
     let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
+    if let Some(filter) = config.back_populate_file_filter() {
+        writer.writeln(
+            "",
+            &format!(
+                "{} {}\n{}\n",
+                BACK_POPULATE_FILE_FILTER_PREFIX,
+                filter.to_wikilink(),
+                BACK_POPULATE_FILE_FILTER_SUFFIX
+            ),
+        )?;
+    }
 
     if matches.is_empty() {
         writer.writeln("", "no back population matches found")?;
@@ -115,8 +126,15 @@ fn find_all_back_populate_matches(
         |file_path, markdown_file_info| {
             // Filter to process only "amis et famille.md" unless in test
             // estatodo.md
-            if !cfg!(test) && !file_path.ends_with("avi's shakshuka.md") {
-                 return None;
+            // if !cfg!(test) && !file_path.ends_with("avi's shakshuka.md") {
+            //      return None;
+            // }
+            if !cfg!(test) {
+                if let Some(filter) = config.back_populate_file_filter() {
+                    if !file_path.ends_with(filter) {
+                        return None;
+                    }
+                }
             }
 
             // Process the file if it matches the filter
@@ -278,12 +296,14 @@ fn process_line(
 
         // Rest of the validation
         if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
-            let mut replacement = if wikilink.wikilink.is_alias {
-                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
-            } else if matched_text != wikilink.wikilink.target {
-                format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
+
+            let mut replacement = if matched_text == wikilink.wikilink.target {
+                // Only use simple format if exact match (case-sensitive)
+                format!("{}", wikilink.wikilink.target.to_wikilink())
             } else {
-                format!("[[{}]]", wikilink.wikilink.target)
+                // Use aliased format for case differences or actual aliases
+                //format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
+                format!("{}", wikilink.wikilink.target.to_aliased_wikilink(matched_text))
             };
 
             let in_markdown_table = is_in_markdown_table(&line, &matched_text);
@@ -422,7 +442,7 @@ fn write_back_populate_table(
         // Write the file name as a header with change count
         writer.writeln(
             "",
-            &format!("### [[{}]] - {}", file_path, file_matches.len()),
+            &format!("### {} - {}", file_path.to_wikilink(), file_matches.len()),
         )?;
 
         // Headers for each table
@@ -733,6 +753,7 @@ mod tests {
         let config = ValidatedConfig::new(
             apply_changes,
             None, // back_populate_file_count
+            None, // back_populate_filter
             do_not_back_populate,
             None,                           // ignore_folders
             temp_dir.path().to_path_buf(),  // obsidian_path
@@ -836,7 +857,7 @@ mod tests {
                 expected_matches: vec![
                     ("test link", "[[Test Link|test link]]"),
                     ("TEST LINK", "[[Test Link|TEST LINK]]"),
-                    ("Test Link", "[[Test Link]]"),
+                    ("Test Link", "[[Test Link]]"),  // Exact match
                 ],
                 description: "Basic case-insensitive matching",
             },
@@ -853,12 +874,12 @@ mod tests {
             TestCase {
                 content: "| Test Link | Another test link |",
                 wikilink: Wikilink {
-                    display_text: "test link".to_string(),
+                    display_text: "Test Link".to_string(),
                     target: "Test Link".to_string(),
                     is_alias: false,
                 },
                 expected_matches: vec![
-                    ("Test Link", "[[Test Link]]"),
+                    ("Test Link", "[[Test Link]]"),  // Exact match
                     ("test link", "[[Test Link|test link]]"),
                 ],
                 description: "Case handling in tables",
@@ -897,7 +918,8 @@ mod tests {
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
 
         for case in get_case_sensitivity_test_cases() {
-            let file_path = create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
+            let file_path =
+                create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
 
             // Create a custom wikilink for the case
             let compiled = compile_wikilink(case.wikilink).unwrap();
@@ -913,7 +935,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -939,7 +961,8 @@ mod tests {
     fn test_find_matches_with_existing_wikilinks() {
         // Create test environment with default settings
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
-        let content = "[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed";
+        let content =
+            "[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed";
 
         // Create the test Markdown file using the helper function
         create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
@@ -948,18 +971,16 @@ mod tests {
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
         // We expect 3 matches for "Test Link" outside existing wikilinks
-        assert_eq!(
-            matches.len(),
-            3,
-            "Mismatch in number of matches"
-        );
+        assert_eq!(matches.len(), 3, "Mismatch in number of matches");
 
         // Verify that the matches are at the expected positions
         let expected_lines = vec![1, 2, 2];
         let actual_lines: Vec<usize> = matches.iter().map(|m| m.line_number).collect();
-        assert_eq!(actual_lines, expected_lines, "Mismatch in line numbers of matches");
+        assert_eq!(
+            actual_lines, expected_lines,
+            "Mismatch in line numbers of matches"
+        );
     }
-
 
     #[test]
     fn test_apply_changes() {
@@ -986,7 +1007,6 @@ mod tests {
             "Should have replaced both instances"
         );
     }
-
 
     #[test]
     fn test_overlapping_wikilink_matches() {
@@ -1059,7 +1079,7 @@ mod tests {
             &config,
             &markdown_info,
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(matches.len(), 0, "Match should be excluded");
 
@@ -1074,7 +1094,7 @@ mod tests {
             &config,
             &markdown_info,
         )
-            .unwrap();
+        .unwrap();
 
         assert_eq!(matches.len(), 1, "Match should be included");
         assert_eq!(matches[0].found_text, "cheese");
@@ -1114,7 +1134,8 @@ mod tests {
         );
 
         // Create another file using the same content
-        let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
+        let other_file_path =
+            create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
 
         // Find matches again
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
@@ -1207,7 +1228,8 @@ mod tests {
         ];
 
         for (content, matches, description) in test_cases {
-            let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
+            let file_path =
+                create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
 
             // Apply back-populate changes
             apply_back_populate_changes(&config, &matches).unwrap();
@@ -1277,10 +1299,8 @@ mod tests {
         assert_eq!(matches.len(), 1, "Should find match on other pages");
     }
 
-
     #[test]
     fn test_process_line_table_escaping_combined() {
-
         // Define multiple wikilinks
         let wikilinks = vec![
             Wikilink {
@@ -1295,7 +1315,8 @@ mod tests {
             },
         ];
         // Initialize environment with custom wikilinks
-        let (temp_dir, config, repo_info) = create_test_environment(false, None, Some(wikilinks.clone()));
+        let (temp_dir, config, repo_info) =
+            create_test_environment(false, None, Some(wikilinks.clone()));
 
         // Compile the wikilinks
         let compiled_wikilinks = &repo_info.wikilinks_sorted;
@@ -1484,6 +1505,46 @@ mod tests {
         assert!(
             !state.should_skip_line(),
             "Should not skip after code block"
+        );
+    }
+
+    #[test]
+    fn test_alias_priority() {
+        // Initialize test environment with specific wikilinks
+        let wikilinks = vec![
+            // Define an alias relationship: "tomatoes" is an alias for "tomato"
+            Wikilink {
+                display_text: "tomatoes".to_string(),
+                target: "tomato".to_string(),
+                is_alias: true,
+            },
+            // Also include a direct "tomatoes" wikilink that should not be used
+            Wikilink {
+                display_text: "tomatoes".to_string(),
+                target: "tomatoes".to_string(),
+                is_alias: false,
+            },
+        ];
+
+        let (temp_dir, config, mut repo_info) =
+            create_test_environment(false, None, Some(wikilinks));
+
+        // Create a test file that contains the word "tomatoes"
+        let content = "I love tomatoes in my salad";
+        create_markdown_test_file(&temp_dir, "salad.md", content, &mut repo_info);
+
+        // Find matches
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+
+        // Verify we got exactly one match
+        assert_eq!(matches.len(), 1, "Should find exactly one match");
+
+        // Verify the match uses the alias form
+        let match_info = &matches[0];
+        assert_eq!(match_info.found_text, "tomatoes");
+        assert_eq!(
+            match_info.replacement, "[[tomato|tomatoes]]",
+            "Should use the alias form [[tomato|tomatoes]] instead of [[tomatoes]]"
         );
     }
 }

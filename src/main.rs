@@ -48,10 +48,7 @@ fn output_duration(
     let duration = start_time.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
 
-    writer.writeln(
-        prefix,
-        &format!("{} {} {}", prefix, duration_string, "ms"),
-    )?;
+    writer.writeln(prefix, &format!("{} {} {}", prefix, duration_string, "ms"))?;
     Ok(())
 }
 

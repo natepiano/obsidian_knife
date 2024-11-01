@@ -4,7 +4,12 @@ output_folder: conf/obsidian_knife
 
 apply_changes: false
 
+# count of files to actually process - mostly for debugging purposes in case you want to find out
+# what replacements are going to happen and you're seeing to many files
 back_populate_file_count: 1
+
+# file in the repo that you specifically want to process for back populating - used for debugging purposes
+back_populate_file_filter: [[some markdown]]
 
 do_not_back_populate: 
   - "[[mozzarella]] cheese"

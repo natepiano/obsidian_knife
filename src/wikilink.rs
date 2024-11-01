@@ -1,14 +1,54 @@
-use crate::{frontmatter::FrontMatter, constants::*};
+use crate::{constants::*, frontmatter::FrontMatter};
 use lazy_static::lazy_static;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
-use regex::Regex;
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
+}
+
+/// Trait to convert strings to wikilink format
+pub trait ToWikilink {
+    /// Converts the string to a wikilink format by surrounding it with [[]]
+    fn to_wikilink(&self) -> String;
+
+    /// Creates an aliased wikilink using the target (self) and display text
+    /// If the texts match (case-sensitive), returns a simple wikilink
+    /// Otherwise returns an aliased wikilink in the format [[target|display]]
+    fn to_aliased_wikilink(&self, display_text: &str) -> String where Self: AsRef<str> {
+        let target_without_md = strip_md_extension(self.as_ref());
+
+        if target_without_md == display_text {
+            target_without_md.to_wikilink()
+        } else {
+            format!("[[{}|{}]]", target_without_md, display_text)
+        }
+    }
+}
+
+/// Helper function to strip .md extension if present
+fn strip_md_extension(text: &str) -> &str {
+    if text.ends_with(".md") {
+        &text[..text.len() - 3]
+    } else {
+        text
+    }
+}
+
+impl ToWikilink for str {
+    fn to_wikilink(&self) -> String {
+        format!("[[{}]]", strip_md_extension(self))
+    }
+}
+
+impl ToWikilink for String {
+    fn to_wikilink(&self) -> String {
+        self.as_str().to_wikilink()
+    }
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -264,10 +304,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     wikilinks
 }
 
-fn is_next_char(
-    chars: &mut std::iter::Peekable<std::str::CharIndices>,
-    expected: char,
-) -> bool {
+fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected: char) -> bool {
     if let Some(&(_, next_ch)) = chars.peek() {
         if next_ch == expected {
             chars.next();
@@ -281,9 +318,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     content[..index].chars().rev().next() == Some(expected)
 }
 
-fn parse_wikilink(
-    chars: &mut std::iter::Peekable<std::str::CharIndices>,
-) -> Option<Wikilink> {
+fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<Wikilink> {
     let mut link_text = String::new();
     let mut is_alias = false;
     let mut target = String::new();
@@ -342,7 +377,6 @@ fn parse_wikilink(
     // If we reach here, the wikilink was not properly closed
     None
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -631,4 +665,78 @@ text! ![[image2.jpg]] (exclamation before image)
         );
     }
 
+    #[test]
+    fn test_to_wikilink() {
+        // Test &str
+        assert_eq!("test".to_wikilink(), "[[test]]");
+
+        // Test String
+        let string = String::from("test");
+        assert_eq!(string.to_wikilink(), "[[test]]");
+
+        // Test &String
+        let string_ref = &String::from("test");
+        assert_eq!(string_ref.to_wikilink(), "[[test]]");
+
+        // Test with spaces
+        assert_eq!("test file".to_wikilink(), "[[test file]]");
+
+        // Test with existing brackets (should still wrap)
+        assert_eq!("[[test]]".to_wikilink(), "[[[[test]]]]");
+
+        // Test empty string
+        assert_eq!("".to_wikilink(), "[[]]");
+
+        // Test .md extension handling
+        assert_eq!("test.md".to_wikilink(), "[[test]]");
+        assert_eq!("test file.md".to_wikilink(), "[[test file]]");
+        assert_eq!("test.md.md".to_wikilink(), "[[test.md]]");
+
+        // Test with unicode
+        assert_eq!("テスト.md".to_wikilink(), "[[テスト]]");
+        assert_eq!("test café.md".to_wikilink(), "[[test café]]");
+    }
+
+    #[test]
+    fn test_to_aliased_wikilink() {
+        // Test exact matches (should use simple wikilink)
+        assert_eq!("target".to_aliased_wikilink("target"), "[[target]]");
+        assert_eq!("Test Link".to_aliased_wikilink("Test Link"), "[[Test Link]]");
+
+        // Test case differences (should use aliased format)
+        assert_eq!("Target".to_aliased_wikilink("target"), "[[Target|target]]");
+        assert_eq!("test link".to_aliased_wikilink("Test Link"), "[[test link|Test Link]]");
+
+        // Test completely different texts
+        assert_eq!("Apple".to_aliased_wikilink("fruit"), "[[Apple|fruit]]");
+        assert_eq!("Home".to_aliased_wikilink("主页"), "[[Home|主页]]");
+
+        // Test with .md extension in target
+        assert_eq!("page.md".to_aliased_wikilink("Page"), "[[page|Page]]");
+    }
+
+    #[test]
+    fn test_to_aliased_wikilink_with_spaces() {
+        assert_eq!(
+            "Target Page".to_aliased_wikilink("target page"),
+            "[[Target Page|target page]]"
+        );
+        assert_eq!(
+            "My Document.md".to_aliased_wikilink("my doc"),
+            "[[My Document|my doc]]"
+        );
+    }
+
+    #[test]
+    fn test_to_aliased_wikilink_with_unicode() {
+        assert_eq!("café".to_aliased_wikilink("咖啡"), "[[café|咖啡]]");
+        assert_eq!("テスト".to_aliased_wikilink("Test"), "[[テスト|Test]]");
+    }
+    #[test]
+    fn test_string_to_aliased_wikilink() {
+        // Test with String type
+        let string_target = String::from("Target");
+        assert_eq!(string_target.to_aliased_wikilink("target"), "[[Target|target]]");
+        assert_eq!(string_target.to_aliased_wikilink("Target"), "[[Target]]");
+    }
 }

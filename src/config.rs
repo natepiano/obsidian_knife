@@ -11,6 +11,7 @@ use std::path::{Path, PathBuf};
 pub struct Config {
     apply_changes: Option<bool>,
     back_populate_file_count: Option<usize>,
+    back_populate_file_filter: Option<String>,
     do_not_back_populate: Option<Vec<String>>,
     ignore_folders: Option<Vec<PathBuf>>,
     obsidian_path: String,
@@ -60,14 +61,25 @@ impl Config {
             return Err(format!("obsidian path does not exist: {:?}", expanded_path).into());
         }
 
+        // Validate back_populate_file_filter if present
+        let validated_back_populate_file_filter =
+            if let Some(ref filter) = self.back_populate_file_filter {
+                if filter.trim().is_empty() {
+                    return Err(ERROR_BACK_POPULATE_FILE_FILTER.into());
+                }
+                Some(filter.trim().to_string())
+            } else {
+                None
+            };
+
         // Handle output folder
         let output_folder = if let Some(ref folder) = self.output_folder {
             if folder.trim().is_empty() {
-                return Err("output_folder cannot be empty".into());
+                return Err(ERROR_OUTPUT_FOLDER.into());
             }
             expanded_path.join(folder.trim())
         } else {
-            expanded_path.join("obsidian_knife") // Default folder name
+            expanded_path.join(DEFAULT_OUTPUT_FOLDER) // Default folder name
         };
 
         // Add output folder and cache folder to ignored folders
@@ -92,6 +104,7 @@ impl Config {
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
             validated_back_populate_file_count,
+            validated_back_populate_file_filter, // Add new parameter
             validated_do_not_back_populate,
             ignore_folders,
             expanded_path,
