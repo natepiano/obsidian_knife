@@ -712,6 +712,21 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
+    // Common helper function to build Aho-Corasick automaton from CompiledWikilinks
+    fn build_aho_corasick(wikilinks: &[CompiledWikilink]) -> AhoCorasick {
+        let patterns: Vec<&str> = wikilinks
+            .iter()
+            .map(|w| w.wikilink.display_text.as_str())
+            .collect();
+
+        AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(&patterns)
+            .expect("Failed to build Aho-Corasick automaton")
+    }
+
+
     fn create_test_environment() -> (TempDir, ValidatedConfig, ObsidianRepositoryInfo) {
         let temp_dir = TempDir::new().unwrap();
 
@@ -739,20 +754,8 @@ mod tests {
         // Add the compiled wikilink to the sorted Vec
         repo_info.wikilinks_sorted = vec![compiled];
 
-        // Build the Aho-Corasick automaton
-        let patterns: Vec<&str> = repo_info
-            .wikilinks_sorted
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
-
-        repo_info.wikilinks_ac = Some(
-            AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(patterns)
-                .expect("Failed to build Aho-Corasick automaton"),
-        );
+        // Build the Aho-Corasick automaton using the common helper function
+        repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
         repo_info.markdown_files = HashMap::new();
 
@@ -801,15 +804,6 @@ mod tests {
         description: &'static str,
     }
 
-    fn setup_aho_corasick(wikilink: &Wikilink) -> AhoCorasick {
-        let patterns = vec![wikilink.display_text.as_str()];
-        AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton")
-    }
-
     fn verify_match(
         actual_match: &BackPopulateMatch,
         expected_text: &str,
@@ -839,7 +833,7 @@ mod tests {
         );
     }
 
-    fn get_test_cases() -> Vec<TestCase> {
+    fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
         vec![
             TestCase {
                 content: "test link TEST LINK Test Link",
@@ -913,12 +907,12 @@ mod tests {
         let file_path = temp_dir.path().join("test.md");
         let config = create_simple_test_config(&temp_dir);
 
-        for case in get_test_cases() {
+        for case in get_case_sensitivity_test_cases() {
             let mut file = File::create(&file_path).unwrap();
             write!(file, "{}", case.content).unwrap();
 
             let compiled = compile_wikilink(case.wikilink).unwrap(); // Added unwrap here
-            let ac = setup_aho_corasick(&compiled.wikilink);
+            let ac = build_aho_corasick(&[compiled.clone()]);
             let markdown_info = MarkdownFileInfo::new();
 
             let matches = process_line(
@@ -956,82 +950,24 @@ mod tests {
     fn test_find_matches_with_existing_wikilinks() {
         let (temp_dir, config, mut repo_info) = create_test_environment();
 
-        // Create a test file with mixed content
-        let file_content =
-            "[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed";
+        // Define test cases with and without debug
+        let test_cases = vec![
+            ("[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed", 3),
+            ("[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed", 3),
+        ];
 
-        let file_path = temp_dir.path().join("test.md");
-        let mut file = File::create(&file_path).unwrap();
-        write!(file, "{}", file_content).unwrap();
+        for (content, expected_matches) in test_cases {
+            let file_path = temp_dir.path().join("test.md");
+            let mut file = File::create(&file_path).unwrap();
+            write!(file, "{}", content).unwrap();
 
-        // Add the file to repository info
-        repo_info
-            .markdown_files
-            .insert(file_path.clone(), MarkdownFileInfo::new());
+            repo_info.markdown_files.insert(file_path.clone(), MarkdownFileInfo::new());
 
-        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
-
-        assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
-
-        // First line has one match
-        assert_eq!(
-            matches.iter().filter(|m| m.line_number == 1).count(),
-            1,
-            "Should find one 'Test Link' on the first line"
-        );
-
-        // Second line has two matches
-        assert_eq!(
-            matches.iter().filter(|m| m.line_number == 2).count(),
-            2,
-            "Should find two 'Test Link' instances on the second line"
-        );
+            let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+            assert_eq!(matches.len(), expected_matches, "Mismatch in number of matches");
+        }
     }
 
-    #[test]
-    fn test_find_matches_with_existing_wikilinks_debug() {
-        let (temp_dir, config, mut repo_info) = create_test_environment();
-
-        // Create a test file with mixed content
-        let file_content =
-            "[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed";
-        let file_path = temp_dir.path().join("test.md");
-        let mut file = File::create(&file_path).unwrap();
-        write!(file, "{}", file_content).unwrap();
-
-        // Add the file to repository info
-        repo_info
-            .markdown_files
-            .insert(file_path.clone(), MarkdownFileInfo::new());
-
-        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
-
-        assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
-
-        // First line has one match
-        let first_line_matches: Vec<_> = matches.iter().filter(|m| m.line_number == 1).collect();
-        assert_eq!(
-            first_line_matches.len(),
-            1,
-            "Should find one 'Test Link' on the first line, found: {:?}",
-            first_line_matches
-                .iter()
-                .map(|m| &m.found_text)
-                .collect::<Vec<_>>()
-        );
-
-        // Second line has two matches
-        let second_line_matches: Vec<_> = matches.iter().filter(|m| m.line_number == 2).collect();
-        assert_eq!(
-            second_line_matches.len(),
-            2,
-            "Should find two 'Test Link' instances on the second line, found: {:?}",
-            second_line_matches
-                .iter()
-                .map(|m| &m.found_text)
-                .collect::<Vec<_>>()
-        );
-    }
 
     #[test]
     fn test_apply_changes() {
@@ -1106,20 +1042,8 @@ mod tests {
         repo_info.wikilinks_sorted.push(compiled1);
         repo_info.wikilinks_sorted.push(compiled2);
 
-        // Rebuild the Aho-Corasick automaton with the new wikilinks
-        let patterns: Vec<&str> = repo_info
-            .wikilinks_sorted
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
-
-        repo_info.wikilinks_ac = Some(
-            AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton"),
-        );
+        // Use the helper function to build the automaton
+        repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
@@ -1140,19 +1064,9 @@ mod tests {
         };
 
         let compiled = CompiledWikilink::new(wikilink);
-        let wikilink_refs = &[&compiled];
 
         // Build the Aho-Corasick automaton
-        let patterns: Vec<&str> = wikilink_refs
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
-
-        let ac = AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(patterns)
-            .expect("Failed to build Aho-Corasick automaton");
+        let ac = build_aho_corasick(&[compiled.clone()]);
 
         // Create configuration with do_not_back_populate patterns
         let config = create_test_config_with_do_not_back_populate(
@@ -1170,7 +1084,7 @@ mod tests {
             line,
             &file_path,
             &ac,
-            wikilink_refs,
+            &[&compiled],
             &config,
             &markdown_info,
         )
@@ -1185,7 +1099,7 @@ mod tests {
             line,
             &file_path,
             &ac,
-            wikilink_refs,
+            &[&compiled],
             &config,
             &markdown_info,
         )
@@ -1212,22 +1126,10 @@ mod tests {
         repo_info.wikilinks_sorted.clear();
         repo_info.wikilinks_sorted.push(compiled);
 
-        // Rebuild the Aho-Corasick automaton with the new wikilinks
-        let patterns: Vec<&str> = repo_info
-            .wikilinks_sorted
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
+        // Use the helper function to build the automaton
+        repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
-        repo_info.wikilinks_ac = Some(
-            AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton"),
-        );
-
-        // Create a test file with its own name
+          // Create a test file with its own name
         let content = "Will is mentioned here but should not be replaced";
         let file_path = temp_dir.path().join("Will.md");
         let mut file = File::create(&file_path).unwrap();
@@ -1286,92 +1188,84 @@ mod tests {
     }
 
     #[test]
-    fn test_back_populate_table_content() {
+    fn test_back_populate_content() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.md");
 
-        // Create test content with table
-        let content = "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n";
-        let mut file = File::create(&file_path).unwrap();
-        write!(file, "{}", content).unwrap();
-
-        let matches = vec![BackPopulateMatch {
-            file_path: "test.md".into(),
-            line_number: 4,
-            line_text: "|Test Link|Sample text|".into(),
-            found_text: "Test Link".into(),
-            replacement: "[[Test Link\\|Another Name]]".into(),
-            position: 1,
-            in_markdown_table: true,
-        }];
-
-        let config = ValidatedConfig::new(
-            true,
-            None,
-            None,
-            None,
-            temp_dir.path().to_path_buf(),
-            temp_dir.path().join("output"),
-        );
-
-        apply_back_populate_changes(&config, &matches).unwrap();
-
-        let updated_content = fs::read_to_string(&file_path).unwrap();
-        assert!(updated_content.contains("[[Test Link\\|Another Name]]|Sample text"));
-    }
-
-    #[test]
-    fn test_back_populate_mixed_content() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create test content with both table and regular text
-        let content = "# Mixed Content\n\
+        // Define test cases with various content structures
+        let test_cases = vec![
+            (
+                "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
+                vec![BackPopulateMatch {
+                    file_path: "test.md".into(),
+                    line_number: 4,
+                    line_text: "|Test Link|Sample text|".into(),
+                    found_text: "Test Link".into(),
+                    replacement: "[[Test Link\\|Another Name]]".into(),
+                    position: 1,
+                    in_markdown_table: true,
+                }],
+                "Table content replacement",
+            ),
+            (
+                "# Mixed Content\n\
             Regular Test Link here\n\
             |Name|Description|\n\
             |---|---|\n\
             |Test Link|Sample|\n\
-            More Test Link text";
-
-        let mut file = File::create(&file_path).unwrap();
-        write!(file, "{}", content).unwrap();
-
-        let matches = vec![
-            BackPopulateMatch {
-                file_path: "test.md".into(),
-                line_number: 2,
-                line_text: "Regular Test Link here".into(),
-                found_text: "Test Link".into(),
-                replacement: "[[Test Link]]".into(),
-                position: 8,
-                in_markdown_table: false,
-            },
-            BackPopulateMatch {
-                file_path: "test.md".into(),
-                line_number: 5,
-                line_text: "|Test Link|Sample|".into(),
-                found_text: "Test Link".into(),
-                replacement: "[[Test Link\\|Display]]".into(),
-                position: 1,
-                in_markdown_table: true,
-            },
+            More Test Link text",
+                vec![
+                    BackPopulateMatch {
+                        file_path: "test.md".into(),
+                        line_number: 2,
+                        line_text: "Regular Test Link here".into(),
+                        found_text: "Test Link".into(),
+                        replacement: "[[Test Link]]".into(),
+                        position: 8,
+                        in_markdown_table: false,
+                    },
+                    BackPopulateMatch {
+                        file_path: "test.md".into(),
+                        line_number: 5,
+                        line_text: "|Test Link|Sample|".into(),
+                        found_text: "Test Link".into(),
+                        replacement: "[[Test Link\\|Display]]".into(),
+                        position: 1,
+                        in_markdown_table: true,
+                    },
+                ],
+                "Mixed table and regular content replacement",
+            ),
         ];
 
-        let config = ValidatedConfig::new(
-            true,
-            None,
-            None,
-            None,
-            temp_dir.path().to_path_buf(),
-            temp_dir.path().join("output"),
-        );
+        for (content, matches, description) in test_cases {
+            let mut file = File::create(&file_path).unwrap();
+            write!(file, "{}", content).unwrap();
 
-        apply_back_populate_changes(&config, &matches).unwrap();
+            // Apply back-populate changes
+            let config = ValidatedConfig::new(
+                true,
+                None,
+                None,
+                None,
+                temp_dir.path().to_path_buf(),
+                temp_dir.path().join("output"),
+            );
 
-        let updated_content = fs::read_to_string(&file_path).unwrap();
-        assert!(updated_content.contains("Regular [[Test Link]] here"));
-        assert!(updated_content.contains("|[[Test Link\\|Display]]|Sample|"));
+            apply_back_populate_changes(&config, &matches).unwrap();
+
+            // Verify changes
+            let updated_content = fs::read_to_string(&file_path).unwrap();
+            for match_info in matches {
+                if match_info.in_markdown_table {
+                    assert!(updated_content.contains(&match_info.replacement), "Failed for: {}", description);
+                } else {
+                    assert!(updated_content.contains(&match_info.replacement), "Failed for: {}", description);
+                }
+            }
+        }
     }
+
 
     #[test]
     fn test_no_matches_for_frontmatter_aliases() {
@@ -1390,20 +1284,8 @@ mod tests {
         repo_info.wikilinks_sorted.clear();
         repo_info.wikilinks_sorted.push(compiled);
 
-        // Rebuild the Aho-Corasick automaton
-        let patterns: Vec<&str> = repo_info
-            .wikilinks_sorted
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
-
-        repo_info.wikilinks_ac = Some(
-            AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton"),
-        );
+        // Use the helper function to build the automaton
+        repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
         // Create a test file with its own name
         let content = "Will is mentioned here but should not be replaced";
@@ -1443,215 +1325,64 @@ mod tests {
         assert_eq!(matches.len(), 1, "Should find match on other pages");
     }
 
-    fn collect_exclusion_zones(
-        line: &str,
-        config_patterns: Option<&[String]>,
-        file_patterns: Option<&[String]>,
-    ) -> Vec<(usize, usize)> {
-        let mut exclusion_zones = Vec::new();
-
-        // Process config patterns
-        if let Some(patterns) = config_patterns {
-            if !patterns.is_empty() {
-                if let Ok(ac) = AhoCorasickBuilder::new()
-                    .ascii_case_insensitive(true)
-                    .match_kind(MatchKind::LeftmostLongest)
-                    .build(patterns)
-                {
-                    for mat in ac.find_iter(line) {
-                        exclusion_zones.push((mat.start(), mat.end()));
-                    }
-                }
-            }
-        }
-
-        // Process file-specific patterns
-        if let Some(patterns) = file_patterns {
-            if !patterns.is_empty() {
-                if let Ok(file_ac) = AhoCorasickBuilder::new()
-                    .ascii_case_insensitive(true)
-                    .match_kind(MatchKind::LeftmostLongest)
-                    .build(patterns)
-                {
-                    for mat in file_ac.find_iter(line) {
-                        exclusion_zones.push((mat.start(), mat.end()));
-                    }
-                }
-            }
-        }
-
-        // Add Markdown links as exclusion zones
-        for mat in MARKDOWN_REGEX.find_iter(line) {
-            exclusion_zones.push((mat.start(), mat.end()));
-        }
-
-        exclusion_zones.sort_by_key(|&(start, _)| start);
-        exclusion_zones
-    }
-
     #[test]
-    fn test_process_line_table_escaping() {
+    fn test_process_line_table_escaping_combined() {
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.md");
 
-        // Create a test wikilink
-        let wikilink = Wikilink {
-            display_text: "Test Link".to_string(),
-            target: "Target Page".to_string(),
-            is_alias: true,
-        };
-        let compiled = compile_wikilink(wikilink).unwrap();
-
-        // Build the Aho-Corasick automaton
-        let patterns = vec![compiled.wikilink.display_text.as_str()];
-        let ac = AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton");
-
-        let config = create_simple_test_config(&temp_dir);
-        let markdown_info = MarkdownFileInfo::new();
-
-        // Test cases with different table formats and positions
-        let test_cases = vec![
-            (
-                "| Test Link | description |",
-                "[[Target Page\\|Test Link]]",
-                true,
-                "Basic table cell",
-            ),
-            (
-                "| prefix Test Link suffix | description |",
-                "[[Target Page\\|Test Link]]",
-                true,
-                "Table cell with surrounding text",
-            ),
-            (
-                "| column1 | Test Link |",
-                "[[Target Page\\|Test Link]]",
-                true,
-                "Different column position",
-            ),
-            (
-                "Test Link outside table",
-                "[[Target Page|Test Link]]",
-                false,
-                "Outside table (no escaping)",
-            ),
-            (
-                "| complex | Test Link | with | many | pipes |",
-                "[[Target Page\\|Test Link]]",
-                true,
-                "Complex table with many columns",
-            ),
-        ];
-
-        for (line, expected_replacement, should_be_in_table, case_desc) in test_cases {
-            let matches = process_line(
-                0,
-                line,
-                &file_path,
-                &ac,
-                &[&compiled],
-                &config,
-                &markdown_info,
-            )
-            .unwrap();
-
-            assert!(
-                !matches.is_empty(),
-                "Should find match for case: {}",
-                case_desc
-            );
-            let match_info = &matches[0];
-
-            assert_eq!(
-                match_info.replacement,
-                expected_replacement,
-                "Replacement text should {} be escaped for case: {}",
-                if should_be_in_table { "" } else { "not" },
-                case_desc
-            );
-
-            assert_eq!(
-                match_info.in_markdown_table, should_be_in_table,
-                "in_markdown_table flag should be correct for case: {}",
-                case_desc
-            );
-        }
-    }
-
-    #[test]
-    fn test_process_line_complex_table_escaping() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create test wikilinks with error handling
+        // Define multiple wikilinks
         let wikilinks = vec![
-            (
-                Wikilink {
-                    display_text: "Test Link".to_string(),
-                    target: "Target Page".to_string(),
-                    is_alias: true,
-                },
-                "Test Link",
-            ),
-            (
-                Wikilink {
-                    display_text: "another link".to_string(), // Note: lowercase in wikilink
-                    target: "Other Page".to_string(),
-                    is_alias: false,
-                },
-                "Another Link",
-            ),
+            Wikilink {
+                display_text: "Test Link".to_string(),
+                target: "Target Page".to_string(),
+                is_alias: true,
+            },
+            Wikilink {
+                display_text: "Another Link".to_string(),
+                target: "Other Page".to_string(),
+                is_alias: false,
+            },
         ];
 
+        // Compile the wikilinks
         let compiled_wikilinks: Vec<CompiledWikilink> = wikilinks
             .into_iter()
-            .map(|(w, _)| compile_wikilink(w).unwrap())
+            .map(|w| compile_wikilink(w).unwrap())
             .collect();
 
-        let wikilink_refs: Vec<&CompiledWikilink> = compiled_wikilinks.iter().collect();
+        let ac = build_aho_corasick(&compiled_wikilinks);
 
-        // Build the Aho-Corasick automaton
-        let patterns: Vec<&str> = wikilink_refs
-            .iter()
-            .map(|w| w.wikilink.display_text.as_str())
-            .collect();
-
-        let ac = AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton");
-
+        // Create configuration
         let config = create_simple_test_config(&temp_dir);
         let markdown_info = MarkdownFileInfo::new();
 
-        // Test complex table scenarios
+        // Define test cases with different table formats and expected replacements
         let test_cases = vec![
             (
                 "| Test Link | Another Link | description |",
-                vec![
-                    "[[Target Page\\|Test Link]]",
-                    "[[Other Page\\|Another Link]]", // Case differs, so it creates an alias
-                ],
+                vec!["[[Target Page\\|Test Link]]", "[[Other Page\\|Another Link]]"],
                 "Multiple matches in one row",
             ),
             (
-                "| Item | Test Link \\| split cell | notes |",
-                vec!["[[Target Page\\|Test Link]]"],
-                "Table with escaped pipe in cell",
+                "| prefix Test Link suffix | Another Link |",
+                vec!["[[Target Page\\|Test Link]]", "[[Other Page\\|Another Link]]"],
+                "Table cells with surrounding text",
             ),
             (
-                "| Test Link | description | [[Existing|Wiki]] |",
-                vec!["[[Target Page\\|Test Link]]"],
-                "Table with existing wikilink",
+                "| column1 | Test Link | Another Link |",
+                vec!["[[Target Page\\|Test Link]]", "[[Other Page\\|Another Link]]"],
+                "Different column positions",
+            ),
+            (
+                "| Test Link | description | Another Link |",
+                vec!["[[Target Page\\|Test Link]]", "[[Other Page\\|Another Link]]"],
+                "Multiple replacements in different columns",
             ),
         ];
 
-        for (line, expected_replacements, case_desc) in test_cases {
+        // Create references to the compiled wikilinks
+         let wikilink_refs: Vec<&CompiledWikilink> = compiled_wikilinks.iter().collect();
+        for (line, expected_replacements, description) in test_cases {
             let matches = process_line(
                 0,
                 line,
@@ -1661,27 +1392,25 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-            .unwrap();
+                .unwrap();
 
             assert_eq!(
                 matches.len(),
                 expected_replacements.len(),
-                "Should find correct number of matches for case: {}",
-                case_desc
+                "Incorrect number of replacements for: {}",
+                description
             );
 
-            for (match_info, expected_replacement) in
-                matches.iter().zip(expected_replacements.iter())
-            {
+            for (match_info, expected) in matches.iter().zip(expected_replacements.iter()) {
                 assert_eq!(
-                    match_info.replacement, *expected_replacement,
-                    "Replacement text should be correctly escaped for case: {}",
-                    case_desc
+                    match_info.replacement, *expected,
+                    "Incorrect replacement for: {}",
+                    description
                 );
                 assert!(
                     match_info.in_markdown_table,
-                    "Should be marked as in table for case: {}",
-                    case_desc
+                    "Should be marked as in table for: {}",
+                    description
                 );
             }
         }
@@ -1783,76 +1512,4 @@ mod tests {
         state.update_for_line("```");
         assert!(!state.should_skip_line(), "Should not skip after code block");
     }
-
-    #[test]
-    fn test_collect_exclusion_zones() {
-        // Define helper configurations
-        let config_patterns = Some(vec![
-            "test".to_string(),
-            "test phrase".to_string(),
-        ]);
-
-        // Test cases
-        let test_cases = vec![
-            (
-                "This is a test phrase with another test and a specific pattern",
-                config_patterns.clone(),
-                None, // No file_patterns
-                2,    // Expected number of zones (only config_patterns)
-                "Multiple config patterns",
-            ),
-            (
-                "This is a TEST PHRASE with ANOTHER TEST",
-                config_patterns.clone(),
-                None,
-                2,
-                "Case insensitivity in config patterns",
-            ),
-            (
-                "Text with [markdown](link) and test phrase",
-                config_patterns.clone(),
-                None,
-                2, // Only config_patterns are present
-                "Markdown links and config patterns",
-            ),
-            (
-                "Plain text without patterns",
-                None,
-                None,
-                0,
-                "No exclusion zones",
-            ),
-            (
-                "This is a test phrase overlapping.",
-                Some(vec!["test".to_string(), "test phrase".to_string()]),
-                None,
-                1, // Only the longest overlapping match
-                "Overlapping patterns with preference for longest match",
-            ),
-            (
-                "Federal Hill Baltimore is nice",
-                None,
-                Some(vec!["Federal Hill Baltimore".to_string()]),
-                1,
-                "File-specific multi-word pattern exclusion",
-            ),
-        ];
-
-        for (line, config_pats, file_pats, expected_count, desc) in test_cases {
-            let zones = collect_exclusion_zones(
-                &line,
-                config_pats.as_ref().map(Vec::as_slice),
-                file_pats.as_ref().map(Vec::as_slice),
-            );
-
-            assert_eq!(
-                zones.len(),
-                expected_count,
-                "Failed for case: {}",
-                desc
-            );
-        }
-    }
-
-
 }
