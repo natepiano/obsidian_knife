@@ -30,7 +30,6 @@ pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
-pub const NO_IMAGE_ISSUES: &str = "no issues found during image analysis";
 pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
 pub const TIFF_EXTENSION: &str = "tiff";
 pub const TIFF_IMAGES: &str = "TIFF images";

@@ -8,9 +8,7 @@ use std::path::Path;
 use regex::Regex;
 
 lazy_static! {
-    static ref WIKILINK_REGEX: Regex =
-        Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
-    pub static ref MARKDOWN_REGEX: regex::Regex = regex::Regex::new(r"\[.*?\]\(.*?\)").unwrap();
+    pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -247,45 +245,104 @@ pub fn collect_all_wikilinks(
 
 pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     let mut wikilinks = Vec::new();
+    let mut chars = content.char_indices().peekable();
 
-    for cap in WIKILINK_REGEX.captures_iter(content) {
-        // Get the full match start position to check for exclamation mark
-        let full_match = cap.get(0).unwrap();
-        let match_start = full_match.start();
+    while let Some((start_idx, ch)) = chars.next() {
+        if ch == '[' && is_next_char(&mut chars, '[') {
+            // Check if the previous character was '!' (image link)
+            if start_idx > 0 && is_previous_char(content, start_idx, '!') {
+                continue; // Skip image links
+            }
 
-        // Skip if this match starts with an exclamation mark
-        if match_start > 0 && content.as_bytes()[match_start - 1] == b'!' {
-            continue;
-        }
-
-        if let Some(full_phrase) = cap.get(1).map(|m| m.as_str()) {
-            let wikilink = if let Some(alias) = cap.get(2).map(|m| m.as_str()) {
-                // Clean up the full_phrase by removing the escaped pipe if present
-                let target = if full_phrase.ends_with('\\') {
-                    // Remove trailing backslash
-                    full_phrase[..full_phrase.len() - 1].to_string()
-                } else {
-                    full_phrase.to_string()
-                };
-
-                Wikilink {
-                    display_text: alias.trim().to_string(),
-                    target: target.trim().to_string(),
-                    is_alias: true,
-                }
-            } else {
-                Wikilink {
-                    display_text: full_phrase.trim().to_string(),
-                    target: full_phrase.trim().to_string(),
-                    is_alias: false,
-                }
-            };
-            wikilinks.push(wikilink);
+            // Parse the wikilink
+            if let Some(wikilink) = parse_wikilink(&mut chars) {
+                wikilinks.push(wikilink);
+            }
         }
     }
 
     wikilinks
 }
+
+fn is_next_char(
+    chars: &mut std::iter::Peekable<std::str::CharIndices>,
+    expected: char,
+) -> bool {
+    if let Some(&(_, next_ch)) = chars.peek() {
+        if next_ch == expected {
+            chars.next();
+            return true;
+        }
+    }
+    false
+}
+
+fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
+    content[..index].chars().rev().next() == Some(expected)
+}
+
+fn parse_wikilink(
+    chars: &mut std::iter::Peekable<std::str::CharIndices>,
+) -> Option<Wikilink> {
+    let mut link_text = String::new();
+    let mut is_alias = false;
+    let mut target = String::new();
+    let mut escaped = false;
+
+    while let Some((_, c)) = chars.next() {
+        if escaped {
+            // Handle escaped characters
+            if c == '|' && !is_alias {
+                // Escaped pipe acts as a separator
+                is_alias = true;
+                target = link_text.trim().to_string();
+                link_text.clear();
+            } else {
+                // Add the escaped character to link_text
+                link_text.push(c);
+            }
+            escaped = false;
+        } else if c == '\\' {
+            // Next character is escaped
+            escaped = true;
+        } else if c == '|' && !is_alias {
+            // Unescaped pipe indicates an alias
+            is_alias = true;
+            target = link_text.trim().to_string();
+            link_text.clear();
+        } else if c == ']' {
+            // Potential closing of wikilink
+            if is_next_char(chars, ']') {
+                // Closing ']]' found
+
+                // Declare and assign display_text within this scope
+                let display_text = if is_alias {
+                    link_text.trim().to_string()
+                } else {
+                    target = link_text.trim().to_string();
+                    target.clone()
+                };
+
+                // Return the parsed Wikilink
+                return Some(Wikilink {
+                    display_text,
+                    target,
+                    is_alias,
+                });
+            } else {
+                // Not a closing ']]', add ']' to link_text
+                link_text.push(c);
+            }
+        } else {
+            // Regular character, add to link_text
+            link_text.push(c);
+        }
+    }
+
+    // If we reach here, the wikilink was not properly closed
+    None
+}
+
 
 #[cfg(test)]
 mod tests {
@@ -391,6 +448,21 @@ Also [[Alias One]] is referenced"#;
         assert_eq!(wikilinks[2].target, "Other");
         assert_eq!(wikilinks[2].display_text, "Other Alias");
         assert!(wikilinks[2].is_alias);
+    }
+
+    #[test]
+    fn test_extract_wikilinks_with_unicode() {
+        let content = "Here is a [[リンク]] and [[目标|显示文本]] with Unicode.";
+        let wikilinks = extract_wikilinks_from_content(content);
+
+        assert_eq!(wikilinks.len(), 2);
+        assert_eq!(wikilinks[0].target, "リンク");
+        assert_eq!(wikilinks[0].display_text, "リンク");
+        assert!(!wikilinks[0].is_alias);
+
+        assert_eq!(wikilinks[1].target, "目标");
+        assert_eq!(wikilinks[1].display_text, "显示文本");
+        assert!(wikilinks[1].is_alias);
     }
 
     #[test]
@@ -558,4 +630,5 @@ text! ![[image2.jpg]] (exclamation before image)
             "Invalid wikilink pattern: 'test[[bad]]' contains opening brackets '[['"
         );
     }
+
 }

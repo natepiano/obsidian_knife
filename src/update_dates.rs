@@ -79,7 +79,6 @@ impl DateValidationResults {
         show_updates: bool,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if self.is_empty() {
-            writer.writeln("", "no date issues found")?;
             return Ok(());
         }
 

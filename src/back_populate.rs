@@ -115,8 +115,8 @@ fn find_all_back_populate_matches(
         |file_path, markdown_file_info| {
             // Filter to process only "amis et famille.md" unless in test
             // estatodo.md
-            if !cfg!(test) && !file_path.ends_with("2022-01-18.md") {
-                // return None;
+            if !cfg!(test) && !file_path.ends_with("avi's shakshuka.md") {
+                 return None;
             }
 
             // Process the file if it matches the filter

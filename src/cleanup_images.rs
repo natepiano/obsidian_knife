@@ -84,7 +84,6 @@ pub fn cleanup_images(
         && duplicate_groups.is_empty()
         && missing_references.is_empty()
     {
-        writer.writeln("", NO_IMAGE_ISSUES)?;
         return Ok(());
     }
 
