@@ -19,7 +19,10 @@ pub trait ToWikilink {
     /// Creates an aliased wikilink using the target (self) and display text
     /// If the texts match (case-sensitive), returns a simple wikilink
     /// Otherwise returns an aliased wikilink in the format [[target|display]]
-    fn to_aliased_wikilink(&self, display_text: &str) -> String where Self: AsRef<str> {
+    fn to_aliased_wikilink(&self, display_text: &str) -> String
+    where
+        Self: AsRef<str>,
+    {
         let target_without_md = strip_md_extension(self.as_ref());
 
         if target_without_md == display_text {
@@ -701,11 +704,17 @@ text! ![[image2.jpg]] (exclamation before image)
     fn test_to_aliased_wikilink() {
         // Test exact matches (should use simple wikilink)
         assert_eq!("target".to_aliased_wikilink("target"), "[[target]]");
-        assert_eq!("Test Link".to_aliased_wikilink("Test Link"), "[[Test Link]]");
+        assert_eq!(
+            "Test Link".to_aliased_wikilink("Test Link"),
+            "[[Test Link]]"
+        );
 
         // Test case differences (should use aliased format)
         assert_eq!("Target".to_aliased_wikilink("target"), "[[Target|target]]");
-        assert_eq!("test link".to_aliased_wikilink("Test Link"), "[[test link|Test Link]]");
+        assert_eq!(
+            "test link".to_aliased_wikilink("Test Link"),
+            "[[test link|Test Link]]"
+        );
 
         // Test completely different texts
         assert_eq!("Apple".to_aliased_wikilink("fruit"), "[[Apple|fruit]]");
@@ -736,7 +745,10 @@ text! ![[image2.jpg]] (exclamation before image)
     fn test_string_to_aliased_wikilink() {
         // Test with String type
         let string_target = String::from("Target");
-        assert_eq!(string_target.to_aliased_wikilink("target"), "[[Target|target]]");
+        assert_eq!(
+            string_target.to_aliased_wikilink("target"),
+            "[[Target|target]]"
+        );
         assert_eq!(string_target.to_aliased_wikilink("Target"), "[[Target]]");
     }
 }

@@ -43,6 +43,7 @@ pub const ZERO_BYTE_IMAGES: &str = "zero-byte images";
 pub const LEVEL1: &str = "#";
 pub const LEVEL2: &str = "##";
 pub const LEVEL3: &str = "###";
+pub const LEVEL4: &str = "####";
 
 // regex stuff
 pub const CLOSING_BRACKET: char = ']';
@@ -55,11 +56,19 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // wikilink back populate
-pub const BACK_POPULATE: &str = "back populate wikilinks";
+pub const BACK_POPULATE_TABLE_HEADER_PREFIX: &str = "the following";
+pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "matches in";
+pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "files will be back populated";
+
+pub const BACK_POPULATE_SECTION_PREFIX: &str = "back populate";
+pub const BACK_POPULATE_SECTION_SUFFIX: &str = "wikilinks";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
     "using back_populate_file_filter config parameter: ";
 pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
+pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
+pub const MATCHES_UNAMBIGUOUS: &str = "matches found to back populate";
+
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

@@ -6,7 +6,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{CompiledWikilink, ToWikilink, MARKDOWN_REGEX};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
@@ -22,6 +22,13 @@ struct BackPopulateMatch {
     replacement: String,
     position: usize,
     in_markdown_table: bool,
+}
+
+#[derive(Debug)]
+struct AmbiguousMatch {
+    display_text: String,
+    targets: Vec<String>,
+    matches: Vec<BackPopulateMatch>,
 }
 
 #[derive(Debug)]
@@ -70,13 +77,16 @@ pub fn process_back_populate(
     obsidian_repository_info: &ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL1, BACK_POPULATE)?;
+    writer.writeln(
+        LEVEL1,
+        &format!(
+            "{} {} {}",
+            BACK_POPULATE_SECTION_PREFIX,
+            obsidian_repository_info.wikilinks_sorted.len(),
+            BACK_POPULATE_SECTION_SUFFIX
+        ),
+    )?;
     let start = Instant::now();
-
-    println!(
-        "links to back populate: {}",
-        obsidian_repository_info.wikilinks_sorted.len()
-    );
 
     let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
     if let Some(filter) = config.back_populate_file_filter() {
@@ -92,12 +102,25 @@ pub fn process_back_populate(
     }
 
     if matches.is_empty() {
-        writer.writeln("", "no back population matches found")?;
         return Ok(());
     }
+    // Split matches into ambiguous and unambiguous
+    let (ambiguous_matches, unambiguous_matches) =
+        identify_ambiguous_matches(&matches, &obsidian_repository_info.wikilinks_sorted);
 
-    write_back_populate_table(writer, &matches)?;
-    apply_back_populate_changes(config, &matches)?;
+    // Write ambiguous matches first if any exist
+    write_ambiguous_matches(writer, &ambiguous_matches)?;
+
+    // Only process unambiguous matches
+    if !unambiguous_matches.is_empty() {
+        if ambiguous_matches.len() > 0 {
+            writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
+        }
+
+        write_back_populate_table(writer, &unambiguous_matches, true)?;
+        apply_back_populate_changes(config, &unambiguous_matches)?;
+    }
+
     let duration = start.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
     println!("back populate took: {}ms", duration_string);
@@ -147,6 +170,72 @@ fn find_all_back_populate_matches(
     );
 
     Ok(matches.into_iter().flatten().collect())
+}
+
+fn identify_ambiguous_matches(
+    matches: &[BackPopulateMatch],
+    wikilinks: &[CompiledWikilink],
+) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
+    // Create a case-insensitive map of targets to their canonical forms
+    let mut target_map: HashMap<String, String> = HashMap::new();
+    for wikilink in wikilinks {
+        let lower_target = wikilink.wikilink.target.to_lowercase();
+        // If this is the first time we've seen this target (case-insensitive),
+        // or if this version is an exact match for the lowercase version,
+        // use this as the canonical form
+        if !target_map.contains_key(&lower_target)
+            || wikilink.wikilink.target.to_lowercase() == wikilink.wikilink.target
+        {
+            target_map.insert(lower_target, wikilink.wikilink.target.clone());
+        }
+    }
+
+    // Create a map of display_text to normalized targets
+    let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
+    for wikilink in wikilinks {
+        let lower_target = wikilink.wikilink.target.to_lowercase();
+        // Use the canonical form of the target from our target_map
+        if let Some(canonical_target) = target_map.get(&lower_target) {
+            display_text_map
+                .entry(wikilink.wikilink.display_text.clone())
+                .or_default()
+                .insert(canonical_target.clone());
+        }
+    }
+
+    // Group matches by their found_text
+    let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
+    for match_info in matches {
+        matches_by_text
+            .entry(match_info.found_text.clone())
+            .or_default()
+            .push(match_info.clone());
+    }
+
+    // Identify truly ambiguous matches and separate them
+    let mut ambiguous_matches = Vec::new();
+    let mut unambiguous_matches = Vec::new();
+
+    for (found_text, text_matches) in matches_by_text {
+        if let Some(targets) = display_text_map.get(&found_text) {
+            // After normalizing case, if we still have multiple distinct targets,
+            // then it's truly ambiguous
+            if targets.len() > 1 {
+                ambiguous_matches.push(AmbiguousMatch {
+                    display_text: found_text,
+                    targets: targets.iter().cloned().collect(),
+                    matches: text_matches,
+                });
+            } else {
+                unambiguous_matches.extend(text_matches);
+            }
+        }
+    }
+
+    // Sort ambiguous matches by display text for consistent output
+    ambiguous_matches.sort_by(|a, b| a.display_text.cmp(&b.display_text));
+
+    (ambiguous_matches, unambiguous_matches)
 }
 
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
@@ -296,14 +385,16 @@ fn process_line(
 
         // Rest of the validation
         if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
-
             let mut replacement = if matched_text == wikilink.wikilink.target {
                 // Only use simple format if exact match (case-sensitive)
                 format!("{}", wikilink.wikilink.target.to_wikilink())
             } else {
                 // Use aliased format for case differences or actual aliases
                 //format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
-                format!("{}", wikilink.wikilink.target.to_aliased_wikilink(matched_text))
+                format!(
+                    "{}",
+                    wikilink.wikilink.target.to_aliased_wikilink(matched_text)
+                )
             };
 
             let in_markdown_table = is_in_markdown_table(&line, &matched_text);
@@ -380,120 +471,247 @@ fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
         && trimmed.contains(matched_text)
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct ConsolidatedMatch {
-    line_number: usize,
-    line_text: String,
-    found_text: String,
-    positions: Vec<usize>,
+    file_path: String,
+    line_info: Vec<LineInfo>, // Sorted vector of line information
     replacement: String,
     in_markdown_table: bool,
 }
 
+#[derive(Debug, Clone)]
+struct LineInfo {
+    line_number: usize,
+    line_text: String,
+    positions: Vec<usize>, // Multiple positions for same line
+}
+
 fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch> {
-    let mut consolidated: HashMap<(usize, String), ConsolidatedMatch> = HashMap::new();
+    // First, group by file path and line number
+    let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
+    let mut file_info: HashMap<String, (String, bool)> = HashMap::new(); // Tracks replacement and table status per file
 
+    // Group matches by file and line
     for match_info in matches {
-        let key = (match_info.line_number, match_info.found_text.clone());
+        let key = (match_info.file_path.clone(), match_info.line_number);
 
-        if let Some(existing) = consolidated.get_mut(&key) {
-            existing.positions.push(match_info.position);
-        } else {
-            consolidated.insert(
-                key,
-                ConsolidatedMatch {
-                    line_number: match_info.line_number,
-                    line_text: match_info.line_text.clone(),
-                    found_text: match_info.found_text.clone(),
-                    positions: vec![match_info.position],
-                    replacement: match_info.replacement.clone(),
-                    in_markdown_table: match_info.in_markdown_table,
-                },
-            );
-        }
+        // Update or create line info
+        let line_info = line_map.entry(key).or_insert(LineInfo {
+            line_number: match_info.line_number,
+            line_text: match_info.line_text.clone(),
+            positions: Vec::new(),
+        });
+        line_info.positions.push(match_info.position);
+
+        // Track file-level information
+        file_info.insert(
+            match_info.file_path.clone(),
+            (match_info.replacement.clone(), match_info.in_markdown_table),
+        );
     }
 
-    let mut result: Vec<ConsolidatedMatch> = consolidated.into_values().collect();
-    result.sort_by_key(|m| (m.line_number, m.positions[0]));
+    // Convert to consolidated matches, sorting lines within each file
+    let mut result = Vec::new();
+    for (file_path, (replacement, in_markdown_table)) in file_info {
+        let mut file_lines: Vec<LineInfo> = line_map
+            .iter()
+            .filter(|((path, _), _)| path == &file_path)
+            .map(|((_, _), line_info)| line_info.clone())
+            .collect();
+
+        // Sort lines by line number
+        file_lines.sort_by_key(|line| line.line_number);
+
+        result.push(ConsolidatedMatch {
+            file_path,
+            line_info: file_lines,
+            replacement,
+            in_markdown_table,
+        });
+    }
+
+    // Sort consolidated matches by file path
+    result.sort_by(|a, b| {
+        let file_a = Path::new(&a.file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        let file_b = Path::new(&b.file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        file_a.cmp(file_b)
+    });
+
     result
+}
+
+fn write_ambiguous_matches(
+    writer: &ThreadSafeWriter,
+    ambiguous_matches: &[AmbiguousMatch],
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if ambiguous_matches.is_empty() {
+        return Ok(());
+    }
+
+    writer.writeln(LEVEL2, MATCHES_AMBIGUOUS)?;
+
+    for ambiguous_match in ambiguous_matches {
+        writer.writeln(
+            LEVEL3,
+            &format!(
+                "the text \"{}\" matches {} targets:",
+                ambiguous_match.display_text,
+                ambiguous_match.targets.len(),
+            ),
+        )?;
+
+        // Write out all possible targets
+        for target in &ambiguous_match.targets {
+            writer.writeln("", &format!("- {}", target.to_wikilink()))?;
+        }
+
+        // Reuse existing table writing code for the matches
+        write_back_populate_table(writer, &ambiguous_match.matches, false)?;
+    }
+
+    Ok(())
 }
 
 fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
+    is_unambiguous_match: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Group and sort matches by file path
-    let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
+    // First, group matches by found_text
+    let mut matches_by_text: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
     for m in matches {
-        let file_key = m.file_path.trim_end_matches(".md").to_string(); // Remove `.md`
-        matches_by_file.entry(file_key).or_default().push(m);
+        matches_by_text
+            .entry(m.found_text.clone())
+            .or_default()
+            .push(m);
     }
 
-    writer.writeln(
-        "",
-        &format!(
-            "found {} matches to back populate in {} files",
-            matches.len(),
-            matches_by_file.len()
-        ),
-    )?;
-
-    for (file_path, file_matches) in &matches_by_file {
-        // Write the file name as a header with change count
+    if is_unambiguous_match {
+        // Count unique files across all matches
+        let unique_files: HashSet<String> = matches.iter().map(|m| m.file_path.clone()).collect();
         writer.writeln(
             "",
-            &format!("### {} - {}", file_path.to_wikilink(), file_matches.len()),
+            &format!(
+                "{} {} {} {} {}",
+                BACK_POPULATE_TABLE_HEADER_PREFIX,
+                matches.len(),
+                BACK_POPULATE_TABLE_HEADER_MIDDLE,
+                unique_files.len(),
+                BACK_POPULATE_TABLE_HEADER_SUFFIX,
+            ),
         )?;
+    }
 
-        // Headers for each table
-        let headers = &[
-            "line",
-            "current text",
-            "found text",
-            "occurrences",
-            "will replace with",
-            "escaped replacement",
-        ];
+    // Headers for the tables
+    let headers = &[
+        "file name",
+        "line",
+        "current text",
+        "occurrences",
+        "will replace with",
+        "escaped replacement",
+    ];
 
-        // Consolidate matches for this file
-        let consolidated_matches = consolidate_matches(file_matches);
-
-        // Collect rows for this file
-        let rows: Vec<Vec<String>> = consolidated_matches
+    // Create a separate table for each found_text group
+    for (found_text, text_matches) in matches_by_text.iter() {
+        let total_occurrences = text_matches.len();
+        let file_paths: HashSet<String> = text_matches
             .iter()
-            .map(|m| {
-                let replacement = if m.in_markdown_table {
-                    m.replacement.clone()
-                } else {
-                    escape_pipe(&m.replacement)
-                };
-
-                // Create a copy of the line text and highlight all instances of found_text
-                let highlighted_line = highlight_matches(&m.line_text, &m.found_text);
-
-                vec![
-                    m.line_number.to_string(),
-                    escape_pipe(&highlighted_line),
-                    m.found_text.clone(),
-                    m.positions.len().to_string(),
-                    replacement.clone(),
-                    escape_brackets(&replacement),
-                ]
-            })
+            .map(|m| m.file_path.to_string())
             .collect();
 
+        let level_string = if is_unambiguous_match {
+            LEVEL3
+        } else {
+            LEVEL4
+        };
+
+        writer.writeln(
+            level_string,
+            &format!(
+                "found text: \"{}\" ({} times in {} files)",
+                found_text,
+                total_occurrences,
+                file_paths.len()
+            ),
+        )?;
+
+        // Sort matches by file path and line number
+        let mut sorted_matches = text_matches.to_vec();
+        sorted_matches.sort_by(|a, b| {
+            let file_a = Path::new(&a.file_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            let file_b = Path::new(&b.file_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+
+            // First compare by file name
+            let file_cmp = file_a.cmp(file_b);
+            if file_cmp != std::cmp::Ordering::Equal {
+                return file_cmp;
+            }
+
+            // Then by line number within the same file
+            a.line_number.cmp(&b.line_number)
+        });
+
+        // Consolidate matches
+        let consolidated = consolidate_matches(&sorted_matches);
+
+        // Prepare rows
+        let mut table_rows = Vec::new();
+
+        for m in consolidated {
+            let file_path = Path::new(&m.file_path);
+            let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+
+            let replacement = if m.in_markdown_table {
+                m.replacement.clone()
+            } else {
+                escape_pipe(&m.replacement)
+            };
+
+            // Create a row for each line, maintaining the consolidation of occurrences
+            for line_info in m.line_info {
+                let highlighted_line = highlight_matches(&line_info.line_text, found_text);
+
+                let row = vec![
+                    file_stem.to_wikilink(),
+                    line_info.line_number.to_string(),
+                    escape_pipe(&highlighted_line),
+                    line_info.positions.len().to_string(),
+                    replacement.clone(),
+                    escape_brackets(&replacement),
+                ];
+
+                table_rows.push(row);
+            }
+        }
+
+        // Write the table
         writer.write_markdown_table(
             headers,
-            &rows,
+            &table_rows,
             Some(&[
-                ColumnAlignment::Right,
                 ColumnAlignment::Left,
+                ColumnAlignment::Right,
                 ColumnAlignment::Left,
                 ColumnAlignment::Center,
                 ColumnAlignment::Left,
                 ColumnAlignment::Left,
             ]),
         )?;
+
+        writer.writeln("", "\n---\n")?;
     }
 
     Ok(())
@@ -857,7 +1075,7 @@ mod tests {
                 expected_matches: vec![
                     ("test link", "[[Test Link|test link]]"),
                     ("TEST LINK", "[[Test Link|TEST LINK]]"),
-                    ("Test Link", "[[Test Link]]"),  // Exact match
+                    ("Test Link", "[[Test Link]]"), // Exact match
                 ],
                 description: "Basic case-insensitive matching",
             },
@@ -879,7 +1097,7 @@ mod tests {
                     is_alias: false,
                 },
                 expected_matches: vec![
-                    ("Test Link", "[[Test Link]]"),  // Exact match
+                    ("Test Link", "[[Test Link]]"), // Exact match
                     ("test link", "[[Test Link|test link]]"),
                 ],
                 description: "Case handling in tables",
@@ -1546,5 +1764,252 @@ mod tests {
             match_info.replacement, "[[tomato|tomatoes]]",
             "Should use the alias form [[tomato|tomatoes]] instead of [[tomatoes]]"
         );
+    }
+
+    #[test]
+    fn test_identify_ambiguous_matches() {
+        // Create test wikilinks
+        let wikilinks = vec![
+            CompiledWikilink::new(Wikilink {
+                display_text: "Ed".to_string(),
+                target: "Ed Barnes".to_string(),
+                is_alias: true,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "Ed".to_string(),
+                target: "Ed Stanfield".to_string(),
+                is_alias: true,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "Unique".to_string(),
+                target: "Unique Target".to_string(),
+                is_alias: false,
+            }),
+        ];
+
+        // Create test matches
+        let matches = vec![
+            BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 1,
+                line_text: "Ed wrote this".to_string(),
+                found_text: "Ed".to_string(),
+                replacement: "[[Ed Barnes|Ed]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            },
+            BackPopulateMatch {
+                file_path: "test2.md".to_string(),
+                line_number: 1,
+                line_text: "Unique wrote this".to_string(),
+                found_text: "Unique".to_string(),
+                replacement: "[[Unique Target]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            },
+        ];
+
+        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+
+        // Check ambiguous matches
+        assert_eq!(ambiguous.len(), 1, "Should have one ambiguous match group");
+        assert_eq!(ambiguous[0].display_text, "Ed");
+        assert_eq!(ambiguous[0].targets.len(), 2);
+        assert!(ambiguous[0].targets.contains(&"Ed Barnes".to_string()));
+        assert!(ambiguous[0].targets.contains(&"Ed Stanfield".to_string()));
+
+        // Check unambiguous matches
+        assert_eq!(unambiguous.len(), 1, "Should have one unambiguous match");
+        assert_eq!(unambiguous[0].found_text, "Unique");
+    }
+
+    #[test]
+    fn test_write_ambiguous_matches() {
+        let temp_dir = TempDir::new().unwrap();
+        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
+
+        let ambiguous_matches = vec![AmbiguousMatch {
+            display_text: "Ed".to_string(),
+            targets: vec!["Ed Barnes".to_string(), "Ed Stanfield".to_string()],
+            matches: vec![BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 1,
+                line_text: "Ed wrote this".to_string(),
+                found_text: "Ed".to_string(),
+                replacement: "[[Ed Barnes|Ed]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            }],
+        }];
+
+        write_ambiguous_matches(&writer, &ambiguous_matches).unwrap();
+
+        // Verify output file exists and contains expected content
+        let output = fs::read_to_string(temp_dir.path().join("obsidian knife output.md")).unwrap();
+        assert!(output.contains("ambiguous matches found"));
+        assert!(output.contains("matches multiple targets"));
+        assert!(output.contains("[[Ed Barnes]]"));
+        assert!(output.contains("[[Ed Stanfield]]"));
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+
+        #[test]
+        fn test_case_insensitive_targets() {
+            // Create test wikilinks with case variations
+            let wikilinks = vec![
+                CompiledWikilink::new(Wikilink {
+                    display_text: "Amazon".to_string(),
+                    target: "Amazon".to_string(),
+                    is_alias: false,
+                }),
+                CompiledWikilink::new(Wikilink {
+                    display_text: "amazon".to_string(),
+                    target: "amazon".to_string(),
+                    is_alias: false,
+                }),
+            ];
+
+            // Create test matches
+            let matches = vec![
+                BackPopulateMatch {
+                    file_path: "test1.md".to_string(),
+                    line_number: 1,
+                    line_text: "- [[Amazon]]".to_string(),
+                    found_text: "Amazon".to_string(),
+                    replacement: "[[Amazon]]".to_string(),
+                    position: 0,
+                    in_markdown_table: false,
+                },
+                BackPopulateMatch {
+                    file_path: "test1.md".to_string(),
+                    line_number: 2,
+                    line_text: "- [[amazon]]".to_string(),
+                    found_text: "amazon".to_string(),
+                    replacement: "[[amazon]]".to_string(),
+                    position: 0,
+                    in_markdown_table: false,
+                },
+            ];
+
+            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+
+            // Should treat case variations of the same target as the same file
+            assert_eq!(
+                ambiguous.len(),
+                0,
+                "Case variations of the same target should not be ambiguous"
+            );
+            assert_eq!(
+                unambiguous.len(),
+                2,
+                "Both matches should be considered unambiguous"
+            );
+        }
+
+        #[test]
+        fn test_truly_ambiguous_targets() {
+            // Create test wikilinks with actually different targets
+            let wikilinks = vec![
+                CompiledWikilink::new(Wikilink {
+                    display_text: "Amazon".to_string(),
+                    target: "Amazon (company)".to_string(),
+                    is_alias: true,
+                }),
+                CompiledWikilink::new(Wikilink {
+                    display_text: "Amazon".to_string(),
+                    target: "Amazon (river)".to_string(),
+                    is_alias: true,
+                }),
+            ];
+
+            let matches = vec![BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 1,
+                line_text: "Amazon is huge".to_string(),
+                found_text: "Amazon".to_string(),
+                replacement: "[[Amazon (company)|Amazon]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            }];
+
+            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+
+            assert_eq!(
+                ambiguous.len(),
+                1,
+                "Different targets should be identified as ambiguous"
+            );
+            assert_eq!(
+                unambiguous.len(),
+                0,
+                "No matches should be considered unambiguous"
+            );
+            assert_eq!(ambiguous[0].targets.len(), 2);
+        }
+
+        #[test]
+        fn test_mixed_case_and_truly_ambiguous() {
+            let wikilinks = vec![
+                // Case variations of one target
+                CompiledWikilink::new(Wikilink {
+                    display_text: "AWS".to_string(),
+                    target: "AWS".to_string(),
+                    is_alias: false,
+                }),
+                CompiledWikilink::new(Wikilink {
+                    display_text: "aws".to_string(),
+                    target: "aws".to_string(),
+                    is_alias: false,
+                }),
+                // Truly different targets
+                CompiledWikilink::new(Wikilink {
+                    display_text: "Amazon".to_string(),
+                    target: "Amazon (company)".to_string(),
+                    is_alias: true,
+                }),
+                CompiledWikilink::new(Wikilink {
+                    display_text: "Amazon".to_string(),
+                    target: "Amazon (river)".to_string(),
+                    is_alias: true,
+                }),
+            ];
+
+            let matches = vec![
+                BackPopulateMatch {
+                    file_path: "test1.md".to_string(),
+                    line_number: 1,
+                    line_text: "AWS and aws are the same".to_string(),
+                    found_text: "AWS".to_string(),
+                    replacement: "[[AWS]]".to_string(),
+                    position: 0,
+                    in_markdown_table: false,
+                },
+                BackPopulateMatch {
+                    file_path: "test1.md".to_string(),
+                    line_number: 2,
+                    line_text: "Amazon is ambiguous".to_string(),
+                    found_text: "Amazon".to_string(),
+                    replacement: "[[Amazon (company)|Amazon]]".to_string(),
+                    position: 0,
+                    in_markdown_table: false,
+                },
+            ];
+
+            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+
+            assert_eq!(
+                ambiguous.len(),
+                1,
+                "Should only identify truly different targets as ambiguous"
+            );
+            assert_eq!(
+                unambiguous.len(),
+                1,
+                "Case variations should be identified as unambiguous"
+            );
+        }
     }
 }
