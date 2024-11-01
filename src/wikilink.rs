@@ -1,15 +1,15 @@
-use crate::frontmatter::FrontMatter;
-use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
+use crate::{frontmatter::FrontMatter, constants::*};
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
 use std::path::Path;
+use regex::Regex;
 
 lazy_static! {
-    static ref WIKILINK_REGEX: fancy_regex::Regex =
-        fancy_regex::Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
+    static ref WIKILINK_REGEX: Regex =
+        Regex::new(r"\[\[(.*?)(?:\\?\|(.*?))?\]\]").unwrap();
     pub static ref MARKDOWN_REGEX: regex::Regex = regex::Regex::new(r"\[.*?\]\(.*?\)").unwrap();
 }
 
@@ -200,7 +200,6 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
     Ok(CompiledWikilink::new(wikilink))
 }
 
-// This becomes the extended version that builds on the basic version
 pub fn collect_all_wikilinks(
     content: &str,
     frontmatter: &Option<FrontMatter>,
@@ -249,41 +248,39 @@ pub fn collect_all_wikilinks(
 pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     let mut wikilinks = Vec::new();
 
-    for cap_result in WIKILINK_REGEX.captures_iter(content) {
-        if let Ok(cap) = cap_result {
-            // Get the full match start position to check for exclamation mark
-            let full_match = cap.get(0).unwrap();
-            let match_start = full_match.start();
+    for cap in WIKILINK_REGEX.captures_iter(content) {
+        // Get the full match start position to check for exclamation mark
+        let full_match = cap.get(0).unwrap();
+        let match_start = full_match.start();
 
-            // Skip if this match starts with an exclamation mark
-            if match_start > 0 && content.as_bytes()[match_start - 1] == b'!' {
-                continue;
-            }
+        // Skip if this match starts with an exclamation mark
+        if match_start > 0 && content.as_bytes()[match_start - 1] == b'!' {
+            continue;
+        }
 
-            if let Some(full_phrase) = cap.get(1).map(|m| m.as_str()) {
-                let wikilink = if let Some(alias) = cap.get(2).map(|m| m.as_str()) {
-                    // Clean up the full_phrase by removing the escaped pipe if present
-                    let target = if full_phrase.ends_with('\\') {
-                        // Remove trailing backslash
-                        full_phrase[..full_phrase.len() - 1].to_string()
-                    } else {
-                        full_phrase.to_string()
-                    };
-
-                    Wikilink {
-                        display_text: alias.trim().to_string(),
-                        target: target.trim().to_string(),
-                        is_alias: true,
-                    }
+        if let Some(full_phrase) = cap.get(1).map(|m| m.as_str()) {
+            let wikilink = if let Some(alias) = cap.get(2).map(|m| m.as_str()) {
+                // Clean up the full_phrase by removing the escaped pipe if present
+                let target = if full_phrase.ends_with('\\') {
+                    // Remove trailing backslash
+                    full_phrase[..full_phrase.len() - 1].to_string()
                 } else {
-                    Wikilink {
-                        display_text: full_phrase.trim().to_string(),
-                        target: full_phrase.trim().to_string(),
-                        is_alias: false,
-                    }
+                    full_phrase.to_string()
                 };
-                wikilinks.push(wikilink);
-            }
+
+                Wikilink {
+                    display_text: alias.trim().to_string(),
+                    target: target.trim().to_string(),
+                    is_alias: true,
+                }
+            } else {
+                Wikilink {
+                    display_text: full_phrase.trim().to_string(),
+                    target: full_phrase.trim().to_string(),
+                    is_alias: false,
+                }
+            };
+            wikilinks.push(wikilink);
         }
     }
 
