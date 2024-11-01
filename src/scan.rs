@@ -10,6 +10,8 @@ use rayon::prelude::*;
 use crate::constants::{LEVEL1, LEVEL2};
 use crate::frontmatter::FrontMatter;
 use crate::wikilink::CompiledWikilink;
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use itertools::Itertools;
 use regex::Regex;
 use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
@@ -19,8 +21,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-use itertools::Itertools;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Clone)]
@@ -53,9 +53,8 @@ pub struct ObsidianRepositoryInfo {
     pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
-    pub wikilinks_ac: Option<AhoCorasick>,  // Add the new field
+    pub wikilinks_ac: Option<AhoCorasick>, // Add the new field
     pub wikilinks_sorted: Vec<CompiledWikilink>, // New field for all unique wikilinks
-
 }
 
 pub fn scan_obsidian_folder(
@@ -268,7 +267,8 @@ fn scan_folders(
         .collect();
 
     // Build the AC pattern from sorted wikilinks
-    let patterns: Vec<&str> = obsidian_repository_info.wikilinks_sorted
+    let patterns: Vec<&str> = obsidian_repository_info
+        .wikilinks_sorted
         .iter()
         .map(|w| w.wikilink.display_text.as_str())
         .collect();
@@ -278,7 +278,7 @@ fn scan_folders(
             .ascii_case_insensitive(true)
             .match_kind(MatchKind::LeftmostLongest)
             .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton for wikilinks")
+            .expect("Failed to build Aho-Corasick automaton for wikilinks"),
     );
 
     // Process image info

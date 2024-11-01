@@ -113,16 +113,13 @@ impl fmt::Display for CompiledWikilink {
 }
 
 impl CompiledWikilink {
-    pub fn new( wikilink: Wikilink) -> Self {
+    pub fn new(wikilink: Wikilink) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         wikilink.hash(&mut hasher);
         let hash = hasher.finish();
 
-        CompiledWikilink {
-            wikilink,
-            hash,
-        }
+        CompiledWikilink { wikilink, hash }
     }
 }
 
@@ -200,9 +197,7 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
         });
     }
 
-    Ok(CompiledWikilink::new(
-        wikilink,
-    ))
+    Ok(CompiledWikilink::new(wikilink))
 }
 
 // This becomes the extended version that builds on the basic version
@@ -312,7 +307,8 @@ Here's a [[Regular Link]] and [[Target|Display Text]]
 Also [[Alias One]] is referenced"#;
 
         let frontmatter = frontmatter::deserialize_frontmatter(content).unwrap();
-        let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
+        let wikilinks =
+            collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
 
         assert!(wikilinks
             .iter()

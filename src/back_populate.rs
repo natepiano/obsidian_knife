@@ -71,12 +71,12 @@ pub fn process_back_populate(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE)?;
 
-    println!("links to back populate: {}", obsidian_repository_info.wikilinks_sorted.len());
+    println!(
+        "links to back populate: {}",
+        obsidian_repository_info.wikilinks_sorted.len()
+    );
 
-    let matches = find_all_back_populate_matches(
-        config,
-        obsidian_repository_info,
-    )?;
+    let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
 
     if matches.is_empty() {
         writer.writeln("", "no back population matches found")?;
@@ -98,9 +98,12 @@ fn find_all_back_populate_matches(
     // Specify how often you want to log progress (e.g., every 100 files)
     let log_every = 100;
 
-    let ac = obsidian_repository_info.wikilinks_ac.as_ref()
+    let ac = obsidian_repository_info
+        .wikilinks_ac
+        .as_ref()
         .expect("Wikilinks AC pattern should be initialized");
-    let sorted_wikilinks: Vec<&CompiledWikilink> = obsidian_repository_info.wikilinks_sorted.iter().collect();
+    let sorted_wikilinks: Vec<&CompiledWikilink> =
+        obsidian_repository_info.wikilinks_sorted.iter().collect();
 
     let matches = searcher.search_with_info(
         &obsidian_repository_info.markdown_files,
@@ -108,7 +111,7 @@ fn find_all_back_populate_matches(
             // Filter to process only "amis et famille.md" unless in test
             // estatodo.md
             if !cfg!(test) && !file_path.ends_with("2022-01-18.md") {
-               // return None;
+                // return None;
             }
 
             // Process the file if it matches the filter
@@ -731,15 +734,14 @@ mod tests {
             is_alias: false,
         };
 
-        let compiled = CompiledWikilink::new(
-            wikilink,
-        );
+        let compiled = CompiledWikilink::new(wikilink);
 
         // Add the compiled wikilink to the sorted Vec
         repo_info.wikilinks_sorted = vec![compiled];
 
         // Build the Aho-Corasick automaton
-        let patterns: Vec<&str> = repo_info.wikilinks_sorted
+        let patterns: Vec<&str> = repo_info
+            .wikilinks_sorted
             .iter()
             .map(|w| w.wikilink.display_text.as_str())
             .collect();
@@ -749,7 +751,7 @@ mod tests {
                 .ascii_case_insensitive(true)
                 .match_kind(MatchKind::LeftmostLongest)
                 .build(patterns)
-                .expect("Failed to build Aho-Corasick automaton")
+                .expect("Failed to build Aho-Corasick automaton"),
         );
 
         repo_info.markdown_files = HashMap::new();
@@ -815,8 +817,7 @@ mod tests {
         case_description: &str,
     ) {
         assert_eq!(
-            actual_match.found_text,
-            expected_text,
+            actual_match.found_text, expected_text,
             "Wrong matched text for case: {}",
             case_description
         );
@@ -895,7 +896,10 @@ mod tests {
         // With do_not_back_populate patterns
         let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
         let pattern_config = create_test_config(&temp_dir, false, Some(patterns.clone()));
-        assert_eq!(pattern_config.do_not_back_populate(), Some(patterns.as_slice()));
+        assert_eq!(
+            pattern_config.do_not_back_populate(),
+            Some(patterns.as_slice())
+        );
 
         // With both parameters
         let full_config = create_test_config(&temp_dir, true, Some(vec!["pattern".to_string()]));
@@ -926,7 +930,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -938,40 +942,14 @@ mod tests {
             for ((expected_text, expected_base_replacement), actual_match) in
                 case.expected_matches.iter().zip(matches.iter())
             {
-                verify_match(actual_match, expected_text, expected_base_replacement, case.description);
+                verify_match(
+                    actual_match,
+                    expected_text,
+                    expected_base_replacement,
+                    case.description,
+                );
             }
         }
-    }
-
-    #[test]
-    fn test_is_within_wikilink_improved() {
-        // Basic tests
-        assert!(!is_within_wikilink("Test Link here", 0));
-        assert!(is_within_wikilink("[[Test Link]]", 2));
-        assert!(!is_within_wikilink("[[Other]] Test Link", 9));
-
-        // Complex cases with multiple wikilinks
-        let complex_line = "[[India]]?]] - set up a weeknight that [[Oleksiy Blavat|Oleksiy]] [[Zach Bowman|Zach]]";
-
-        // Debug prints to understand positions
-        // println!("Testing position within wikilink:");
-        // println!("Line: {}", complex_line);
-        // println!("Position 43 character: {}", &complex_line[43..44]);
-
-        // Check various positions in complex_line
-        assert!(is_within_wikilink(complex_line, 43)); // Position within "Oleksiy Blavat|Oleksiy"
-        assert!(!is_within_wikilink(complex_line, 35)); // Position in "that "
-        assert!(is_within_wikilink(complex_line, 2)); // Position within "India"
-
-        // Test aliased wikilinks
-        assert!(is_within_wikilink("[[Person|Name]]", 9)); // Within alias part
-        assert!(is_within_wikilink("[[Person|Name]]", 3)); // Within target part
-
-        // Test edge cases
-        assert!(!is_within_wikilink("[single brackets]", 5));
-        assert!(!is_within_wikilink("no brackets", 3));
-        assert!(!is_within_wikilink("[[unclosed", 3));
-        assert!(!is_within_wikilink("text]] [[", 2));
     }
 
     #[test]
@@ -987,11 +965,11 @@ mod tests {
         write!(file, "{}", file_content).unwrap();
 
         // Add the file to repository info
-        repo_info.markdown_files
+        repo_info
+            .markdown_files
             .insert(file_path.clone(), MarkdownFileInfo::new());
 
-        let matches = find_all_back_populate_matches(&config, &repo_info)
-            .unwrap();
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -1022,11 +1000,11 @@ mod tests {
         write!(file, "{}", file_content).unwrap();
 
         // Add the file to repository info
-        repo_info.markdown_files
+        repo_info
+            .markdown_files
             .insert(file_path.clone(), MarkdownFileInfo::new());
 
-        let matches = find_all_back_populate_matches(&config, &repo_info)
-            .unwrap();
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
         assert_eq!(matches.len(), 3, "Should find three 'Test Link' instances");
 
@@ -1070,14 +1048,11 @@ mod tests {
             .insert(file_path.clone(), MarkdownFileInfo::new());
 
         // Find matches
-        let matches =
-            find_all_back_populate_matches(&config, &repo_info)
-                .unwrap();
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
         // Create a config that allows changes
         let config_with_changes = create_test_config(
-            &temp_dir,
-            true, // apply_changes
+            &temp_dir, true, // apply_changes
             None, // do_not_back_populate
         );
 
@@ -1132,7 +1107,8 @@ mod tests {
         repo_info.wikilinks_sorted.push(compiled2);
 
         // Rebuild the Aho-Corasick automaton with the new wikilinks
-        let patterns: Vec<&str> = repo_info.wikilinks_sorted
+        let patterns: Vec<&str> = repo_info
+            .wikilinks_sorted
             .iter()
             .map(|w| w.wikilink.display_text.as_str())
             .collect();
@@ -1142,11 +1118,10 @@ mod tests {
                 .ascii_case_insensitive(true)
                 .match_kind(MatchKind::LeftmostLongest)
                 .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton")
+                .expect("Failed to build Aho-Corasick automaton"),
         );
 
-        let matches = find_all_back_populate_matches(&config, &repo_info)
-            .unwrap();
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
         // We should only get one match for "Kyri" at position 28
         assert_eq!(matches.len(), 1, "Expected exactly one match");
@@ -1198,7 +1173,8 @@ mod tests {
             wikilink_refs,
             &config,
             &markdown_info,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(matches.len(), 0, "Match should be excluded");
 
@@ -1212,7 +1188,8 @@ mod tests {
             wikilink_refs,
             &config,
             &markdown_info,
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(matches.len(), 1, "Match should be included");
         assert_eq!(matches[0].found_text, "cheese");
@@ -1236,7 +1213,8 @@ mod tests {
         repo_info.wikilinks_sorted.push(compiled);
 
         // Rebuild the Aho-Corasick automaton with the new wikilinks
-        let patterns: Vec<&str> = repo_info.wikilinks_sorted
+        let patterns: Vec<&str> = repo_info
+            .wikilinks_sorted
             .iter()
             .map(|w| w.wikilink.display_text.as_str())
             .collect();
@@ -1246,7 +1224,7 @@ mod tests {
                 .ascii_case_insensitive(true)
                 .match_kind(MatchKind::LeftmostLongest)
                 .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton")
+                .expect("Failed to build Aho-Corasick automaton"),
         );
 
         // Create a test file with its own name
@@ -1306,7 +1284,6 @@ mod tests {
             &markdown_info,
         ));
     }
-
 
     #[test]
     fn test_back_populate_table_content() {
@@ -1397,68 +1374,6 @@ mod tests {
     }
 
     #[test]
-    fn test_is_within_wikilink_byte_offsets() {
-        // // Debug print function
-        // fn print_char_positions(text: &str) {
-        //     println!("\nAnalyzing text: {}", text);
-        //     println!("Total bytes: {}", text.len());
-        //     for (i, (byte_pos, ch)) in text.char_indices().enumerate() {
-        //         println!("char '{}' at index {}: byte position {}", ch, i, byte_pos);
-        //     }
-        //
-        //     // Find wikilink positions
-        //     let wikilink_regex = regex::Regex::new(r"\[\[.*?]]").unwrap();
-        //     if let Some(mat) = wikilink_regex.find(text) {
-        //         println!("\nWikilink match: start={}, end={}", mat.start(), mat.end());
-        //         println!("Matched text: '{}'", &text[mat.start()..mat.end()]);
-        //         println!("Link content starts at: {}", mat.start() + 2);
-        //         println!("Link content ends at: {}", mat.end() - 2);
-        //     }
-        // }
-
-        let ascii_text = "before [[link]] after";
-        let utf8_text = "привет [[ссылка]] текст";
-
-        // print_char_positions(ascii_text);
-        // print_char_positions(utf8_text);
-
-        let cases = vec![
-            // ASCII cases - fixed expectations
-            (ascii_text, 7, false),  // First [ - should be FALSE (it's markup)
-            (ascii_text, 8, false),  // Second [ - should be FALSE (it's markup)
-            (ascii_text, 9, true),   // 'l' - should be TRUE (it's content)
-            (ascii_text, 10, true),  // 'i' - should be TRUE (it's content)
-            (ascii_text, 11, true),  // 'n' - should be TRUE (it's content)
-            (ascii_text, 12, true),  // 'k' - should be TRUE (it's content)
-            (ascii_text, 13, false), // First ] - should be FALSE (it's markup)
-            (ascii_text, 14, false), // Second ] - should be FALSE (it's markup)
-            // UTF-8 cases - fixed expectations
-            (utf8_text, 13, false), // First [ - should be FALSE (it's markup)
-            (utf8_text, 14, false), // Second [ - should be FALSE (it's markup)
-            (utf8_text, 15, true),  // Inside link text (с) - should be TRUE (it's content)
-            (utf8_text, 25, true),  // Inside link text (a) - should be TRUE (it's content)
-            (utf8_text, 27, false), // First ] - should be FALSE (it's markup)
-            (utf8_text, 28, false), // Second ] - should be FALSE (it's markup)
-            (utf8_text, 12, false), // Space before [[ - should be FALSE (outside)
-            (utf8_text, 29, false), // Space after ]] - should be FALSE (outside)
-        ];
-
-        for (text, pos, expected) in cases {
-            let actual = is_within_wikilink(text, pos);
-            assert_eq!(
-                actual,
-                expected,
-                "Failed for text '{}' at position {} (char '{}')\nExpected: {}, Got: {}",
-                text,
-                pos,
-                text.chars().nth(text[..pos].chars().count()).unwrap_or('?'),
-                expected,
-                actual
-            );
-        }
-    }
-
-    #[test]
     fn test_no_matches_for_frontmatter_aliases() {
         let (temp_dir, _, mut repo_info) = create_test_environment();
 
@@ -1476,7 +1391,8 @@ mod tests {
         repo_info.wikilinks_sorted.push(compiled);
 
         // Rebuild the Aho-Corasick automaton
-        let patterns: Vec<&str> = repo_info.wikilinks_sorted
+        let patterns: Vec<&str> = repo_info
+            .wikilinks_sorted
             .iter()
             .map(|w| w.wikilink.display_text.as_str())
             .collect();
@@ -1486,7 +1402,7 @@ mod tests {
                 .ascii_case_insensitive(true)
                 .match_kind(MatchKind::LeftmostLongest)
                 .build(&patterns)
-                .expect("Failed to build Aho-Corasick automaton")
+                .expect("Failed to build Aho-Corasick automaton"),
         );
 
         // Create a test file with its own name
@@ -1501,8 +1417,7 @@ mod tests {
 
         // Use create_test_config to create appropriate config
         let config = create_test_config(
-            &temp_dir,
-            false, // apply_changes
+            &temp_dir, false, // apply_changes
             None,  // do_not_back_populate
         );
 
@@ -1527,7 +1442,6 @@ mod tests {
 
         assert_eq!(matches.len(), 1, "Should find match on other pages");
     }
-
 
     fn collect_exclusion_zones(
         line: &str,
@@ -1573,98 +1487,6 @@ mod tests {
 
         exclusion_zones.sort_by_key(|&(start, _)| start);
         exclusion_zones
-    }
-
-    #[test]
-    fn test_multi_word_pattern_exclusions() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create test wikilink
-        let wikilink = Wikilink {
-            display_text: "hill".to_string(),
-            target: "target".to_string(),
-            is_alias: true,
-        };
-        let compiled = compile_wikilink(wikilink).unwrap();
-
-        // Build the Aho-Corasick automaton
-        let patterns = vec![compiled.wikilink.display_text.as_str()];
-        let ac = AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton");
-
-        // Create markdown info with do_not_back_populate patterns
-        let mut markdown_info = MarkdownFileInfo::new();
-        markdown_info.do_not_back_populate = Some(vec!["Federal Hill Baltimore".to_string()]);
-
-        // Use helper function instead of direct ValidatedConfig creation
-        let config = create_simple_test_config(&temp_dir);
-
-        let matches = process_line(
-            0,
-            "Federal Hill Baltimore is nice",
-            &file_path,
-            &ac,
-            &[&compiled],
-            &config,
-            &markdown_info,
-        )
-            .unwrap();
-
-        assert!(
-            matches.is_empty(),
-            "Should not match 'hill' within multi-word pattern"
-        );
-    }
-
-    #[test]
-    fn test_overlapping_exclusions() {
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
-
-        let wikilink = Wikilink {
-            display_text: "test".to_string(),
-            target: "target".to_string(),
-            is_alias: true,
-        };
-        let compiled = compile_wikilink(wikilink).unwrap();
-
-        // Build the Aho-Corasick automaton
-        let patterns = vec![compiled.wikilink.display_text.as_str()];
-        let ac = AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton");
-
-        let mut markdown_info = MarkdownFileInfo::new();
-        markdown_info.do_not_back_populate = Some(vec!["file test".to_string()]);
-
-        // Use helper function with do_not_back_populate patterns
-        let config = create_test_config_with_do_not_back_populate(
-            &temp_dir,
-            false, // apply_changes
-            vec!["test pattern".to_string()],
-        );
-
-        let matches = process_line(
-            0,
-            "file test pattern here",
-            &file_path,
-            &ac,
-            &[&compiled],
-            &config,
-            &markdown_info,
-        )
-            .unwrap();
-
-        assert!(
-            matches.is_empty(),
-            "Should exclude matches in overlapping patterns"
-        );
     }
 
     #[test]
@@ -1735,7 +1557,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert!(
                 !matches.is_empty(),
@@ -1839,7 +1661,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -1848,7 +1670,9 @@ mod tests {
                 case_desc
             );
 
-            for (match_info, expected_replacement) in matches.iter().zip(expected_replacements.iter()) {
+            for (match_info, expected_replacement) in
+                matches.iter().zip(expected_replacements.iter())
+            {
                 assert_eq!(
                     match_info.replacement, *expected_replacement,
                     "Replacement text should be correctly escaped for case: {}",
@@ -1864,126 +1688,171 @@ mod tests {
     }
 
     #[test]
-    fn test_file_processing_state() {
-        let mut state = FileProcessingState::new();
+    fn test_escape_pipe() {
+        let test_cases = vec![
+            (
+                "[[santé|medical scheduling]]",
+                "[[santé\\|medical scheduling]]",
+            ),
+            ("a\\|b", "a\\|b"),
+            ("a\\\\|b", "a\\\\\\|b"),
+            ("col1|col2|col3", "col1\\|col2\\|col3"),
+            ("[[café|☕]]|[[thé|🫖]]", "[[café\\|☕]]\\|[[thé\\|🫖]]"),
+        ];
 
-        // Test initial state
-        assert!(!state.should_skip_line());
+        for (input, expected) in test_cases {
+            assert_eq!(
+                escape_pipe(input),
+                expected,
+                "Failed to escape pipe in input: {}",
+                input
+            );
+        }
+    }
 
-        // Test frontmatter
-        state.update_for_line("---");
-        assert!(state.should_skip_line());
-        state.update_for_line("title: test");
-        assert!(state.should_skip_line());
-        state.update_for_line("---");
-        assert!(!state.should_skip_line());
 
-        // Test code block
-        state.update_for_line("```rust");
-        assert!(state.should_skip_line());
-        state.update_for_line("code line");
-        assert!(state.should_skip_line());
-        state.update_for_line("```");
-        assert!(!state.should_skip_line());
+    #[test]
+    fn test_is_within_wikilink() {
+        let test_cases = vec![
+            // ASCII cases
+            ("before [[link]] after", 7, false),
+            ("before [[link]] after", 8, false),
+            ("before [[link]] after", 9, true),
+            ("before [[link]] after", 10, true),
+            ("before [[link]] after", 11, true),
+            ("before [[link]] after", 12, true),
+            ("before [[link]] after", 13, false),
+            ("before [[link]] after", 14, false),
+            // Unicode cases
+            ("привет [[ссылка]] текст", 13, false),
+            ("привет [[ссылка]] текст", 14, false),
+            ("привет [[ссылка]] текст", 15, true),
+            ("привет [[ссылка]] текст", 25, true),
+            ("привет [[ссылка]] текст", 27, false),
+            ("привет [[ссылка]] текст", 28, false),
+            ("привет [[ссылка]] текст", 12, false),
+            ("привет [[ссылка]] текст", 29, false),
+        ];
+
+        for (text, pos, expected) in test_cases {
+            assert_eq!(
+                is_within_wikilink(text, pos),
+                expected,
+                "Failed for text '{}' at position {}",
+                text,
+                pos
+            );
+        }
     }
 
     #[test]
-    fn test_file_processing_state_complex() {
+    fn test_file_processing_state() {
         let mut state = FileProcessingState::new();
 
-        // Test frontmatter followed by code block
+        // Initial state
         assert!(!state.should_skip_line(), "Initial state should not skip");
 
+        // Frontmatter
         state.update_for_line("---");
         assert!(state.should_skip_line(), "Should skip in frontmatter");
         state.update_for_line("title: Test");
         assert!(state.should_skip_line(), "Should skip frontmatter content");
         state.update_for_line("---");
-        assert!(
-            !state.should_skip_line(),
-            "Should not skip after frontmatter"
-        );
+        assert!(!state.should_skip_line(), "Should not skip after frontmatter");
 
+        // Code block
         state.update_for_line("```rust");
         assert!(state.should_skip_line(), "Should skip in code block");
         state.update_for_line("let x = 42;");
         assert!(state.should_skip_line(), "Should skip code block content");
         state.update_for_line("```");
-        assert!(
-            !state.should_skip_line(),
-            "Should not skip after code block"
-        );
+        assert!(!state.should_skip_line(), "Should not skip after code block");
+
+        // Combined frontmatter and code block
+        state.update_for_line("---");
+        assert!(state.should_skip_line(), "Should skip in frontmatter again");
+        state.update_for_line("description: complex");
+        assert!(state.should_skip_line(), "Should skip frontmatter content");
+        state.update_for_line("---");
+        assert!(!state.should_skip_line(), "Should not skip after frontmatter");
+
+        state.update_for_line("```");
+        assert!(state.should_skip_line(), "Should skip in another code block");
+        state.update_for_line("print('Hello')");
+        assert!(state.should_skip_line(), "Should skip code block content");
+        state.update_for_line("```");
+        assert!(!state.should_skip_line(), "Should not skip after code block");
     }
 
     #[test]
-    fn test_escape_pipe_with_unicode() {
-        assert_eq!(
-            escape_pipe("[[santé|medical scheduling]]"),
-            "[[santé\\|medical scheduling]]"
-        );
+    fn test_collect_exclusion_zones() {
+        // Define helper configurations
+        let config_patterns = Some(vec![
+            "test".to_string(),
+            "test phrase".to_string(),
+        ]);
+
+        // Test cases
+        let test_cases = vec![
+            (
+                "This is a test phrase with another test and a specific pattern",
+                config_patterns.clone(),
+                None, // No file_patterns
+                2,    // Expected number of zones (only config_patterns)
+                "Multiple config patterns",
+            ),
+            (
+                "This is a TEST PHRASE with ANOTHER TEST",
+                config_patterns.clone(),
+                None,
+                2,
+                "Case insensitivity in config patterns",
+            ),
+            (
+                "Text with [markdown](link) and test phrase",
+                config_patterns.clone(),
+                None,
+                2, // Only config_patterns are present
+                "Markdown links and config patterns",
+            ),
+            (
+                "Plain text without patterns",
+                None,
+                None,
+                0,
+                "No exclusion zones",
+            ),
+            (
+                "This is a test phrase overlapping.",
+                Some(vec!["test".to_string(), "test phrase".to_string()]),
+                None,
+                1, // Only the longest overlapping match
+                "Overlapping patterns with preference for longest match",
+            ),
+            (
+                "Federal Hill Baltimore is nice",
+                None,
+                Some(vec!["Federal Hill Baltimore".to_string()]),
+                1,
+                "File-specific multi-word pattern exclusion",
+            ),
+        ];
+
+        for (line, config_pats, file_pats, expected_count, desc) in test_cases {
+            let zones = collect_exclusion_zones(
+                &line,
+                config_pats.as_ref().map(Vec::as_slice),
+                file_pats.as_ref().map(Vec::as_slice),
+            );
+
+            assert_eq!(
+                zones.len(),
+                expected_count,
+                "Failed for case: {}",
+                desc
+            );
+        }
     }
 
-    #[test]
-    fn test_escape_pipe_with_existing_escapes() {
-        assert_eq!(escape_pipe("a\\|b"), "a\\|b");
-        assert_eq!(escape_pipe("a\\\\|b"), "a\\\\\\|b");
-    }
 
-    #[test]
-    fn test_escape_pipe_multiple() {
-        assert_eq!(
-            escape_pipe("col1|col2|col3"),
-            "col1\\|col2\\|col3"
-        );
-    }
-
-    #[test]
-    fn test_escape_pipe_with_complex_unicode() {
-        assert_eq!(
-            escape_pipe("[[café|☕]]|[[thé|🫖]]"),
-            "[[café\\|☕]]\\|[[thé\\|🫖]]"
-        );
-    }
-
-    #[test]
-    fn test_collect_exclusion_zones_with_ac() {
-        // Test with config patterns
-        let config_patterns = vec!["test phrase".to_string(), "another test".to_string()];
-        let line = "This is a test phrase with another test and a specific pattern";
-
-        let zones = collect_exclusion_zones(line, Some(&config_patterns), None);
-
-        // Verify zones are collected correctly
-        assert!(!zones.is_empty());
-        assert_eq!(zones.len(), 2); // Should find both "test phrase" and "another test"
-
-        // Verify case insensitivity
-        let line_upper = "This is a TEST PHRASE with ANOTHER TEST";
-        let zones_upper = collect_exclusion_zones(line_upper, Some(&config_patterns), None);
-        assert_eq!(zones_upper.len(), 2); // Should still find patterns despite case
-
-        // Test with combined patterns
-        let file_patterns = vec!["specific pattern".to_string()];
-        let zones_combined = collect_exclusion_zones(line, Some(&config_patterns), Some(&file_patterns));
-        assert_eq!(zones_combined.len(), 3); // Should find all patterns
-
-        // Test with markdown links
-        let line_with_links = "Text with [markdown](link) and test phrase";
-        let zones_with_links = collect_exclusion_zones(line_with_links, Some(&config_patterns), None);
-        assert!(zones_with_links.len() >= 2); // Should have both markdown link and pattern zones
-
-        // Test with no patterns
-        let zones_no_patterns = collect_exclusion_zones("Plain text", None, None);
-        assert!(zones_no_patterns.is_empty());
-
-        // Test overlapping patterns
-        let overlapping_patterns = vec!["test".to_string(), "test phrase".to_string()];
-        let zones_overlapping = collect_exclusion_zones(
-            "This is a test phrase",
-            Some(&overlapping_patterns),
-            None,
-        );
-        // Should handle overlapping patterns correctly (longest match should be preferred)
-        assert_eq!(zones_overlapping.len(), 1);
-    }
 }

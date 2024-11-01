@@ -1,5 +1,5 @@
-use std::path::{Path, PathBuf};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct ValidatedConfig {
@@ -57,7 +57,8 @@ impl ValidatedConfig {
         self.do_not_back_populate_ac.as_ref()
     }
 
-    pub fn ignore_folders(&self) -> Option<&[PathBuf]> {  // Changed return type
+    pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
+        // Changed return type
         self.ignore_folders.as_deref()
     }
 
@@ -68,5 +69,4 @@ impl ValidatedConfig {
     pub fn output_folder(&self) -> &Path {
         &self.output_folder
     }
-
 }

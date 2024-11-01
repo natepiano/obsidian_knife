@@ -108,7 +108,10 @@ mod tests {
         let results1_sorted: Vec<_> = results1.iter().collect();
         let results2_sorted: Vec<_> = results2.iter().collect();
 
-        assert_eq!(results1_sorted, results2_sorted, "Results should be identical");
+        assert_eq!(
+            results1_sorted, results2_sorted,
+            "Results should be identical"
+        );
     }
 
     #[test]
@@ -141,8 +144,11 @@ mod tests {
         for i in 1..=5 {
             let expected_match = format!("match in file{}.txt", i);
             assert!(
-                results.iter().any(|matches| matches.contains(&expected_match)),
-                "Missing match for file{}.txt", i
+                results
+                    .iter()
+                    .any(|matches| matches.contains(&expected_match)),
+                "Missing match for file{}.txt",
+                i
             );
         }
     }
@@ -159,17 +165,18 @@ mod tests {
         }
 
         // Define match function that matches file50.txt
-        let find_matches = |file_path: &PathBuf, _: &()| {
-            Some(vec![file_path.to_string_lossy().to_string()])
-        };
+        let find_matches =
+            |file_path: &PathBuf, _: &()| Some(vec![file_path.to_string_lossy().to_string()]);
 
         let results = searcher.search_with_info(&files, find_matches, 20);
         assert!(!results.is_empty());
 
         // Convert both strings to same type for comparison
-        let found_file50 = results.iter().any(|result_vec|
-            result_vec.iter().any(|path_str| path_str.contains(&"file50".to_string()))
-        );
+        let found_file50 = results.iter().any(|result_vec| {
+            result_vec
+                .iter()
+                .any(|path_str| path_str.contains(&"file50".to_string()))
+        });
 
         assert!(found_file50, "Should have found file50.txt");
     }
@@ -185,12 +192,15 @@ mod tests {
             files.insert(temp_dir.path().join(format!("file{}.txt", i)), ());
         }
 
-        let find_matches = |file_path: &PathBuf, _: &()| {
-            Some(vec![file_path.to_string_lossy().to_string()])
-        };
+        let find_matches =
+            |file_path: &PathBuf, _: &()| Some(vec![file_path.to_string_lossy().to_string()]);
 
         let results = searcher.search_with_info(&files, find_matches, 2);
-        assert_eq!(results.len(), 5, "Should only return 5 results due to limit");
+        assert_eq!(
+            results.len(),
+            5,
+            "Should only return 5 results due to limit"
+        );
     }
 
     #[test]
@@ -201,7 +211,10 @@ mod tests {
         let find_matches = |_: &PathBuf, _: &()| Some(vec!["test".to_string()]);
 
         let results = searcher.search_with_info(&files, find_matches, 1);
-        assert!(results.is_empty(), "Should return no results for empty files");
+        assert!(
+            results.is_empty(),
+            "Should return no results for empty files"
+        );
     }
 
     #[test]
@@ -218,6 +231,9 @@ mod tests {
         let find_matches = |_: &PathBuf, _: &()| -> Option<Vec<String>> { None };
 
         let results = searcher.search_with_info(&files, find_matches, 1);
-        assert!(results.is_empty(), "Should return no results when no matches found");
+        assert!(
+            results.is_empty(),
+            "Should return no results when no matches found"
+        );
     }
 }
