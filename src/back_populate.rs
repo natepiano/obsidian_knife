@@ -598,17 +598,6 @@ fn write_back_populate_table(
         writer.writeln(
             "",
             &format!(
-                "{} {} {} {} {}",
-                BACK_POPULATE_TABLE_HEADER_PREFIX,
-                matches.len(),
-                BACK_POPULATE_TABLE_HEADER_MIDDLE,
-                unique_files.len(),
-                BACK_POPULATE_TABLE_HEADER_SUFFIX,
-            ),
-        )?;
-        writer.writeln(
-            "",
-            &format!(
                 "{} {}",
                 format_back_populate_header(matches.len(), unique_files.len()),
                 BACK_POPULATE_TABLE_HEADER_SUFFIX,
