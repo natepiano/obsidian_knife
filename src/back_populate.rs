@@ -889,12 +889,10 @@ mod tests {
     #[test]
     fn test_case_sensitivity_behavior() {
         // Initialize test environment without specific wikilinks
-        let (temp_dir, config, _) = create_test_environment(false, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
 
         for case in get_case_sensitivity_test_cases() {
-            let file_path = temp_dir.path().join("test.md");
-            let mut file = File::create(&file_path).unwrap();
-            write!(file, "{}", case.content).unwrap();
+            let file_path = create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
 
             // Create a custom wikilink for the case
             let compiled = compile_wikilink(case.wikilink).unwrap();
@@ -988,14 +986,9 @@ mod tests {
     #[test]
     fn test_overlapping_wikilink_matches() {
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
-
-        // Create a test file
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create test content with potential overlapping matches
         let content = "[[Kyriana McCoy|Kyriana]] - Kyri and [[Kalina McCoy|Kali]]";
-        let mut file = File::create(&file_path).unwrap();
-        write!(file, "{}", content).unwrap();
+
+        let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
 
         repo_info
             .markdown_files
@@ -1160,7 +1153,7 @@ mod tests {
     #[test]
     fn test_back_populate_content() {
         // Initialize environment with `apply_changes` set to true
-        let (temp_dir, config, _) = create_test_environment(true, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None);
 
         // Define test cases with various content structures
         let test_cases = vec![
@@ -1209,9 +1202,7 @@ mod tests {
         ];
 
         for (content, matches, description) in test_cases {
-            let file_path = temp_dir.path().join("test.md");
-            let mut file = File::create(&file_path).unwrap();
-            write!(file, "{}", content).unwrap();
+            let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
 
             // Apply back-populate changes
             apply_back_populate_changes(&config, &matches).unwrap();
