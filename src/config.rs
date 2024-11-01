@@ -6,7 +6,6 @@ use serde::Deserialize;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use sha2::digest::typenum::private::Trim;
 
 #[derive(Debug, Deserialize)]
 pub struct Config {

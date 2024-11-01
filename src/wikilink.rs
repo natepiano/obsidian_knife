@@ -92,7 +92,6 @@ impl fmt::Display for WikilinkErrorContext {
 
 #[derive(Debug, Clone)]
 pub struct CompiledWikilink {
-    pub regex: regex::Regex,
     pub wikilink: Wikilink,
     hash: u64,
 }
@@ -114,14 +113,13 @@ impl fmt::Display for CompiledWikilink {
 }
 
 impl CompiledWikilink {
-    pub fn new(regex: regex::Regex, wikilink: Wikilink) -> Self {
+    pub fn new( wikilink: Wikilink) -> Self {
         use std::hash::{Hash, Hasher};
         let mut hasher = std::collections::hash_map::DefaultHasher::new();
         wikilink.hash(&mut hasher);
         let hash = hasher.finish();
 
         CompiledWikilink {
-            regex,
             wikilink,
             hash,
         }
@@ -202,11 +200,7 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
         });
     }
 
-    let escaped_pattern = regex::escape(search_text);
-    let pattern = format!(r"(?i)\b{}\b", escaped_pattern);
-
     Ok(CompiledWikilink::new(
-        regex::Regex::new(&pattern).unwrap(),
         wikilink,
     ))
 }
@@ -318,7 +312,7 @@ Here's a [[Regular Link]] and [[Target|Display Text]]
 Also [[Alias One]] is referenced"#;
 
         let frontmatter = frontmatter::deserialize_frontmatter(content).unwrap();
-        let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), "test file.md");
+        let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
 
         assert!(wikilinks
             .iter()
@@ -335,35 +329,6 @@ Also [[Alias One]] is referenced"#;
         assert!(wikilinks.iter().any(|w| {
             w.wikilink.display_text == "Display Text" && w.wikilink.target == "Target"
         }));
-    }
-
-    #[test]
-    fn test_compile_wikilink_whole_word() {
-        let wikilink = Wikilink {
-            display_text: "Test Link".to_string(),
-            target: "Test Link".to_string(),
-            is_alias: false,
-        };
-        let compiled = compile_wikilink(wikilink);
-
-        assert!(compiled.regex.is_match("Here is Test Link here"));
-        assert!(!compiled.regex.is_match("TestLink"));
-        assert!(!compiled.regex.is_match("The TestLink is here"));
-    }
-
-    #[test]
-    fn test_compile_wikilink_with_punctuation() {
-        let wikilink = Wikilink {
-            display_text: "Test Link".to_string(),
-            target: "Test Link".to_string(),
-            is_alias: false,
-        };
-        let compiled = compile_wikilink(wikilink);
-
-        assert!(compiled.regex.is_match("Here is Test Link."));
-        assert!(compiled.regex.is_match("(Test Link)"));
-        assert!(compiled.regex.is_match("Test Link;"));
-        assert!(compiled.regex.is_match("'Test Link'"));
     }
 
     #[test]
@@ -394,8 +359,8 @@ Also [[Alias One]] is referenced"#;
             is_alias: false,
         };
 
-        let compiled1 = compile_wikilink(wikilink1);
-        let compiled2 = compile_wikilink(wikilink2);
+        let compiled1 = compile_wikilink(wikilink1).unwrap();
+        let compiled2 = compile_wikilink(wikilink2).unwrap();
 
         let mut set = HashSet::new();
         set.insert(compiled1);
@@ -513,113 +478,6 @@ text! ![[image2.jpg]] (exclamation before image)
     }
 
     #[test]
-    fn test_word_boundary_with_punctuation() {
-        let wikilink = Wikilink {
-            display_text: "Ed".to_string(),
-            target: "Ed Barnes".to_string(),
-            is_alias: true,
-        };
-        let compiled = compile_wikilink(wikilink);
-
-        // Punctuation creates word boundaries
-        assert!(
-            compiled.regex.is_match("(Ed)"),
-            "Parentheses create word boundaries"
-        );
-        assert!(
-            compiled.regex.is_match("[Ed]"),
-            "Brackets create word boundaries"
-        );
-        assert!(
-            compiled.regex.is_match(".Ed."),
-            "Periods create word boundaries"
-        );
-        assert!(
-            compiled.regex.is_match(",Ed,"),
-            "Commas create word boundaries"
-        );
-        assert!(
-            compiled.regex.is_match("Ed:"),
-            "Colon creates word boundary"
-        );
-        assert!(
-            compiled.regex.is_match("Ed: note"),
-            "Colon creates word boundary"
-        );
-
-        // No word boundaries within words
-        assert!(
-            !compiled.regex.is_match("Editor"),
-            "Should not match within word"
-        );
-        assert!(
-            !compiled.regex.is_match("fedEx"),
-            "Should not match within word"
-        );
-
-        // Space + punctuation combinations
-        assert!(
-            compiled.regex.is_match("Hello (Ed)"),
-            "Space + parens works"
-        );
-        assert!(
-            compiled.regex.is_match("Hello [Ed]"),
-            "Space + brackets works"
-        );
-        assert!(
-            compiled.regex.is_match("Hello Ed!"),
-            "Space + exclamation works"
-        );
-    }
-
-    #[test]
-    fn test_word_boundaries_with_different_apostrophes() {
-        let wikilink = Wikilink {
-            display_text: "t".to_string(),
-            target: "test".to_string(),
-            is_alias: true,
-        };
-        let compiled = compile_wikilink(wikilink);
-
-        // Testing with straight apostrophe (U+0027)
-        assert!(
-            compiled.regex.is_match("don't"),
-            "Should match 't' after straight apostrophe"
-        );
-        assert!(
-            compiled.regex.is_match("can't"),
-            "Should match 't' in another contraction"
-        );
-
-        // Testing with curly apostrophe (U+2019)
-        assert!(
-            compiled.regex.is_match("don\u{2019}t"),
-            "Should match 't' after curly apostrophe"
-        );
-        assert!(
-            compiled.regex.is_match("can\u{2019}t"),
-            "Should match 't' in another contraction"
-        );
-
-        // Test that 'don' is also a separate word
-        let don_wikilink = Wikilink {
-            display_text: "don".to_string(),
-            target: "do not".to_string(),
-            is_alias: true,
-        };
-        let don_compiled = compile_wikilink(don_wikilink);
-
-        assert!(
-            don_compiled.regex.is_match("don't"),
-            "Should match 'don' before straight apostrophe"
-        );
-        assert!(
-            don_compiled.regex.is_match("don\u{2019}t"),
-            "Should match 'don' before curly apostrophe"
-        );
-    }
-
-    #[test]
     fn test_markdown_links() {
         let regex = MARKDOWN_REGEX.clone();
 
@@ -678,7 +536,7 @@ text! ![[image2.jpg]] (exclamation before image)
             ),
         ];
 
-        for (pattern, expected_error, message) in test_cases {
+        for (pattern, _expected_error, message) in test_cases {
             let wikilink = Wikilink {
                 display_text: pattern.to_string(),
                 target: "test".to_string(),
@@ -689,7 +547,7 @@ text! ![[image2.jpg]] (exclamation before image)
             assert!(result.is_err(), "{}", message);
 
             if let Err(error) = result {
-                assert!(matches!(error.error_type, expected_error), "{}", message);
+                assert!(matches!(error.error_type, _expected_error), "{}", message);
             }
         }
     }
@@ -699,6 +557,7 @@ text! ![[image2.jpg]] (exclamation before image)
         let error = WikilinkError {
             display_text: "test[[bad]]".to_string(),
             error_type: WikilinkErrorType::ContainsOpenBrackets,
+            context: WikilinkErrorContext::default(),
         };
 
         assert_eq!(

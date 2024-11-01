@@ -695,14 +695,10 @@ aliases:
         }
 
         // Test parallel processing
-        let start_parallel = std::time::Instant::now();
         let parallel_results = process_parallel(&markdown_files);
-        let parallel_time = start_parallel.elapsed();
 
         // Test sequential processing
-        let start_sequential = std::time::Instant::now();
         let sequential_results = process_sequential(&markdown_files);
-        let sequential_time = start_sequential.elapsed();
 
         // Verify results
         assert_eq!(parallel_results.len(), sequential_results.len());
@@ -710,11 +706,6 @@ aliases:
             parallel_results.len(),
             100,
             "Should find common image in all files"
-        );
-
-        println!(
-            "Parallel: {:?}, Sequential: {:?}",
-            parallel_time, sequential_time
         );
     }
 
