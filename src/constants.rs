@@ -57,8 +57,8 @@ pub const OPENING_WIKILINK: &str = "[[";
 
 // wikilink back populate
 pub const BACK_POPULATE_TABLE_HEADER_PREFIX: &str = "the following";
-pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "matches in";
-pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "files will be back populated";
+pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
+pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
 
 pub const BACK_POPULATE_SECTION_PREFIX: &str = "back populate";
 pub const BACK_POPULATE_SECTION_SUFFIX: &str = "wikilinks";
@@ -68,7 +68,6 @@ pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
 pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
 pub const MATCHES_UNAMBIGUOUS: &str = "matches found to back populate";
-
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {
@@ -85,6 +84,12 @@ pub enum Phrase {
     ZeroByteImages,
     DuplicateImages,
     TiffImages,
+
+    // compound pluralize
+    Matches,
+    Times,
+    TimeInFiles,
+    TimesInFiles,
 }
 
 /// Pluralizes a phrase based on count at compile time
@@ -121,7 +126,44 @@ pub const fn pluralize(count: usize, phrase: Phrase) -> &'static str {
 
         (1, Phrase::DuplicateImages) => "duplicate image",
         (_, Phrase::DuplicateImages) => "duplicate images",
+
+        // Occurrence-related phrases
+        (1, Phrase::Matches) => "match",
+        (_, Phrase::Matches) => "matches",
+
+        (1, Phrase::Times) => "time",
+        (_, Phrase::Times) => "times",
+
+        (1, Phrase::TimeInFiles) => "time in",
+        (_, Phrase::TimeInFiles) => "time in", // Note: this case shouldn't occur in practice
+
+        (1, Phrase::TimesInFiles) => "times in", // Note: this case shouldn't occur in practice
+        (_, Phrase::TimesInFiles) => "times in",
     }
+}
+
+// Add new helper function for compound pluralization
+pub fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {
+    // We want "time" for 1, "times" for other numbers
+    let occurrence_word = pluralize(occurrences, Phrase::Times);
+
+    // Format as "time(s) in file(s)"
+    format!("{} {} in {} {}",
+            occurrences,
+            occurrence_word,
+            file_count,
+            pluralize(file_count, Phrase::Files)
+    )
+}
+
+pub fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
+    format!("{} {} {} {} {} {}",
+            BACK_POPULATE_TABLE_HEADER_PREFIX,
+            match_count,
+            pluralize(match_count, Phrase::Matches),
+            BACK_POPULATE_TABLE_HEADER_MIDDLE,
+            file_count,
+            pluralize(file_count, Phrase::Files))
 }
 
 #[cfg(test)]
@@ -163,5 +205,47 @@ mod tests {
 
         assert_eq!(SINGULAR_MESSAGE, "file has an invalid date");
         assert_eq!(PLURAL_MESSAGE, "files have invalid dates");
+    }
+
+    #[test]
+    fn test_compound_pluralization() {
+        let test_cases = [
+            (1, 1, "1 time in 1 file"),
+            (1, 2, "1 time in 2 files"),
+            (2, 1, "2 times in 1 file"),
+            (2, 2, "2 times in 2 files"),
+            (0, 0, "0 times in 0 files"),
+        ];
+
+        for (occurrences, file_count, expected) in test_cases {
+            assert_eq!(
+                pluralize_occurrence_in_files(occurrences, file_count),
+                expected,
+                "Failed for {} occurrence(s) in {} file(s)",
+                occurrences,
+                file_count
+            );
+        }
+    }
+
+    #[test]
+    fn test_back_populate_header_format() {
+        let test_cases = [
+            (1, 1, "the following 1 match in 1 file will be back populated"),
+            (1, 2, "the following 1 match in 2 files will be back populated"),
+            (2, 1, "the following 2 matches in 1 file will be back populated"),
+            (2, 2, "the following 2 matches in 2 files will be back populated"),
+            (0, 0, "the following 0 matches in 0 files will be back populated"),
+        ];
+
+        for (match_count, file_count, expected) in test_cases {
+            let result = format!("{} {}",
+                                 format_back_populate_header(match_count, file_count),
+                                 BACK_POPULATE_TABLE_HEADER_SUFFIX);
+            assert_eq!(result, expected,
+                       "Failed for {} match(es) in {} file(s)",
+                       match_count,
+                       file_count);
+        }
     }
 }

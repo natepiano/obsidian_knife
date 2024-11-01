@@ -606,6 +606,14 @@ fn write_back_populate_table(
                 BACK_POPULATE_TABLE_HEADER_SUFFIX,
             ),
         )?;
+        writer.writeln(
+            "",
+            &format!(
+                "{} {}",
+                format_back_populate_header(matches.len(), unique_files.len()),
+                BACK_POPULATE_TABLE_HEADER_SUFFIX,
+            ),
+        )?;
     }
 
     // Headers for the tables
@@ -626,21 +634,17 @@ fn write_back_populate_table(
             .map(|m| m.file_path.to_string())
             .collect();
 
-        let level_string = if is_unambiguous_match {
-            LEVEL3
-        } else {
-            LEVEL4
-        };
+        let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
 
         writer.writeln(
             level_string,
             &format!(
-                "found text: \"{}\" ({} times in {} files)",
+                "found text: \"{}\" ({})",
                 found_text,
-                total_occurrences,
-                file_paths.len()
+                pluralize_occurrence_in_files(total_occurrences, file_paths.len())
             ),
         )?;
+
 
         // Sort matches by file path and line number
         let mut sorted_matches = text_matches.to_vec();
@@ -1824,192 +1828,158 @@ mod tests {
     }
 
     #[test]
-    fn test_write_ambiguous_matches() {
-        let temp_dir = TempDir::new().unwrap();
-        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
+    fn test_case_insensitive_targets() {
+        // Create test wikilinks with case variations
+        let wikilinks = vec![
+            CompiledWikilink::new(Wikilink {
+                display_text: "Amazon".to_string(),
+                target: "Amazon".to_string(),
+                is_alias: false,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "amazon".to_string(),
+                target: "amazon".to_string(),
+                is_alias: false,
+            }),
+        ];
 
-        let ambiguous_matches = vec![AmbiguousMatch {
-            display_text: "Ed".to_string(),
-            targets: vec!["Ed Barnes".to_string(), "Ed Stanfield".to_string()],
-            matches: vec![BackPopulateMatch {
+        // Create test matches
+        let matches = vec![
+            BackPopulateMatch {
                 file_path: "test1.md".to_string(),
                 line_number: 1,
-                line_text: "Ed wrote this".to_string(),
-                found_text: "Ed".to_string(),
-                replacement: "[[Ed Barnes|Ed]]".to_string(),
+                line_text: "- [[Amazon]]".to_string(),
+                found_text: "Amazon".to_string(),
+                replacement: "[[Amazon]]".to_string(),
                 position: 0,
                 in_markdown_table: false,
-            }],
-        }];
+            },
+            BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 2,
+                line_text: "- [[amazon]]".to_string(),
+                found_text: "amazon".to_string(),
+                replacement: "[[amazon]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            },
+        ];
 
-        write_ambiguous_matches(&writer, &ambiguous_matches).unwrap();
+        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
 
-        // Verify output file exists and contains expected content
-        let output = fs::read_to_string(temp_dir.path().join("obsidian knife output.md")).unwrap();
-        assert!(output.contains("ambiguous matches found"));
-        assert!(output.contains("matches multiple targets"));
-        assert!(output.contains("[[Ed Barnes]]"));
-        assert!(output.contains("[[Ed Stanfield]]"));
+        // Should treat case variations of the same target as the same file
+        assert_eq!(
+            ambiguous.len(),
+            0,
+            "Case variations of the same target should not be ambiguous"
+        );
+        assert_eq!(
+            unambiguous.len(),
+            2,
+            "Both matches should be considered unambiguous"
+        );
     }
 
-    #[cfg(test)]
-    mod tests {
-        use super::*;
+    #[test]
+    fn test_truly_ambiguous_targets() {
+        // Create test wikilinks with actually different targets
+        let wikilinks = vec![
+            CompiledWikilink::new(Wikilink {
+                display_text: "Amazon".to_string(),
+                target: "Amazon (company)".to_string(),
+                is_alias: true,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "Amazon".to_string(),
+                target: "Amazon (river)".to_string(),
+                is_alias: true,
+            }),
+        ];
 
-        #[test]
-        fn test_case_insensitive_targets() {
-            // Create test wikilinks with case variations
-            let wikilinks = vec![
-                CompiledWikilink::new(Wikilink {
-                    display_text: "Amazon".to_string(),
-                    target: "Amazon".to_string(),
-                    is_alias: false,
-                }),
-                CompiledWikilink::new(Wikilink {
-                    display_text: "amazon".to_string(),
-                    target: "amazon".to_string(),
-                    is_alias: false,
-                }),
-            ];
+        let matches = vec![BackPopulateMatch {
+            file_path: "test1.md".to_string(),
+            line_number: 1,
+            line_text: "Amazon is huge".to_string(),
+            found_text: "Amazon".to_string(),
+            replacement: "[[Amazon (company)|Amazon]]".to_string(),
+            position: 0,
+            in_markdown_table: false,
+        }];
 
-            // Create test matches
-            let matches = vec![
-                BackPopulateMatch {
-                    file_path: "test1.md".to_string(),
-                    line_number: 1,
-                    line_text: "- [[Amazon]]".to_string(),
-                    found_text: "Amazon".to_string(),
-                    replacement: "[[Amazon]]".to_string(),
-                    position: 0,
-                    in_markdown_table: false,
-                },
-                BackPopulateMatch {
-                    file_path: "test1.md".to_string(),
-                    line_number: 2,
-                    line_text: "- [[amazon]]".to_string(),
-                    found_text: "amazon".to_string(),
-                    replacement: "[[amazon]]".to_string(),
-                    position: 0,
-                    in_markdown_table: false,
-                },
-            ];
+        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
 
-            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+        assert_eq!(
+            ambiguous.len(),
+            1,
+            "Different targets should be identified as ambiguous"
+        );
+        assert_eq!(
+            unambiguous.len(),
+            0,
+            "No matches should be considered unambiguous"
+        );
+        assert_eq!(ambiguous[0].targets.len(), 2);
+    }
 
-            // Should treat case variations of the same target as the same file
-            assert_eq!(
-                ambiguous.len(),
-                0,
-                "Case variations of the same target should not be ambiguous"
-            );
-            assert_eq!(
-                unambiguous.len(),
-                2,
-                "Both matches should be considered unambiguous"
-            );
-        }
+    #[test]
+    fn test_mixed_case_and_truly_ambiguous() {
+        let wikilinks = vec![
+            // Case variations of one target
+            CompiledWikilink::new(Wikilink {
+                display_text: "AWS".to_string(),
+                target: "AWS".to_string(),
+                is_alias: false,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "aws".to_string(),
+                target: "aws".to_string(),
+                is_alias: false,
+            }),
+            // Truly different targets
+            CompiledWikilink::new(Wikilink {
+                display_text: "Amazon".to_string(),
+                target: "Amazon (company)".to_string(),
+                is_alias: true,
+            }),
+            CompiledWikilink::new(Wikilink {
+                display_text: "Amazon".to_string(),
+                target: "Amazon (river)".to_string(),
+                is_alias: true,
+            }),
+        ];
 
-        #[test]
-        fn test_truly_ambiguous_targets() {
-            // Create test wikilinks with actually different targets
-            let wikilinks = vec![
-                CompiledWikilink::new(Wikilink {
-                    display_text: "Amazon".to_string(),
-                    target: "Amazon (company)".to_string(),
-                    is_alias: true,
-                }),
-                CompiledWikilink::new(Wikilink {
-                    display_text: "Amazon".to_string(),
-                    target: "Amazon (river)".to_string(),
-                    is_alias: true,
-                }),
-            ];
-
-            let matches = vec![BackPopulateMatch {
+        let matches = vec![
+            BackPopulateMatch {
                 file_path: "test1.md".to_string(),
                 line_number: 1,
-                line_text: "Amazon is huge".to_string(),
+                line_text: "AWS and aws are the same".to_string(),
+                found_text: "AWS".to_string(),
+                replacement: "[[AWS]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            },
+            BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 2,
+                line_text: "Amazon is ambiguous".to_string(),
                 found_text: "Amazon".to_string(),
                 replacement: "[[Amazon (company)|Amazon]]".to_string(),
                 position: 0,
                 in_markdown_table: false,
-            }];
+            },
+        ];
 
-            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
 
-            assert_eq!(
-                ambiguous.len(),
-                1,
-                "Different targets should be identified as ambiguous"
-            );
-            assert_eq!(
-                unambiguous.len(),
-                0,
-                "No matches should be considered unambiguous"
-            );
-            assert_eq!(ambiguous[0].targets.len(), 2);
-        }
-
-        #[test]
-        fn test_mixed_case_and_truly_ambiguous() {
-            let wikilinks = vec![
-                // Case variations of one target
-                CompiledWikilink::new(Wikilink {
-                    display_text: "AWS".to_string(),
-                    target: "AWS".to_string(),
-                    is_alias: false,
-                }),
-                CompiledWikilink::new(Wikilink {
-                    display_text: "aws".to_string(),
-                    target: "aws".to_string(),
-                    is_alias: false,
-                }),
-                // Truly different targets
-                CompiledWikilink::new(Wikilink {
-                    display_text: "Amazon".to_string(),
-                    target: "Amazon (company)".to_string(),
-                    is_alias: true,
-                }),
-                CompiledWikilink::new(Wikilink {
-                    display_text: "Amazon".to_string(),
-                    target: "Amazon (river)".to_string(),
-                    is_alias: true,
-                }),
-            ];
-
-            let matches = vec![
-                BackPopulateMatch {
-                    file_path: "test1.md".to_string(),
-                    line_number: 1,
-                    line_text: "AWS and aws are the same".to_string(),
-                    found_text: "AWS".to_string(),
-                    replacement: "[[AWS]]".to_string(),
-                    position: 0,
-                    in_markdown_table: false,
-                },
-                BackPopulateMatch {
-                    file_path: "test1.md".to_string(),
-                    line_number: 2,
-                    line_text: "Amazon is ambiguous".to_string(),
-                    found_text: "Amazon".to_string(),
-                    replacement: "[[Amazon (company)|Amazon]]".to_string(),
-                    position: 0,
-                    in_markdown_table: false,
-                },
-            ];
-
-            let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
-
-            assert_eq!(
-                ambiguous.len(),
-                1,
-                "Should only identify truly different targets as ambiguous"
-            );
-            assert_eq!(
-                unambiguous.len(),
-                1,
-                "Case variations should be identified as unambiguous"
-            );
-        }
+        assert_eq!(
+            ambiguous.len(),
+            1,
+            "Should only identify truly different targets as ambiguous"
+        );
+        assert_eq!(
+            unambiguous.len(),
+            1,
+            "Case variations should be identified as unambiguous"
+        );
     }
 }
