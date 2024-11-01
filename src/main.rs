@@ -46,11 +46,11 @@ fn output_duration(
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
-    let duration_string = &format!("{:.2}", duration.as_secs_f64());
+    let duration_string = &format!("{:.2}", duration.as_millis());
 
     writer.writeln(
         prefix,
-        &format!("{} {} {}", prefix, duration_string, SECONDS),
+        &format!("{} {} {}", prefix, duration_string, "ms"),
     )?;
     Ok(())
 }

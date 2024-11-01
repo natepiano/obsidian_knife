@@ -11,6 +11,7 @@ use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -70,6 +71,7 @@ pub fn process_back_populate(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE)?;
+    let start = Instant::now();
 
     println!(
         "links to back populate: {}",
@@ -85,6 +87,9 @@ pub fn process_back_populate(
 
     write_back_populate_table(writer, &matches)?;
     apply_back_populate_changes(config, &matches)?;
+    let duration = start.elapsed();
+    let duration_string = &format!("{:.2}", duration.as_millis());
+    println!("back populate took: {}ms", duration_string);
 
     Ok(())
 }

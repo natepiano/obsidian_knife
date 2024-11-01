@@ -21,6 +21,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
 
 #[derive(Debug, Clone)]
@@ -62,10 +63,16 @@ pub fn scan_obsidian_folder(
     writer: &ThreadSafeWriter,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     write_scan_start(&config, writer)?;
+    let start = Instant::now();
+
 
     let obsidian_repository_info = scan_folders(&config, writer)?;
 
     write_file_info(writer, &obsidian_repository_info)?;
+
+    let duration = start.elapsed();
+    let duration_string = &format!("{:.2}", duration.as_millis());
+    println!("scan took: {}ms", duration_string);
 
     Ok(obsidian_repository_info)
 }
