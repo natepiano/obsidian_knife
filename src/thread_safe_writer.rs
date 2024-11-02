@@ -104,7 +104,6 @@ impl ThreadSafeWriter {
     }
 
     pub fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
-
         // Create the prefix string first
         let prefix = if markdown_prefix.is_empty() {
             String::new()

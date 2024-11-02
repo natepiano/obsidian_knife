@@ -47,8 +47,11 @@ fn output_duration(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
-    writer.writeln(prefix, &format!("{} {} {}", prefix, duration_string, MILLISECONDS))?;
-    println!("{} {} {}", prefix, duration_string, MILLISECONDS);
+    writer.writeln(
+        prefix,
+        &format!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS),
+    )?;
+    println!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS);
     Ok(())
 }
 

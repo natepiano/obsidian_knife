@@ -1,19 +1,15 @@
-// only enable file updates during tests for now
-// pub const ENABLE_FILE_UPDATES: bool = cfg!(test);
-
 // processing stuff
+pub const DURATION_MILLISECONDS: &str = "ms";
 pub const ERROR_DETAILS: &str = "**error details:**";
 pub const ERROR_DURATION: &str = "total processing time before error:";
 pub const ERROR_OCCURRED: &str = "error occurred";
 pub const ERROR_SOURCE: &str = "**error source:**";
 pub const ERROR_TYPE: &str = "error type:";
 pub const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
-pub const MILLISECONDS: &str = "ms";
 pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
 pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
 pub const PROCESSING_DURATION: &str = "total processing time:";
 pub const PROCESSING_FINAL_MESSAGE: &str = "obsidian_knife made the cut using:";
-pub const SECONDS: &str = "seconds";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 pub const YAML_TIMESTAMP: &str = "time_stamp: ";
 pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
@@ -28,6 +24,9 @@ pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
 // cache stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";
 pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
+pub const CACHE_INFO_READING_FROM: &str = "reading from cache:";
+pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
+pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
 // image stuff
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
@@ -66,7 +65,7 @@ pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
     "using back_populate_file_filter config parameter: ";
 pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
-pub const COL_OCCURRENCES: &str = "occurences";
+pub const COL_OCCURRENCES: &str = "occurrences";
 pub const COL_SOURCE_TEXT: &str = "source text";
 pub const COL_TEXT: &str = "text";
 pub const COL_WILL_REPLACE_WITH: &str = "will replace with";
@@ -152,22 +151,25 @@ pub fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> S
     let occurrence_word = pluralize(occurrences, Phrase::Times);
 
     // Format as "time(s) in file(s)"
-    format!("{} {} in {} {}",
-            occurrences,
-            occurrence_word,
-            file_count,
-            pluralize(file_count, Phrase::Files)
+    format!(
+        "{} {} in {} {}",
+        occurrences,
+        occurrence_word,
+        file_count,
+        pluralize(file_count, Phrase::Files)
     )
 }
 
 pub fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
-    format!("{} {} {} {} {} {}",
-            BACK_POPULATE_TABLE_HEADER_PREFIX,
-            match_count,
-            pluralize(match_count, Phrase::Matches),
-            BACK_POPULATE_TABLE_HEADER_MIDDLE,
-            file_count,
-            pluralize(file_count, Phrase::Files))
+    format!(
+        "{} {} {} {} {} {}",
+        BACK_POPULATE_TABLE_HEADER_PREFIX,
+        match_count,
+        pluralize(match_count, Phrase::Matches),
+        BACK_POPULATE_TABLE_HEADER_MIDDLE,
+        file_count,
+        pluralize(file_count, Phrase::Files)
+    )
 }
 
 #[cfg(test)]
@@ -235,21 +237,44 @@ mod tests {
     #[test]
     fn test_back_populate_header_format() {
         let test_cases = [
-            (1, 1, "the following 1 match in 1 file will be back populated"),
-            (1, 2, "the following 1 match in 2 files will be back populated"),
-            (2, 1, "the following 2 matches in 1 file will be back populated"),
-            (2, 2, "the following 2 matches in 2 files will be back populated"),
-            (0, 0, "the following 0 matches in 0 files will be back populated"),
+            (
+                1,
+                1,
+                "the following 1 match in 1 file will be back populated",
+            ),
+            (
+                1,
+                2,
+                "the following 1 match in 2 files will be back populated",
+            ),
+            (
+                2,
+                1,
+                "the following 2 matches in 1 file will be back populated",
+            ),
+            (
+                2,
+                2,
+                "the following 2 matches in 2 files will be back populated",
+            ),
+            (
+                0,
+                0,
+                "the following 0 matches in 0 files will be back populated",
+            ),
         ];
 
         for (match_count, file_count, expected) in test_cases {
-            let result = format!("{} {}",
-                                 format_back_populate_header(match_count, file_count),
-                                 BACK_POPULATE_TABLE_HEADER_SUFFIX);
-            assert_eq!(result, expected,
-                       "Failed for {} match(es) in {} file(s)",
-                       match_count,
-                       file_count);
+            let result = format!(
+                "{} {}",
+                format_back_populate_header(match_count, file_count),
+                BACK_POPULATE_TABLE_HEADER_SUFFIX
+            );
+            assert_eq!(
+                result, expected,
+                "Failed for {} match(es) in {} file(s)",
+                match_count, file_count
+            );
         }
     }
 }

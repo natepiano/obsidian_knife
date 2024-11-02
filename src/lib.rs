@@ -13,6 +13,9 @@ mod validated_config;
 mod wikilink;
 mod yaml_utils;
 
+#[cfg(test)]
+pub(crate) mod test_utils;
+
 use std::error::Error;
 
 // Re-export types for main

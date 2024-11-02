@@ -13,11 +13,7 @@ impl DeterministicSearch {
 
     /// Searches through the provided files using the given search function.
     /// Logs progress every `log_every` files processed.
-    pub fn search_with_info<F, T, I>(
-        &self,
-        files: &HashMap<PathBuf, I>,
-        search_fn: F,
-    ) -> Vec<T>
+    pub fn search_with_info<F, T, I>(&self, files: &HashMap<PathBuf, I>, search_fn: F) -> Vec<T>
     where
         F: Fn(&PathBuf, &I) -> Option<T> + Send + Sync,
         T: Send,

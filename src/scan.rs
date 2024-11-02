@@ -62,7 +62,7 @@ pub fn scan_obsidian_folder(
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let start = Instant::now();
 
-    let obsidian_repository_info = scan_folders(&config, writer)?;
+    let obsidian_repository_info = scan_folders(&config)?;
 
     write_file_info(writer, &obsidian_repository_info)?;
 
@@ -77,12 +77,8 @@ fn get_image_info_map(
     config: &ValidatedConfig,
     markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     image_files: &[PathBuf],
-    writer: &ThreadSafeWriter,
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
-    let cache_file_path = config
-        .obsidian_path()
-        .join(CACHE_FOLDER)
-        .join(CACHE_FILE);
+    let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
     let (mut cache, cache_file_status) = Sha256Cache::new(cache_file_path.clone())?;
 
     print_cache_file_info(&cache_file_path, cache_file_status);
@@ -120,68 +116,54 @@ fn get_image_info_map(
     cache.remove_non_existent_entries();
     cache.save()?;
 
-    write_cache_contents_info(writer, &mut cache, &mut image_info_map)?;
+    print_cache_statistics(&mut cache, &mut image_info_map);
 
     Ok(image_info_map)
 }
 
-fn print_cache_file_info(
-    cache_file_path: &PathBuf,
-    cache_file_status: CacheFileStatus,
-)  {
-
-    match cache_file_status {
-        CacheFileStatus::ReadFromCache => println!("reading from cache: {:?}", cache_file_path),
-        CacheFileStatus::CreatedNewCache => println!("cache file missing - creating new cache: {:?}", cache_file_path),
-        CacheFileStatus::CacheCorrupted => println!("cache corrupted, creating new cache: {:?}", cache_file_path),
+fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFileStatus) {
+    if !cfg!(test) {
+        match cache_file_status {
+            CacheFileStatus::ReadFromCache => {
+                println!("{} {:?}", CACHE_INFO_READING_FROM, cache_file_path)
+            }
+            CacheFileStatus::CreatedNewCache => {
+                println!("{} {:?}", CACHE_INFO_CREATE_NEW, cache_file_path)
+            }
+            CacheFileStatus::CacheCorrupted => {
+                println!("{} {:?}", CACHE_INFO_CORRUPTED, cache_file_path)
+            }
+        }
     }
 }
 
-fn write_cache_contents_info(
-    writer: &ThreadSafeWriter,
+fn print_cache_statistics(
     cache: &mut Sha256Cache,
     image_info_map: &mut HashMap<PathBuf, ImageInfo>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) {
     let stats = cache.get_stats();
 
-    let headers = &["Metric", "Count"];
-    let rows = vec![
-        // initial was captured before deletions so we can see the results appropriately
-        vec![
-            "Total entries in cache (initial)".to_string(),
-            stats.initial_count.to_string(),
-        ],
-        vec![
-            "Matching files read from cache".to_string(),
-            stats.files_read.to_string(),
-        ],
-        vec![
-            "Files added to cache".to_string(),
-            stats.files_added.to_string(),
-        ],
-        vec![
-            "Matching files updated in cache".to_string(),
-            stats.files_modified.to_string(),
-        ],
-        vec![
-            "Files deleted from cache".to_string(),
-            stats.files_deleted.to_string(),
-        ],
-        vec![
-            "Total files in cache (final)".to_string(),
-            stats.total_files.to_string(),
-        ],
-    ];
+    if !cfg!(test) {
+        println!("cache statistics:");
+        println!(
+            "  total entries in cache (initial): {}",
+            stats.initial_count
+        );
+        println!("  matching files read from cache: {}", stats.files_read);
+        println!("  files added to cache: {}", stats.files_added);
+        println!(
+            "  matching files updated in cache: {}",
+            stats.files_modified
+        );
+        println!("  files deleted from cache: {}", stats.files_deleted);
+        println!("  total files in cache (final): {}", stats.total_files);
+    }
 
-    let alignments = [ColumnAlignment::Left, ColumnAlignment::Right];
-    writer.writeln(LEVEL3, "Cache Statistics")?;
-    writer.write_markdown_table(headers, &rows, Some(&alignments))?;
     assert_eq!(
         image_info_map.len(),
         stats.total_files,
-        "The number of entries in image_info_map does not match the total files in cache"
+        "the number of entries in image_info_map does not match the total files in cache"
     );
-    Ok(())
 }
 
 fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
@@ -193,7 +175,6 @@ fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
 
 fn scan_folders(
     config: &ValidatedConfig,
-    writer: &ThreadSafeWriter,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
@@ -290,7 +271,6 @@ fn scan_folders(
         &config,
         &obsidian_repository_info.markdown_files,
         &image_files,
-        &writer,
     )?;
 
     Ok(obsidian_repository_info)
@@ -478,6 +458,7 @@ fn write_file_info(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::create_test_files;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
@@ -577,12 +558,8 @@ aliases:
             ),
         ];
 
-        // Create the files in the temp directory
-        for (filename, content) in files.iter() {
-            let file_path = temp_dir.path().join(filename);
-            let mut file = File::create(&file_path).unwrap();
-            write!(file, "{}", content).unwrap();
-        }
+        // Create the files using our utility function
+        create_test_files(temp_dir.path(), &files).unwrap();
 
         // Create minimal validated config
         let config = ValidatedConfig::new(
@@ -595,11 +572,8 @@ aliases:
             temp_dir.path().join("output"),
         );
 
-        // Create writer for testing
-        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
-
         // Scan the folders
-        let repo_info = scan_folders(&config, &writer).unwrap();
+        let repo_info = scan_folders(&config).unwrap();
 
         // Filter for .md files only and exclude "obsidian knife output" explicitly
         let wikilinks: HashSet<String> = repo_info
@@ -815,17 +789,11 @@ Using tomatoes in cooking"#,
             temp_dir.path().join("output"),
         );
 
-        let writer = ThreadSafeWriter::new(temp_dir.path()).unwrap();
-
         // Create the files in the temp directory
-        for (filename, content) in files.iter() {
-            let file_path = temp_dir.path().join(filename);
-            let mut file = File::create(&file_path).unwrap();
-            write!(file, "{}", content).unwrap();
-        }
+        create_test_files(temp_dir.path(), &files).unwrap();
 
         // Scan folders and check results
-        let repo_info = scan_folders(&config, &writer).unwrap();
+        let repo_info = scan_folders(&config).unwrap();
 
         // Find the wikilinks for "tomatoes" in the sorted list
         let tomatoes_wikilinks: Vec<_> = repo_info
@@ -855,11 +823,51 @@ Using tomatoes in cooking"#,
                 .display_text
                 .len()
                 .cmp(&sorted[i].wikilink.display_text.len());
-            assert!(
-                comparison != std::cmp::Ordering::Less,
+            assert_ne!(
+                comparison,
+                std::cmp::Ordering::Less,
                 "Sorting violates length ordering at index {}",
                 i
             );
         }
+    }
+
+    #[test]
+    fn test_cache_file_cleanup() {
+        // Create scope to ensure TempDir is dropped
+        {
+            let temp_dir = TempDir::new().unwrap();
+            let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
+
+            // Create test files and trigger cache creation
+            let files = [("test.md", "# Test")];
+            create_test_files(temp_dir.path(), &files).unwrap();
+
+            // Create config that will create cache in temp dir
+            let config = ValidatedConfig::new(
+                false,
+                None,
+                None,
+                None,
+                None,
+                temp_dir.path().to_path_buf(),
+                temp_dir.path().join("output"),
+            );
+
+            // This will create the cache file
+            let _ = scan_folders(&config).unwrap();
+
+            // Verify cache was created
+            assert!(cache_path.exists(), "Cache file should exist");
+
+            // temp_dir will be dropped here
+        }
+
+        // Try to create a new temp dir with the same path (this would fail if the old one wasn't cleaned up)
+        let new_temp = TempDir::new().unwrap();
+        assert!(
+            new_temp.path().exists(),
+            "Should be able to create new temp dir"
+        );
     }
 }

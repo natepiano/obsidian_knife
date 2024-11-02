@@ -598,7 +598,14 @@ fn write_back_populate_table(
 
     // Headers for the tables
     let headers: Vec<&str> = if is_unambiguous_match {
-        vec!["file name", "line", COL_TEXT, COL_OCCURRENCES, COL_WILL_REPLACE_WITH, COL_SOURCE_TEXT]
+        vec![
+            "file name",
+            "line",
+            COL_TEXT,
+            COL_OCCURRENCES,
+            COL_WILL_REPLACE_WITH,
+            COL_SOURCE_TEXT,
+        ]
     } else {
         vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
     };

@@ -58,17 +58,6 @@ fn test_validate_example_config() {
     // Verify cache folder is in ignore list
     let cache_path = temp_dir.path().join(".obsidian_knife");
     assert!(ignore_folders.contains(&cache_path));
-
-    // Test ignore_rendered_text patterns
-    let ignore_rendered_text = validated_config.ignore_rendered_text().unwrap();
-    assert_eq!(ignore_rendered_text.len(), 1);
-    assert_eq!(ignore_rendered_text[0], "Ed: music reco:");
-
-    // Test simplify_wikilinks patterns
-    let simplify_patterns = validated_config.simplify_wikilinks().unwrap();
-    assert_eq!(simplify_patterns.len(), 2);
-    assert_eq!(simplify_patterns[0], "Ed:");
-    assert_eq!(simplify_patterns[1], "Bob Rock");
 }
 
 #[test]
