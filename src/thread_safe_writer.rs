@@ -5,10 +5,8 @@ use std::path::Path;
 use std::sync::{Arc, Mutex};
 
 pub struct ThreadSafeWriter {
-    console: io::Stdout,
     buffer: Arc<Mutex<Vec<u8>>>,
     file: Arc<Mutex<std::fs::File>>,
-    console_enabled: bool,
 }
 
 #[derive(Clone, Copy)]
@@ -29,29 +27,24 @@ impl ThreadSafeWriter {
             .open(file_path)?;
 
         Ok(ThreadSafeWriter {
-            console: io::stdout(),
             buffer: Arc::new(Mutex::new(Vec::new())),
             file: Arc::new(Mutex::new(file)),
-            console_enabled: !cfg!(test), // Automatically disable console in tests
         })
     }
 
-    pub fn write_markdown_table(
-        &self,
-        headers: &[&str],
-        rows: &[Vec<String>],
-        alignments: Option<&[ColumnAlignment]>,
-    ) -> io::Result<()> {
-        // Write to file (Markdown format)
-        self.write_markdown_table_to_file(headers, rows, alignments)?;
+    // pub fn write_markdown_table(
+    //     &self,
+    //     headers: &[&str],
+    //     rows: &[Vec<String>],
+    //     alignments: Option<&[ColumnAlignment]>,
+    // ) -> io::Result<()> {
+    //     // Write to file (Markdown format)
+    //     self.write_markdown_table_to_file(headers, rows, alignments)?;
+    //
+    //     Ok(())
+    // }
 
-        // Write to console (simplified format)
-        self.write_table_to_console(headers, rows)?;
-
-        Ok(())
-    }
-
-    fn write_markdown_table_to_file(
+    pub(crate) fn write_markdown_table(
         &self,
         headers: &[&str],
         rows: &[Vec<String>],
@@ -95,28 +88,7 @@ impl ThreadSafeWriter {
         Ok(())
     }
 
-    fn write_table_to_console(&self, headers: &[&str], rows: &[Vec<String>]) -> io::Result<()> {
-        if !self.console_enabled {
-            return Ok(());
-        }
-
-        let mut console = self.console.lock();
-
-        // Write headers
-        writeln!(console, "{}", headers.join(" | "))?;
-
-        // Write data rows
-        for row in rows {
-            writeln!(console, "{}: {}", row[0], row[1])?;
-        }
-
-        console.flush()?;
-        Ok(())
-    }
-
     pub fn write_properties(&self, properties: &str) -> io::Result<()> {
-        println!();
-
         // Write to file (Markdown format with prefix and suffix)
         let mut file = self.file.lock().unwrap();
         writeln!(file, "---")?;
@@ -124,28 +96,14 @@ impl ThreadSafeWriter {
         writeln!(file, "---")?;
         file.flush()?;
 
-        // Write to console (without prefix and suffix)
-        let mut console = self.console.lock();
-        writeln!(console, "{}", properties)?;
-        console.flush()?;
-
         // Write to buffer (without prefix and suffix)
         let mut buffer = self.buffer.lock().unwrap();
         writeln!(buffer, "{}", properties)?;
-        println!();
 
         Ok(())
     }
 
     pub fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
-        if !message.is_empty() && self.console_enabled {
-            let console_message = format!("{}\n", message);
-            self.console.lock().write_all(console_message.as_bytes())?;
-            self.console.lock().flush()?;
-
-            let mut buffer = self.buffer.lock().unwrap();
-            buffer.extend_from_slice(console_message.as_bytes());
-        }
 
         // Create the prefix string first
         let prefix = if markdown_prefix.is_empty() {

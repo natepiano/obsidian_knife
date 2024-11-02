@@ -60,7 +60,6 @@ pub fn scan_obsidian_folder(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
-    write_scan_start(&config, writer)?;
     let start = Instant::now();
 
     let obsidian_repository_info = scan_folders(&config, writer)?;
@@ -82,11 +81,11 @@ fn get_image_info_map(
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config
         .obsidian_path()
-        .join(crate::constants::CACHE_FOLDER)
+        .join(CACHE_FOLDER)
         .join(CACHE_FILE);
     let (mut cache, cache_file_status) = Sha256Cache::new(cache_file_path.clone())?;
 
-    write_cache_file_info(writer, &cache_file_path, cache_file_status)?;
+    print_cache_file_info(&cache_file_path, cache_file_status);
 
     let mut image_info_map = HashMap::new();
 
@@ -126,31 +125,16 @@ fn get_image_info_map(
     Ok(image_info_map)
 }
 
-fn write_cache_file_info(
-    writer: &ThreadSafeWriter,
+fn print_cache_file_info(
     cache_file_path: &PathBuf,
     cache_file_status: CacheFileStatus,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL2, "collecting image file info")?;
+)  {
 
     match cache_file_status {
-        CacheFileStatus::ReadFromCache => {
-            writer.writeln("", &format!("reading from cache: {:?}", cache_file_path))?
-        }
-        CacheFileStatus::CreatedNewCache => writer.writeln(
-            "",
-            &format!(
-                "cache file missing - creating new cache: {:?}",
-                cache_file_path
-            ),
-        )?,
-        CacheFileStatus::CacheCorrupted => writer.writeln(
-            "",
-            &format!("cache corrupted, creating new cache: {:?}", cache_file_path),
-        )?,
+        CacheFileStatus::ReadFromCache => println!("reading from cache: {:?}", cache_file_path),
+        CacheFileStatus::CreatedNewCache => println!("cache file missing - creating new cache: {:?}", cache_file_path),
+        CacheFileStatus::CacheCorrupted => println!("cache corrupted, creating new cache: {:?}", cache_file_path),
     }
-    println!();
-    Ok(())
 }
 
 fn write_cache_contents_info(
@@ -192,8 +176,6 @@ fn write_cache_contents_info(
     let alignments = [ColumnAlignment::Left, ColumnAlignment::Right];
     writer.writeln(LEVEL3, "Cache Statistics")?;
     writer.write_markdown_table(headers, &rows, Some(&alignments))?;
-    println!();
-
     assert_eq!(
         image_info_map.len(),
         stats.total_files,
@@ -202,15 +184,11 @@ fn write_cache_contents_info(
     Ok(())
 }
 
-fn is_not_ignored(entry: &DirEntry, ignore_folders: &[PathBuf], writer: &ThreadSafeWriter) -> bool {
+fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
     let path = entry.path();
-    let is_ignored = ignore_folders
+    ignore_folders
         .iter()
-        .any(|ignored| path.starts_with(ignored));
-    if is_ignored {
-        let _ = writer.writeln("", &format!("ignoring: {:?}", path));
-    }
-    !is_ignored
+        .any(|ignored| path.starts_with(ignored))
 }
 
 fn scan_folders(
@@ -226,7 +204,7 @@ fn scan_folders(
     for entry in WalkDir::new(config.obsidian_path())
         .follow_links(true)
         .into_iter()
-        .filter_entry(|e| is_not_ignored(e, ignore_folders, &writer))
+        .filter_entry(|e| !is_ignored_folder(e, ignore_folders))
     {
         let entry = entry?;
         let path = entry.path();
@@ -457,7 +435,6 @@ fn write_file_info(
     writer: &ThreadSafeWriter,
     collected_files: &ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!();
     writer.writeln(LEVEL2, "file counts")?;
     writer.writeln(
         LEVEL3,
@@ -495,17 +472,6 @@ fn write_file_info(
             writer.writeln("- ", &format!("{}", file.display()))?;
         }
     }
-    println!();
-    Ok(())
-}
-
-fn write_scan_start(
-    config: &ValidatedConfig,
-    output: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    output.writeln(LEVEL1, "scanning")?;
-    output.writeln(LEVEL2, "scan details")?;
-    output.writeln("", &format!("scanning: {:?}", config.obsidian_path()))?;
     Ok(())
 }
 

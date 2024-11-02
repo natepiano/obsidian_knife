@@ -1,8 +1,6 @@
 use rayon::prelude::*;
 use std::collections::HashMap;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::Arc;
 
 pub struct DeterministicSearch {
     max_results: Option<usize>,
@@ -19,7 +17,6 @@ impl DeterministicSearch {
         &self,
         files: &HashMap<PathBuf, I>,
         search_fn: F,
-        log_every: usize, // Add a parameter to specify logging interval
     ) -> Vec<T>
     where
         F: Fn(&PathBuf, &I) -> Option<T> + Send + Sync,
@@ -33,9 +30,6 @@ impl DeterministicSearch {
         let target_count = self.max_results.unwrap_or(usize::MAX);
         let mut results = Vec::new();
 
-        // Initialize an atomic counter wrapped in Arc for shared ownership across threads
-        let counter = Arc::new(AtomicUsize::new(0));
-
         // Process chunks in parallel, but collect results sequentially
         for chunk in sorted_files.chunks(100) {
             // Skip processing if we have enough results
@@ -43,24 +37,12 @@ impl DeterministicSearch {
                 break;
             }
 
-            // Clone the Arc to pass into the parallel iterator
-            let counter_clone = Arc::clone(&counter);
-            let log_every_clone = log_every;
-
             // Process current chunk in parallel
             let chunk_results: Vec<_> = chunk
                 .par_iter()
                 .filter_map(|(path, info)| {
                     // Apply the search function
                     let result = search_fn(path, info);
-
-                    // Increment the counter
-                    let current = counter_clone.fetch_add(1, Ordering::SeqCst) + 1;
-
-                    // If the counter reaches the logging interval, log the progress
-                    if current % log_every_clone == 0 {
-                        println!("Processed {} files, current file: {:?}", current, path);
-                    }
 
                     result
                 })
@@ -100,8 +82,8 @@ mod tests {
         };
 
         // Run multiple searches and verify they return the same results
-        let results1 = searcher.search_with_info(&files, find_matches, 100);
-        let results2 = searcher.search_with_info(&files, find_matches, 100);
+        let results1 = searcher.search_with_info(&files, find_matches);
+        let results2 = searcher.search_with_info(&files, find_matches);
 
         assert_eq!(results1.len(), results2.len());
 
@@ -137,7 +119,7 @@ mod tests {
         };
 
         // Should return all matches since we have fewer files than requested
-        let results = searcher.search_with_info(&files, find_matches, 100);
+        let results = searcher.search_with_info(&files, find_matches);
         assert_eq!(results.len(), 5, "Should return matches from all files");
 
         // Verify each file produced a match
@@ -168,7 +150,7 @@ mod tests {
         let find_matches =
             |file_path: &PathBuf, _: &()| Some(vec![file_path.to_string_lossy().to_string()]);
 
-        let results = searcher.search_with_info(&files, find_matches, 20);
+        let results = searcher.search_with_info(&files, find_matches);
         assert!(!results.is_empty());
 
         // Convert both strings to same type for comparison
@@ -195,7 +177,7 @@ mod tests {
         let find_matches =
             |file_path: &PathBuf, _: &()| Some(vec![file_path.to_string_lossy().to_string()]);
 
-        let results = searcher.search_with_info(&files, find_matches, 2);
+        let results = searcher.search_with_info(&files, find_matches);
         assert_eq!(
             results.len(),
             5,
@@ -210,7 +192,7 @@ mod tests {
 
         let find_matches = |_: &PathBuf, _: &()| Some(vec!["test".to_string()]);
 
-        let results = searcher.search_with_info(&files, find_matches, 1);
+        let results = searcher.search_with_info(&files, find_matches);
         assert!(
             results.is_empty(),
             "Should return no results for empty files"
@@ -230,7 +212,7 @@ mod tests {
 
         let find_matches = |_: &PathBuf, _: &()| -> Option<Vec<String>> { None };
 
-        let results = searcher.search_with_info(&files, find_matches, 1);
+        let results = searcher.search_with_info(&files, find_matches);
         assert!(
             results.is_empty(),
             "Should return no results when no matches found"

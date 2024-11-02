@@ -47,8 +47,8 @@ fn output_duration(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
-
-    writer.writeln(prefix, &format!("{} {} {}", prefix, duration_string, "ms"))?;
+    writer.writeln(prefix, &format!("{} {} {}", prefix, duration_string, MILLISECONDS))?;
+    println!("{} {} {}", prefix, duration_string, MILLISECONDS);
     Ok(())
 }
 
@@ -58,7 +58,6 @@ fn handle_success(
     writer: &ThreadSafeWriter,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!();
     writer.writeln(
         LEVEL1,
         &format!("{} {}", PROCESSING_FINAL_MESSAGE, config_file),
@@ -121,14 +120,12 @@ pub fn write_execution_start(
     );
 
     writer.write_properties(&properties)?;
-    writer.writeln(LEVEL1, PROCESSING_START)?;
 
     if validated_config.apply_changes() {
         writer.writeln("", MODE_APPLY_CHANGES)?;
     } else {
         writer.writeln("", MODE_DRY_RUN)?;
     }
-    println!();
     Ok(())
 }
 

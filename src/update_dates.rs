@@ -471,10 +471,6 @@ fn apply_date_changes(
         if updates.remove_date_created_fix {
             fm.update_date_created_fix(None);
         }
-
-        if let Ok(yaml) = serde_yaml::to_string(&fm) {
-            println!("---\n{}---", yaml);
-        }
     })?;
 
     // After successful frontmatter update, set the file creation time if we have one

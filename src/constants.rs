@@ -8,11 +8,11 @@ pub const ERROR_OCCURRED: &str = "error occurred";
 pub const ERROR_SOURCE: &str = "**error source:**";
 pub const ERROR_TYPE: &str = "error type:";
 pub const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
+pub const MILLISECONDS: &str = "ms";
 pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
 pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
 pub const PROCESSING_DURATION: &str = "total processing time:";
 pub const PROCESSING_FINAL_MESSAGE: &str = "obsidian_knife made the cut using:";
-pub const PROCESSING_START: &str = "starting obsidian_knife";
 pub const SECONDS: &str = "seconds";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 pub const YAML_TIMESTAMP: &str = "time_stamp: ";
@@ -66,8 +66,12 @@ pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
     "using back_populate_file_filter config parameter: ";
 pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
+pub const COL_OCCURRENCES: &str = "occurences";
+pub const COL_SOURCE_TEXT: &str = "source text";
+pub const COL_TEXT: &str = "text";
+pub const COL_WILL_REPLACE_WITH: &str = "will replace with";
 pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
-pub const MATCHES_UNAMBIGUOUS: &str = "matches found to back populate";
+pub const MATCHES_UNAMBIGUOUS: &str = "wikilinks to back populate";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

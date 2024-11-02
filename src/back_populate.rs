@@ -134,9 +134,6 @@ fn find_all_back_populate_matches(
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
-    // Specify how often you want to log progress (e.g., every 100 files)
-    let log_every = 100;
-
     let ac = obsidian_repository_info
         .wikilinks_ac
         .as_ref()
@@ -147,11 +144,6 @@ fn find_all_back_populate_matches(
     let matches = searcher.search_with_info(
         &obsidian_repository_info.markdown_files,
         |file_path, markdown_file_info| {
-            // Filter to process only "amis et famille.md" unless in test
-            // estatodo.md
-            // if !cfg!(test) && !file_path.ends_with("avi's shakshuka.md") {
-            //      return None;
-            // }
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
                     if !file_path.ends_with(filter) {
@@ -166,7 +158,6 @@ fn find_all_back_populate_matches(
                 _ => None,
             }
         },
-        log_every, // Pass the logging interval
     );
 
     Ok(matches.into_iter().flatten().collect())
@@ -606,16 +597,13 @@ fn write_back_populate_table(
     }
 
     // Headers for the tables
-    let headers = &[
-        "file name",
-        "line",
-        "current text",
-        "occurrences",
-        "will replace with",
-        "escaped replacement",
-    ];
+    let headers: Vec<&str> = if is_unambiguous_match {
+        vec!["file name", "line", COL_TEXT, COL_OCCURRENCES, COL_WILL_REPLACE_WITH, COL_SOURCE_TEXT]
+    } else {
+        vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
+    };
 
-    // Create a separate table for each found_text group
+    // Rest of the function remains the same...
     for (found_text, text_matches) in matches_by_text.iter() {
         let total_occurrences = text_matches.len();
         let file_paths: HashSet<String> = text_matches
@@ -633,7 +621,6 @@ fn write_back_populate_table(
                 pluralize_occurrence_in_files(total_occurrences, file_paths.len())
             ),
         )?;
-
 
         // Sort matches by file path and line number
         let mut sorted_matches = text_matches.to_vec();
@@ -667,43 +654,52 @@ fn write_back_populate_table(
             let file_path = Path::new(&m.file_path);
             let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
-            let replacement = if m.in_markdown_table {
-                m.replacement.clone()
-            } else {
-                escape_pipe(&m.replacement)
-            };
-
             // Create a row for each line, maintaining the consolidation of occurrences
             for line_info in m.line_info {
                 let highlighted_line = highlight_matches(&line_info.line_text, found_text);
 
-                let row = vec![
+                let mut row = vec![
                     file_stem.to_wikilink(),
                     line_info.line_number.to_string(),
                     escape_pipe(&highlighted_line),
                     line_info.positions.len().to_string(),
-                    replacement.clone(),
-                    escape_brackets(&replacement),
                 ];
+
+                // Only add replacement columns for unambiguous matches
+                if is_unambiguous_match {
+                    let replacement = if m.in_markdown_table {
+                        m.replacement.clone()
+                    } else {
+                        escape_pipe(&m.replacement)
+                    };
+                    row.push(replacement.clone());
+                    row.push(escape_brackets(&replacement));
+                }
 
                 table_rows.push(row);
             }
         }
 
-        // Write the table
-        writer.write_markdown_table(
-            headers,
-            &table_rows,
-            Some(&[
+        // Write the table with appropriate column alignments
+        let alignments = if is_unambiguous_match {
+            vec![
                 ColumnAlignment::Left,
                 ColumnAlignment::Right,
                 ColumnAlignment::Left,
                 ColumnAlignment::Center,
                 ColumnAlignment::Left,
                 ColumnAlignment::Left,
-            ]),
-        )?;
+            ]
+        } else {
+            vec![
+                ColumnAlignment::Left,
+                ColumnAlignment::Right,
+                ColumnAlignment::Left,
+                ColumnAlignment::Center,
+            ]
+        };
 
+        writer.write_markdown_table(&headers, &table_rows, Some(&alignments))?;
         writer.writeln("", "\n---\n")?;
     }
 
@@ -783,7 +779,7 @@ fn escape_pipe(text: &str) -> String {
     escaped
 }
 
-// Helper function to escape pipes and brackets for visual verification in `escaped replacement`
+// Helper function to escape pipes and brackets for visual verification
 fn escape_brackets(text: &str) -> String {
     text.replace('[', r"\[").replace(']', r"\]")
 }
