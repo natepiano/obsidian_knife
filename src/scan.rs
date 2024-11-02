@@ -2,7 +2,6 @@ use crate::{
     constants::*,
     frontmatter::{deserialize_frontmatter, FrontMatter},
     sha256_cache::{CacheFileStatus, Sha256Cache},
-    thread_safe_writer::{ColumnAlignment, ThreadSafeWriter},
     validated_config::ValidatedConfig,
     wikilink::{collect_all_wikilinks, CompiledWikilink},
 };
@@ -58,13 +57,10 @@ pub struct ObsidianRepositoryInfo {
 
 pub fn scan_obsidian_folder(
     config: &ValidatedConfig,
-    writer: &ThreadSafeWriter,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let start = Instant::now();
 
     let obsidian_repository_info = scan_folders(&config)?;
-
-    write_file_info(writer, &obsidian_repository_info)?;
 
     let duration = start.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
@@ -116,7 +112,7 @@ fn get_image_info_map(
     cache.remove_non_existent_entries();
     cache.save()?;
 
-    print_cache_statistics(&mut cache, &mut image_info_map);
+    print_cache_statistics(&cache, &image_info_map);
 
     Ok(image_info_map)
 }
@@ -138,13 +134,13 @@ fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFile
 }
 
 fn print_cache_statistics(
-    cache: &mut Sha256Cache,
-    image_info_map: &mut HashMap<PathBuf, ImageInfo>,
+    cache: &Sha256Cache,
+    image_info_map: &HashMap<PathBuf, ImageInfo>,
 ) {
     let stats = cache.get_stats();
 
     if !cfg!(test) {
-        println!("cache statistics:");
+        println!("\ncache statistics:");
         println!(
             "  total entries in cache (initial): {}",
             stats.initial_count
@@ -266,12 +262,17 @@ fn scan_folders(
             .expect("Failed to build Aho-Corasick automaton for wikilinks"),
     );
 
+
     // Process image info
     obsidian_repository_info.image_map = get_image_info_map(
         &config,
         &obsidian_repository_info.markdown_files,
         &image_files,
     )?;
+
+    if !cfg!(test) {
+        print_file_info(&obsidian_repository_info);
+    }
 
     Ok(obsidian_repository_info)
 }
@@ -411,48 +412,26 @@ fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, us
     count_vec
 }
 
-fn write_file_info(
-    writer: &ThreadSafeWriter,
-    collected_files: &ObsidianRepositoryInfo,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL2, "file counts")?;
-    writer.writeln(
-        LEVEL3,
-        &format!("markdown files: {}", collected_files.markdown_files.len()),
-    )?;
-    writer.writeln(
-        LEVEL3,
-        &format!("image files: {}", collected_files.image_map.len()),
-    )?;
+fn print_file_info(collected_files: &ObsidianRepositoryInfo, )  {
+    println!("\nfile counts:");
+    println!("  markdown files: {}", collected_files.markdown_files.len());
+    println!("  other files: {}", collected_files.other_files.len());
+    println!("  image files: {}", collected_files.image_map.len());
 
     let image_counts = count_image_types(&collected_files.image_map);
 
-    // Create headers and rows for the image counts table
-    let headers = &["Extension", "Count"];
-    let rows: Vec<Vec<String>> = image_counts
-        .iter()
-        .map(|(ext, count)| vec![format!(".{}", ext), count.to_string()])
-        .collect();
-
-    // Write the image counts as a Markdown table
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[ColumnAlignment::Left, ColumnAlignment::Right]),
-    )?;
-
-    writer.writeln(
-        LEVEL3,
-        &format!("other files: {}", collected_files.other_files.len()),
-    )?;
+    // Print image type statistics
+    for (ext, count) in image_counts {
+        println!("    .{}: {}", ext, count);
+    }
 
     if !collected_files.other_files.is_empty() {
-        writer.writeln("####", "other files found:")?;
+        println!("\n  other files found:");
         for file in &collected_files.other_files {
-            writer.writeln("- ", &format!("{}", file.display()))?;
+            println!("    - {}", file.display());
         }
     }
-    Ok(())
+    println!();
 }
 
 #[cfg(test)]
