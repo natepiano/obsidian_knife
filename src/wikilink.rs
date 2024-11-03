@@ -66,24 +66,9 @@ pub struct Wikilink {
 pub struct WikilinkError {
     pub display_text: String,
     pub error_type: WikilinkErrorType,
-    pub context: WikilinkErrorContext,
-}
-
-impl WikilinkError {
-    // Add a method to add context to an existing error
-    pub fn with_context(
-        mut self,
-        file_path: Option<&Path>,
-        line_number: Option<usize>,
-        line_content: Option<&str>,
-    ) -> Self {
-        self.context = WikilinkErrorContext {
-            file_path: file_path.map(|p| p.display().to_string()),
-            line_number,
-            line_content: line_content.map(String::from),
-        };
-        self
-    }
+    file_path: String,
+    line_number: Option<usize>,
+    line_content: Option<String>,
 }
 
 impl fmt::Display for WikilinkError {
@@ -93,11 +78,22 @@ impl fmt::Display for WikilinkError {
             WikilinkErrorType::ContainsCloseBrackets => "contains closing brackets ']]'",
             WikilinkErrorType::ContainsPipe => "contains pipe character '|'",
         };
-        write!(
+        writeln!(
             f,
             "Invalid wikilink pattern: '{}' {}",
             self.display_text, error_msg
-        )
+        )?;
+
+        if !self.file_path.is_empty() {
+            writeln!(f, "File: {}", self.file_path)?;
+        }
+        if let Some(num) = &self.line_number {
+            writeln!(f, "Line number: {}", num)?;
+        }
+        if let Some(content) = &self.line_content {
+            writeln!(f, "Line content: {}", content)?;
+        }
+        Ok(())
     }
 }
 
@@ -110,17 +106,18 @@ pub enum WikilinkErrorType {
     ContainsPipe,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct WikilinkErrorContext {
-    pub file_path: Option<String>,
+    pub file_path: String,
     pub line_number: Option<usize>,
     pub line_content: Option<String>,
 }
 
+// Update the implementation of fmt::Display for WikilinkErrorContext
 impl fmt::Display for WikilinkErrorContext {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if let Some(path) = &self.file_path {
-            writeln!(f, "File: {}", path)?;
+        if !self.file_path.is_empty() {
+            writeln!(f, "File: {}", self.file_path)?;
         }
         if let Some(num) = &self.line_number {
             writeln!(f, "Line number: {}", num)?;
@@ -129,6 +126,16 @@ impl fmt::Display for WikilinkErrorContext {
             writeln!(f, "Line content: {}", content)?;
         }
         Ok(())
+    }
+}
+
+impl Default for WikilinkErrorContext {
+    fn default() -> Self {
+        WikilinkErrorContext {
+            file_path: String::new(),
+            line_number: None,
+            line_content: None,
+        }
     }
 }
 
@@ -206,11 +213,17 @@ pub fn format_wikilink(path: &Path) -> String {
 
 pub fn compile_wikilink_with_context(
     wikilink: Wikilink,
-    file_path: Option<&Path>,
+    file_path: &Path,
     line_number: Option<usize>,
     line_content: Option<&str>,
 ) -> Result<CompiledWikilink, WikilinkError> {
-    compile_wikilink(wikilink).map_err(|e| e.with_context(file_path, line_number, line_content))
+    compile_wikilink(wikilink).map_err(|e| WikilinkError {
+        display_text: e.display_text,
+        error_type: e.error_type,
+        file_path: file_path.display().to_string(),
+        line_number,
+        line_content: line_content.map(String::from),
+    })
 }
 
 pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, WikilinkError> {
@@ -221,27 +234,34 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
         return Err(WikilinkError {
             display_text: search_text.to_string(),
             error_type: WikilinkErrorType::ContainsOpenBrackets,
-            context: WikilinkErrorContext::default(),
+            file_path: String::new(),
+            line_number: None,
+            line_content: None,
         });
     }
     if search_text.contains("]]") {
         return Err(WikilinkError {
             display_text: search_text.to_string(),
             error_type: WikilinkErrorType::ContainsCloseBrackets,
-            context: WikilinkErrorContext::default(),
+            file_path: String::new(),
+            line_number: None,
+            line_content: None,
         });
     }
     if search_text.contains("|") {
         return Err(WikilinkError {
             display_text: search_text.to_string(),
             error_type: WikilinkErrorType::ContainsPipe,
-            context: WikilinkErrorContext::default(),
+            file_path: String::new(),
+            line_number: None,
+            line_content: None,
         });
     }
 
     Ok(CompiledWikilink::new(wikilink))
 }
 
+// In collect_all_wikilinks, update the calls:
 pub fn collect_all_wikilinks(
     content: &str,
     frontmatter: &Option<FrontMatter>,
@@ -249,7 +269,6 @@ pub fn collect_all_wikilinks(
 ) -> Result<HashSet<CompiledWikilink>, WikilinkError> {
     let mut all_wikilinks = HashSet::new();
 
-    // Extract filename inside this function
     let filename = file_path
         .file_name()
         .and_then(|n| n.to_str())
@@ -257,7 +276,7 @@ pub fn collect_all_wikilinks(
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), Some(file_path), None, None)?;
+    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), file_path, None, None)?;
     all_wikilinks.insert(compiled);
 
     // Add frontmatter aliases
@@ -269,7 +288,7 @@ pub fn collect_all_wikilinks(
                     target: filename_wikilink.target.clone(),
                     is_alias: true,
                 };
-                let compiled = compile_wikilink_with_context(wikilink, Some(file_path), None, None)?;
+                let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
                 all_wikilinks.insert(compiled);
             }
         }
@@ -281,7 +300,7 @@ pub fn collect_all_wikilinks(
         for wikilink in wikilinks {
             let compiled = compile_wikilink_with_context(
                 wikilink,
-                Some(file_path),
+                file_path,
                 Some(line_number + 1),
                 Some(line),
             )?;
@@ -667,17 +686,19 @@ Also [[Alias One]] is referenced"#;
             let error = WikilinkError {
                 display_text: "test[[bad]]".to_string(),
                 error_type: WikilinkErrorType::ContainsOpenBrackets,
-                context: WikilinkErrorContext::default(),
+                file_path: String::new(),
+                line_number: None,
+                line_content: None,
             };
 
             assert_eq!(
-                error.to_string(),
+                error.to_string().trim(),
                 "Invalid wikilink pattern: 'test[[bad]]' contains opening brackets '[['"
             );
         }
     }
 
-    // Sub-module for markdown link tests
+    // Submodule for Markdown link tests
     mod markdown_links {
         use super::*;
 
@@ -687,7 +708,7 @@ Also [[Alias One]] is referenced"#;
 
             let matching_cases = vec![
                 "[text](https://example.com)",
-                "[link](http://test.com)",
+                "[link](https://test.com)",
                 "[page](folder/page.md)",
                 "[img](../images/test.png)",
                 "[text](path 'title')",
