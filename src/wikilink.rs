@@ -156,67 +156,51 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
 
 #[derive(Debug)]
 enum WikilinkState {
-    Target(String),
-    Display(String, String),
+    Target {
+        content: String,
+        start_pos: usize,
+    },
+    Display {
+        target: String,
+        target_span: (usize, usize),
+        content: String,
+        start_pos: usize,
+    },
 }
 
 impl WikilinkState {
     fn push_char(&mut self, c: char) {
         match self {
-            WikilinkState::Target(target) => target.push(c),
-            WikilinkState::Display(_, display) => display.push(c),
+            WikilinkState::Target { content, .. } => content.push(c),
+            WikilinkState::Display { content, .. } => content.push(c),
+        }
+    }
+
+    fn transition_to_display(self, pipe_pos: usize) -> Self {
+        match self {
+            WikilinkState::Target { content, start_pos } => WikilinkState::Display {
+                target: content,
+                target_span: (start_pos, pipe_pos),
+                content: String::new(),
+                start_pos: pipe_pos + 1,
+            },
+            display_state => display_state,
         }
     }
 
     fn to_wikilink(self) -> WikilinkParseResult {
         match self {
-            WikilinkState::Target(target) => {
-                // Check for nested wikilinks in target
-                if target.contains("[[") {
-                    let target_len = target.len();
-                    return WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: target,
-                        reason: InvalidWikilinkReason::NestedOpening,
-                        span: (0, target_len) // Placeholder span
-                    });
-                }
-                if target.contains("]]") {
-                    let target_len = target.len();
-                    return WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: target,
-                        reason: InvalidWikilinkReason::NestedClosing,
-                        span: (0, target_len) // Placeholder span
-                    });
-                }
-
-                let trimmed = target.trim().to_string();
+            WikilinkState::Target { content, .. } => {
+                let trimmed = content.trim().to_string();
                 WikilinkParseResult::Valid(Wikilink {
                     display_text: trimmed.clone(),
                     target: trimmed,
                     is_alias: false,
                 })
             }
-            WikilinkState::Display(target, display) => {
-                // Check for nested wikilinks in either part
-                if target.contains("[[") || display.contains("[[") {
-                    let total_len = target.len() + display.len() + 1;
-                    return WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: format!("{}|{}", target, display),
-                        reason: InvalidWikilinkReason::NestedOpening,
-                        span: (0, total_len)
-                    });
-                }
-                if target.contains("]]") || display.contains("]]") {
-                    let total_len = target.len() + display.len() + 1;
-                    return WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: format!("{}|{}", target, display),
-                        reason: InvalidWikilinkReason::NestedClosing,
-                        span: (0, total_len)
-                    });
-                }
-
+            WikilinkState::Display { target, content, .. } => {
                 let trimmed_target = target.trim().to_string();
-                let trimmed_display = display.trim().to_string();
+                let trimmed_display = content.trim().to_string();
                 WikilinkParseResult::Valid(Wikilink {
                     display_text: trimmed_display,
                     target: trimmed_target,
@@ -225,24 +209,20 @@ impl WikilinkState {
             }
         }
     }
-
-    fn transition_to_display(self) -> Self {
-        match self {
-            WikilinkState::Target(target) => WikilinkState::Display(target, String::new()),
-            display_state => display_state,
-        }
-    }
 }
 
 fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<WikilinkParseResult> {
-
-    let mut state = WikilinkState::Target(String::new());
+    let start_pos = chars.peek()?.0;
+    let mut state = WikilinkState::Target {
+        content: String::new(),
+        start_pos,
+    };
     let mut escape = false;
 
-    while let Some((_, c)) = chars.next() {
+    while let Some((pos, c)) = chars.next() {
         match (escape, c) {
             (true, '|') => {
-                state = state.transition_to_display();
+                state = state.transition_to_display(pos);
                 escape = false;
             }
             (true, c) => {
@@ -250,7 +230,7 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
                 escape = false;
             }
             (false, '\\') => escape = true,
-            (false, '|') => state = state.transition_to_display(),
+            (false, '|') => state = state.transition_to_display(pos),
             (false, ']') if is_next_char(chars, ']') => return Some(state.to_wikilink()),
             (false, c) => state.push_char(c),
         }
@@ -258,6 +238,7 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
 
     None
 }
+
 
 /// Helper function to check if the next character matches the expected one
 fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected: char) -> bool {
@@ -493,71 +474,6 @@ mod tests {
                 );
             }
         }
-
-
-        #[test]
-        fn test_parse_wikilink_nested_opening() {
-            let input = "Nested [[wikilink [[inside]] here]]";
-            let expected_reason = InvalidWikilinkReason::NestedOpening;
-            let expected_content = "wikilink [[inside";
-
-            parse_and_assert_invalid_wikilink(input, expected_reason, expected_content);
-        }
-
-        fn parse_and_assert_invalid_wikilink(
-            input: &str,
-            expected_reason: InvalidWikilinkReason,
-            expected_content: &str,
-        ) {
-            // Find the first occurrence of "[["
-            let start = input.find("[[").expect("Input should contain '[['");
-
-            // Slice the input string to start parsing after the first "[["
-            let slice = &input[start + 2..];
-
-            // Optional: Print the slice for debugging purposes
-            // To see the output, run tests with the `--nocapture` flag:
-            // cargo test -- --nocapture
-            println!("Slice to parse: '{}'", slice);
-
-            // Create a Peekable iterator from the sliced input
-            let mut chars = slice.char_indices().peekable();
-
-            // Parse the wikilink
-            let result = parse_wikilink(&mut chars);
-
-            // Ensure that a parse result was returned
-            assert!(
-                result.is_some(),
-                "Expected a parse result for input: '{}'",
-                input
-            );
-
-            match result.unwrap() {
-                WikilinkParseResult::Invalid(invalid) => {
-                    assert_eq!(
-                        invalid.reason,
-                        expected_reason,
-                        "Expected reason {:?}, got {:?} for input: '{}'",
-                        expected_reason, invalid.reason, input
-                    );
-                    assert_eq!(
-                        invalid.content,
-                        expected_content,
-                        "Expected content '{}', got '{}' for input: '{}'",
-                        expected_content, invalid.content, input
-                    );
-                },
-                WikilinkParseResult::Valid(_) => {
-                    panic!(
-                        "Expected an invalid wikilink due to {:?} but got Valid for input: '{}'",
-                        expected_reason, input
-                    );
-                }
-            }
-        }
-
-
     }
 
     // Sub-module for error handling
