@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
-use crate::wikilink_types::{CompiledWikilink, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
+use crate::wikilink_types::{CompiledWikilink, InvalidWikilink, InvalidWikilinkReason, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
@@ -178,11 +178,21 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
             match self {
                 State::Target(target) => {
                     // Check for nested wikilinks in target
-                    if target.contains("[[") || target.contains("]]") {
-                        return WikilinkParseResult::Invalid {
+                    if target.contains("[[") {
+                        let target_len = target.len();
+                        return WikilinkParseResult::Invalid(InvalidWikilink {
                             content: target,
-                            reason: "nested wikilink brackets detected".to_string(),
-                        };
+                            reason: InvalidWikilinkReason::NestedOpening,
+                            span: (0, target_len) // Placeholder span
+                        });
+                    }
+                    if target.contains("]]") {
+                        let target_len = target.len();
+                        return WikilinkParseResult::Invalid(InvalidWikilink {
+                            content: target,
+                            reason: InvalidWikilinkReason::NestedClosing,
+                            span: (0, target_len) // Placeholder span
+                        });
                     }
 
                     let trimmed = target.trim().to_string();
@@ -194,12 +204,21 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
                 }
                 State::Display(target, display) => {
                     // Check for nested wikilinks in either part
-                    if target.contains("[[") || target.contains("]]") ||
-                        display.contains("[[") || display.contains("]]") {
-                        return WikilinkParseResult::Invalid {
+                    if target.contains("[[") || display.contains("[[") {
+                        let total_len = target.len() + display.len() + 1;
+                        return WikilinkParseResult::Invalid(InvalidWikilink {
                             content: format!("{}|{}", target, display),
-                            reason: "nested wikilink brackets detected".to_string(),
-                        };
+                            reason: InvalidWikilinkReason::NestedOpening,
+                            span: (0, total_len)
+                        });
+                    }
+                    if target.contains("]]") || display.contains("]]") {
+                        let total_len = target.len() + display.len() + 1;
+                        return WikilinkParseResult::Invalid(InvalidWikilink {
+                            content: format!("{}|{}", target, display),
+                            reason: InvalidWikilinkReason::NestedClosing,
+                            span: (0, total_len)
+                        });
                     }
 
                     let trimmed_target = target.trim().to_string();
@@ -379,8 +398,8 @@ mod tests {
                     assert_eq!(wikilink.display_text, exp_display);
                     assert_eq!(wikilink.is_alias, exp_alias);
                 },
-                WikilinkParseResult::Invalid { content, reason } => {
-                    panic!("Expected valid wikilink, got invalid: {} ({})", content, reason);
+                WikilinkParseResult::Invalid(invalid) => {
+                    panic!("Expected valid wikilink, got invalid: {} ({})", invalid.content, invalid.reason);
                 }
             }
         }
