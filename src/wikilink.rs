@@ -493,6 +493,71 @@ mod tests {
                 );
             }
         }
+
+
+        #[test]
+        fn test_parse_wikilink_nested_opening() {
+            let input = "Nested [[wikilink [[inside]] here]]";
+            let expected_reason = InvalidWikilinkReason::NestedOpening;
+            let expected_content = "wikilink [[inside";
+
+            parse_and_assert_invalid_wikilink(input, expected_reason, expected_content);
+        }
+
+        fn parse_and_assert_invalid_wikilink(
+            input: &str,
+            expected_reason: InvalidWikilinkReason,
+            expected_content: &str,
+        ) {
+            // Find the first occurrence of "[["
+            let start = input.find("[[").expect("Input should contain '[['");
+
+            // Slice the input string to start parsing after the first "[["
+            let slice = &input[start + 2..];
+
+            // Optional: Print the slice for debugging purposes
+            // To see the output, run tests with the `--nocapture` flag:
+            // cargo test -- --nocapture
+            println!("Slice to parse: '{}'", slice);
+
+            // Create a Peekable iterator from the sliced input
+            let mut chars = slice.char_indices().peekable();
+
+            // Parse the wikilink
+            let result = parse_wikilink(&mut chars);
+
+            // Ensure that a parse result was returned
+            assert!(
+                result.is_some(),
+                "Expected a parse result for input: '{}'",
+                input
+            );
+
+            match result.unwrap() {
+                WikilinkParseResult::Invalid(invalid) => {
+                    assert_eq!(
+                        invalid.reason,
+                        expected_reason,
+                        "Expected reason {:?}, got {:?} for input: '{}'",
+                        expected_reason, invalid.reason, input
+                    );
+                    assert_eq!(
+                        invalid.content,
+                        expected_content,
+                        "Expected content '{}', got '{}' for input: '{}'",
+                        expected_content, invalid.content, input
+                    );
+                },
+                WikilinkParseResult::Valid(_) => {
+                    panic!(
+                        "Expected an invalid wikilink due to {:?} but got Valid for input: '{}'",
+                        expected_reason, input
+                    );
+                }
+            }
+        }
+
+
     }
 
     // Sub-module for error handling
