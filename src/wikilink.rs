@@ -1,3 +1,4 @@
+use std::cmp::PartialEq;
 use crate::{constants::*, frontmatter::FrontMatter};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -312,95 +313,89 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     content[..index].chars().rev().next() == Some(expected)
 }
 
+
+
 fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<Wikilink> {
-    // Define the possible states of the parser
+    #[derive(PartialEq)]
     enum State {
-        ReadingTarget,
-        ReadingDisplay,
+        Target,
+        Display,
     }
 
     use State::*;
 
-    let mut state = ReadingTarget;
+    let mut state = Target;
     let mut target = String::new();
-    let mut display_text = String::new();
-    let mut escaped = false;
+    let mut display = String::new();
+    let mut escape = false;
 
     while let Some((_, c)) = chars.next() {
-        match state {
-            ReadingTarget => {
-                if escaped {
-                    if c == '|' {
-                        // Escaped pipe acts as a separator
-                        state = ReadingDisplay;
-                        escaped = false;
-                    } else {
-                        // Add the escaped character to target
-                        target.push(c);
-                        escaped = false;
-                    }
-                } else if c == '\\' {
-                    // Next character is escaped
-                    escaped = true;
-                } else if c == '|' {
-                    // Unescaped pipe indicates an alias
-                    state = ReadingDisplay;
-                } else if c == ']' {
-                    if is_next_char(chars, ']') {
-                        // Closing ']]' found without alias
-                        let trimmed = target.trim().to_string();
-                        return Some(Wikilink {
-                            display_text: trimmed.clone(),
-                            target: trimmed,
-                            is_alias: false,
-                        });
-                    } else {
-                        // Not a closing ']]', add ']' to target
-                        target.push(c);
-                    }
-                } else {
-                    // Regular character, add to target
-                    target.push(c);
+        if escape {
+            if c == '|' {
+                // Escaped pipe acts as a separator
+                state = Display;
+            } else {
+                // Add the escaped character to the current state
+                match state {
+                    Target => target.push(c),
+                    Display => display.push(c),
                 }
             }
-            ReadingDisplay => {
-                if escaped {
-                    if c == '|' {
-                        // Escaped pipe inside display text
-                        display_text.push('|');
-                        escaped = false;
-                    } else {
-                        // Add the escaped character to display_text
-                        display_text.push(c);
-                        escaped = false;
-                    }
-                } else if c == '\\' {
-                    // Next character is escaped
-                    escaped = true;
-                } else if c == ']' {
-                    if is_next_char(chars, ']') {
-                        // Closing ']]' found
-                        return Some(Wikilink {
-                            display_text: display_text.trim().to_string(),
-                            target: target.trim().to_string(),
-                            is_alias: true,
-                        });
-                    } else {
-                        // Not a closing ']]', add ']' to display_text
-                        display_text.push(c);
+            escape = false;
+            continue;
+        }
+
+        match c {
+            '\\' => {
+                escape = true;
+            }
+            '|' => {
+                // Unescaped pipe indicates a transition to Display
+                state = Display;
+            }
+            ']' => {
+                if is_next_char(chars, ']') {
+                    // Closing brackets found, finalize the Wikilink
+                    return match state {
+                        Target => {
+                            let trimmed = target.trim().to_string();
+                            Some(Wikilink {
+                                display_text: trimmed.clone(),
+                                target: trimmed,
+                                is_alias: false,
+                            })
+                        }
+                        Display => {
+                            let trimmed_target = target.trim().to_string();
+                            let trimmed_display = display.trim().to_string();
+                            Some(Wikilink {
+                                display_text: trimmed_display,
+                                target: trimmed_target,
+                                is_alias: true,
+                            })
+                        }
                     }
                 } else {
-                    // Regular character, add to display_text
-                    display_text.push(c);
+                    // Not a closing bracket, add ']' to the current state
+                    match state {
+                        Target => target.push(c),
+                        Display => display.push(c),
+                    }
+                }
+            }
+            _ => {
+                // Regular character, add to the current state
+                match state {
+                    Target => target.push(c),
+                    Display => display.push(c),
                 }
             }
         }
     }
 
-    // If we reach here, the wikilink was not properly closed
+    // Wikilink not properly closed
     None
 }
-
 
 /// Helper function to check if the next character matches the expected one
 fn is_next_char(
