@@ -53,6 +53,12 @@ pub struct Wikilink {
     pub is_alias: bool,
 }
 
+#[derive(Debug, Default)]
+pub struct ExtractedWikilinks {
+    pub valid: Vec<Wikilink>,
+    pub invalid: Vec<InvalidWikilink>,
+}
+
 #[derive(Debug)]
 pub struct WikilinkError {
     pub display_text: String,

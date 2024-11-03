@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
-use crate::wikilink_types::{CompiledWikilink, InvalidWikilink, InvalidWikilinkReason, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
+use crate::wikilink_types::{CompiledWikilink, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
@@ -209,6 +209,34 @@ impl WikilinkState {
             }
         }
     }
+}
+
+fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<WikilinkParseResult> {
+    let start_pos = chars.peek()?.0;
+    let mut state = WikilinkState::Target {
+        content: String::new(),
+        start_pos,
+    };
+    let mut escape = false;
+
+    while let Some((pos, c)) = chars.next() {
+        match (escape, c) {
+            (true, '|') => {
+                state = state.transition_to_display(pos);
+                escape = false;
+            }
+            (true, c) => {
+                state.push_char(c);
+                escape = false;
+            }
+            (false, '\\') => escape = true,
+            (false, '|') => state = state.transition_to_display(pos),
+            (false, ']') if is_next_char(chars, ']') => return Some(state.to_wikilink()),
+            (false, c) => state.push_char(c),
+        }
+    }
+
+    None
 }
 
 
