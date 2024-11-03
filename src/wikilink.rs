@@ -245,14 +245,19 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
 pub fn collect_all_wikilinks(
     content: &str,
     frontmatter: &Option<FrontMatter>,
-    filename: &str,
-    file_path: Option<&Path>,
+    file_path: &Path,
 ) -> Result<HashSet<CompiledWikilink>, WikilinkError> {
     let mut all_wikilinks = HashSet::new();
 
+    // Extract filename inside this function
+    let filename = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), file_path, None, None)?;
+    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), Some(file_path), None, None)?;
     all_wikilinks.insert(compiled);
 
     // Add frontmatter aliases
@@ -264,7 +269,7 @@ pub fn collect_all_wikilinks(
                     target: filename_wikilink.target.clone(),
                     is_alias: true,
                 };
-                let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
+                let compiled = compile_wikilink_with_context(wikilink, Some(file_path), None, None)?;
                 all_wikilinks.insert(compiled);
             }
         }
@@ -276,7 +281,7 @@ pub fn collect_all_wikilinks(
         for wikilink in wikilinks {
             let compiled = compile_wikilink_with_context(
                 wikilink,
-                file_path,
+                Some(file_path),
                 Some(line_number + 1),
                 Some(line),
             )?;
@@ -429,6 +434,7 @@ mod tests {
 
     // Submodule for collecting wikilinks
     mod collect_wikilinks {
+        use tempfile::TempDir;
         use super::*;
 
         #[test]
@@ -442,9 +448,12 @@ aliases:
 Here's a [[Regular Link]] and [[Target|Display Text]]
 Also [[Alias One]] is referenced"#;
 
+            let temp_dir = TempDir::new().unwrap();
+            let file_path = temp_dir.path().join("test file.md");
+            std::fs::write(&file_path, content).unwrap();
+
             let frontmatter = frontmatter::deserialize_frontmatter(content).unwrap();
-            let wikilinks =
-                collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
+            let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), &file_path).unwrap();
 
             // Filename-based wikilink
             assert_contains_wikilink(&wikilinks, "test file", None, false);
@@ -461,13 +470,11 @@ Also [[Alias One]] is referenced"#;
         #[test]
         fn collect_wikilinks_with_context() {
             let content = "Some [[Link]] here.";
-            let wikilinks = collect_all_wikilinks(
-                content,
-                &None,
-                "file.md",
-                Some(Path::new("path/to/file.md")),
-            )
-            .unwrap();
+            let temp_dir = TempDir::new().unwrap();
+            let file_path = temp_dir.path().join("file.md");
+            std::fs::write(&file_path, content).unwrap();
+
+            let wikilinks = collect_all_wikilinks(content, &None, &file_path).unwrap();
 
             assert_contains_wikilink(&wikilinks, "Link", None, false);
         }

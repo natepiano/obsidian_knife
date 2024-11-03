@@ -16,7 +16,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
@@ -338,9 +338,8 @@ fn scan_markdown_file(
 
     extract_do_not_back_populate(&frontmatter, &mut file_info);
 
-    let filename = extract_filename(file_path);
+    let wikilinks = collect_all_wikilinks(&content, &file_info.frontmatter, file_path)?;
 
-    let wikilinks = collect_wikilinks_from_content(&content, &file_info.frontmatter, &filename, file_path)?;
 
     collect_image_references(&content, image_regex, &mut file_info)?;
 
@@ -379,27 +378,6 @@ fn extract_do_not_back_populate(frontmatter: &Option<FrontMatter>, file_info: &m
             file_info.do_not_back_populate = Some(do_not_populate);
         }
     }
-}
-
-fn extract_filename(file_path: &PathBuf) -> String {
-    file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or_default()
-        .to_string()
-}
-
-fn collect_wikilinks_from_content(
-    content: &str,
-    frontmatter: &Option<FrontMatter>,
-    filename: &str,
-    file_path: &Path,
-) -> Result<HashSet<CompiledWikilink>, Box<dyn Error + Send + Sync>> {
-    collect_all_wikilinks(content, frontmatter, filename, Some(file_path))
-        .map_err(|e| {
-            eprintln!("Error processing wikilinks: {}", e);
-            Box::new(e) as Box<dyn Error + Send + Sync>
-        })
 }
 
 fn collect_image_references(
