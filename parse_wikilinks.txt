@@ -9,13 +9,12 @@ Detect any other malformed wikilink structures
 Handle both escaped and unescaped pipes in markdown tables
 Track the exact position (span) of each invalid wikilink
 
-
-please note how obsidian parses links 
+please note how obsidian parses links
 
 [[wikilink\\]] here]]
 
 displays "wikilink\\" as a valid link and then here]] is just rendered as normal text
-in our processing [[wikilink\\]] is not technically wrong but the ending here]] is 
+in our processing [[wikilink\\]] is not technically wrong but the ending here]] is
 we would consider that an unmatched ending
 
 this
@@ -23,10 +22,10 @@ this
 
 would render a wikilink display as "blah [[blah" - with extra text of blah ]]
 
-in this case we would consider the "blah [[blah" as having a nested opening wikilink 
+in this case we would consider the "blah [[blah" as having a nested opening wikilink
 and the blah ]] as an unmatched wikilink
 
-this 
+this
 [[blah
 woud be considered an unmatched opening
 
@@ -59,14 +58,11 @@ Keep existing collect_all_wikilinks return signature initially
 Maintain existing test coverage
 Ensure changes don't break existing functionality
 
-
 Error Handling:
 
 Provide clear error messages for each type of invalid wikilink
 Maintain current error propagation patterns
 Add appropriate error context
-
-
 
 Implementation Constraints:
 
@@ -75,7 +71,6 @@ Keep all tests passing at each step
 Modify existing tests rather than creating new ones when possible
 Use TempDir for all file operation tests
 Keep changes localized until necessary to expand
-
 
 Test requirements:
 prefer modifying existing tests over creating new ones unless you have to
@@ -92,15 +87,6 @@ d. Update return type
 e. Update existing tests
 f. Add specific invalid case tests
 
-
-Create ExtractedWikilinks Structure
-
-Define new struct to hold both valid and invalid wikilinks
-Update extract_wikilinks_from_content to use new return type
-Update existing extraction tests
-Add new tests for invalid wikilink extraction
-
-
 Update collect_all_wikilinks
 
 Keep existing return signature (HashSet<CompiledWikilink>)
@@ -109,13 +95,11 @@ Update logic to handle both valid and invalid results
 Update existing collect_all_wikilinks tests
 Add tests for invalid wikilink collection
 
-
 Modify MarkdownFileInfo
 
 Add invalid_wikilinks field to store InvalidWikilink instances
 Update constructor and related functions
 Update existing MarkdownFileInfo tests
-
 
 Update scan_markdown_file
 

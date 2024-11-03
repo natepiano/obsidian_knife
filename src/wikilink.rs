@@ -3,7 +3,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
 use std::path::Path;
-use crate::wikilink_types::{CompiledWikilink, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
+use crate::wikilink_types::{CompiledWikilink, ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
@@ -117,8 +117,11 @@ pub fn collect_all_wikilinks(
 
     // Process content line by line to get line numbers for error context
     for (line_number, line) in content.lines().enumerate() {
-        let wikilinks = extract_wikilinks_from_content(line);
-        for wikilink in wikilinks {
+        let extracted = extract_wikilinks_from_content(line);
+        // TODO: Store invalid_wikilinks in MarkdownFileInfo
+        // This will be implemented when we add invalid_wikilinks field to MarkdownFileInfo
+
+        for wikilink in extracted.valid {
             let compiled = compile_wikilink_with_context(
                 wikilink,
                 file_path,
@@ -132,26 +135,52 @@ pub fn collect_all_wikilinks(
     Ok(all_wikilinks)
 }
 
-pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
-    let mut wikilinks = Vec::new();
+pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
+    let mut result = ExtractedWikilinks::default();
     let mut chars = content.char_indices().peekable();
+    let mut in_wikilink = false;
 
     while let Some((start_idx, ch)) = chars.next() {
+        // Handle unmatched closing brackets when not in a wikilink
+        if !in_wikilink && ch == ']' && is_next_char(&mut chars, ']') {
+            result.invalid.push(InvalidWikilink {
+                content: "]]".to_string(),
+                reason: InvalidWikilinkReason::UnmatchedClosing,
+                span: (start_idx, start_idx + 2),
+            });
+            continue;
+        }
+
         if ch == '[' && is_next_char(&mut chars, '[') {
             // Check if the previous character was '!' (image link)
             if start_idx > 0 && is_previous_char(content, start_idx, '!') {
                 continue; // Skip image links
             }
 
+            in_wikilink = true;
             // Parse the wikilink
-            if let Some(WikilinkParseResult::Valid(wikilink)) = parse_wikilink(&mut chars) {
-                wikilinks.push(wikilink);
+            match parse_wikilink(&mut chars) {
+                Some(WikilinkParseResult::Valid(wikilink)) => {
+                    result.valid.push(wikilink);
+                }
+                Some(WikilinkParseResult::Invalid(invalid)) => {
+                    result.invalid.push(invalid);
+                }
+                None => {
+                    // Handle unclosed wikilink
+                    // Position will be from [[ to end of parsed content
+                    result.invalid.push(InvalidWikilink {
+                        content: content[start_idx..].to_string(),
+                        reason: InvalidWikilinkReason::Malformed,
+                        span: (start_idx, content.len()),
+                    });
+                }
             }
-            // For now, we silently ignore Invalid results
+            in_wikilink = false;
         }
     }
 
-    wikilinks
+    result
 }
 
 #[derive(Debug)]
@@ -324,6 +353,62 @@ mod tests {
             let wikilinks = collect_all_wikilinks(content, &None, &file_path).unwrap();
 
             assert_contains_wikilink(&wikilinks, "Link", None, false);
+        }
+    }
+
+    mod extract_wikilinks {
+        use super::*;
+
+        #[test]
+        fn test_unmatched_closing_brackets() {
+            let content = "Some text here]] more text";
+            let extracted = extract_wikilinks_from_content(content);
+
+            assert!(extracted.valid.is_empty(), "Should not have any valid wikilinks");
+            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
+            assert_eq!(
+                extracted.invalid[0].reason,
+                InvalidWikilinkReason::UnmatchedClosing,
+                "Should identify unmatched closing brackets"
+            );
+            assert_eq!(
+                extracted.invalid[0].span,
+                (14, 16),
+                "Should have correct span for unmatched brackets"
+            );
+        }
+
+        #[test]
+        fn test_mixed_valid_and_invalid() {
+            let content = "[[Valid Link]] but here]] and [[Another]]";
+            let extracted = extract_wikilinks_from_content(content);
+
+            assert_eq!(extracted.valid.len(), 2, "Should have two valid wikilinks");
+            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
+
+            // Check the valid wikilinks
+            assert!(extracted.valid.iter().any(|w| w.display_text == "Valid Link"));
+            assert!(extracted.valid.iter().any(|w| w.display_text == "Another"));
+
+            // Check the invalid wikilink
+            assert_eq!(
+                extracted.invalid[0].reason,
+                InvalidWikilinkReason::UnmatchedClosing
+            );
+        }
+
+        #[test]
+        fn test_unclosed_wikilink() {
+            let content = "[[Unclosed wikilink";
+            let extracted = extract_wikilinks_from_content(content);
+
+            assert!(extracted.valid.is_empty(), "Should not have any valid wikilinks");
+            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
+            assert_eq!(
+                extracted.invalid[0].reason,
+                InvalidWikilinkReason::Malformed,
+                "Should identify malformed/unclosed wikilink"
+            );
         }
     }
 
