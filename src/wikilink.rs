@@ -1,8 +1,8 @@
-use std::cmp::PartialEq;
 use crate::{constants::*, frontmatter::FrontMatter};
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::cmp::PartialEq;
 use std::collections::HashSet;
 use std::error::Error;
 use std::fmt;
@@ -308,7 +308,6 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     wikilinks
 }
 
-
 fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     content[..index].chars().rev().next() == Some(expected)
 }
@@ -382,10 +381,7 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
 }
 
 /// Helper function to check if the next character matches the expected one
-fn is_next_char(
-    chars: &mut std::iter::Peekable<std::str::CharIndices>,
-    expected: char,
-) -> bool {
+fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected: char) -> bool {
     if let Some(&(_, next_ch)) = chars.peek() {
         if next_ch == expected {
             chars.next(); // Consume the expected character
@@ -394,7 +390,6 @@ fn is_next_char(
     }
     false
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -410,19 +405,16 @@ mod tests {
         is_alias: bool,
     ) {
         let exists = wikilinks.iter().any(|w| {
-            w.wikilink.target == target &&
-                w.wikilink.display_text == display.unwrap_or(target) &&
-                w.wikilink.is_alias == is_alias
+            w.wikilink.target == target
+                && w.wikilink.display_text == display.unwrap_or(target)
+                && w.wikilink.is_alias == is_alias
         });
         assert!(
             exists,
             "Expected wikilink with target '{}', display '{:?}', is_alias '{}'",
-            target,
-            display,
-            is_alias
+            target, display, is_alias
         );
     }
-
 
     // Macro for parameterized tests
     macro_rules! test_wikilink {
@@ -451,7 +443,8 @@ Here's a [[Regular Link]] and [[Target|Display Text]]
 Also [[Alias One]] is referenced"#;
 
             let frontmatter = frontmatter::deserialize_frontmatter(content).unwrap();
-            let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
+            let wikilinks =
+                collect_all_wikilinks(content, &Some(frontmatter), "test file.md", None).unwrap();
 
             // Filename-based wikilink
             assert_contains_wikilink(&wikilinks, "test file", None, false);
@@ -465,11 +458,16 @@ Also [[Alias One]] is referenced"#;
             assert_contains_wikilink(&wikilinks, "Target", Some("Display Text"), true);
         }
 
-
         #[test]
         fn collect_wikilinks_with_context() {
             let content = "Some [[Link]] here.";
-            let wikilinks = collect_all_wikilinks(content, &None, "file.md", Some(Path::new("path/to/file.md"))).unwrap();
+            let wikilinks = collect_all_wikilinks(
+                content,
+                &None,
+                "file.md",
+                Some(Path::new("path/to/file.md")),
+            )
+            .unwrap();
 
             assert_contains_wikilink(&wikilinks, "Link", None, false);
         }
@@ -500,7 +498,11 @@ Also [[Alias One]] is referenced"#;
 
             for (target, display, expected) in test_cases {
                 let result = target.to_aliased_wikilink(display);
-                assert_eq!(result, expected, "Failed for target '{}', display '{}'", target, display);
+                assert_eq!(
+                    result, expected,
+                    "Failed for target '{}', display '{}'",
+                    target, display
+                );
             }
 
             // Testing with String type
@@ -513,7 +515,12 @@ Also [[Alias One]] is referenced"#;
         }
 
         // Helper function to test wikilink parsing
-        fn assert_parse_wikilink(input: &str, exp_target: &str, exp_display: &str, exp_alias: bool) {
+        fn assert_parse_wikilink(
+            input: &str,
+            exp_target: &str,
+            exp_display: &str,
+            exp_alias: bool,
+        ) {
             let mut chars = input.char_indices().peekable();
             let result = parse_wikilink(&mut chars).unwrap();
             assert_eq!(result.target, exp_target);
@@ -550,7 +557,12 @@ Also [[Alias One]] is referenced"#;
                 // Escaped characters in aliased link
                 ("target|display\\]text]]", "target", "display]text", true),
                 // Multiple escaped characters
-                ("test\\]with\\[brackets]]", "test]with[brackets", "test]with[brackets", false),
+                (
+                    "test\\]with\\[brackets]]",
+                    "test]with[brackets",
+                    "test]with[brackets",
+                    false,
+                ),
             ];
 
             for (input, target, display, is_alias) in test_cases {
@@ -562,10 +574,20 @@ Also [[Alias One]] is referenced"#;
         fn test_parse_wikilink_special_chars() {
             let test_cases = vec![
                 ("!@#$%^&*()]]", "!@#$%^&*()", "!@#$%^&*()", false),
-                ("../path/to/file]]", "../path/to/file", "../path/to/file", false),
+                (
+                    "../path/to/file]]",
+                    "../path/to/file",
+                    "../path/to/file",
+                    false,
+                ),
                 ("file (1)]]", "file (1)", "file (1)", false),
                 ("file (1)|version 1]]", "file (1)", "version 1", true),
-                ("outer [inner] text]]", "outer [inner] text", "outer [inner] text", false),
+                (
+                    "outer [inner] text]]",
+                    "outer [inner] text",
+                    "outer [inner] text",
+                    false,
+                ),
                 ("target|(text)]]", "target", "(text)", true),
             ];
 
@@ -588,11 +610,13 @@ Also [[Alias One]] is referenced"#;
 
             for input in invalid_cases {
                 let mut chars = input.char_indices().peekable();
-                assert!(parse_wikilink(&mut chars).is_none(),
-                        "Expected None for invalid input: {}", input);
+                assert!(
+                    parse_wikilink(&mut chars).is_none(),
+                    "Expected None for invalid input: {}",
+                    input
+                );
             }
         }
-
     }
 
     // Sub-module for error handling
@@ -615,10 +639,18 @@ Also [[Alias One]] is referenced"#;
                 };
 
                 let result = compile_wikilink(wikilink);
-                assert!(result.is_err(), "Pattern '{}' should produce an error", pattern);
+                assert!(
+                    result.is_err(),
+                    "Pattern '{}' should produce an error",
+                    pattern
+                );
 
                 if let Err(error) = result {
-                    assert_eq!(error.error_type, expected_error, "Unexpected error type for pattern '{}'", pattern);
+                    assert_eq!(
+                        error.error_type, expected_error,
+                        "Unexpected error type for pattern '{}'",
+                        pattern
+                    );
                 }
             }
         }
@@ -688,4 +720,3 @@ Also [[Alias One]] is referenced"#;
 
     // Additional sub-modules and tests can be added similarly...
 }
-

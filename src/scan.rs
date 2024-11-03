@@ -16,7 +16,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
@@ -330,19 +330,47 @@ fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
 ) -> Result<(MarkdownFileInfo, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
-    let content = fs::read_to_string(file_path)?;
+    let content = read_file_content(file_path)?;
 
-    let (frontmatter, property_error) = match deserialize_frontmatter(&content) {
+    let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
+
+    let mut file_info = initialize_markdown_file_info(frontmatter.clone(), property_error);
+
+    extract_do_not_back_populate(&frontmatter, &mut file_info);
+
+    let filename = extract_filename(file_path);
+
+    let wikilinks = collect_wikilinks_from_content(&content, &file_info.frontmatter, &filename, file_path)?;
+
+    collect_image_references(&content, image_regex, &mut file_info)?;
+
+    Ok((file_info, wikilinks))
+}
+
+fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let content = fs::read_to_string(file_path)?;
+    Ok(content)
+}
+
+fn deserialize_frontmatter_content(content: &str) -> (Option<FrontMatter>, Option<String>) {
+    match deserialize_frontmatter(content) {
         Ok(fm) => (Some(fm), None),
         Err(e) => (None, Some(e.to_string())),
-    };
+    }
+}
 
+fn initialize_markdown_file_info(
+    frontmatter: Option<FrontMatter>,
+    property_error: Option<String>,
+) -> MarkdownFileInfo {
     let mut file_info = MarkdownFileInfo::new();
-    file_info.frontmatter = frontmatter.clone();
+    file_info.frontmatter = frontmatter;
     file_info.property_error = property_error;
+    file_info
+}
 
-    // Extract do_not_back_populate from frontmatter and add aliases
-    if let Some(fm) = &frontmatter {
+fn extract_do_not_back_populate(frontmatter: &Option<FrontMatter>, file_info: &mut MarkdownFileInfo) {
+    if let Some(fm) = frontmatter {
         let mut do_not_populate = fm.do_not_back_populate.clone().unwrap_or_default();
         if let Some(aliases) = fm.aliases() {
             do_not_populate.extend(aliases.iter().cloned());
@@ -351,34 +379,42 @@ fn scan_markdown_file(
             file_info.do_not_back_populate = Some(do_not_populate);
         }
     }
+}
 
-    // Get filename for wikilink collection
-    let filename = file_path
+fn extract_filename(file_path: &PathBuf) -> String {
+    file_path
         .file_name()
         .and_then(|n| n.to_str())
-        .unwrap_or_default();
+        .unwrap_or_default()
+        .to_string()
+}
 
-    // Collect wikilinks but return them separately
-    // Collect wikilinks with file path context
-    let wikilinks = collect_all_wikilinks(
-        &content,
-        &file_info.frontmatter,
-        filename,
-        Some(file_path.as_path()),
-    )
-    .map_err(|e| {
-        eprintln!("Error processing wikilinks: {}", e);
-        Box::new(e) as Box<dyn Error + Send + Sync>
-    })?;
+fn collect_wikilinks_from_content(
+    content: &str,
+    frontmatter: &Option<FrontMatter>,
+    filename: &str,
+    file_path: &Path,
+) -> Result<HashSet<CompiledWikilink>, Box<dyn Error + Send + Sync>> {
+    collect_all_wikilinks(content, frontmatter, filename, Some(file_path))
+        .map_err(|e| {
+            eprintln!("Error processing wikilinks: {}", e);
+            Box::new(e) as Box<dyn Error + Send + Sync>
+        })
+}
 
+fn collect_image_references(
+    content: &str,
+    image_regex: &Arc<Regex>,
+    file_info: &mut MarkdownFileInfo,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let reader = BufReader::new(content.as_bytes());
 
-    for (_, line) in reader.lines().enumerate() {
-        let line = line?;
-        collect_image_reference(image_regex, &mut file_info, &line);
+    for (_line_number, line_result) in reader.lines().enumerate() {
+        let line = line_result?;
+        collect_image_reference(image_regex, file_info, &line);
     }
 
-    Ok((file_info, wikilinks))
+    Ok(())
 }
 
 fn collect_image_reference(
@@ -386,7 +422,6 @@ fn collect_image_reference(
     file_info: &mut MarkdownFileInfo,
     line: &String,
 ) {
-    // Collect image references
     for capture in image_regex.captures_iter(&line) {
         if let Some(reference) = capture.get(0) {
             let reference_string = reference.as_str().to_string();
