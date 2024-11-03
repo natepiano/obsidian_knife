@@ -133,10 +133,7 @@ fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFile
     }
 }
 
-fn print_cache_statistics(
-    cache: &Sha256Cache,
-    image_info_map: &HashMap<PathBuf, ImageInfo>,
-) {
+fn print_cache_statistics(cache: &Sha256Cache, image_info_map: &HashMap<PathBuf, ImageInfo>) {
     let stats = cache.get_stats();
 
     if !cfg!(test) {
@@ -262,7 +259,6 @@ fn scan_folders(
             .expect("Failed to build Aho-Corasick automaton for wikilinks"),
     );
 
-
     // Process image info
     obsidian_repository_info.image_map = get_image_info_map(
         &config,
@@ -334,16 +330,20 @@ fn scan_markdown_file(
 
     let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
 
-    let mut file_info = initialize_markdown_file_info(frontmatter.clone(), property_error);
+    let mut markdown_file_info = initialize_markdown_file_info(frontmatter.clone(), property_error);
 
-    extract_do_not_back_populate(&frontmatter, &mut file_info);
+    extract_do_not_back_populate(&mut markdown_file_info);
 
-    let wikilinks = collect_all_wikilinks(&content, &file_info.frontmatter, file_path)?;
+    // Pass only the aliases to collect_all_wikilinks
+    let aliases = markdown_file_info
+        .frontmatter
+        .as_ref()
+        .and_then(|fm| fm.aliases().cloned());
+    let wikilinks = collect_all_wikilinks(&content, &aliases, file_path)?;
 
+    collect_image_references(&content, image_regex, &mut markdown_file_info)?;
 
-    collect_image_references(&content, image_regex, &mut file_info)?;
-
-    Ok((file_info, wikilinks))
+    Ok((markdown_file_info, wikilinks))
 }
 
 fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -368,14 +368,14 @@ fn initialize_markdown_file_info(
     file_info
 }
 
-fn extract_do_not_back_populate(frontmatter: &Option<FrontMatter>, file_info: &mut MarkdownFileInfo) {
-    if let Some(fm) = frontmatter {
+fn extract_do_not_back_populate(markdown_file_info: &mut MarkdownFileInfo) {
+    if let Some(fm) = &markdown_file_info.frontmatter {
         let mut do_not_populate = fm.do_not_back_populate.clone().unwrap_or_default();
         if let Some(aliases) = fm.aliases() {
             do_not_populate.extend(aliases.iter().cloned());
         }
         if !do_not_populate.is_empty() {
-            file_info.do_not_back_populate = Some(do_not_populate);
+            markdown_file_info.do_not_back_populate = Some(do_not_populate);
         }
     }
 }
@@ -425,7 +425,7 @@ fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, us
     count_vec
 }
 
-fn print_file_info(collected_files: &ObsidianRepositoryInfo, )  {
+fn print_file_info(collected_files: &ObsidianRepositoryInfo) {
     println!("\nfile counts:");
     println!("  markdown files: {}", collected_files.markdown_files.len());
     println!("  other files: {}", collected_files.other_files.len());

@@ -1,4 +1,4 @@
-use crate::{constants::*, frontmatter::FrontMatter};
+use crate::constants::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -264,7 +264,7 @@ pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, Wikilink
 // In collect_all_wikilinks, update the calls:
 pub fn collect_all_wikilinks(
     content: &str,
-    frontmatter: &Option<FrontMatter>,
+    aliases: &Option<Vec<String>>,
     file_path: &Path,
 ) -> Result<HashSet<CompiledWikilink>, WikilinkError> {
     let mut all_wikilinks = HashSet::new();
@@ -279,18 +279,16 @@ pub fn collect_all_wikilinks(
     let compiled = compile_wikilink_with_context(filename_wikilink.clone(), file_path, None, None)?;
     all_wikilinks.insert(compiled);
 
-    // Add frontmatter aliases
-    if let Some(fm) = frontmatter {
-        if let Some(aliases) = fm.aliases() {
-            for alias in aliases {
-                let wikilink = Wikilink {
-                    display_text: alias.clone(),
-                    target: filename_wikilink.target.clone(),
-                    is_alias: true,
-                };
-                let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
-                all_wikilinks.insert(compiled);
-            }
+    // Add aliases if present
+    if let Some(alias_list) = aliases {
+        for alias in alias_list {
+            let wikilink = Wikilink {
+                display_text: alias.clone(),
+                target: filename_wikilink.target.clone(),
+                is_alias: true,
+            };
+            let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
+            all_wikilinks.insert(compiled);
         }
     }
 
@@ -418,7 +416,6 @@ fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::frontmatter;
     use std::collections::HashSet;
 
     // Helper function for assertions
@@ -453,35 +450,24 @@ mod tests {
 
     // Submodule for collecting wikilinks
     mod collect_wikilinks {
-        use tempfile::TempDir;
         use super::*;
+        use tempfile::TempDir;
 
         #[test]
         fn collect_all_wikilinks_with_aliases() {
-            let content = r#"---
-aliases:
-  - "Alias One"
-  - "Alias Two"
----
-# Test
-Here's a [[Regular Link]] and [[Target|Display Text]]
-Also [[Alias One]] is referenced"#;
+            let content = "# Test\nHere's a [[Regular Link]] and [[Target|Display Text]]";
+            let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
 
             let temp_dir = TempDir::new().unwrap();
             let file_path = temp_dir.path().join("test file.md");
             std::fs::write(&file_path, content).unwrap();
 
-            let frontmatter = frontmatter::deserialize_frontmatter(content).unwrap();
-            let wikilinks = collect_all_wikilinks(content, &Some(frontmatter), &file_path).unwrap();
+            let wikilinks = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
 
-            // Filename-based wikilink
+            // Verify expected wikilinks
             assert_contains_wikilink(&wikilinks, "test file", None, false);
-
-            // Alias wikilinks
             assert_contains_wikilink(&wikilinks, "test file", Some("Alias One"), true);
             assert_contains_wikilink(&wikilinks, "test file", Some("Alias Two"), true);
-
-            // Regular wikilinks from content
             assert_contains_wikilink(&wikilinks, "Regular Link", None, false);
             assert_contains_wikilink(&wikilinks, "Target", Some("Display Text"), true);
         }
