@@ -307,79 +307,115 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     wikilinks
 }
 
-fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected: char) -> bool {
-    if let Some(&(_, next_ch)) = chars.peek() {
-        if next_ch == expected {
-            chars.next();
-            return true;
-        }
-    }
-    false
-}
 
 fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     content[..index].chars().rev().next() == Some(expected)
 }
 
 fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<Wikilink> {
-    let mut link_text = String::new();
-    let mut is_alias = false;
+    // Define the possible states of the parser
+    enum State {
+        ReadingTarget,
+        ReadingDisplay,
+    }
+
+    use State::*;
+
+    let mut state = ReadingTarget;
     let mut target = String::new();
+    let mut display_text = String::new();
     let mut escaped = false;
 
     while let Some((_, c)) = chars.next() {
-        if escaped {
-            // Handle escaped characters
-            if c == '|' && !is_alias {
-                // Escaped pipe acts as a separator
-                is_alias = true;
-                target = link_text.trim().to_string();
-                link_text.clear();
-            } else {
-                // Add the escaped character to link_text
-                link_text.push(c);
-            }
-            escaped = false;
-        } else if c == '\\' {
-            // Next character is escaped
-            escaped = true;
-        } else if c == '|' && !is_alias {
-            // Unescaped pipe indicates an alias
-            is_alias = true;
-            target = link_text.trim().to_string();
-            link_text.clear();
-        } else if c == ']' {
-            // Potential closing of wikilink
-            if is_next_char(chars, ']') {
-                // Closing ']]' found
-
-                // Declare and assign display_text within this scope
-                let display_text = if is_alias {
-                    link_text.trim().to_string()
+        match state {
+            ReadingTarget => {
+                if escaped {
+                    if c == '|' {
+                        // Escaped pipe acts as a separator
+                        state = ReadingDisplay;
+                        escaped = false;
+                    } else {
+                        // Add the escaped character to target
+                        target.push(c);
+                        escaped = false;
+                    }
+                } else if c == '\\' {
+                    // Next character is escaped
+                    escaped = true;
+                } else if c == '|' {
+                    // Unescaped pipe indicates an alias
+                    state = ReadingDisplay;
+                } else if c == ']' {
+                    if is_next_char(chars, ']') {
+                        // Closing ']]' found without alias
+                        let trimmed = target.trim().to_string();
+                        return Some(Wikilink {
+                            display_text: trimmed.clone(),
+                            target: trimmed,
+                            is_alias: false,
+                        });
+                    } else {
+                        // Not a closing ']]', add ']' to target
+                        target.push(c);
+                    }
                 } else {
-                    target = link_text.trim().to_string();
-                    target.clone()
-                };
-
-                // Return the parsed Wikilink
-                return Some(Wikilink {
-                    display_text,
-                    target,
-                    is_alias,
-                });
-            } else {
-                // Not a closing ']]', add ']' to link_text
-                link_text.push(c);
+                    // Regular character, add to target
+                    target.push(c);
+                }
             }
-        } else {
-            // Regular character, add to link_text
-            link_text.push(c);
+            ReadingDisplay => {
+                if escaped {
+                    if c == '|' {
+                        // Escaped pipe inside display text
+                        display_text.push('|');
+                        escaped = false;
+                    } else {
+                        // Add the escaped character to display_text
+                        display_text.push(c);
+                        escaped = false;
+                    }
+                } else if c == '\\' {
+                    // Next character is escaped
+                    escaped = true;
+                } else if c == ']' {
+                    if is_next_char(chars, ']') {
+                        // Closing ']]' found
+                        return Some(Wikilink {
+                            display_text: display_text.trim().to_string(),
+                            target: target.trim().to_string(),
+                            is_alias: true,
+                        });
+                    } else {
+                        // Not a closing ']]', add ']' to display_text
+                        display_text.push(c);
+                    }
+                } else {
+                    // Regular character, add to display_text
+                    display_text.push(c);
+                }
+            }
         }
     }
 
     // If we reach here, the wikilink was not properly closed
     None
 }
+
+
+/// Helper function to check if the next character matches the expected one
+fn is_next_char(
+    chars: &mut std::iter::Peekable<std::str::CharIndices>,
+    expected: char,
+) -> bool {
+    if let Some(&(_, next_ch)) = chars.peek() {
+        if next_ch == expected {
+            chars.next(); // Consume the expected character
+            return true;
+        }
+    }
+    false
+}
+
 
 #[cfg(test)]
 mod tests {
