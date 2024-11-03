@@ -154,93 +154,89 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
     wikilinks
 }
 
+#[derive(Debug)]
+enum WikilinkState {
+    Target(String),
+    Display(String, String),
+}
 
-fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
-    content[..index].chars().rev().next() == Some(expected)
+impl WikilinkState {
+    fn push_char(&mut self, c: char) {
+        match self {
+            WikilinkState::Target(target) => target.push(c),
+            WikilinkState::Display(_, display) => display.push(c),
+        }
+    }
+
+    fn to_wikilink(self) -> WikilinkParseResult {
+        match self {
+            WikilinkState::Target(target) => {
+                // Check for nested wikilinks in target
+                if target.contains("[[") {
+                    let target_len = target.len();
+                    return WikilinkParseResult::Invalid(InvalidWikilink {
+                        content: target,
+                        reason: InvalidWikilinkReason::NestedOpening,
+                        span: (0, target_len) // Placeholder span
+                    });
+                }
+                if target.contains("]]") {
+                    let target_len = target.len();
+                    return WikilinkParseResult::Invalid(InvalidWikilink {
+                        content: target,
+                        reason: InvalidWikilinkReason::NestedClosing,
+                        span: (0, target_len) // Placeholder span
+                    });
+                }
+
+                let trimmed = target.trim().to_string();
+                WikilinkParseResult::Valid(Wikilink {
+                    display_text: trimmed.clone(),
+                    target: trimmed,
+                    is_alias: false,
+                })
+            }
+            WikilinkState::Display(target, display) => {
+                // Check for nested wikilinks in either part
+                if target.contains("[[") || display.contains("[[") {
+                    let total_len = target.len() + display.len() + 1;
+                    return WikilinkParseResult::Invalid(InvalidWikilink {
+                        content: format!("{}|{}", target, display),
+                        reason: InvalidWikilinkReason::NestedOpening,
+                        span: (0, total_len)
+                    });
+                }
+                if target.contains("]]") || display.contains("]]") {
+                    let total_len = target.len() + display.len() + 1;
+                    return WikilinkParseResult::Invalid(InvalidWikilink {
+                        content: format!("{}|{}", target, display),
+                        reason: InvalidWikilinkReason::NestedClosing,
+                        span: (0, total_len)
+                    });
+                }
+
+                let trimmed_target = target.trim().to_string();
+                let trimmed_display = display.trim().to_string();
+                WikilinkParseResult::Valid(Wikilink {
+                    display_text: trimmed_display,
+                    target: trimmed_target,
+                    is_alias: true,
+                })
+            }
+        }
+    }
+
+    fn transition_to_display(self) -> Self {
+        match self {
+            WikilinkState::Target(target) => WikilinkState::Display(target, String::new()),
+            display_state => display_state,
+        }
+    }
 }
 
 fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<WikilinkParseResult> {
-    #[derive(Debug)]
-    enum State {
-        Target(String),
-        Display(String, String),
-    }
 
-    impl State {
-        fn push_char(&mut self, c: char) {
-            match self {
-                State::Target(target) => target.push(c),
-                State::Display(_, display) => display.push(c),
-            }
-        }
-
-        fn to_wikilink(self) -> WikilinkParseResult {
-            match self {
-                State::Target(target) => {
-                    // Check for nested wikilinks in target
-                    if target.contains("[[") {
-                        let target_len = target.len();
-                        return WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: target,
-                            reason: InvalidWikilinkReason::NestedOpening,
-                            span: (0, target_len) // Placeholder span
-                        });
-                    }
-                    if target.contains("]]") {
-                        let target_len = target.len();
-                        return WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: target,
-                            reason: InvalidWikilinkReason::NestedClosing,
-                            span: (0, target_len) // Placeholder span
-                        });
-                    }
-
-                    let trimmed = target.trim().to_string();
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed.clone(),
-                        target: trimmed,
-                        is_alias: false,
-                    })
-                }
-                State::Display(target, display) => {
-                    // Check for nested wikilinks in either part
-                    if target.contains("[[") || display.contains("[[") {
-                        let total_len = target.len() + display.len() + 1;
-                        return WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: format!("{}|{}", target, display),
-                            reason: InvalidWikilinkReason::NestedOpening,
-                            span: (0, total_len)
-                        });
-                    }
-                    if target.contains("]]") || display.contains("]]") {
-                        let total_len = target.len() + display.len() + 1;
-                        return WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: format!("{}|{}", target, display),
-                            reason: InvalidWikilinkReason::NestedClosing,
-                            span: (0, total_len)
-                        });
-                    }
-
-                    let trimmed_target = target.trim().to_string();
-                    let trimmed_display = display.trim().to_string();
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed_display,
-                        target: trimmed_target,
-                        is_alias: true,
-                    })
-                }
-            }
-        }
-
-        fn transition_to_display(self) -> Self {
-            match self {
-                State::Target(target) => State::Display(target, String::new()),
-                display_state => display_state,
-            }
-        }
-    }
-
-    let mut state = State::Target(String::new());
+    let mut state = WikilinkState::Target(String::new());
     let mut escape = false;
 
     while let Some((_, c)) = chars.next() {
@@ -272,6 +268,10 @@ fn is_next_char(chars: &mut std::iter::Peekable<std::str::CharIndices>, expected
         }
     }
     false
+}
+
+fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
+    content[..index].chars().rev().next() == Some(expected)
 }
 
 #[cfg(test)]
@@ -595,6 +595,4 @@ mod tests {
             assert_eq!(links[1], "[two](link2)");
         }
     }
-
-    // Additional sub-modules and tests can be added similarly...
 }
