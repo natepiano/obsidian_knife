@@ -3,7 +3,7 @@ use crate::deterministic_file_search::DeterministicSearch;
 use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::{CompiledWikilink, ToWikilink, MARKDOWN_REGEX};
+use crate::wikilink::MARKDOWN_REGEX;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -12,6 +12,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
+use crate::wikilink_types::{CompiledWikilink, ToWikilink};
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -936,12 +937,13 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
-    use crate::wikilink::{compile_wikilink, CompiledWikilink, Wikilink};
+    use crate::wikilink::compile_wikilink;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::TempDir;
+    use crate::wikilink_types::Wikilink;
 
     // Common helper function to build Aho-Corasick automaton from CompiledWikilinks
     fn build_aho_corasick(wikilinks: &[CompiledWikilink]) -> AhoCorasick {

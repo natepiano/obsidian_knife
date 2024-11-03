@@ -3,7 +3,7 @@ use crate::{
     frontmatter::{deserialize_frontmatter, FrontMatter},
     sha256_cache::{CacheFileStatus, Sha256Cache},
     validated_config::ValidatedConfig,
-    wikilink::{collect_all_wikilinks, CompiledWikilink},
+    wikilink::collect_all_wikilinks,
 };
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
+use crate::wikilink_types::CompiledWikilink;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {

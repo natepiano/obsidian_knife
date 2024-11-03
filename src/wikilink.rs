@@ -1,190 +1,13 @@
 use crate::constants::*;
 use lazy_static::lazy_static;
 use regex::Regex;
-use serde::{Deserialize, Serialize};
-use std::cmp::PartialEq;
 use std::collections::HashSet;
-use std::error::Error;
-use std::fmt;
 use std::path::Path;
+use crate::wikilink_types::{CompiledWikilink, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
 }
-
-/// Trait to convert strings to wikilink format
-pub trait ToWikilink {
-    /// Converts the string to a wikilink format by surrounding it with [[]]
-    fn to_wikilink(&self) -> String;
-
-    /// Creates an aliased wikilink using the target (self) and display text
-    /// If the texts match (case-sensitive), returns a simple wikilink
-    /// Otherwise returns an aliased wikilink in the format [[target|display]]
-    fn to_aliased_wikilink(&self, display_text: &str) -> String
-    where
-        Self: AsRef<str>,
-    {
-        let target_without_md = strip_md_extension(self.as_ref());
-
-        if target_without_md == display_text {
-            target_without_md.to_wikilink()
-        } else {
-            format!("[[{}|{}]]", target_without_md, display_text)
-        }
-    }
-}
-
-/// Helper function to strip .md extension if present
-fn strip_md_extension(text: &str) -> &str {
-    if text.ends_with(".md") {
-        &text[..text.len() - 3]
-    } else {
-        text
-    }
-}
-
-impl ToWikilink for str {
-    fn to_wikilink(&self) -> String {
-        format!("[[{}]]", strip_md_extension(self))
-    }
-}
-
-impl ToWikilink for String {
-    fn to_wikilink(&self) -> String {
-        self.as_str().to_wikilink()
-    }
-}
-
-#[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
-pub struct Wikilink {
-    pub display_text: String,
-    pub target: String,
-    pub is_alias: bool,
-}
-
-#[derive(Debug)]
-pub struct WikilinkError {
-    pub display_text: String,
-    pub error_type: WikilinkErrorType,
-    file_path: String,
-    line_number: Option<usize>,
-    line_content: Option<String>,
-}
-
-impl fmt::Display for WikilinkError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let error_msg = match self.error_type {
-            WikilinkErrorType::ContainsOpenBrackets => "contains opening brackets '[['",
-            WikilinkErrorType::ContainsCloseBrackets => "contains closing brackets ']]'",
-            WikilinkErrorType::ContainsPipe => "contains pipe character '|'",
-        };
-        writeln!(
-            f,
-            "Invalid wikilink pattern: '{}' {}",
-            self.display_text, error_msg
-        )?;
-
-        if !self.file_path.is_empty() {
-            writeln!(f, "File: {}", self.file_path)?;
-        }
-        if let Some(num) = &self.line_number {
-            writeln!(f, "Line number: {}", num)?;
-        }
-        if let Some(content) = &self.line_content {
-            writeln!(f, "Line content: {}", content)?;
-        }
-        Ok(())
-    }
-}
-
-impl Error for WikilinkError {}
-
-#[derive(Debug, PartialEq)]
-pub enum WikilinkErrorType {
-    ContainsOpenBrackets,
-    ContainsCloseBrackets,
-    ContainsPipe,
-}
-
-#[derive(Debug)]
-pub struct WikilinkErrorContext {
-    pub file_path: String,
-    pub line_number: Option<usize>,
-    pub line_content: Option<String>,
-}
-
-// Update the implementation of fmt::Display for WikilinkErrorContext
-impl fmt::Display for WikilinkErrorContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if !self.file_path.is_empty() {
-            writeln!(f, "File: {}", self.file_path)?;
-        }
-        if let Some(num) = &self.line_number {
-            writeln!(f, "Line number: {}", num)?;
-        }
-        if let Some(content) = &self.line_content {
-            writeln!(f, "Line content: {}", content)?;
-        }
-        Ok(())
-    }
-}
-
-impl Default for WikilinkErrorContext {
-    fn default() -> Self {
-        WikilinkErrorContext {
-            file_path: String::new(),
-            line_number: None,
-            line_content: None,
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct CompiledWikilink {
-    pub wikilink: Wikilink,
-    hash: u64,
-}
-
-impl fmt::Display for CompiledWikilink {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.wikilink.target,
-            if self.wikilink.is_alias { "|" } else { "" },
-            if self.wikilink.is_alias {
-                &self.wikilink.display_text
-            } else {
-                ""
-            }
-        )
-    }
-}
-
-impl CompiledWikilink {
-    pub fn new(wikilink: Wikilink) -> Self {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        wikilink.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        CompiledWikilink { wikilink, hash }
-    }
-}
-
-impl std::hash::Hash for CompiledWikilink {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
-    }
-}
-
-impl PartialEq for CompiledWikilink {
-    fn eq(&self, other: &Self) -> bool {
-        self.wikilink == other.wikilink
-    }
-}
-
-impl Eq for CompiledWikilink {}
 
 pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
@@ -321,20 +144,22 @@ pub fn extract_wikilinks_from_content(content: &str) -> Vec<Wikilink> {
             }
 
             // Parse the wikilink
-            if let Some(wikilink) = parse_wikilink(&mut chars) {
+            if let Some(WikilinkParseResult::Valid(wikilink)) = parse_wikilink(&mut chars) {
                 wikilinks.push(wikilink);
             }
+            // For now, we silently ignore Invalid results
         }
     }
 
     wikilinks
 }
 
+
 fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     content[..index].chars().rev().next() == Some(expected)
 }
 
-fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<Wikilink> {
+fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<WikilinkParseResult> {
     #[derive(Debug)]
     enum State {
         Target(String),
@@ -349,20 +174,37 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
             }
         }
 
-        fn to_wikilink(self) -> Option<Wikilink> {
+        fn to_wikilink(self) -> WikilinkParseResult {
             match self {
                 State::Target(target) => {
+                    // Check for nested wikilinks in target
+                    if target.contains("[[") || target.contains("]]") {
+                        return WikilinkParseResult::Invalid {
+                            content: target,
+                            reason: "nested wikilink brackets detected".to_string(),
+                        };
+                    }
+
                     let trimmed = target.trim().to_string();
-                    Some(Wikilink {
+                    WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed.clone(),
                         target: trimmed,
                         is_alias: false,
                     })
                 }
                 State::Display(target, display) => {
+                    // Check for nested wikilinks in either part
+                    if target.contains("[[") || target.contains("]]") ||
+                        display.contains("[[") || display.contains("]]") {
+                        return WikilinkParseResult::Invalid {
+                            content: format!("{}|{}", target, display),
+                            reason: "nested wikilink brackets detected".to_string(),
+                        };
+                    }
+
                     let trimmed_target = target.trim().to_string();
                     let trimmed_display = display.trim().to_string();
-                    Some(Wikilink {
+                    WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed_display,
                         target: trimmed_target,
                         is_alias: true,
@@ -394,7 +236,7 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
             }
             (false, '\\') => escape = true,
             (false, '|') => state = state.transition_to_display(),
-            (false, ']') if is_next_char(chars, ']') => return state.to_wikilink(),
+            (false, ']') if is_next_char(chars, ']') => return Some(state.to_wikilink()),
             (false, c) => state.push_char(c),
         }
     }
@@ -487,6 +329,7 @@ mod tests {
 
     // Submodule for wikilink creation
     mod wikilink_creation {
+        use crate::wikilink_types::ToWikilink;
         use super::*;
 
         test_wikilink!(wikilink_simple, "test", "[[test]]");
@@ -527,17 +370,19 @@ mod tests {
         }
 
         // Helper function to test wikilink parsing
-        fn assert_parse_wikilink(
-            input: &str,
-            exp_target: &str,
-            exp_display: &str,
-            exp_alias: bool,
-        ) {
+        fn assert_parse_wikilink(input: &str, exp_target: &str, exp_display: &str, exp_alias: bool) {
             let mut chars = input.char_indices().peekable();
             let result = parse_wikilink(&mut chars).unwrap();
-            assert_eq!(result.target, exp_target);
-            assert_eq!(result.display_text, exp_display);
-            assert_eq!(result.is_alias, exp_alias);
+            match result {
+                WikilinkParseResult::Valid(wikilink) => {
+                    assert_eq!(wikilink.target, exp_target);
+                    assert_eq!(wikilink.display_text, exp_display);
+                    assert_eq!(wikilink.is_alias, exp_alias);
+                },
+                WikilinkParseResult::Invalid { content, reason } => {
+                    panic!("Expected valid wikilink, got invalid: {} ({})", content, reason);
+                }
+            }
         }
 
         #[test]
