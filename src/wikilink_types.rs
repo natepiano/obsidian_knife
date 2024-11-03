@@ -179,18 +179,19 @@ impl Eq for CompiledWikilink {}
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
     NestedOpening,     // Contains [[ inside
-    NestedClosing,     // Contains ]] inside
+    UnmatchedClosing,  // ]] without matching [[
     ImproperlyNested,  // e.g. [[A|B]]C]]
     UnmatchedPipe,     // More pipes than expected or unescaped
     DoubleAlias,       // e.g. [[A|B|C]]
     Malformed         // Catch-all for other malformed cases
 }
 
+// Update Display implementation for InvalidWikilinkReason to handle the new variant
 impl fmt::Display for InvalidWikilinkReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             InvalidWikilinkReason::NestedOpening => write!(f, "contains nested opening brackets"),
-            InvalidWikilinkReason::NestedClosing => write!(f, "contains nested closing brackets"),
+            InvalidWikilinkReason::UnmatchedClosing => write!(f, "contains unmatched closing brackets"),
             InvalidWikilinkReason::ImproperlyNested => write!(f, "improperly nested brackets"),
             InvalidWikilinkReason::UnmatchedPipe => write!(f, "contains unmatched pipe character"),
             InvalidWikilinkReason::DoubleAlias => write!(f, "contains multiple alias separators"),
@@ -220,7 +221,7 @@ impl fmt::Display for InvalidWikilink {
 
         match self.reason {
             InvalidWikilinkReason::NestedOpening => write!(f, "contains nested opening brackets '[['"),
-            InvalidWikilinkReason::NestedClosing => write!(f, "contains nested closing brackets ']]'"),
+            InvalidWikilinkReason::UnmatchedClosing => write!(f, "contains unmatched closing brackets"),
             InvalidWikilinkReason::ImproperlyNested => write!(f, "improperly nested brackets"),
             InvalidWikilinkReason::UnmatchedPipe => write!(f, "contains unmatched pipe character"),
             InvalidWikilinkReason::DoubleAlias => write!(f, "contains multiple alias separators"),

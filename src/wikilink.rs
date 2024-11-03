@@ -188,86 +188,27 @@ impl WikilinkState {
         }
     }
 
-    fn to_wikilink(self, start_pos: usize, end_pos: usize, accumulated: &str) -> WikilinkParseResult {
+    fn to_wikilink(self) -> WikilinkParseResult {
         match self {
             WikilinkState::Target { content, .. } => {
-                let trimmed = content.trim();
-                if trimmed.is_empty() {
-                    WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: accumulated.to_string(),
-                        reason: InvalidWikilinkReason::Malformed,
-                        span: (start_pos, end_pos),
-                    })
-                } else {
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed.to_string(),
-                        target: trimmed.to_string(),
-                        is_alias: false,
-                    })
-                }
+                let trimmed = content.trim().to_string();
+                WikilinkParseResult::Valid(Wikilink {
+                    display_text: trimmed.clone(),
+                    target: trimmed,
+                    is_alias: false,
+                })
             }
             WikilinkState::Display { target, content, .. } => {
-                let trimmed_target = target.trim();
-                let trimmed_display = content.trim();
-                if trimmed_target.is_empty() || trimmed_display.is_empty() {
-                    WikilinkParseResult::Invalid(InvalidWikilink {
-                        content: accumulated.to_string(),
-                        reason: InvalidWikilinkReason::Malformed,
-                        span: (start_pos, end_pos),
-                    })
-                } else {
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed_display.to_string(),
-                        target: trimmed_target.to_string(),
-                        is_alias: true,
-                    })
-                }
+                let trimmed_target = target.trim().to_string();
+                let trimmed_display = content.trim().to_string();
+                WikilinkParseResult::Valid(Wikilink {
+                    display_text: trimmed_display,
+                    target: trimmed_target,
+                    is_alias: true,
+                })
             }
         }
     }
-}
-
-fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Option<WikilinkParseResult> {
-    let start_pos = chars.peek()?.0;
-    let mut state = WikilinkState::Target {
-        content: String::new(),
-        start_pos,
-    };
-    let mut escape = false;
-    let mut accumulated = String::new();
-
-    while let Some((pos, c)) = chars.next() {
-        accumulated.push(c);
-
-        match (escape, c) {
-            (true, '|') => {
-                state = state.transition_to_display(pos);
-                escape = false;
-            }
-            (true, c) => {
-                state.push_char(c);
-                escape = false;
-            }
-            (false, '\\') => escape = true,
-            (false, '[') if is_next_char(chars, '[') => {
-                // Found nested opening brackets
-                accumulated.push('['); // Add the second '[' that was consumed
-                return Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                    content: accumulated,
-                    reason: InvalidWikilinkReason::NestedOpening,
-                    span: (start_pos, pos + 2), // +2 to include both '['s
-                }));
-            }
-            (false, '|') => state = state.transition_to_display(pos),
-            (false, ']') if is_next_char(chars, ']') => {
-                accumulated.push(']'); // Add the second ']' that was consumed
-                return Some(state.to_wikilink(start_pos, pos + 2, &accumulated));
-            }
-            (false, c) => state.push_char(c),
-        }
-    }
-
-    None
 }
 
 
@@ -487,58 +428,22 @@ mod tests {
         #[test]
         fn test_parse_wikilink_invalid() {
             let invalid_cases = vec![
-                // Existing cases
+                // Missing closing brackets entirely
                 "unclosed",
                 "unclosed|alias",
+                // Single closing bracket
                 "missing]",
+                // Empty content
                 "",
-                // New cases for nested opening brackets
-                "test[[inner]]",           // Nested opening in target
-                "before[[after[[end]]",    // Multiple nested openings
-                "[[text[[]]",              // Nested at different positions
-                // New cases for empty/malformed content
-                "]]",                      // Empty content
-                "|]]",                     // Empty target and display
-                "test|]]",                 // Empty display
-                "|test]]",                 // Empty target
-                "  |  ]]",                 // Whitespace only
             ];
 
             for input in invalid_cases {
                 let mut chars = input.char_indices().peekable();
-                let result = parse_wikilink(&mut chars);
-
-                if input.contains("[[") {
-                    // Test specifically for nested opening brackets
-                    assert!(
-                        matches!(
-                        result,
-                        Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                            reason: InvalidWikilinkReason::NestedOpening,
-                            ..
-                        }))
-                    ),
-                        "Expected nested opening brackets error for input: {}",
-                        input
-                    );
-                } else if result.is_some() {
-                    // Other invalid cases should return Invalid with appropriate reason
-                    assert!(
-                        matches!(
-                        result,
-                        Some(WikilinkParseResult::Invalid(_))
-                    ),
-                        "Expected invalid result for input: {}",
-                        input
-                    );
-                } else {
-                    // Some cases might still return None (like incomplete wikilinks)
-                    assert!(
-                        !input.ends_with("]]"),
-                        "Complete wikilinks should not return None: {}",
-                        input
-                    );
-                }
+                assert!(
+                    parse_wikilink(&mut chars).is_none(),
+                    "Expected None for invalid input: {}",
+                    input
+                );
             }
         }
     }
