@@ -224,7 +224,7 @@ fn parse_wikilink(
                 // Found an unescaped single bracket
                 return Some(WikilinkParseResult::Invalid(InvalidWikilink {
                     content: format!("[[{}{}]]", state.get_content(), c),
-                    reason: InvalidWikilinkReason::UnmatchedSingle,
+                    reason: InvalidWikilinkReason::UnmatchedSingleInWikilink,
                     span: (start_pos.checked_sub(2).unwrap_or(0), pos + 2),
                 }));
             }
@@ -638,16 +638,16 @@ mod wikilink_creation_tests {
     fn test_parse_wikilink_unmatched_brackets() {
         let test_cases = vec![
             // Basic unmatched brackets
-            ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingle),
-            ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingle),
+            ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
+            ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
 
             // Mixed escape scenarios - only flag when a bracket is actually unmatched
-            ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingle),  // first [ is unmatched, second is escaped
-            ("[[text\\[]text]]", InvalidWikilinkReason::UnmatchedSingle),  // ] is unmatched, [ is escaped
+            ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),  // first [ is unmatched, second is escaped
+            ("[[text\\[]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),  // ] is unmatched, [ is escaped
 
             // Complex cases with aliases
-            ("[[target[x|display]]", InvalidWikilinkReason::UnmatchedSingle),
-            ("[[target|display]x]]", InvalidWikilinkReason::UnmatchedSingle),
+            ("[[target[x|display]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
+            ("[[target|display]x]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
         ];
 
         for (input, expected_reason) in test_cases {

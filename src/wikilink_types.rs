@@ -76,13 +76,13 @@ impl fmt::Display for Wikilink {
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
-    DoubleAlias,       // e.g. [[A|B|C]]
-    EmptyWikilink,     // [[]] or [[|]]                            DONE
-    Malformed,         // catchall
-    MissingAlias,      // i.e. [[display|]]
-    UnmatchedClosing,  // ]] without matching [[                   DONE
-    UnmatchedOpening,  // [[ without closing ]]                    DONE
-    UnmatchedSingle,   // ] without [ or [ without ]               DONE
+    DoubleAlias,                 // e.g. [[A|B|C]]
+    EmptyWikilink,               // [[]] or [[|]]                            DONE
+    Malformed,                   // catchall
+    UnmatchedClosing,            // ]] without matching [[                   DONE
+    UnmatchedOpening,            // [[ without closing ]]                    DONE
+    UnmatchedSingleInWikilink,   // ] without [ or [ without ]               DONE
+    UnmatchedSingleOpening       // [some text - causes obsidian to think it's valid
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -91,10 +91,11 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::Malformed => write!(f, "catchall"),
-            Self::MissingAlias => write!(f, "contains pipe character '|' without an alias"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
-            Self::UnmatchedSingle => write!(f, "contains unmatched bracket '[' or ']'"),
+            Self::UnmatchedSingleInWikilink => write!(f, "contains unmatched bracket '[' or ']'"),
+            Self::UnmatchedSingleOpening => write!(f, "'[' without following match"),
+
         }
     }
 }
