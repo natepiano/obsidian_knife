@@ -4,7 +4,6 @@ use crate::wikilink_types::{
 };
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::collections::HashSet;
 use std::error::Error;
 use std::iter::Peekable;
 use std::path::Path;
@@ -173,9 +172,9 @@ enum WikilinkState {
     },
     Display {
         target: String,
-        target_span: (usize, usize),
+        _target_span: (usize, usize),
         content: String,
-        start_pos: usize,
+        _start_pos: usize,
     },
 }
 
@@ -198,9 +197,9 @@ impl WikilinkState {
         match self {
             WikilinkState::Target { content, start_pos } => WikilinkState::Display {
                 target: content,
-                target_span: (start_pos, pipe_pos),
+                _target_span: (start_pos, pipe_pos),
                 content: String::new(),
-                start_pos: pipe_pos + 1,
+                _start_pos: pipe_pos + 1,
             },
             display_state => display_state,
         }
@@ -232,69 +231,96 @@ impl WikilinkState {
 }
 
 fn parse_wikilink(
-    chars: &mut std::iter::Peekable<std::str::CharIndices>,
+    chars: &mut Peekable<CharIndices>,
 ) -> Option<WikilinkParseResult> {
-    let start_pos = chars.peek()?.0; // Position after the initial '[['
+    let start_pos = chars.peek()?.0;
     let mut state = WikilinkState::Target {
         content: String::new(),
         start_pos,
     };
-    let mut escape = false;
-    let mut last_pos = start_pos.checked_sub(2).unwrap_or(0); // Safely subtract 2 or default to 0
+    let mut last_pos = start_pos.checked_sub(2).unwrap_or(0);
+    let mut error_state: Option<(InvalidWikilinkReason, String)> = None;
 
     while let Some((pos, c)) = chars.next() {
-        last_pos = pos; // Update the last position with the current character's position
+        last_pos = pos;
+
+        // If we're in error state, keep collecting content until the end or closing brackets
+        if let Some((reason, mut error_content)) = error_state.take() {
+            // if we're at the closing brackets
+            if c == ']' && is_next_char(chars, ']') {
+                // add the closing because we found it and haven't already returned with it prior to this
+                error_content.push_str("]]");
+                return Some(WikilinkParseResult::Invalid(InvalidWikilink {
+                    content: error_content,
+                    reason,
+                    span: (start_pos.checked_sub(2).unwrap_or(0), pos + 2),
+                }));
+            }
+            // otherwise continue - keeping the error state around
+            error_content.push(c);
+            error_state = Some((reason, error_content));
+            continue;
+        }
 
         // Detect a new '[[' inside the current wikilink
         if let Some(value) = maybe_create_unmatched_opening(chars, start_pos, &mut state, pos, c) {
             return value;
         }
 
-        match (escape, c) {
-            (true, '|') => {
-                state = state.transition_to_display(pos);
-                escape = false;
+        match c {
+            '\\' => {
+                if let Some((_, next_c)) = chars.next() {
+                    if next_c == '|' {
+                        match &state {
+                            WikilinkState::Display { target, content, .. } => {
+                                let error_content = format!("[[{}\\|{}|", target, content);
+                                error_state = Some((InvalidWikilinkReason::DoubleAlias, error_content));
+                            }
+                            WikilinkState::Target { .. } => {
+                                state = state.transition_to_display(pos);
+                            }
+                        }
+                    } else {
+                        state.push_char(next_c);
+                    }
+                }
             }
-            (true, c) => {
-                state.push_char(c);
-                escape = false;
-            }
-            (false, '\\') => escape = true,
-            (false, '|') => {
+            '|' => {
                 match &state {
                     WikilinkState::Display { target, content, .. } => {
-                        return Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: format!("[[{}|{}|", target, content),
-                            reason: InvalidWikilinkReason::DoubleAlias,
-                            span: (start_pos.checked_sub(2).unwrap_or(0), pos + 1),
-                        }));
+                        let error_content = format!("[[{}|{}|", target, content);
+                        error_state = Some((InvalidWikilinkReason::DoubleAlias, error_content));
                     }
                     WikilinkState::Target { .. } => {
                         state = state.transition_to_display(pos);
                     }
                 }
             }
-            (false, ']') if is_next_char(chars, ']') => {
-                // Check for any empty component
+            ']' if is_next_char(chars, ']') => {
                 if let Some(value) = maybe_create_empty_wikilink(start_pos, &mut state, pos) {
                     return value;
                 }
                 return Some(state.to_wikilink());
             }
-            (false, '[') | (false, ']') => {
-                // Found an unescaped single bracket
-                return Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                    content: format!("[[{}{}]]", state.get_content(), c),
-                    reason: InvalidWikilinkReason::UnmatchedSingleInWikilink,
-                    span: (start_pos.checked_sub(2).unwrap_or(0), pos + 2),
-                }));
+            '[' | ']' => {
+                let error_content = format!("[[{}{}", state.get_content(), c);
+                error_state = Some((InvalidWikilinkReason::UnmatchedSingleInWikilink, error_content));
             }
-            (false, c) => state.push_char(c),
+            _ => state.push_char(c),
         }
     }
 
-    // If we reach here, there was no closing ']]' - we're at the end of the line
-    create_unmatched_opening(start_pos, &state, last_pos + 1)
+    // If we reach here, there was no closing ']]'
+    // Use error_state content if we had an error, otherwise create unmatched opening
+    if let Some((_, error_content)) = error_state {
+        Some(WikilinkParseResult::Invalid(InvalidWikilink {
+            content: error_content,
+            reason: InvalidWikilinkReason::UnmatchedOpening,
+            span: (start_pos.checked_sub(2).unwrap_or(0), last_pos + 1),
+        }))
+    } else {
+        create_unmatched_opening(start_pos, &state, last_pos + 1)
+    }
 }
 
 fn maybe_create_unmatched_opening(
@@ -373,7 +399,6 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 }
 
 #[cfg(test)]
-#[cfg(test)]
 mod extract_wikilinks_tests {
     use super::*;
 
@@ -445,6 +470,40 @@ mod extract_wikilinks_tests {
             );
         }
     }
+    #[test]
+    fn test_various_extractions() {
+        let test_cases = vec![
+            WikilinkTestCase {
+                description: "Double alias with closing brackets",
+                input: "Text with [[target|alias|extra]] here",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[[target|alias|extra]]", InvalidWikilinkReason::DoubleAlias, (10, 32)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Double alias without closing",
+                input: "Text with [[target|alias|extra",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[[target|alias|extra", InvalidWikilinkReason::UnmatchedOpening, (10, 30)),
+                ],
+            },
+            // Add to existing test cases
+            WikilinkTestCase {
+                description: "Unmatched single bracket within wikilink",
+                input: "Text with [[test]text]] here",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[[test]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink, (10, 23)),
+                ],
+            },
+        ];
+
+        for test_case in test_cases {
+            assert_wikilink_extraction(test_case);
+        }
+    }
 
     #[test]
     fn test_unmatched_brackets() {
@@ -497,6 +556,7 @@ mod extract_wikilinks_tests {
             assert_wikilink_extraction(test_case);
         }
     }
+
 
     #[test]
     fn test_unclosed_markdown_links() {
@@ -636,6 +696,8 @@ mod wikilink_creation_tests {
     /// Asserts that a full wikilink string fails to parse as expected.
     fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) {
         let result = parse_full_wikilink(input);
+
+        // println!("{:?}", result);
 
         match result {
             Some(WikilinkParseResult::Invalid(invalid)) => {
@@ -824,7 +886,6 @@ mod wikilink_creation_tests {
 
 #[cfg(test)]
 mod collect_wikilinks_tests {
-    use std::collections::HashMap;
     use super::*;
     use tempfile::TempDir;
 
@@ -884,13 +945,11 @@ mod collect_wikilinks_tests {
         // Count invalid wikilinks by reason
         let mut double_alias_count = 0;
         let mut unmatched_opening_count = 0;
-        let mut unmatched_closing_count = 0;
 
         for invalid in &extracted.invalid {
             match invalid.reason {
                 InvalidWikilinkReason::DoubleAlias => double_alias_count += 1,
                 InvalidWikilinkReason::UnmatchedOpening => unmatched_opening_count += 1,
-                InvalidWikilinkReason::UnmatchedClosing => unmatched_closing_count += 1,
                 _ => panic!("Unexpected invalid wikilink type: {:?}", invalid.reason),
             }
         }
@@ -898,8 +957,7 @@ mod collect_wikilinks_tests {
         // Verify we have exactly one of each type
         assert_eq!(double_alias_count, 1, "Should have one double alias invalid wikilink");
         assert_eq!(unmatched_opening_count, 1, "Should have one unmatched opening invalid wikilink");
-        assert_eq!(unmatched_closing_count, 1, "Should have one unmatched closing invalid wikilink");
-        assert_eq!(extracted.invalid.len(), 3, "Should have exactly three invalid wikilinks");
+        assert_eq!(extracted.invalid.len(), 2, "Should have exactly two invalid wikilinks");
     }
 
     #[test]

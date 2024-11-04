@@ -6,7 +6,7 @@ use crate::{
     wikilink::collect_all_wikilinks,
 };
 
-use crate::wikilink_types::Wikilink;
+use crate::wikilink_types::{InvalidWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -33,6 +33,7 @@ pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
     pub frontmatter: Option<FrontMatter>,
     pub image_links: Vec<String>,
+    pub invalid_wikilinks: Vec<InvalidWikilink>,
     pub property_error: Option<String>,
 }
 
@@ -41,9 +42,15 @@ impl MarkdownFileInfo {
         MarkdownFileInfo {
             do_not_back_populate: None,
             frontmatter: None,
+            invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
             property_error: None,
         }
+    }
+
+    // Helper method to add invalid wikilinks
+    pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
+        self.invalid_wikilinks.extend(wikilinks);
     }
 }
 
@@ -330,11 +337,14 @@ fn scan_markdown_file(
         .frontmatter
         .as_ref()
         .and_then(|fm| fm.aliases().cloned());
-    let wikilinks = collect_all_wikilinks(&content, &aliases, file_path)?;
+    let extracted_wikilinks = collect_all_wikilinks(&content, &aliases, file_path)?;
+
+    // Store invalid wikilinks in markdown_file_info
+    markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);
 
     collect_image_references(&content, image_regex, &mut markdown_file_info)?;
 
-    Ok((markdown_file_info, wikilinks.valid))
+    Ok((markdown_file_info, extracted_wikilinks.valid))
 }
 
 fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -445,6 +455,48 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
+    use crate::wikilink_types::InvalidWikilinkReason;
+
+    #[test]
+    fn test_scan_markdown_file_with_invalid_wikilinks() {
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+
+        // Create test content with both valid and invalid wikilinks
+        let content = r#"# Test File
+[[Valid Link]]
+[[invalid|link|extra]]
+[[unmatched
+[[]]"#;
+
+        std::fs::write(&file_path, content).unwrap();
+
+        let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
+        let (file_info, valid_wikilinks) = scan_markdown_file(&file_path, &image_regex).unwrap();
+
+        // Check valid wikilinks
+        assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
+        assert!(valid_wikilinks.iter().any(|w| w.display_text == "Valid Link"));
+
+        // Check invalid wikilinks
+        assert_eq!(file_info.invalid_wikilinks.len(), 3);
+
+        // Verify specific invalid wikilinks
+        let double_alias = file_info.invalid_wikilinks.iter()
+            .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
+            .expect("Should have a double alias invalid wikilink");
+        assert_eq!(double_alias.content, "[[invalid|link|extra]]");
+
+        let unmatched = file_info.invalid_wikilinks.iter()
+            .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
+            .expect("Should have an unmatched opening invalid wikilink");
+        assert_eq!(unmatched.content, "[[unmatched");
+
+        let empty = file_info.invalid_wikilinks.iter()
+            .find(|w| w.reason == InvalidWikilinkReason::EmptyWikilink)
+            .expect("Should have an empty wikilink");
+        assert_eq!(empty.content, "[[]]");
+    }
 
     #[test]
     fn test_scan_markdown_file_wikilink_collection() {
