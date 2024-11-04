@@ -1,6 +1,6 @@
+use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
-use serde::{Deserialize, Serialize};
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {
@@ -58,7 +58,6 @@ pub struct ExtractedWikilinks {
     pub invalid: Vec<InvalidWikilink>,
 }
 
-
 impl fmt::Display for Wikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -77,13 +76,13 @@ impl fmt::Display for Wikilink {
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
-    DoubleAlias,       // e.g. [[A|B|C]]
-    EmptyWikilink,     // [[]] or [[|]]                                DONE
-    Malformed,         // catchall
-    NestedOpening,     // Contains [[ inside
-    UnmatchedClosing,  // ]] without matching [[                       DONE
-    UnmatchedOpening,  // [[ without closing ]]
-    UnmatchedPipe,     // More pipes than expected or unescaped
+    DoubleAlias,            // e.g. [[A|B|C]]
+    EmptyWikilink,          // [[]] or [[|]]                                DONE
+    Malformed,              // catchall
+    NestedOpening,          // Contains [[ inside
+    UnmatchedClosing,       // ]] without matching [[                       DONE
+    UnmatchedOpening,       // [[ without closing ]]
+    UnmatchedPipe,          // More pipes than expected or unescaped
     UnmatchedSingleClosing, // ] without [
     UnmatchedSingleOpening, // [ without ]
 }
@@ -106,18 +105,17 @@ impl fmt::Display for InvalidWikilinkReason {
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidWikilink {
-    pub content: String,            // The actual problematic wikilink text
+    pub content: String, // The actual problematic wikilink text
     pub reason: InvalidWikilinkReason,
-    pub span: (usize, usize)        // Start and end positions in the original text
+    pub span: (usize, usize), // Start and end positions in the original text
 }
 
 impl fmt::Display for InvalidWikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Invalid wikilink at position {}-{}: '{}' {}",
-               self.span.0,
-               self.span.1,
-               self.content,
-               self.reason
+        write!(
+            f,
+            "Invalid wikilink at position {}-{}: '{}' {}",
+            self.span.0, self.span.1, self.content, self.reason
         )
     }
 }
@@ -125,5 +123,5 @@ impl fmt::Display for InvalidWikilink {
 #[derive(Debug, PartialEq)]
 pub enum WikilinkParseResult {
     Valid(Wikilink),
-    Invalid(InvalidWikilink)
+    Invalid(InvalidWikilink),
 }

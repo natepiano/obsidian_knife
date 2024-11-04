@@ -4,6 +4,7 @@ use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::MARKDOWN_REGEX;
+use crate::wikilink_types::{ToWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -12,7 +13,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
-use crate::wikilink_types::{ToWikilink, Wikilink};
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -383,10 +383,7 @@ fn process_line(
             } else {
                 // Use aliased format for case differences or actual aliases
                 //format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
-                format!(
-                    "{}",
-                    wikilink.target.to_aliased_wikilink(matched_text)
-                )
+                format!("{}", wikilink.target.to_aliased_wikilink(matched_text))
             };
 
             let in_markdown_table = is_in_markdown_table(&line, &matched_text);
@@ -879,7 +876,6 @@ fn apply_line_replacements(
 
     // Apply replacements in sorted (reverse) order
     for match_info in sorted_matches {
-
         let start = match_info.position;
         let end = start + match_info.found_text.len();
 
@@ -920,19 +916,16 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
+    use crate::wikilink_types::Wikilink;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
     use tempfile::TempDir;
-    use crate::wikilink_types::Wikilink;
 
     // Common helper function to build Aho-Corasick automaton from CompiledWikilinks
     fn build_aho_corasick(wikilinks: &[Wikilink]) -> AhoCorasick {
-        let patterns: Vec<&str> = wikilinks
-            .iter()
-            .map(|w| w.display_text.as_str())
-            .collect();
+        let patterns: Vec<&str> = wikilinks.iter().map(|w| w.display_text.as_str()).collect();
 
         AhoCorasickBuilder::new()
             .ascii_case_insensitive(true)
@@ -1110,7 +1103,8 @@ mod tests {
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
 
         for case in get_case_sensitivity_test_cases() {
-            let file_path = create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
+            let file_path =
+                create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
 
             // Create a custom wikilink and build AC automaton directly
             let wikilink = case.wikilink;
@@ -1126,7 +1120,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-                .unwrap();
+            .unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -1221,7 +1215,6 @@ mod tests {
             target: "Kyriana McCoy".to_string(),
             is_alias: true,
         };
-
 
         // Clear and add to the sorted vec
         repo_info.wikilinks_sorted.clear();

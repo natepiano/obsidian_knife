@@ -6,6 +6,7 @@ use crate::{
     wikilink::collect_all_wikilinks,
 };
 
+use crate::wikilink_types::Wikilink;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -20,7 +21,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::wikilink_types::Wikilink;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -53,7 +53,7 @@ pub struct ObsidianRepositoryInfo {
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>, // Add the new field
-    pub wikilinks_sorted: Vec<Wikilink>, // New field for all unique wikilinks
+    pub wikilinks_sorted: Vec<Wikilink>,   // New field for all unique wikilinks
 }
 
 pub fn scan_obsidian_folder(
@@ -215,10 +215,7 @@ fn scan_folders(
         .into_iter()
         .sorted_by(|a, b| {
             // First compare by display text length (longer first)
-            let length_cmp = b
-                .display_text
-                .len()
-                .cmp(&a.display_text.len());
+            let length_cmp = b.display_text.len().cmp(&a.display_text.len());
             if length_cmp != std::cmp::Ordering::Equal {
                 return length_cmp;
             }
@@ -275,13 +272,7 @@ fn scan_folders(
 
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
-) -> Result<
-    (
-        HashMap<PathBuf, MarkdownFileInfo>,
-        HashSet<Wikilink>,
-    ),
-    Box<dyn Error + Send + Sync>,
-> {
+) -> Result<(HashMap<PathBuf, MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
