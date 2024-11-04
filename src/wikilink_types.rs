@@ -1,6 +1,5 @@
 use std::cmp::PartialEq;
 use std::fmt;
-use std::error::Error;
 use serde::{Deserialize, Serialize};
 
 /// Trait to convert strings to wikilink format

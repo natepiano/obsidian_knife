@@ -64,7 +64,7 @@ pub fn collect_all_wikilinks(
     }
 
     // Process content line by line
-    for (line_number, line) in content.lines().enumerate() {
+    for (line) in content.lines() {
         let extracted = extract_wikilinks_from_content(line);
 
         for wikilink in extracted.valid {
