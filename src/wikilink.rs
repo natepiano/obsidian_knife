@@ -79,11 +79,56 @@ pub fn collect_all_wikilinks(
     Ok(all_wikilinks)
 }
 
+// pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
+//     let mut result = ExtractedWikilinks::default();
+//     let mut chars = content.char_indices().peekable();
+//
+//     while let Some((start_idx, ch)) = chars.next() {
+//         // Handle unmatched closing brackets when not in a wikilink
+//         if ch == ']' && is_next_char(&mut chars, ']') {
+//             result.invalid.push(InvalidWikilink {
+//                 content: "]]".to_string(),
+//                 reason: InvalidWikilinkReason::UnmatchedClosing,
+//                 span: (start_idx, start_idx + 2),
+//             });
+//             continue;
+//         }
+//
+//         if ch == '[' && is_next_char(&mut chars, '[') {
+//             // Check if the previous character was '!' (image link)
+//             if start_idx > 0 && is_previous_char(content, start_idx, '!') {
+//                 continue; // Skip image links
+//             }
+//
+//             // Attempt to parse the wikilink
+//             if let Some(wikilink_result) = parse_wikilink(&mut chars) {
+//                 match wikilink_result {
+//                     WikilinkParseResult::Valid(wikilink) => {
+//                         result.valid.push(wikilink);
+//                     }
+//                     WikilinkParseResult::Invalid(invalid) => {
+//                         result.invalid.push(invalid);
+//                     }
+//                 }
+//             }
+//         }
+//     }
+//
+//     result
+// }
+
 pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
     let mut result = ExtractedWikilinks::default();
     let mut chars = content.char_indices().peekable();
+    let mut markdown_opening: Option<usize> = None;
 
     while let Some((start_idx, ch)) = chars.next() {
+        // Handle escaped characters
+        if ch == '\\' {
+            chars.next(); // Skip next character
+            continue;
+        }
+
         // Handle unmatched closing brackets when not in a wikilink
         if ch == ']' && is_next_char(&mut chars, ']') {
             result.invalid.push(InvalidWikilink {
@@ -91,27 +136,69 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
                 reason: InvalidWikilinkReason::UnmatchedClosing,
                 span: (start_idx, start_idx + 2),
             });
+            markdown_opening = None; // Reset markdown opening state
             continue;
         }
 
-        if ch == '[' && is_next_char(&mut chars, '[') {
-            // Check if the previous character was '!' (image link)
-            if start_idx > 0 && is_previous_char(content, start_idx, '!') {
-                continue; // Skip image links
-            }
+        // Handle regular closing bracket - could close a markdown link
+        if ch == ']' {
+            markdown_opening = None;
+            continue;
+        }
 
-            // Attempt to parse the wikilink
-            if let Some(wikilink_result) = parse_wikilink(&mut chars) {
-                match wikilink_result {
-                    WikilinkParseResult::Valid(wikilink) => {
-                        result.valid.push(wikilink);
-                    }
-                    WikilinkParseResult::Invalid(invalid) => {
-                        result.invalid.push(invalid);
+        if ch == '[' {
+            if is_next_char(&mut chars, '[') {
+                // If we had an unclosed markdown link before this wikilink, add it as invalid
+                if let Some(start_pos) = markdown_opening {
+                    let content_slice = content[start_pos..start_idx].trim();
+                    result.invalid.push(InvalidWikilink {
+                        content: content_slice.to_string(),
+                        reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        span: (start_pos, start_pos + content_slice.len()),
+                    });
+                    markdown_opening = None;
+                }
+
+                // Check if the previous character was '!' (image link)
+                if start_idx > 0 && is_previous_char(content, start_idx, '!') {
+                    continue; // Skip image links
+                }
+
+                // Attempt to parse the wikilink
+                if let Some(wikilink_result) = parse_wikilink(&mut chars) {
+                    match wikilink_result {
+                        WikilinkParseResult::Valid(wikilink) => {
+                            result.valid.push(wikilink);
+                        }
+                        WikilinkParseResult::Invalid(invalid) => {
+                            result.invalid.push(invalid);
+                        }
                     }
                 }
+            } else {
+                // If we had an unclosed markdown link before this one, add it as invalid
+                if let Some(start_pos) = markdown_opening {
+                    let content_slice = content[start_pos..start_idx].trim();
+                    result.invalid.push(InvalidWikilink {
+                        content: content_slice.to_string(),
+                        reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        span: (start_pos, start_pos + content_slice.len()),
+                    });
+                }
+                // Start tracking new markdown opening
+                markdown_opening = Some(start_idx);
             }
         }
+    }
+
+    // If we reach the end with an unclosed markdown link, add it as invalid
+    if let Some(start_pos) = markdown_opening {
+        let content_slice = content[start_pos..].trim();
+        result.invalid.push(InvalidWikilink {
+            content: content_slice.to_string(),
+            reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+            span: (start_pos, start_pos + content_slice.len()),
+        });
     }
 
     result
@@ -429,6 +516,65 @@ mod extract_wikilinks_tests {
                 input: "This is a plain text without any wikilinks.",
                 expected_valid: vec![],
                 expected_invalid: vec![],
+            },
+        ];
+
+        for test_case in test_cases {
+            assert_wikilink_extraction(test_case);
+        }
+    }
+
+    #[test]
+    fn test_unclosed_markdown_links() {
+        let test_cases = vec![
+            WikilinkTestCase {
+                description: "Basic unclosed markdown link",
+                input: "[display",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[display", InvalidWikilinkReason::UnmatchedMarkdownOpening, (0, 8)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Unclosed link in context",
+                input: "some text [link",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[link", InvalidWikilinkReason::UnmatchedMarkdownOpening, (10, 15)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Mixed valid wikilink and unclosed markdown",
+                input: "[[valid link]] [unclosed",
+                expected_valid: vec![
+                    ("valid link", "valid link", false),
+                ],
+                expected_invalid: vec![
+                    ("[unclosed", InvalidWikilinkReason::UnmatchedMarkdownOpening, (15, 24)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Multiple unclosed markdown links",
+                input: "[first [second",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[first", InvalidWikilinkReason::UnmatchedMarkdownOpening, (0, 6)),
+                    ("[second", InvalidWikilinkReason::UnmatchedMarkdownOpening, (7, 14)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Escaped brackets should not trigger",
+                input: "\\[not a link",
+                expected_valid: vec![],
+                expected_invalid: vec![],
+            },
+            WikilinkTestCase {
+                description: "Valid markdown link followed by unclosed",
+                input: "[valid](link) [unclosed",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[unclosed", InvalidWikilinkReason::UnmatchedMarkdownOpening, (14, 23)), // Fixed span
+                ],
             },
         ];
 
