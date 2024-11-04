@@ -58,38 +58,6 @@ pub struct ExtractedWikilinks {
     pub invalid: Vec<InvalidWikilink>,
 }
 
-#[derive(Debug)]
-pub struct WikilinkErrorContext {
-    pub file_path: String,
-    pub line_number: Option<usize>,
-    pub line_content: Option<String>,
-}
-
-impl fmt::Display for WikilinkErrorContext {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        if !self.file_path.is_empty() {
-            writeln!(f, "File: {}", self.file_path)?;
-        }
-        if let Some(num) = &self.line_number {
-            writeln!(f, "Line number: {}", num)?;
-        }
-        if let Some(content) = &self.line_content {
-            writeln!(f, "Line content: {}", content)?;
-        }
-        Ok(())
-    }
-}
-
-impl Default for WikilinkErrorContext {
-    fn default() -> Self {
-        WikilinkErrorContext {
-            file_path: String::new(),
-            line_number: None,
-            line_content: None,
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub struct CompiledWikilink {
     pub wikilink: Wikilink,
