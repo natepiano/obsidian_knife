@@ -1,0 +1,37 @@
+We now have the ability to track InvalidWikilinkReasons
+Following is a plan for how we should handle them
+
+File-Level Tracking:
+Invalid wikilinks must be tracked per file, not globally
+Store invalid wikilinks in MarkdownFileInfo structure
+Each invalid wikilink should maintain its context (line number, content)
+
+Integration with Back Population:
+Use invalid wikilink spans as exclusion zones
+Don't attempt to replace text within invalid wikilink spans
+Present invalid wikilinks in a separate table in output
+Handle both table and non-table contexts correctly
+
+Implementation Constraints:
+Make minimal, incremental changes
+Keep all tests passing at each step
+Modify existing tests rather than creating new ones when possible
+Use TempDir for all file operation tests
+Keep changes localized until necessary to expand - that is, Don't change return signatures until we've handled each step so we don't have to do one big global change
+
+Proposed Step-by-Step Plan:
+
+Update collect_all_wikilinks to return ExtractedWikilinks
+and propagate them back up the stack appropriately - changing one caller at a time and adding
+minimal tests to make sure we're propagating the right things
+
+Modify MarkdownFileInfo / scan_markdown_file
+Add invalid_wikilinks field to store InvalidWikilink instances on each individual MarkdownFileInfo instances
+Update constructor and related functions
+Update existing MarkdownFileInfo tests
+
+Enhance back_populate Processing
+Add logic to use invalid wikilink spans as exclusion zones
+Create function to format invalid wikilinks table
+Update existing back_populate tests
+Add tests for exclusion zone functionality

@@ -79,44 +79,6 @@ pub fn collect_all_wikilinks(
     Ok(all_wikilinks)
 }
 
-// pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
-//     let mut result = ExtractedWikilinks::default();
-//     let mut chars = content.char_indices().peekable();
-//
-//     while let Some((start_idx, ch)) = chars.next() {
-//         // Handle unmatched closing brackets when not in a wikilink
-//         if ch == ']' && is_next_char(&mut chars, ']') {
-//             result.invalid.push(InvalidWikilink {
-//                 content: "]]".to_string(),
-//                 reason: InvalidWikilinkReason::UnmatchedClosing,
-//                 span: (start_idx, start_idx + 2),
-//             });
-//             continue;
-//         }
-//
-//         if ch == '[' && is_next_char(&mut chars, '[') {
-//             // Check if the previous character was '!' (image link)
-//             if start_idx > 0 && is_previous_char(content, start_idx, '!') {
-//                 continue; // Skip image links
-//             }
-//
-//             // Attempt to parse the wikilink
-//             if let Some(wikilink_result) = parse_wikilink(&mut chars) {
-//                 match wikilink_result {
-//                     WikilinkParseResult::Valid(wikilink) => {
-//                         result.valid.push(wikilink);
-//                     }
-//                     WikilinkParseResult::Invalid(invalid) => {
-//                         result.invalid.push(invalid);
-//                     }
-//                 }
-//             }
-//         }
-//     }
-//
-//     result
-// }
-
 pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
     let mut result = ExtractedWikilinks::default();
     let mut chars = content.char_indices().peekable();
