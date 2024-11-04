@@ -80,9 +80,9 @@ pub enum InvalidWikilinkReason {
     EmptyWikilink,               // [[]] or [[|]]                            DONE
     Malformed,                   // catchall
     UnmatchedClosing,            // ]] without matching [[                   DONE
+    UnmatchedMarkdownOpening,    // [ without following ]
     UnmatchedOpening,            // [[ without closing ]]                    DONE
     UnmatchedSingleInWikilink,   // ] without [ or [ without ]               DONE
-    UnmatchedSingleOpening       // [some text - causes obsidian to think it's valid
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -92,9 +92,9 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::Malformed => write!(f, "catchall"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
+            Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
             Self::UnmatchedSingleInWikilink => write!(f, "contains unmatched bracket '[' or ']'"),
-            Self::UnmatchedSingleOpening => write!(f, "'[' without following match"),
 
         }
     }
