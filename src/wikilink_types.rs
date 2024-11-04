@@ -60,50 +60,6 @@ pub struct ExtractedWikilinks {
 }
 
 #[derive(Debug)]
-pub struct WikilinkError {
-    pub display_text: String,
-    pub error_type: WikilinkErrorType,
-    pub file_path: String,
-    pub line_number: Option<usize>,
-    pub line_content: Option<String>,
-}
-
-impl fmt::Display for WikilinkError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let error_msg = match self.error_type {
-            WikilinkErrorType::ContainsOpenBrackets => "contains opening brackets '[['",
-            WikilinkErrorType::ContainsCloseBrackets => "contains closing brackets ']]'",
-            WikilinkErrorType::ContainsPipe => "contains pipe character '|'",
-        };
-        writeln!(
-            f,
-            "Invalid wikilink pattern: '{}' {}",
-            self.display_text, error_msg
-        )?;
-
-        if !self.file_path.is_empty() {
-            writeln!(f, "File: {}", self.file_path)?;
-        }
-        if let Some(num) = &self.line_number {
-            writeln!(f, "Line number: {}", num)?;
-        }
-        if let Some(content) = &self.line_content {
-            writeln!(f, "Line content: {}", content)?;
-        }
-        Ok(())
-    }
-}
-
-impl Error for WikilinkError {}
-
-#[derive(Debug, PartialEq)]
-pub enum WikilinkErrorType {
-    ContainsOpenBrackets,
-    ContainsCloseBrackets,
-    ContainsPipe,
-}
-
-#[derive(Debug)]
 pub struct WikilinkErrorContext {
     pub file_path: String,
     pub line_number: Option<usize>,

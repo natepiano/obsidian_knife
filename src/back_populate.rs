@@ -937,7 +937,6 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
-    use crate::wikilink::compile_wikilink;
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
@@ -959,6 +958,7 @@ mod tests {
             .expect("Failed to build Aho-Corasick automaton")
     }
 
+    #[cfg(test)]
     fn create_test_environment(
         apply_changes: bool,
         do_not_back_populate: Option<Vec<String>>,
@@ -981,12 +981,10 @@ mod tests {
 
         // If custom wikilinks are provided, use them
         if let Some(wikilinks) = wikilinks {
-            let compiled_wikilinks: Vec<CompiledWikilink> = wikilinks
+            repo_info.wikilinks_sorted = wikilinks
                 .into_iter()
-                .map(|w| compile_wikilink(w).unwrap())
+                .map(CompiledWikilink::new)
                 .collect();
-
-            repo_info.wikilinks_sorted = compiled_wikilinks;
         } else {
             // Default wikilink
             let wikilink = Wikilink {
@@ -994,9 +992,7 @@ mod tests {
                 target: "Test Link".to_string(),
                 is_alias: false,
             };
-
-            let compiled = CompiledWikilink::new(wikilink);
-            repo_info.wikilinks_sorted = vec![compiled];
+            repo_info.wikilinks_sorted = vec![CompiledWikilink::new(wikilink)];
         }
 
         // Build the Aho-Corasick automaton
@@ -1134,11 +1130,10 @@ mod tests {
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
 
         for case in get_case_sensitivity_test_cases() {
-            let file_path =
-                create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
+            let file_path = create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
 
-            // Create a custom wikilink for the case
-            let compiled = compile_wikilink(case.wikilink).unwrap();
+            // Create a custom wikilink and build AC automaton directly
+            let compiled = CompiledWikilink::new(case.wikilink);
             let ac = build_aho_corasick(&[compiled.clone()]);
             let markdown_info = MarkdownFileInfo::new();
 
@@ -1151,7 +1146,7 @@ mod tests {
                 &config,
                 &markdown_info,
             )
-            .unwrap();
+                .unwrap();
 
             assert_eq!(
                 matches.len(),

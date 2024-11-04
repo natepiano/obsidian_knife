@@ -2,8 +2,9 @@ use crate::constants::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::collections::HashSet;
+use std::error::Error;
 use std::path::Path;
-use crate::wikilink_types::{CompiledWikilink, ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, Wikilink, WikilinkError, WikilinkErrorType, WikilinkParseResult};
+use crate::wikilink_types::{CompiledWikilink, ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, Wikilink,WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
@@ -34,62 +35,11 @@ pub fn format_wikilink(path: &Path) -> String {
         .unwrap_or_else(|| "[[]]".to_string())
 }
 
-pub fn compile_wikilink_with_context(
-    wikilink: Wikilink,
-    file_path: &Path,
-    line_number: Option<usize>,
-    line_content: Option<&str>,
-) -> Result<CompiledWikilink, WikilinkError> {
-    compile_wikilink(wikilink).map_err(|e| WikilinkError {
-        display_text: e.display_text,
-        error_type: e.error_type,
-        file_path: file_path.display().to_string(),
-        line_number,
-        line_content: line_content.map(String::from),
-    })
-}
-
-pub fn compile_wikilink(wikilink: Wikilink) -> Result<CompiledWikilink, WikilinkError> {
-    let search_text = &wikilink.display_text;
-
-    // Check for invalid characters
-    if search_text.contains("[[") {
-        return Err(WikilinkError {
-            display_text: search_text.to_string(),
-            error_type: WikilinkErrorType::ContainsOpenBrackets,
-            file_path: String::new(),
-            line_number: None,
-            line_content: None,
-        });
-    }
-    if search_text.contains("]]") {
-        return Err(WikilinkError {
-            display_text: search_text.to_string(),
-            error_type: WikilinkErrorType::ContainsCloseBrackets,
-            file_path: String::new(),
-            line_number: None,
-            line_content: None,
-        });
-    }
-    if search_text.contains("|") {
-        return Err(WikilinkError {
-            display_text: search_text.to_string(),
-            error_type: WikilinkErrorType::ContainsPipe,
-            file_path: String::new(),
-            line_number: None,
-            line_content: None,
-        });
-    }
-
-    Ok(CompiledWikilink::new(wikilink))
-}
-
-// In collect_all_wikilinks, update the calls:
 pub fn collect_all_wikilinks(
     content: &str,
     aliases: &Option<Vec<String>>,
     file_path: &Path,
-) -> Result<HashSet<CompiledWikilink>, WikilinkError> {
+) -> Result<HashSet<CompiledWikilink>, Box<dyn Error + Send + Sync>> {
     let mut all_wikilinks = HashSet::new();
 
     let filename = file_path
@@ -99,8 +49,7 @@ pub fn collect_all_wikilinks(
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    let compiled = compile_wikilink_with_context(filename_wikilink.clone(), file_path, None, None)?;
-    all_wikilinks.insert(compiled);
+    all_wikilinks.insert(CompiledWikilink::new(filename_wikilink.clone()));
 
     // Add aliases if present
     if let Some(alias_list) = aliases {
@@ -110,25 +59,16 @@ pub fn collect_all_wikilinks(
                 target: filename_wikilink.target.clone(),
                 is_alias: true,
             };
-            let compiled = compile_wikilink_with_context(wikilink, file_path, None, None)?;
-            all_wikilinks.insert(compiled);
+            all_wikilinks.insert(CompiledWikilink::new(wikilink));
         }
     }
 
-    // Process content line by line to get line numbers for error context
+    // Process content line by line
     for (line_number, line) in content.lines().enumerate() {
         let extracted = extract_wikilinks_from_content(line);
-        // TODO: Store invalid_wikilinks in MarkdownFileInfo
-        // This will be implemented when we add invalid_wikilinks field to MarkdownFileInfo
 
         for wikilink in extracted.valid {
-            let compiled = compile_wikilink_with_context(
-                wikilink,
-                file_path,
-                Some(line_number + 1),
-                Some(line),
-            )?;
-            all_wikilinks.insert(compiled);
+            all_wikilinks.insert(CompiledWikilink::new(wikilink));
         }
     }
 
@@ -306,7 +246,7 @@ mod tests {
     use super::*;
     use std::collections::HashSet;
 
-    // Helper function for assertions
+    // Update helper function to use direct creation
     fn assert_contains_wikilink(
         wikilinks: &HashSet<CompiledWikilink>,
         target: &str,
@@ -603,60 +543,7 @@ mod tests {
         }
     }
 
-    // Sub-module for error handling
-    mod error_handling {
-        use super::*;
-
-        #[test]
-        fn compile_wikilink_invalid_patterns() {
-            let test_cases = vec![
-                ("test[[invalid", WikilinkErrorType::ContainsOpenBrackets),
-                ("test]]invalid", WikilinkErrorType::ContainsCloseBrackets),
-                ("test|invalid", WikilinkErrorType::ContainsPipe),
-            ];
-
-            for (pattern, expected_error) in test_cases {
-                let wikilink = Wikilink {
-                    display_text: pattern.to_string(),
-                    target: "test".to_string(),
-                    is_alias: false,
-                };
-
-                let result = compile_wikilink(wikilink);
-                assert!(
-                    result.is_err(),
-                    "Pattern '{}' should produce an error",
-                    pattern
-                );
-
-                if let Err(error) = result {
-                    assert_eq!(
-                        error.error_type, expected_error,
-                        "Unexpected error type for pattern '{}'",
-                        pattern
-                    );
-                }
-            }
-        }
-
-        #[test]
-        fn wikilink_error_display() {
-            let error = WikilinkError {
-                display_text: "test[[bad]]".to_string(),
-                error_type: WikilinkErrorType::ContainsOpenBrackets,
-                file_path: String::new(),
-                line_number: None,
-                line_content: None,
-            };
-
-            assert_eq!(
-                error.to_string().trim(),
-                "Invalid wikilink pattern: 'test[[bad]]' contains opening brackets '[['"
-            );
-        }
-    }
-
-    // Submodule for Markdown link tests
+        // Submodule for Markdown link tests
     mod markdown_links {
         use super::*;
 
