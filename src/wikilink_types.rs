@@ -77,28 +77,27 @@ impl fmt::Display for Wikilink {
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
+    DoubleAlias,       // e.g. [[A|B|C]]
+    EmptyWikilink,     // [[]] or [[|]]
     NestedOpening,     // Contains [[ inside
     UnmatchedClosing,  // ]] without matching [[
-    UnmatchedOpening, // [[ without closing ]]
-    UnmatchedSingleOpening, // [ without ]
-    ImproperlyNested,  // e.g. [[A|B]]C]]
+    UnmatchedOpening,  // [[ without closing ]]
     UnmatchedPipe,     // More pipes than expected or unescaped
-    DoubleAlias,       // e.g. [[A|B|C]]
-    Malformed         // Catch-all for other malformed cases
+    UnmatchedSingleClosing, // ] without [
+    UnmatchedSingleOpening, // [ without ]
 }
 
-// Update Display implementation for InvalidWikilinkReason to handle the new variant
 impl fmt::Display for InvalidWikilinkReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
+            Self::DoubleAlias => write!(f, "contains multiple alias separators"),
+            Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
-            Self::UnmatchedSingleOpening => write!(f, "contains unmatched opening bracket '['"),
-            Self::ImproperlyNested => write!(f, "contains improperly nested brackets"),
             Self::UnmatchedPipe => write!(f, "contains unmatched pipe character '|'"),
-            Self::DoubleAlias => write!(f, "contains multiple alias separators"),
-            Self::Malformed => write!(f, "has malformed wikilink structure")
+            Self::UnmatchedSingleClosing => write!(f, "contains unmatched closing bracket ']'"),
+            Self::UnmatchedSingleOpening => write!(f, "contains unmatched opening bracket '['"),
         }
     }
 }
