@@ -316,7 +316,7 @@ fn scan_markdown_files(
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
-) -> Result<(MarkdownFileInfo, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
+) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
     let content = read_file_content(file_path)?;
 
     let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
@@ -334,7 +334,7 @@ fn scan_markdown_file(
 
     collect_image_references(&content, image_regex, &mut markdown_file_info)?;
 
-    Ok((markdown_file_info, wikilinks))
+    Ok((markdown_file_info, wikilinks.valid))
 }
 
 fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {

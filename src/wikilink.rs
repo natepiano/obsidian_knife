@@ -43,9 +43,10 @@ pub fn collect_all_wikilinks(
     content: &str,
     aliases: &Option<Vec<String>>,
     file_path: &Path,
-) -> Result<HashSet<Wikilink>, Box<dyn Error + Send + Sync>> {
-    let mut all_wikilinks = HashSet::new();
+) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
+    let mut result = ExtractedWikilinks::default();
 
+    // Add filename-based wikilink
     let filename = file_path
         .file_name()
         .and_then(|n| n.to_str())
@@ -53,7 +54,7 @@ pub fn collect_all_wikilinks(
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    all_wikilinks.insert(filename_wikilink.clone());
+    result.valid.push(filename_wikilink.clone());
 
     // Add aliases if present
     if let Some(alias_list) = aliases {
@@ -63,20 +64,18 @@ pub fn collect_all_wikilinks(
                 target: filename_wikilink.target.clone(),
                 is_alias: true,
             };
-            all_wikilinks.insert(wikilink);
+            result.valid.push(wikilink);
         }
     }
 
-    // Process content line by line
-    for (line) in content.lines() {
+    // Process content line by line and collect both valid and invalid wikilinks
+    for line in content.lines() {
         let extracted = extract_wikilinks_from_content(line);
-
-        for wikilink in extracted.valid {
-            all_wikilinks.insert(wikilink);
-        }
+        result.valid.extend(extracted.valid);
+        result.invalid.extend(extracted.invalid);
     }
 
-    Ok(all_wikilinks)
+    Ok(result)
 }
 
 pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
@@ -825,12 +824,12 @@ mod wikilink_creation_tests {
 
 #[cfg(test)]
 mod collect_wikilinks_tests {
+    use std::collections::HashMap;
     use super::*;
     use tempfile::TempDir;
 
-    // Update helper function to use direct creation
     fn assert_contains_wikilink(
-        wikilinks: &HashSet<Wikilink>,
+        wikilinks: &[Wikilink],
         target: &str,
         display: Option<&str>,
         is_alias: bool,
@@ -856,27 +855,74 @@ mod collect_wikilinks_tests {
         let file_path = temp_dir.path().join("test file.md");
         std::fs::write(&file_path, content).unwrap();
 
-        let wikilinks = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
+        let extracted = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
 
         // Verify expected wikilinks
-        assert_contains_wikilink(&wikilinks, "test file", None, false);
-        assert_contains_wikilink(&wikilinks, "test file", Some("Alias One"), true);
-        assert_contains_wikilink(&wikilinks, "test file", Some("Alias Two"), true);
-        assert_contains_wikilink(&wikilinks, "Regular Link", None, false);
-        assert_contains_wikilink(&wikilinks, "Target", Some("Display Text"), true);
+        assert_contains_wikilink(&extracted.valid, "test file", None, false);
+        assert_contains_wikilink(&extracted.valid, "test file", Some("Alias One"), true);
+        assert_contains_wikilink(&extracted.valid, "test file", Some("Alias Two"), true);
+        assert_contains_wikilink(&extracted.valid, "Regular Link", None, false);
+        assert_contains_wikilink(&extracted.valid, "Target", Some("Display Text"), true);
+
+        // Verify no invalid wikilinks in this case
+        assert!(extracted.invalid.is_empty(), "Should not have invalid wikilinks");
     }
 
     #[test]
-    fn collect_wikilinks_with_context() {
-        let content = "Some [[Link]] here.";
+    fn test_collect_all_wikilinks_with_invalid() {
+        let content = "Some [[good link]] and [[bad|link|extra]] here [[unmatched";
         let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("file.md");
+        let file_path = temp_dir.path().join("test.md");
         std::fs::write(&file_path, content).unwrap();
 
-        let wikilinks = collect_all_wikilinks(content, &None, &file_path).unwrap();
+        let extracted = collect_all_wikilinks(content, &None, &file_path).unwrap();
 
-        assert_contains_wikilink(&wikilinks, "Link", None, false);
+        // Check valid wikilinks
+        assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
+        assert_contains_wikilink(&extracted.valid, "good link", None, false);
+
+        // Count invalid wikilinks by reason
+        let mut double_alias_count = 0;
+        let mut unmatched_opening_count = 0;
+        let mut unmatched_closing_count = 0;
+
+        for invalid in &extracted.invalid {
+            match invalid.reason {
+                InvalidWikilinkReason::DoubleAlias => double_alias_count += 1,
+                InvalidWikilinkReason::UnmatchedOpening => unmatched_opening_count += 1,
+                InvalidWikilinkReason::UnmatchedClosing => unmatched_closing_count += 1,
+                _ => panic!("Unexpected invalid wikilink type: {:?}", invalid.reason),
+            }
+        }
+
+        // Verify we have exactly one of each type
+        assert_eq!(double_alias_count, 1, "Should have one double alias invalid wikilink");
+        assert_eq!(unmatched_opening_count, 1, "Should have one unmatched opening invalid wikilink");
+        assert_eq!(unmatched_closing_count, 1, "Should have one unmatched closing invalid wikilink");
+        assert_eq!(extracted.invalid.len(), 3, "Should have exactly three invalid wikilinks");
     }
+
+    #[test]
+    fn test_collect_wikilinks_with_empty() {
+        let content = "Test [[]] and [[|]] here";
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test.md");
+        std::fs::write(&file_path, content).unwrap();
+
+        let extracted = collect_all_wikilinks(content, &None, &file_path).unwrap();
+
+        // Check that both empty wikilinks are marked as invalid
+        assert_eq!(
+            extracted.invalid.len(), 2,
+            "Should have two invalid empty wikilinks"
+        );
+
+        assert!(
+            extracted.invalid.iter().all(|w| w.reason == InvalidWikilinkReason::EmptyWikilink),
+            "Both invalid wikilinks should be marked as empty"
+        );
+    }
+
 }
 
 #[cfg(test)]
