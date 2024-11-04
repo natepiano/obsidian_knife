@@ -220,6 +220,14 @@ fn parse_wikilink(
                 }
                 return Some(state.to_wikilink());
             }
+            (false, '[') | (false, ']') => {
+                // Found an unescaped single bracket
+                return Some(WikilinkParseResult::Invalid(InvalidWikilink {
+                    content: format!("[[{}{}]]", state.get_content(), c),
+                    reason: InvalidWikilinkReason::UnmatchedSingleBracket,
+                    span: (start_pos.checked_sub(2).unwrap_or(0), pos + 2),
+                }));
+            }
             (false, c) => state.push_char(c),
         }
     }
@@ -616,10 +624,34 @@ mod wikilink_creation_tests {
                 "test]with[brackets",
                 false,
             ),
+            // Escaped single brackets
+            ("[[text\\[in\\]brackets]]", "text[in]brackets", "text[in]brackets", false),
+            ("[[target\\[x\\]|display\\[y\\]]]", "target[x]", "display[y]", true),
         ];
 
         for (input, target, display, is_alias) in test_cases {
             assert_valid_wikilink(input, target, display, is_alias);
+        }
+    }
+
+    #[test]
+    fn test_parse_wikilink_unmatched_brackets() {
+        let test_cases = vec![
+            // Basic unmatched brackets
+            ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingleBracket),
+            ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingleBracket),
+
+            // Mixed escape scenarios - only flag when a bracket is actually unmatched
+            ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingleBracket),  // first [ is unmatched, second is escaped
+            ("[[text\\[]text]]", InvalidWikilinkReason::UnmatchedSingleBracket),  // ] is unmatched, [ is escaped
+
+            // Complex cases with aliases
+            ("[[target[x|display]]", InvalidWikilinkReason::UnmatchedSingleBracket),
+            ("[[target|display]x]]", InvalidWikilinkReason::UnmatchedSingleBracket),
+        ];
+
+        for (input, expected_reason) in test_cases {
+            assert_invalid_wikilink(input, expected_reason);
         }
     }
 
@@ -635,12 +667,7 @@ mod wikilink_creation_tests {
             ),
             ("[[file (1)]]", "file (1)", "file (1)", false),
             ("[[file (1)|version 1]]", "file (1)", "version 1", true),
-            (
-                "[[outer [inner] text]]",
-                "outer [inner] text",
-                "outer [inner] text",
-                false,
-            ),
+
             ("[[target|(text)]]", "target", "(text)", true),
         ];
 

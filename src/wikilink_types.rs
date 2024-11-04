@@ -79,11 +79,11 @@ pub enum InvalidWikilinkReason {
     DoubleAlias,            // e.g. [[A|B|C]]
     EmptyWikilink,          // [[]] or [[|]]                            DONE
     Malformed,              // catchall
+    MissingAlias,           // i.e. [[display|]]
     NestedOpening,          // Contains [[ inside
     UnmatchedClosing,       // ]] without matching [[                   DONE
     UnmatchedOpening,       // [[ without closing ]]                    DONE
-    UnmatchedPipe,          // More pipes than expected or unescaped
-    UnmatchedSingleBracket, // ] without [ or [ without ]
+    UnmatchedSingleBracket, // ] without [ or [ without ]               DONE
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -92,10 +92,10 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::Malformed => write!(f, "catchall"),
+            Self::MissingAlias => write!(f, "contains pipe character '|' without an alias"),
             Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
-            Self::UnmatchedPipe => write!(f, "contains unmatched pipe character '|'"),
             Self::UnmatchedSingleBracket => write!(f, "contains unmatched bracket '[' or ']'"),
         }
     }
