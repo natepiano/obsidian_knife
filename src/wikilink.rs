@@ -299,7 +299,20 @@ fn parse_wikilink(
                 escape = false;
             }
             (false, '\\') => escape = true,
-            (false, '|') => state = state.transition_to_display(pos),
+            (false, '|') => {
+                match &state {
+                    WikilinkState::Display { target, content, .. } => {
+                        return Some(WikilinkParseResult::Invalid(InvalidWikilink {
+                            content: format!("[[{}|{}|", target, content),
+                            reason: InvalidWikilinkReason::DoubleAlias,
+                            span: (start_pos.checked_sub(2).unwrap_or(0), pos + 1),
+                        }));
+                    }
+                    WikilinkState::Target { .. } => {
+                        state = state.transition_to_display(pos);
+                    }
+                }
+            }
             (false, ']') if is_next_char(chars, ']') => {
                 // Check for any empty component
                 if let Some(value) = maybe_create_empty_wikilink(start_pos, &mut state, pos) {
@@ -753,6 +766,31 @@ mod wikilink_creation_tests {
 
         for (input, target, display, is_alias) in test_cases {
             assert_valid_wikilink(input, target, display, is_alias);
+        }
+    }
+
+    #[test]
+    fn test_parse_wikilink_double_alias() {
+        // Invalid cases
+        let invalid_cases = vec![
+            // Basic double alias case
+            ("[[target|alias|second]]", InvalidWikilinkReason::DoubleAlias),
+            // Multiple pipes
+            ("[[target|alias|second|third]]", InvalidWikilinkReason::DoubleAlias),
+            // Consecutive pipes
+            ("[[target||alias]]", InvalidWikilinkReason::DoubleAlias),
+            // Mixed consecutive and separated pipes
+            ("[[target||alias|another]]", InvalidWikilinkReason::DoubleAlias),
+            // Complex case with double pipe
+            ("[[target|display|another]]", InvalidWikilinkReason::DoubleAlias),
+            // Multiple consecutive pipes
+            ("[[target|||display]]", InvalidWikilinkReason::DoubleAlias),
+            // Escaped pipe is still a pipe
+            ("[[target\\|text|display]]", InvalidWikilinkReason::DoubleAlias),
+        ];
+
+        for (input, expected_reason) in invalid_cases {
+            assert_invalid_wikilink(input, expected_reason);
         }
     }
 
