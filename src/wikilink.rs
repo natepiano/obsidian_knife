@@ -184,6 +184,14 @@ enum WikilinkState {
 }
 
 impl WikilinkState {
+    fn formatted_content(&self) -> String {
+        match self {
+            WikilinkState::Target { content, .. } => content.to_string(),
+            WikilinkState::Display { target, content, .. } => format!("{}|{}", target, content),
+            _ => String::new(),
+        }
+    }
+
     fn push_char(&mut self, c: char) {
         match self {
             WikilinkState::Target { content, .. } => content.push(c),
@@ -268,13 +276,9 @@ fn parse_wikilink(
             // Continue accumulating until we reach `]]` after an error
             if c == ']' && is_next_char(chars, ']') {
                 chars.next(); // Consume the second ']'
-                let content = match &state {
-                    WikilinkState::Target { content, .. } => content.to_string(),
-                    WikilinkState::Display { target, content, .. } => format!("{}|{}", target, content),
-                    _ => String::new(),
-                };
+
                 return Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                    content: format!("[[{}]]", content),
+                    content: format!("[[{}]]", state.formatted_content()),
                     reason: error_state.unwrap(),
                     span: (start_pos, pos + 2),
                 }));
@@ -287,12 +291,10 @@ fn parse_wikilink(
         match c {
             '\\' => {
                 if let Some((_, next_c)) = chars.next() {
-                    // If `\|`, treat it as alias separator and transition to `Display`
                     if next_c == '|' {
                         match &state {
                             WikilinkState::Target { .. } => state = state.transition_to_display(pos),
                             WikilinkState::Display { .. } => {
-                                // Set error state to DoubleAlias
                                 error_state = Some(InvalidWikilinkReason::DoubleAlias);
                             }
                             _ => {}
@@ -306,7 +308,6 @@ fn parse_wikilink(
                 match &state {
                     WikilinkState::Target { .. } => state = state.transition_to_display(pos),
                     WikilinkState::Display { .. } => {
-                        // If we're already in Display, a second `|` means DoubleAlias
                         error_state = Some(InvalidWikilinkReason::DoubleAlias);
                         state.push_char(c); // Treat as part of content
                     }
@@ -317,14 +318,12 @@ fn parse_wikilink(
                 if is_next_char(chars, ']') {
                     chars.next(); // Consume the second ']'
 
-                    // Check if we have an empty or valid wikilink
                     if let Some(empty_wikilink) = maybe_create_empty_wikilink(start_pos, &mut state, pos) {
                         return Some(empty_wikilink);
                     }
 
                     return Some(state.to_wikilink());
                 } else {
-                    // Set error state for unmatched single `]`
                     error_state = Some(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
                 }
@@ -341,16 +340,12 @@ fn parse_wikilink(
         }
     }
 
-    // Handle unmatched opening or incomplete wikilink cases
-    let content = match &state {
-        WikilinkState::Target { content, .. } => content.to_string(),
-        WikilinkState::Display { target, content, .. } => format!("{}|{}", target, content),
-        _ => String::new(),
-    };
+    // we'll use whatever error state may have already been discovered but if there
+    // isn't one, then we are implicitly an UnmatchedOpening so mark it so
     Some(WikilinkParseResult::Invalid(InvalidWikilink {
-        content: format!("[[{}", content), // No closing `]]`
+        content: format!("[[{}", state.formatted_content()), // No closing `]]`
         reason: error_state.unwrap_or(InvalidWikilinkReason::UnmatchedOpening),
-        span: (start_pos, start_pos + content.len() + 2),
+        span: (start_pos, start_pos + state.formatted_content().len() + 2),
     }))
 }
 
