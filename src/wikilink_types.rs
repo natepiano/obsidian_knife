@@ -77,14 +77,13 @@ impl fmt::Display for Wikilink {
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
     DoubleAlias,            // e.g. [[A|B|C]]
-    EmptyWikilink,          // [[]] or [[|]]                                DONE
+    EmptyWikilink,          // [[]] or [[|]]                            DONE
     Malformed,              // catchall
     NestedOpening,          // Contains [[ inside
-    UnmatchedClosing,       // ]] without matching [[                       DONE
-    UnmatchedOpening,       // [[ without closing ]]
+    UnmatchedClosing,       // ]] without matching [[                   DONE
+    UnmatchedOpening,       // [[ without closing ]]                    DONE
     UnmatchedPipe,          // More pipes than expected or unescaped
-    UnmatchedSingleClosing, // ] without [
-    UnmatchedSingleOpening, // [ without ]
+    UnmatchedSingleBracket, // ] without [ or [ without ]
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -97,8 +96,7 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
             Self::UnmatchedPipe => write!(f, "contains unmatched pipe character '|'"),
-            Self::UnmatchedSingleClosing => write!(f, "contains unmatched closing bracket ']'"),
-            Self::UnmatchedSingleOpening => write!(f, "contains unmatched opening bracket '['"),
+            Self::UnmatchedSingleBracket => write!(f, "contains unmatched bracket '[' or ']'"),
         }
     }
 }

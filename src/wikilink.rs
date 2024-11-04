@@ -224,7 +224,7 @@ fn parse_wikilink(
         }
     }
 
-    // If we reach here, there was no closing ']]'
+    // If we reach here, there was no closing ']]' - we're at the end of the line
     create_unmatched_opening(start_pos, &state, last_pos + 1)
 }
 
