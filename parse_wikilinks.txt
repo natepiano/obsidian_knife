@@ -73,14 +73,14 @@ Use TempDir for all file operation tests
 Keep changes localized until necessary to expand
 
 Test requirements:
-prefer modifying existing tests over creating new ones unless you have to
+Definitely modify existing tests rather than creating new ones unless you have to
 organize tests under wikilink_creation module
 
 Proposed Step-by-Step Plan:
 [Previous plan remains valid, now supported by more detailed requirements]
 
 Update parse_wikilink Implementation
-a. Enhance State enum for better tracking
+a. Enhance WikilinkState enum for better tracking
 b. Add span tracking
 c. Implement invalid pattern detection
 d. Update return type
@@ -89,7 +89,6 @@ f. Add specific invalid case tests
 
 Update collect_all_wikilinks
 
-Keep existing return signature (HashSet<CompiledWikilink>)
 Add parameter to collect invalid wikilinks
 Update logic to handle both valid and invalid results
 Update existing collect_all_wikilinks tests
@@ -105,7 +104,6 @@ Update scan_markdown_file
 
 Modify to store invalid wikilinks in MarkdownFileInfo
 Update tests for scan_markdown_file to verify invalid wikilink collection
-
 
 Enhance back_populate Processing
 

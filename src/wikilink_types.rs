@@ -186,6 +186,8 @@ impl Eq for CompiledWikilink {}
 pub enum InvalidWikilinkReason {
     NestedOpening,     // Contains [[ inside
     UnmatchedClosing,  // ]] without matching [[
+    UnmatchedOpening, // [[ without closing ]]
+    UnmatchedSingleOpening, // [ without ]
     ImproperlyNested,  // e.g. [[A|B]]C]]
     UnmatchedPipe,     // More pipes than expected or unescaped
     DoubleAlias,       // e.g. [[A|B|C]]
@@ -198,6 +200,8 @@ impl fmt::Display for InvalidWikilinkReason {
         match self {
             Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
+            Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
+            Self::UnmatchedSingleOpening => write!(f, "contains unmatched opening bracket '['"),
             Self::ImproperlyNested => write!(f, "contains improperly nested brackets"),
             Self::UnmatchedPipe => write!(f, "contains unmatched pipe character '|'"),
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
