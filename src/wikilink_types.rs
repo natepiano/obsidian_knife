@@ -78,10 +78,10 @@ impl fmt::Display for Wikilink {
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
     DoubleAlias,       // e.g. [[A|B|C]]
-    EmptyWikilink,     // [[]] or [[|]]
+    EmptyWikilink,     // [[]] or [[|]]                                DONE
     Malformed,         // catchall
     NestedOpening,     // Contains [[ inside
-    UnmatchedClosing,  // ]] without matching [[
+    UnmatchedClosing,  // ]] without matching [[                       DONE
     UnmatchedOpening,  // [[ without closing ]]
     UnmatchedPipe,     // More pipes than expected or unescaped
     UnmatchedSingleClosing, // ] without [

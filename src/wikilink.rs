@@ -106,7 +106,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
                     result.invalid.push(invalid);
                 }
                 None => {
-                    // Handle unclosed wikilink
+                    // Handle unmatched opening
                     // Position will be from [[ to end of parsed content
                     result.invalid.push(InvalidWikilink {
                         content: content[start_idx..].to_string(),
