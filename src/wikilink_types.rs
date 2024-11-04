@@ -79,6 +79,7 @@ impl fmt::Display for Wikilink {
 pub enum InvalidWikilinkReason {
     DoubleAlias,       // e.g. [[A|B|C]]
     EmptyWikilink,     // [[]] or [[|]]
+    Malformed,         // catchall
     NestedOpening,     // Contains [[ inside
     UnmatchedClosing,  // ]] without matching [[
     UnmatchedOpening,  // [[ without closing ]]
@@ -92,6 +93,7 @@ impl fmt::Display for InvalidWikilinkReason {
         match self {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
+            Self::Malformed => write!(f, "catchall"),
             Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
