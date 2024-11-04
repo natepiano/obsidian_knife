@@ -196,12 +196,12 @@ pub enum InvalidWikilinkReason {
 impl fmt::Display for InvalidWikilinkReason {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            InvalidWikilinkReason::NestedOpening => write!(f, "contains nested opening brackets"),
-            InvalidWikilinkReason::UnmatchedClosing => write!(f, "contains unmatched closing brackets"),
-            InvalidWikilinkReason::ImproperlyNested => write!(f, "improperly nested brackets"),
-            InvalidWikilinkReason::UnmatchedPipe => write!(f, "contains unmatched pipe character"),
-            InvalidWikilinkReason::DoubleAlias => write!(f, "contains multiple alias separators"),
-            InvalidWikilinkReason::Malformed => write!(f, "malformed wikilink structure")
+            Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
+            Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
+            Self::ImproperlyNested => write!(f, "contains improperly nested brackets"),
+            Self::UnmatchedPipe => write!(f, "contains unmatched pipe character '|'"),
+            Self::DoubleAlias => write!(f, "contains multiple alias separators"),
+            Self::Malformed => write!(f, "has malformed wikilink structure")
         }
     }
 }
@@ -213,25 +213,19 @@ pub struct InvalidWikilink {
     pub span: (usize, usize)        // Start and end positions in the original text
 }
 
+impl fmt::Display for InvalidWikilink {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Invalid wikilink at position {}-{}: '{}' {}",
+               self.span.0,
+               self.span.1,
+               self.content,
+               self.reason
+        )
+    }
+}
+
 #[derive(Debug, PartialEq)]
 pub enum WikilinkParseResult {
     Valid(Wikilink),
     Invalid(InvalidWikilink)
-}
-
-// Add display implementation for InvalidWikilink
-impl fmt::Display for InvalidWikilink {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Invalid wikilink '{}' at position {}-{}: ",
-               self.content, self.span.0, self.span.1)?;
-
-        match self.reason {
-            InvalidWikilinkReason::NestedOpening => write!(f, "contains nested opening brackets '[['"),
-            InvalidWikilinkReason::UnmatchedClosing => write!(f, "contains unmatched closing brackets"),
-            InvalidWikilinkReason::ImproperlyNested => write!(f, "improperly nested brackets"),
-            InvalidWikilinkReason::UnmatchedPipe => write!(f, "contains unmatched pipe character"),
-            InvalidWikilinkReason::DoubleAlias => write!(f, "contains multiple alias separators"),
-            InvalidWikilinkReason::Malformed => write!(f, "malformed wikilink structure")
-        }
-    }
 }
