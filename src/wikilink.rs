@@ -247,9 +247,304 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
+mod extract_wikilinks_tests {
     use super::*;
-    use std::collections::HashSet;
+
+    struct WikilinkTestCase {
+        description: &'static str,
+        input: &'static str,
+        expected_valid: Vec<(&'static str, &'static str, bool)>, // (target, display, is_alias)
+        expected_invalid: Vec<(&'static str, InvalidWikilinkReason, (usize, usize))>, // (content, reason, span)
+    }
+
+    fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
+        let extracted = extract_wikilinks_from_content(test_case.input);
+
+        // Verify valid wikilinks
+        assert_eq!(
+            extracted.valid.len(),
+            test_case.expected_valid.len(),
+            "Mismatch in number of valid wikilinks for: {}",
+            test_case.description
+        );
+
+        for ((target, display, is_alias), wikilink) in test_case.expected_valid.iter().zip(extracted.valid.iter()) {
+            assert_eq!(wikilink.target, *target, "Target mismatch in {}", test_case.description);
+            assert_eq!(wikilink.display_text, *display, "Display text mismatch in {}", test_case.description);
+            assert_eq!(wikilink.is_alias, *is_alias, "Alias flag mismatch in {}", test_case.description);
+        }
+
+        // Verify invalid wikilinks
+        assert_eq!(
+            extracted.invalid.len(),
+            test_case.expected_invalid.len(),
+            "Mismatch in number of invalid wikilinks for: {}",
+            test_case.description
+        );
+
+        for ((content, reason, span), invalid) in test_case.expected_invalid.iter().zip(extracted.invalid.iter()) {
+            assert_eq!(invalid.content, *content, "Content mismatch in {}", test_case.description);
+            assert_eq!(invalid.reason, *reason, "Reason mismatch in {}", test_case.description);
+            assert_eq!(invalid.span, *span, "Span mismatch in {}", test_case.description);
+        }
+    }
+
+    #[test]
+    fn test_unmatched_brackets() {
+        let test_cases = vec![
+            WikilinkTestCase {
+                description: "Single unmatched closing brackets",
+                input: "Some text here]] more text",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("]]", InvalidWikilinkReason::UnmatchedClosing, (14, 16))
+                ],
+            },
+            WikilinkTestCase {
+                description: "Multiple unmatched closings",
+                input: "Text]] more]] text",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("]]", InvalidWikilinkReason::UnmatchedClosing, (4, 6)),
+                    ("]]", InvalidWikilinkReason::UnmatchedClosing, (11, 13)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Unmatched opening with valid link",
+                input: "[[Unclosed and [[Valid]]",
+                expected_valid: vec![
+                    ("Valid", "Valid", false)
+                ],
+                expected_invalid: vec![
+                    ("[[Unclosed and ", InvalidWikilinkReason::UnmatchedOpening, (0, 14)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Mixed valid and invalid brackets",
+                input: "[[Valid Link]] but here]] and [[Another]]",
+                expected_valid: vec![
+                    ("Valid Link", "Valid Link", false),
+                    ("Another", "Another", false)
+                ],
+                expected_invalid: vec![
+                    ("]]", InvalidWikilinkReason::UnmatchedClosing, (21, 23)),
+                ],
+            },
+        ];
+
+        for test_case in test_cases {
+            assert_wikilink_extraction(test_case);
+        }
+    }
+}
+
+#[cfg(test)]
+mod wikilink_creation_tests {
+    use crate::wikilink_types::ToWikilink;
+    use super::*;
+    use std::path::Path;
+
+    // Macro to test simple wikilink creation
+    macro_rules! test_wikilink {
+        ($test_name:ident, $input:expr, $expected:expr) => {
+            #[test]
+            fn $test_name() {
+                let formatted = format_wikilink(&Path::new($input));
+                assert_eq!(formatted, $expected);
+            }
+        };
+    }
+
+    // Define simple wikilink tests using the macro
+    test_wikilink!(wikilink_simple, "test", "[[test]]");
+    test_wikilink!(wikilink_with_md, "test.md", "[[test]]");
+    test_wikilink!(wikilink_empty, "", "[[]]");
+    test_wikilink!(wikilink_unicode, "テスト.md", "[[テスト]]");
+    test_wikilink!(wikilink_with_space, "test café.md", "[[test café]]");
+
+    /// Helper function to parse a full wikilink string.
+    /// It ensures the input starts with `[[` and ends with `]]`,
+    /// extracts the inner content, and passes it to `parse_wikilink`.
+    fn parse_full_wikilink(input: &str) -> Option<WikilinkParseResult> {
+        if input.starts_with("[[") && input.ends_with("]]") {
+            // Extract the substring after `[[` and include the closing `]]`
+            let inner = &input[2..];
+            let mut chars = inner.char_indices().peekable();
+            parse_wikilink(&mut chars)
+        } else {
+            // Invalid format if it doesn't start and end with brackets
+            None
+        }
+    }
+
+    /// Asserts that a full wikilink string is parsed correctly as valid.
+    fn assert_valid_wikilink(
+        input: &str,
+        expected_target: &str,
+        expected_display: &str,
+        expected_is_alias: bool,
+    ) {
+        let result = parse_full_wikilink(input).expect("Failed to parse wikilink");
+
+        match result {
+            WikilinkParseResult::Valid(wikilink) => {
+                assert_eq!(wikilink.target, expected_target, "Target mismatch for input: {}", input);
+                assert_eq!(wikilink.display_text, expected_display, "Display text mismatch for input: {}", input);
+                assert_eq!(wikilink.is_alias, expected_is_alias, "Alias flag mismatch for input: {}", input);
+            }
+            WikilinkParseResult::Invalid(invalid) => {
+                panic!(
+                    "Expected valid wikilink for input: {}, but got invalid: {} ({:?})",
+                    input, invalid.content, invalid.reason
+                );
+            }
+        }
+    }
+
+    /// Asserts that a full wikilink string fails to parse as expected.
+    fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) {
+        let result = parse_full_wikilink(input);
+
+        match result {
+            Some(WikilinkParseResult::Invalid(invalid)) => {
+                assert_eq!(
+                    invalid.reason, expected_reason,
+                    "Expected reason {:?} but got {:?} for input: {}",
+                    expected_reason, invalid.reason, input
+                );
+            }
+            Some(WikilinkParseResult::Valid(_)) => {
+                panic!("Expected invalid wikilink for input: {}, but got valid.", input);
+            }
+            None => {
+                panic!("Expected invalid wikilink for input: {}, but got None.", input);
+            }
+        }
+    }
+
+    #[test]
+    fn to_aliased_wikilink_variants() {
+        let test_cases = vec![
+            ("target", "target", "[[target]]"),
+            ("Target", "target", "[[Target|target]]"),
+            ("test link", "Test Link", "[[test link|Test Link]]"),
+            ("Apple", "fruit", "[[Apple|fruit]]"),
+            ("Home", "主页", "[[Home|主页]]"),
+            ("page.md", "Page", "[[page|Page]]"),
+            ("café", "咖啡", "[[café|咖啡]]"),
+            ("テスト", "Test", "[[テスト|Test]]"),
+        ];
+
+        for (target, display, expected) in test_cases {
+            let result = target.to_aliased_wikilink(display);
+            assert_eq!(
+                result, expected,
+                "Failed for target '{}', display '{}'",
+                target, display
+            );
+        }
+
+        // Testing with String type
+        let string_target = String::from("Target");
+        assert_eq!(
+            string_target.to_aliased_wikilink("target"),
+            "[[Target|target]]"
+        );
+        assert_eq!(string_target.to_aliased_wikilink("Target"), "[[Target]]");
+    }
+
+    #[test]
+    fn test_empty_wikilink_variants() {
+        let test_cases = vec![
+            ("[[]]", InvalidWikilinkReason::EmptyWikilink),
+            ("[[|]]", InvalidWikilinkReason::EmptyWikilink),
+            ("[[display|]]", InvalidWikilinkReason::EmptyWikilink),
+            ("[[|alias]]", InvalidWikilinkReason::EmptyWikilink),
+            // Markdown table escaped versions
+            ("[[\\|]]", InvalidWikilinkReason::EmptyWikilink),
+            ("[[display\\|]]", InvalidWikilinkReason::EmptyWikilink),
+            ("[[\\|alias]]", InvalidWikilinkReason::EmptyWikilink),
+        ];
+
+        for (input, expected_reason) in test_cases {
+            assert_invalid_wikilink(input, expected_reason);
+        }
+    }
+
+    #[test]
+    fn test_nested_opening_brackets() {
+        let test_cases = vec![
+            // Nested opening brackets should be invalid
+            ("[[blah [[]]]", InvalidWikilinkReason::NestedOpening),
+            ("[[blah [[blah]]]]", InvalidWikilinkReason::NestedOpening),
+            // Additional nested cases
+            ("[[outer [[inner]]]]", InvalidWikilinkReason::NestedOpening),
+            ("[[level1 [[level2 [[level3]]]]]]", InvalidWikilinkReason::NestedOpening),
+        ];
+
+        for (input, expected_reason) in test_cases {
+            assert_invalid_wikilink(input, expected_reason);
+        }
+    }
+
+    #[test]
+    fn test_parse_wikilink_basic_and_aliased() {
+        let test_cases = vec![
+            // Basic cases
+            ("[[test]]", "test", "test", false),
+            ("[[simple link]]", "simple link", "simple link", false),
+            ("[[  spaced  ]]", "spaced", "spaced", false),
+            ("[[测试]]", "测试", "测试", false),
+            // Aliased cases
+            ("[[target|display]]", "target", "display", true),
+            ("[[  target  |  display  ]]", "target", "display", true),
+            ("[[测试|test]]", "测试", "test", true),
+            ("[[test|测试]]", "test", "测试", true),
+            ("[[a/b/c|display]]", "a/b/c", "display", true),
+        ];
+
+        for (input, target, display, is_alias) in test_cases {
+            assert_valid_wikilink(input, target, display, is_alias);
+        }
+    }
+
+    #[test]
+    fn test_parse_wikilink_escaped_chars() {
+        let test_cases = vec![
+            // Regular escape in target
+            ("[[test\\]text]]", "test]text", "test]text", false),
+            // Escaped characters in aliased link
+            ("[[target|display\\]text]]", "target", "display]text", true),
+            // Multiple escaped characters
+            ("[[test\\]with\\[brackets]]", "test]with[brackets", "test]with[brackets", false),
+        ];
+
+        for (input, target, display, is_alias) in test_cases {
+            assert_valid_wikilink(input, target, display, is_alias);
+        }
+    }
+
+    #[test]
+    fn test_parse_wikilink_special_chars() {
+        let test_cases = vec![
+            ("[[!@#$%^&*()]]", "!@#$%^&*()", "!@#$%^&*()", false),
+            ("[[../path/to/file]]", "../path/to/file", "../path/to/file", false),
+            ("[[file (1)]]", "file (1)", "file (1)", false),
+            ("[[file (1)|version 1]]", "file (1)", "version 1", true),
+            ("[[outer [inner] text]]", "outer [inner] text", "outer [inner] text", false),
+            ("[[target|(text)]]", "target", "(text)", true),
+        ];
+
+        for (input, target, display, is_alias) in test_cases {
+            assert_valid_wikilink(input, target, display, is_alias);
+        }
+    }
+}
+
+#[cfg(test)]
+mod collect_wikilinks_tests {
+    use super::*;
+    use tempfile::TempDir;
 
     // Update helper function to use direct creation
     fn assert_contains_wikilink(
@@ -270,347 +565,82 @@ mod tests {
         );
     }
 
-    // Submodule for collecting wikilinks
-    mod collect_wikilinks {
-        use super::*;
-        use tempfile::TempDir;
+    #[test]
+    fn collect_all_wikilinks_with_aliases() {
+        let content = "# Test\nHere's a [[Regular Link]] and [[Target|Display Text]]";
+        let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
 
-        #[test]
-        fn collect_all_wikilinks_with_aliases() {
-            let content = "# Test\nHere's a [[Regular Link]] and [[Target|Display Text]]";
-            let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("test file.md");
+        std::fs::write(&file_path, content).unwrap();
 
-            let temp_dir = TempDir::new().unwrap();
-            let file_path = temp_dir.path().join("test file.md");
-            std::fs::write(&file_path, content).unwrap();
+        let wikilinks = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
 
-            let wikilinks = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
+        // Verify expected wikilinks
+        assert_contains_wikilink(&wikilinks, "test file", None, false);
+        assert_contains_wikilink(&wikilinks, "test file", Some("Alias One"), true);
+        assert_contains_wikilink(&wikilinks, "test file", Some("Alias Two"), true);
+        assert_contains_wikilink(&wikilinks, "Regular Link", None, false);
+        assert_contains_wikilink(&wikilinks, "Target", Some("Display Text"), true);
+    }
 
-            // Verify expected wikilinks
-            assert_contains_wikilink(&wikilinks, "test file", None, false);
-            assert_contains_wikilink(&wikilinks, "test file", Some("Alias One"), true);
-            assert_contains_wikilink(&wikilinks, "test file", Some("Alias Two"), true);
-            assert_contains_wikilink(&wikilinks, "Regular Link", None, false);
-            assert_contains_wikilink(&wikilinks, "Target", Some("Display Text"), true);
+    #[test]
+    fn collect_wikilinks_with_context() {
+        let content = "Some [[Link]] here.";
+        let temp_dir = TempDir::new().unwrap();
+        let file_path = temp_dir.path().join("file.md");
+        std::fs::write(&file_path, content).unwrap();
+
+        let wikilinks = collect_all_wikilinks(content, &None, &file_path).unwrap();
+
+        assert_contains_wikilink(&wikilinks, "Link", None, false);
+    }
+}
+
+#[cfg(test)]
+mod markdown_links_tests {
+    use super::*;
+
+    #[test]
+    fn test_markdown_regex_matches() {
+        let regex = MARKDOWN_REGEX.clone();
+
+        let matching_cases = vec![
+            "[text](https://example.com)",
+            "[link](https://test.com)",
+            "[page](folder/page.md)",
+            "[img](../images/test.png)",
+            "[text](path 'title')",
+            "[text](path \"title\")",
+            "[](path)",
+            "[text]()",
+            "[]()",
+        ];
+
+        for case in matching_cases {
+            assert!(regex.is_match(case), "Regex should match '{}'", case);
         }
 
-        #[test]
-        fn collect_wikilinks_with_context() {
-            let content = "Some [[Link]] here.";
-            let temp_dir = TempDir::new().unwrap();
-            let file_path = temp_dir.path().join("file.md");
-            std::fs::write(&file_path, content).unwrap();
+        let non_matching_cases = vec![
+            "plain text",
+            "[[wikilink]]",
+            "![[imagelink]]",
+            "[incomplete",
+        ];
 
-            let wikilinks = collect_all_wikilinks(content, &None, &file_path).unwrap();
-
-            assert_contains_wikilink(&wikilinks, "Link", None, false);
+        for case in non_matching_cases {
+            assert!(!regex.is_match(case), "Regex should not match '{}'", case);
         }
     }
 
-    mod extract_wikilinks {
-        use super::*;
+    #[test]
+    fn test_markdown_link_extraction() {
+        let regex = MARKDOWN_REGEX.clone();
+        let text = "Here is [one](link1) and [two](link2) and normal text";
 
-        #[test]
-        fn test_unmatched_closing_brackets() {
-            let content = "Some text here]] more text";
-            let extracted = extract_wikilinks_from_content(content);
-
-            assert!(extracted.valid.is_empty(), "Should not have any valid wikilinks");
-            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
-            assert_eq!(
-                extracted.invalid[0].reason,
-                InvalidWikilinkReason::UnmatchedClosing,
-                "Should identify unmatched closing brackets"
-            );
-            assert_eq!(
-                extracted.invalid[0].span,
-                (14, 16),
-                "Should have correct span for unmatched brackets"
-            );
-        }
-
-        #[test]
-        fn test_mixed_valid_and_invalid() {
-            let content = "[[Valid Link]] but here]] and [[Another]]";
-            let extracted = extract_wikilinks_from_content(content);
-
-            assert_eq!(extracted.valid.len(), 2, "Should have two valid wikilinks");
-            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
-
-            // Check the valid wikilinks
-            assert!(extracted.valid.iter().any(|w| w.display_text == "Valid Link"));
-            assert!(extracted.valid.iter().any(|w| w.display_text == "Another"));
-
-            // Check the invalid wikilink
-            assert_eq!(
-                extracted.invalid[0].reason,
-                InvalidWikilinkReason::UnmatchedClosing
-            );
-        }
-
-        #[test]
-        fn test_unclosed_wikilink() {
-            let content = "[[Unclosed wikilink";
-            let extracted = extract_wikilinks_from_content(content);
-
-            assert!(extracted.valid.is_empty(), "Should not have any valid wikilinks");
-            assert_eq!(extracted.invalid.len(), 1, "Should have one invalid wikilink");
-            assert_eq!(
-                extracted.invalid[0].reason,
-                InvalidWikilinkReason::Malformed,
-                "Should identify malformed/unclosed wikilink"
-            );
-        }
-    }
-
-    #[cfg(test)]
-    mod wikilink_creation {
-        use crate::wikilink_types::ToWikilink;
-        use super::*;
-        use std::path::Path;
-
-        // Macro to test simple wikilink creation
-        macro_rules! test_wikilink {
-        ($test_name:ident, $input:expr, $expected:expr) => {
-            #[test]
-            fn $test_name() {
-                let formatted = format_wikilink(&Path::new($input));
-                assert_eq!(formatted, $expected);
-            }
-        };
-    }
-
-        // Define simple wikilink tests using the macro
-        test_wikilink!(wikilink_simple, "test", "[[test]]");
-        test_wikilink!(wikilink_with_md, "test.md", "[[test]]");
-        test_wikilink!(wikilink_empty, "", "[[]]");
-        test_wikilink!(wikilink_unicode, "テスト.md", "[[テスト]]");
-        test_wikilink!(wikilink_with_space, "test café.md", "[[test café]]");
-
-        /// Helper function to parse a full wikilink string.
-        /// It ensures the input starts with `[[` and ends with `]]`,
-        /// extracts the inner content, and passes it to `parse_wikilink`.
-        fn parse_full_wikilink(input: &str) -> Option<WikilinkParseResult> {
-            if input.starts_with("[[") && input.ends_with("]]") {
-                // Extract the substring after `[[` and include the closing `]]`
-                let inner = &input[2..];
-                let mut chars = inner.char_indices().peekable();
-                parse_wikilink(&mut chars)
-            } else {
-                // Invalid format if it doesn't start and end with brackets
-                None
-            }
-        }
-
-        /// Asserts that a full wikilink string is parsed correctly as valid.
-        fn assert_valid_wikilink(
-            input: &str,
-            expected_target: &str,
-            expected_display: &str,
-            expected_is_alias: bool,
-        ) {
-            let result = parse_full_wikilink(input).expect("Failed to parse wikilink");
-
-            match result {
-                WikilinkParseResult::Valid(wikilink) => {
-                    assert_eq!(wikilink.target, expected_target, "Target mismatch for input: {}", input);
-                    assert_eq!(wikilink.display_text, expected_display, "Display text mismatch for input: {}", input);
-                    assert_eq!(wikilink.is_alias, expected_is_alias, "Alias flag mismatch for input: {}", input);
-                }
-                WikilinkParseResult::Invalid(invalid) => {
-                    panic!(
-                        "Expected valid wikilink for input: {}, but got invalid: {} ({:?})",
-                        input, invalid.content, invalid.reason
-                    );
-                }
-            }
-        }
-
-        /// Asserts that a full wikilink string fails to parse as expected.
-        fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) {
-            let result = parse_full_wikilink(input);
-
-            match result {
-                Some(WikilinkParseResult::Invalid(invalid)) => {
-                    assert_eq!(
-                        invalid.reason, expected_reason,
-                        "Expected reason {:?} but got {:?} for input: {}",
-                        expected_reason, invalid.reason, input
-                    );
-                }
-                Some(WikilinkParseResult::Valid(_)) => {
-                    panic!("Expected invalid wikilink for input: {}, but got valid.", input);
-                }
-                None => {
-                    panic!("Expected invalid wikilink for input: {}, but got None.", input);
-                }
-            }
-        }
-
-        #[test]
-        fn to_aliased_wikilink_variants() {
-            let test_cases = vec![
-                ("target", "target", "[[target]]"),
-                ("Target", "target", "[[Target|target]]"),
-                ("test link", "Test Link", "[[test link|Test Link]]"),
-                ("Apple", "fruit", "[[Apple|fruit]]"),
-                ("Home", "主页", "[[Home|主页]]"),
-                ("page.md", "Page", "[[page|Page]]"),
-                ("café", "咖啡", "[[café|咖啡]]"),
-                ("テスト", "Test", "[[テスト|Test]]"),
-            ];
-
-            for (target, display, expected) in test_cases {
-                let result = target.to_aliased_wikilink(display);
-                assert_eq!(
-                    result, expected,
-                    "Failed for target '{}', display '{}'",
-                    target, display
-                );
-            }
-
-            // Testing with String type
-            let string_target = String::from("Target");
-            assert_eq!(
-                string_target.to_aliased_wikilink("target"),
-                "[[Target|target]]"
-            );
-            assert_eq!(string_target.to_aliased_wikilink("Target"), "[[Target]]");
-        }
-
-        #[test]
-        fn test_empty_wikilink_variants() {
-            let test_cases = vec![
-                ("[[]]", InvalidWikilinkReason::EmptyWikilink),
-                ("[[|]]", InvalidWikilinkReason::EmptyWikilink),
-                ("[[display|]]", InvalidWikilinkReason::EmptyWikilink),
-                ("[[|alias]]", InvalidWikilinkReason::EmptyWikilink),
-                // Markdown table escaped versions
-                ("[[\\|]]", InvalidWikilinkReason::EmptyWikilink),
-                ("[[display\\|]]", InvalidWikilinkReason::EmptyWikilink),
-                ("[[\\|alias]]", InvalidWikilinkReason::EmptyWikilink),
-            ];
-
-            for (input, expected_reason) in test_cases {
-                assert_invalid_wikilink(input, expected_reason);
-            }
-        }
-
-        #[test]
-        fn test_parse_wikilink_basic_and_aliased() {
-            let test_cases = vec![
-                // Basic cases
-                ("[[test]]", "test", "test", false),
-                ("[[simple link]]", "simple link", "simple link", false),
-                ("[[  spaced  ]]", "spaced", "spaced", false),
-                ("[[测试]]", "测试", "测试", false),
-                // Aliased cases
-                ("[[target|display]]", "target", "display", true),
-                ("[[  target  |  display  ]]", "target", "display", true),
-                ("[[测试|test]]", "测试", "test", true),
-                ("[[test|测试]]", "test", "测试", true),
-                ("[[a/b/c|display]]", "a/b/c", "display", true),
-            ];
-
-            for (input, target, display, is_alias) in test_cases {
-                assert_valid_wikilink(input, target, display, is_alias);
-            }
-        }
-
-        #[test]
-        fn test_parse_wikilink_escaped_chars() {
-            let test_cases = vec![
-                // Regular escape in target
-                ("[[test\\]text]]", "test]text", "test]text", false),
-                // Escaped characters in aliased link
-                ("[[target|display\\]text]]", "target", "display]text", true),
-                // Multiple escaped characters
-                ("[[test\\]with\\[brackets]]", "test]with[brackets", "test]with[brackets", false),
-            ];
-
-            for (input, target, display, is_alias) in test_cases {
-                assert_valid_wikilink(input, target, display, is_alias);
-            }
-        }
-
-        #[test]
-        fn test_parse_wikilink_special_chars() {
-            let test_cases = vec![
-                ("[[!@#$%^&*()]]", "!@#$%^&*()", "!@#$%^&*()", false),
-                ("[[../path/to/file]]", "../path/to/file", "../path/to/file", false),
-                ("[[file (1)]]", "file (1)", "file (1)", false),
-                ("[[file (1)|version 1]]", "file (1)", "version 1", true),
-                ("[[outer [inner] text]]", "outer [inner] text", "outer [inner] text", false),
-                ("[[target|(text)]]", "target", "(text)", true),
-            ];
-
-            for (input, target, display, is_alias) in test_cases {
-                assert_valid_wikilink(input, target, display, is_alias);
-            }
-        }
-
-        #[test]
-        fn test_nested_opening_brackets() {
-            let test_cases = vec![
-                // Nested opening brackets should be invalid
-                ("[[blah [[]]]", InvalidWikilinkReason::NestedOpening),
-                ("[[blah [[blah]]]]", InvalidWikilinkReason::NestedOpening),
-                // Additional nested cases
-                ("[[outer [[inner]]]]", InvalidWikilinkReason::NestedOpening),
-                ("[[level1 [[level2 [[level3]]]]]]", InvalidWikilinkReason::NestedOpening),
-            ];
-
-            for (input, expected_reason) in test_cases {
-                assert_invalid_wikilink(input, expected_reason);
-            }
-        }
-    }
-
-        // Submodule for Markdown link tests
-    mod markdown_links {
-        use super::*;
-
-        #[test]
-        fn test_markdown_regex_matches() {
-            let regex = MARKDOWN_REGEX.clone();
-
-            let matching_cases = vec![
-                "[text](https://example.com)",
-                "[link](https://test.com)",
-                "[page](folder/page.md)",
-                "[img](../images/test.png)",
-                "[text](path 'title')",
-                "[text](path \"title\")",
-                "[](path)",
-                "[text]()",
-                "[]()",
-            ];
-
-            for case in matching_cases {
-                assert!(regex.is_match(case), "Regex should match '{}'", case);
-            }
-
-            let non_matching_cases = vec![
-                "plain text",
-                "[[wikilink]]",
-                "![[imagelink]]",
-                "[incomplete",
-            ];
-
-            for case in non_matching_cases {
-                assert!(!regex.is_match(case), "Regex should not match '{}'", case);
-            }
-        }
-
-        #[test]
-        fn test_markdown_link_extraction() {
-            let regex = MARKDOWN_REGEX.clone();
-            let text = "Here is [one](link1) and [two](link2) and normal text";
-
-            let links: Vec<_> = regex.find_iter(text).map(|m| m.as_str()).collect();
-            assert_eq!(links.len(), 2);
-            assert_eq!(links[0], "[one](link1)");
-            assert_eq!(links[1], "[two](link2)");
-        }
+        let links: Vec<_> = regex.find_iter(text).map(|m| m.as_str()).collect();
+        assert_eq!(links.len(), 2);
+        assert_eq!(links[0], "[one](link1)");
+        assert_eq!(links[1], "[two](link2)");
     }
 }
