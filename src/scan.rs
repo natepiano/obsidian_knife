@@ -20,7 +20,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::wikilink_types::CompiledWikilink;
+use crate::wikilink_types::Wikilink;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -53,7 +53,7 @@ pub struct ObsidianRepositoryInfo {
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>, // Add the new field
-    pub wikilinks_sorted: Vec<CompiledWikilink>, // New field for all unique wikilinks
+    pub wikilinks_sorted: Vec<Wikilink>, // New field for all unique wikilinks
 }
 
 pub fn scan_obsidian_folder(
@@ -216,22 +216,21 @@ fn scan_folders(
         .sorted_by(|a, b| {
             // First compare by display text length (longer first)
             let length_cmp = b
-                .wikilink
                 .display_text
                 .len()
-                .cmp(&a.wikilink.display_text.len());
+                .cmp(&a.display_text.len());
             if length_cmp != std::cmp::Ordering::Equal {
                 return length_cmp;
             }
 
             // Then compare display texts
-            let display_cmp = a.wikilink.display_text.cmp(&b.wikilink.display_text);
+            let display_cmp = a.display_text.cmp(&b.display_text);
             if display_cmp != std::cmp::Ordering::Equal {
                 return display_cmp;
             }
 
             // For same display text, prefer aliases over non-aliases
-            let alias_cmp = match (a.wikilink.is_alias, b.wikilink.is_alias) {
+            let alias_cmp = match (a.is_alias, b.is_alias) {
                 (true, false) => std::cmp::Ordering::Less,
                 (false, true) => std::cmp::Ordering::Greater,
                 _ => std::cmp::Ordering::Equal,
@@ -241,7 +240,7 @@ fn scan_folders(
             }
 
             // If everything else is equal, compare targets to ensure total ordering
-            a.wikilink.target.cmp(&b.wikilink.target)
+            a.target.cmp(&b.target)
         })
         .collect();
 
@@ -249,7 +248,7 @@ fn scan_folders(
     let patterns: Vec<&str> = obsidian_repository_info
         .wikilinks_sorted
         .iter()
-        .map(|w| w.wikilink.display_text.as_str())
+        .map(|w| w.display_text.as_str())
         .collect();
 
     obsidian_repository_info.wikilinks_ac = Some(
@@ -279,7 +278,7 @@ fn scan_markdown_files(
 ) -> Result<
     (
         HashMap<PathBuf, MarkdownFileInfo>,
-        HashSet<CompiledWikilink>,
+        HashSet<Wikilink>,
     ),
     Box<dyn Error + Send + Sync>,
 > {
@@ -326,7 +325,7 @@ fn scan_markdown_files(
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
-) -> Result<(MarkdownFileInfo, HashSet<CompiledWikilink>), Box<dyn Error + Send + Sync>> {
+) -> Result<(MarkdownFileInfo, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let content = read_file_content(file_path)?;
 
     let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
@@ -486,7 +485,7 @@ Also linking to [[Alias One]] which is defined in frontmatter.
         // Collect unique target-display pairs
         let wikilink_pairs: HashSet<(String, String)> = wikilinks
             .iter()
-            .map(|w| (w.wikilink.target.clone(), w.wikilink.display_text.clone()))
+            .map(|w| (w.target.clone(), w.display_text.clone()))
             .collect();
 
         // Updated assertions
@@ -579,7 +578,7 @@ aliases:
                     &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
                 )
                 .unwrap();
-                file_wikilinks.into_iter().map(|w| w.wikilink.display_text)
+                file_wikilinks.into_iter().map(|w| w.display_text)
             })
             .filter(|link| link != "obsidian knife output") // Exclude "obsidian knife output"
             .collect();
@@ -792,7 +791,7 @@ Using tomatoes in cooking"#,
         let tomatoes_wikilinks: Vec<_> = repo_info
             .wikilinks_sorted
             .iter()
-            .filter(|w| w.wikilink.display_text.eq_ignore_ascii_case("tomatoes"))
+            .filter(|w| w.display_text.eq_ignore_ascii_case("tomatoes"))
             .collect();
 
         // Verify we found the wikilinks
@@ -802,7 +801,7 @@ Using tomatoes in cooking"#,
         );
 
         // The first occurrence should be the alias version
-        let first_tomatoes = &tomatoes_wikilinks[0].wikilink;
+        let first_tomatoes = &tomatoes_wikilinks[0];
         assert!(
             first_tomatoes.is_alias && first_tomatoes.target == "tomato",
             "First 'tomatoes' wikilink should be the alias version targeting 'tomato'"
@@ -812,10 +811,9 @@ Using tomatoes in cooking"#,
         let sorted = repo_info.wikilinks_sorted;
         for i in 1..sorted.len() {
             let comparison = sorted[i - 1]
-                .wikilink
                 .display_text
                 .len()
-                .cmp(&sorted[i].wikilink.display_text.len());
+                .cmp(&sorted[i].display_text.len());
             assert_ne!(
                 comparison,
                 std::cmp::Ordering::Less,

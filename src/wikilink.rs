@@ -4,7 +4,7 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
-use crate::wikilink_types::{CompiledWikilink, ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, Wikilink,WikilinkParseResult};
+use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, Wikilink,WikilinkParseResult};
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
@@ -39,7 +39,7 @@ pub fn collect_all_wikilinks(
     content: &str,
     aliases: &Option<Vec<String>>,
     file_path: &Path,
-) -> Result<HashSet<CompiledWikilink>, Box<dyn Error + Send + Sync>> {
+) -> Result<HashSet<Wikilink>, Box<dyn Error + Send + Sync>> {
     let mut all_wikilinks = HashSet::new();
 
     let filename = file_path
@@ -49,7 +49,7 @@ pub fn collect_all_wikilinks(
 
     // Add filename-based wikilink
     let filename_wikilink = create_filename_wikilink(filename);
-    all_wikilinks.insert(CompiledWikilink::new(filename_wikilink.clone()));
+    all_wikilinks.insert(filename_wikilink.clone());
 
     // Add aliases if present
     if let Some(alias_list) = aliases {
@@ -59,7 +59,7 @@ pub fn collect_all_wikilinks(
                 target: filename_wikilink.target.clone(),
                 is_alias: true,
             };
-            all_wikilinks.insert(CompiledWikilink::new(wikilink));
+            all_wikilinks.insert(wikilink);
         }
     }
 
@@ -68,7 +68,7 @@ pub fn collect_all_wikilinks(
         let extracted = extract_wikilinks_from_content(line);
 
         for wikilink in extracted.valid {
-            all_wikilinks.insert(CompiledWikilink::new(wikilink));
+            all_wikilinks.insert(wikilink);
         }
     }
 
@@ -248,15 +248,15 @@ mod tests {
 
     // Update helper function to use direct creation
     fn assert_contains_wikilink(
-        wikilinks: &HashSet<CompiledWikilink>,
+        wikilinks: &HashSet<Wikilink>,
         target: &str,
         display: Option<&str>,
         is_alias: bool,
     ) {
         let exists = wikilinks.iter().any(|w| {
-            w.wikilink.target == target
-                && w.wikilink.display_text == display.unwrap_or(target)
-                && w.wikilink.is_alias == is_alias
+            w.target == target
+                && w.display_text == display.unwrap_or(target)
+                && w.is_alias == is_alias
         });
         assert!(
             exists,

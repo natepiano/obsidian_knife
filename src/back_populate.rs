@@ -12,7 +12,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
-use crate::wikilink_types::{CompiledWikilink, ToWikilink};
+use crate::wikilink_types::{ToWikilink, Wikilink};
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -139,7 +139,7 @@ fn find_all_back_populate_matches(
         .wikilinks_ac
         .as_ref()
         .expect("Wikilinks AC pattern should be initialized");
-    let sorted_wikilinks: Vec<&CompiledWikilink> =
+    let sorted_wikilinks: Vec<&Wikilink> =
         obsidian_repository_info.wikilinks_sorted.iter().collect();
 
     let matches = searcher.search_with_info(
@@ -166,30 +166,30 @@ fn find_all_back_populate_matches(
 
 fn identify_ambiguous_matches(
     matches: &[BackPopulateMatch],
-    wikilinks: &[CompiledWikilink],
+    wikilinks: &[Wikilink],
 ) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
     // Create a case-insensitive map of targets to their canonical forms
     let mut target_map: HashMap<String, String> = HashMap::new();
     for wikilink in wikilinks {
-        let lower_target = wikilink.wikilink.target.to_lowercase();
+        let lower_target = wikilink.target.to_lowercase();
         // If this is the first time we've seen this target (case-insensitive),
         // or if this version is an exact match for the lowercase version,
         // use this as the canonical form
         if !target_map.contains_key(&lower_target)
-            || wikilink.wikilink.target.to_lowercase() == wikilink.wikilink.target
+            || wikilink.target.to_lowercase() == wikilink.target
         {
-            target_map.insert(lower_target, wikilink.wikilink.target.clone());
+            target_map.insert(lower_target, wikilink.target.clone());
         }
     }
 
     // Create a map of display_text to normalized targets
     let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
     for wikilink in wikilinks {
-        let lower_target = wikilink.wikilink.target.to_lowercase();
+        let lower_target = wikilink.target.to_lowercase();
         // Use the canonical form of the target from our target_map
         if let Some(canonical_target) = target_map.get(&lower_target) {
             display_text_map
-                .entry(wikilink.wikilink.display_text.clone())
+                .entry(wikilink.display_text.clone())
                 .or_default()
                 .insert(canonical_target.clone());
         }
@@ -249,7 +249,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
 
 fn process_file(
     file_path: &Path,
-    sorted_wikilinks: &[&CompiledWikilink],
+    sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
     ac: &AhoCorasick,
@@ -342,8 +342,8 @@ fn process_line(
     line_idx: usize,
     line: &str,
     file_path: &Path,
-    ac: &aho_corasick::AhoCorasick,
-    sorted_wikilinks: &[&CompiledWikilink],
+    ac: &AhoCorasick,
+    sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
@@ -377,15 +377,15 @@ fn process_line(
 
         // Rest of the validation
         if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
-            let mut replacement = if matched_text == wikilink.wikilink.target {
+            let mut replacement = if matched_text == wikilink.target {
                 // Only use simple format if exact match (case-sensitive)
-                format!("{}", wikilink.wikilink.target.to_wikilink())
+                format!("{}", wikilink.target.to_wikilink())
             } else {
                 // Use aliased format for case differences or actual aliases
                 //format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
                 format!(
                     "{}",
-                    wikilink.wikilink.target.to_aliased_wikilink(matched_text)
+                    wikilink.target.to_aliased_wikilink(matched_text)
                 )
             };
 
@@ -445,7 +445,7 @@ fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
 
     for mat in WIKILINK_FINDER.find_iter(line) {
         let content_start = mat.start() + 2; // Start of link content, after "[["
-        let content_end = mat.end() - 2; // End of link content, before "]]"
+        let content_end = mat.end() - 2; // End of link content, before "\]\]"
 
         // Return true only if the byte_position falls within the link content
         if byte_position >= content_start && byte_position < content_end {
@@ -879,10 +879,6 @@ fn apply_line_replacements(
 
     // Apply replacements in sorted (reverse) order
     for match_info in sorted_matches {
-        // println!(
-        //     "\nProcessing match at position {} for '{}': replacing with '{}'",
-        //     match_info.position, match_info.found_text, match_info.replacement
-        // );
 
         let start = match_info.position;
         let end = start + match_info.found_text.len();
@@ -897,18 +893,8 @@ fn apply_line_replacements(
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
 
-        // Debug information about slices involved in replacement
-        //let before_slice = &updated_line[..start];
-        //let after_slice = &updated_line[end..];
-        // println!("Before match slice: '{}'", before_slice);
-        // println!("Match slice: '{}'", &updated_line[start..end]);
-        // println!("After match slice: '{}'", after_slice);
-
         // Perform the replacement
         updated_line.replace_range(start..end, &match_info.replacement);
-
-        // Debug: Show line content after replacement
-        // println!("Updated line after replacement: '{}'", updated_line);
 
         // Validation check after each replacement
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
@@ -919,9 +905,6 @@ fn apply_line_replacements(
             );
         }
     }
-
-    // Final debug statement to show the fully updated line after all replacements
-    // println!("Final updated line: '{}'", updated_line);
 
     updated_line
 }
@@ -945,10 +928,10 @@ mod tests {
     use crate::wikilink_types::Wikilink;
 
     // Common helper function to build Aho-Corasick automaton from CompiledWikilinks
-    fn build_aho_corasick(wikilinks: &[CompiledWikilink]) -> AhoCorasick {
+    fn build_aho_corasick(wikilinks: &[Wikilink]) -> AhoCorasick {
         let patterns: Vec<&str> = wikilinks
             .iter()
-            .map(|w| w.wikilink.display_text.as_str())
+            .map(|w| w.display_text.as_str())
             .collect();
 
         AhoCorasickBuilder::new()
@@ -982,9 +965,6 @@ mod tests {
         // If custom wikilinks are provided, use them
         if let Some(wikilinks) = wikilinks {
             repo_info.wikilinks_sorted = wikilinks
-                .into_iter()
-                .map(CompiledWikilink::new)
-                .collect();
         } else {
             // Default wikilink
             let wikilink = Wikilink {
@@ -992,7 +972,7 @@ mod tests {
                 target: "Test Link".to_string(),
                 is_alias: false,
             };
-            repo_info.wikilinks_sorted = vec![CompiledWikilink::new(wikilink)];
+            repo_info.wikilinks_sorted = vec![wikilink];
         }
 
         // Build the Aho-Corasick automaton
@@ -1133,8 +1113,8 @@ mod tests {
             let file_path = create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
 
             // Create a custom wikilink and build AC automaton directly
-            let compiled = CompiledWikilink::new(case.wikilink);
-            let ac = build_aho_corasick(&[compiled.clone()]);
+            let wikilink = case.wikilink;
+            let ac = build_aho_corasick(&[wikilink.clone()]);
             let markdown_info = MarkdownFileInfo::new();
 
             let matches = process_line(
@@ -1142,7 +1122,7 @@ mod tests {
                 case.content,
                 &file_path,
                 &ac,
-                &[&compiled],
+                &[&wikilink],
                 &config,
                 &markdown_info,
             )
@@ -1242,13 +1222,11 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled1 = CompiledWikilink::new(wikilink1);
-        let compiled2 = CompiledWikilink::new(wikilink2);
 
         // Clear and add to the sorted vec
         repo_info.wikilinks_sorted.clear();
-        repo_info.wikilinks_sorted.push(compiled1);
-        repo_info.wikilinks_sorted.push(compiled2);
+        repo_info.wikilinks_sorted.push(wikilink1);
+        repo_info.wikilinks_sorted.push(wikilink2);
 
         // Use the helper function to build the automaton
         repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
@@ -1275,8 +1253,7 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(wikilink);
-        let ac = build_aho_corasick(&[compiled.clone()]);
+        let ac = build_aho_corasick(&[wikilink.clone()]);
         let markdown_info = MarkdownFileInfo::new();
 
         // Test line with excluded pattern
@@ -1286,7 +1263,7 @@ mod tests {
             line,
             &file_path,
             &ac,
-            &[&compiled],
+            &[&wikilink],
             &config,
             &markdown_info,
         )
@@ -1301,7 +1278,7 @@ mod tests {
             line,
             &file_path,
             &ac,
-            &[&compiled],
+            &[&wikilink],
             &config,
             &markdown_info,
         )
@@ -1323,11 +1300,9 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(wikilink.clone());
-
         // Update repo_info with the custom wikilink
         repo_info.wikilinks_sorted.clear();
-        repo_info.wikilinks_sorted.push(compiled);
+        repo_info.wikilinks_sorted.push(wikilink);
         repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
         // Create a test file with its own name using the helper function
@@ -1468,11 +1443,9 @@ mod tests {
             is_alias: true,
         };
 
-        let compiled = CompiledWikilink::new(wikilink);
-
         // Clear and add to the sorted vec
         repo_info.wikilinks_sorted.clear();
-        repo_info.wikilinks_sorted.push(compiled);
+        repo_info.wikilinks_sorted.push(wikilink);
 
         // Use the helper function to build the automaton
         repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
@@ -1530,9 +1503,9 @@ mod tests {
             create_test_environment(false, None, Some(wikilinks.clone()));
 
         // Compile the wikilinks
-        let compiled_wikilinks = &repo_info.wikilinks_sorted;
+        let sorted_wikilinks = &repo_info.wikilinks_sorted;
 
-        let ac = build_aho_corasick(compiled_wikilinks);
+        let ac = build_aho_corasick(sorted_wikilinks);
 
         let markdown_info = MarkdownFileInfo::new();
 
@@ -1573,7 +1546,7 @@ mod tests {
         ];
 
         // Create references to the compiled wikilinks
-        let wikilink_refs: Vec<&CompiledWikilink> = compiled_wikilinks.iter().collect();
+        let wikilink_refs: Vec<&Wikilink> = sorted_wikilinks.iter().collect();
         for (line, expected_replacements, description) in test_cases {
             let matches = process_line(
                 0,
@@ -1763,21 +1736,21 @@ mod tests {
     fn test_identify_ambiguous_matches() {
         // Create test wikilinks
         let wikilinks = vec![
-            CompiledWikilink::new(Wikilink {
+            Wikilink {
                 display_text: "Ed".to_string(),
                 target: "Ed Barnes".to_string(),
                 is_alias: true,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "Ed".to_string(),
                 target: "Ed Stanfield".to_string(),
                 is_alias: true,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "Unique".to_string(),
                 target: "Unique Target".to_string(),
                 is_alias: false,
-            }),
+            },
         ];
 
         // Create test matches
@@ -1820,16 +1793,16 @@ mod tests {
     fn test_case_insensitive_targets() {
         // Create test wikilinks with case variations
         let wikilinks = vec![
-            CompiledWikilink::new(Wikilink {
+            Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon".to_string(),
                 is_alias: false,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "amazon".to_string(),
                 target: "amazon".to_string(),
                 is_alias: false,
-            }),
+            },
         ];
 
         // Create test matches
@@ -1873,16 +1846,16 @@ mod tests {
     fn test_truly_ambiguous_targets() {
         // Create test wikilinks with actually different targets
         let wikilinks = vec![
-            CompiledWikilink::new(Wikilink {
+            Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
-            }),
+            },
         ];
 
         let matches = vec![BackPopulateMatch {
@@ -1914,27 +1887,27 @@ mod tests {
     fn test_mixed_case_and_truly_ambiguous() {
         let wikilinks = vec![
             // Case variations of one target
-            CompiledWikilink::new(Wikilink {
+            Wikilink {
                 display_text: "AWS".to_string(),
                 target: "AWS".to_string(),
                 is_alias: false,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "aws".to_string(),
                 target: "aws".to_string(),
                 is_alias: false,
-            }),
+            },
             // Truly different targets
-            CompiledWikilink::new(Wikilink {
+            Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
-            }),
-            CompiledWikilink::new(Wikilink {
+            },
+            Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
-            }),
+            },
         ];
 
         let matches = vec![

@@ -58,52 +58,22 @@ pub struct ExtractedWikilinks {
     pub invalid: Vec<InvalidWikilink>,
 }
 
-#[derive(Debug, Clone)]
-pub struct CompiledWikilink {
-    pub wikilink: Wikilink,
-    hash: u64,
-}
 
-impl fmt::Display for CompiledWikilink {
+impl fmt::Display for Wikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}{}{}",
-            self.wikilink.target,
-            if self.wikilink.is_alias { "|" } else { "" },
-            if self.wikilink.is_alias {
-                &self.wikilink.display_text
+            self.target,
+            if self.is_alias { "|" } else { "" },
+            if self.is_alias {
+                &self.display_text
             } else {
                 ""
             }
         )
     }
 }
-
-impl CompiledWikilink {
-    pub fn new(wikilink: Wikilink) -> Self {
-        use std::hash::{Hash, Hasher};
-        let mut hasher = std::collections::hash_map::DefaultHasher::new();
-        wikilink.hash(&mut hasher);
-        let hash = hasher.finish();
-
-        CompiledWikilink { wikilink, hash }
-    }
-}
-
-impl std::hash::Hash for CompiledWikilink {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        state.write_u64(self.hash);
-    }
-}
-
-impl PartialEq for CompiledWikilink {
-    fn eq(&self, other: &Self) -> bool {
-        self.wikilink == other.wikilink
-    }
-}
-
-impl Eq for CompiledWikilink {}
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
@@ -119,7 +89,7 @@ pub enum InvalidWikilinkReason {
 
 // Update Display implementation for InvalidWikilinkReason to handle the new variant
 impl fmt::Display for InvalidWikilinkReason {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::NestedOpening => write!(f, "contains nested opening brackets '[['"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
@@ -141,7 +111,7 @@ pub struct InvalidWikilink {
 }
 
 impl fmt::Display for InvalidWikilink {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "Invalid wikilink at position {}-{}: '{}' {}",
                self.span.0,
                self.span.1,
