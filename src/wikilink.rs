@@ -198,27 +198,32 @@ fn parse_wikilink(chars: &mut std::iter::Peekable<std::str::CharIndices>) -> Opt
                 escape = false;
             }
             (false, '\\') => escape = true,
-            (false, '[') => {
-                // Check for nested [[
-                if let Some(&(_, next_ch)) = chars.peek() {
-                    if next_ch == '[' {
-                        chars.next(); // Consume the second [
-                        return Some(WikilinkParseResult::Invalid(InvalidWikilink {
-                            content: match &state {
-                                WikilinkState::Target { content, .. } => content.clone(),
-                                WikilinkState::Display { target, content, .. } => {
-                                    format!("{}|{}", target, content)
-                                }
-                            },
-                            reason: InvalidWikilinkReason::NestedOpening,
-                            span: (start_pos, pos + 2),
-                        }));
+            (false, '|') => state = state.transition_to_display(pos),
+            (false, ']') if is_next_char(chars, ']') => {
+                // Check for any empty component
+                match &state {
+                    WikilinkState::Target { content, .. } => {
+                        if content.trim().is_empty() {
+                            return Some(WikilinkParseResult::Invalid(InvalidWikilink {
+                                content: content.clone(),
+                                reason: InvalidWikilinkReason::EmptyWikilink,
+                                span: (start_pos, pos + 2),
+                            }));
+                        }
+                    }
+                    WikilinkState::Display { target, content, .. } => {
+                        // Consider empty if either part is empty
+                        if target.trim().is_empty() || content.trim().is_empty() {
+                            return Some(WikilinkParseResult::Invalid(InvalidWikilink {
+                                content: format!("{}|{}", target, content),
+                                reason: InvalidWikilinkReason::EmptyWikilink,
+                                span: (start_pos, pos + 2),
+                            }));
+                        }
                     }
                 }
-                state.push_char(c);
+                return Some(state.to_wikilink());
             }
-            (false, '|') => state = state.transition_to_display(pos),
-            (false, ']') if is_next_char(chars, ']') => return Some(state.to_wikilink()),
             (false, c) => state.push_char(c),
         }
     }
@@ -471,6 +476,24 @@ mod tests {
                 "[[Target|target]]"
             );
             assert_eq!(string_target.to_aliased_wikilink("Target"), "[[Target]]");
+        }
+
+        #[test]
+        fn test_empty_wikilink_variants() {
+            let test_cases = vec![
+                ("[[]]", InvalidWikilinkReason::EmptyWikilink),
+                ("[[|]]", InvalidWikilinkReason::EmptyWikilink),
+                ("[[display|]]", InvalidWikilinkReason::EmptyWikilink),
+                ("[[|alias]]", InvalidWikilinkReason::EmptyWikilink),
+                // Markdown table escaped versions
+                ("[[\\|]]", InvalidWikilinkReason::EmptyWikilink),
+                ("[[display\\|]]", InvalidWikilinkReason::EmptyWikilink),
+                ("[[\\|alias]]", InvalidWikilinkReason::EmptyWikilink),
+            ];
+
+            for (input, expected_reason) in test_cases {
+                assert_invalid_wikilink(input, expected_reason);
+            }
         }
 
         #[test]
