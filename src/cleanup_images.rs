@@ -607,9 +607,10 @@ fn remove_image_reference(line: &str, regex: &Regex) -> String {
     }
 }
 
+// for deletion, we need the path to the file
 fn extract_relative_path(matched: &str) -> String {
     if !matched.contains(FORWARD_SLASH) {
-        return "conf/media".to_string();
+        return DEFAULT_MEDIA_PATH.to_string();
     }
 
     let old_name = matched.split(FORWARD_SLASH).last().unwrap_or("");
@@ -623,7 +624,7 @@ fn extract_relative_path(matched: &str) -> String {
             .unwrap_or("conf/media")
             .to_string()
     } else {
-        "conf/media".to_string()
+        DEFAULT_MEDIA_PATH.to_string()
     }
 }
 

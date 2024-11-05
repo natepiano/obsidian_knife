@@ -29,6 +29,8 @@ pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache
 pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
 // image stuff
+// the DEFAULT_MEDIA_PATH could be a configuration parameter as it's really specific to my setup
+pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
