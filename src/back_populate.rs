@@ -245,12 +245,12 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         ch.is_alphanumeric() || ch == '_'
     }
 
-    // Helper to check if character is part of a contraction
-    fn is_contraction(chars: &str) -> bool {
+    // Helper to check if string matches a contraction pattern ending in 't
+    fn is_t_contraction(chars: &str) -> bool {
         let mut chars = chars.chars();
         match (chars.next(), chars.next()) {
-            // Handle both straight and curly apostrophes
-            (Some('\''), Some(c)) | (Some('\u{2019}'), Some(c)) => c.is_ascii_lowercase(),
+            // Check for "'t" or "'t" (curly apostrophe)
+            (Some('\''), Some('t')) | (Some('\u{2019}'), Some('t')) => true,
             _ => false
         }
     }
@@ -264,9 +264,10 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         before.map_or(true, |ch| !is_word_char(ch));
 
     // Check end boundary
+    // No need to check for possessives as they should be valid candidates for replacement
     let end_is_boundary = ends_at == line.len() ||
-        (!is_word_char(after_chars.chars().next().unwrap()) &&
-            !is_contraction(after_chars));
+        (!is_word_char(after_chars.chars().next().unwrap_or(' ')) &&
+            !is_t_contraction(after_chars));
 
     start_is_boundary && end_is_boundary
 }
