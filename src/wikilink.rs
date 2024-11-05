@@ -38,7 +38,7 @@ pub fn format_wikilink(path: &Path) -> String {
         .unwrap_or_else(|| "[[]]".to_string())
 }
 
-pub fn collect_all_wikilinks(
+pub fn collect_file_wikilinks(
     content: &str,
     aliases: &Option<Vec<String>>,
     file_path: &Path,
@@ -69,7 +69,7 @@ pub fn collect_all_wikilinks(
 
     // Process content line by line and collect both valid and invalid wikilinks
     for line in content.lines() {
-        let extracted = extract_wikilinks_from_content(line);
+        let extracted = extract_wikilinks(line);
         result.valid.extend(extracted.valid);
         result.invalid.extend(extracted.invalid);
     }
@@ -77,9 +77,9 @@ pub fn collect_all_wikilinks(
     Ok(result)
 }
 
-pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
+pub fn extract_wikilinks(line: &str) -> ExtractedWikilinks {
     let mut result = ExtractedWikilinks::default();
-    let mut chars = content.char_indices().peekable();
+    let mut chars = line.char_indices().peekable();
     let mut markdown_opening: Option<usize> = None;
 
     while let Some((start_idx, ch)) = chars.next() {
@@ -110,7 +110,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
             if is_next_char(&mut chars, '[') {
                 // If we had an unclosed markdown link before this wikilink, add it as invalid
                 if let Some(start_pos) = markdown_opening {
-                    let content_slice = content[start_pos..start_idx].trim();
+                    let content_slice = line[start_pos..start_idx].trim();
                     result.invalid.push(InvalidWikilink {
                         content: content_slice.to_string(),
                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
@@ -120,7 +120,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
                 }
 
                 // Check if the previous character was '!' (image link)
-                if start_idx > 0 && is_previous_char(content, start_idx, '!') {
+                if start_idx > 0 && is_previous_char(line, start_idx, '!') {
                     continue; // Skip image links
                 }
 
@@ -138,7 +138,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
             } else {
                 // If we had an unclosed markdown link before this one, add it as invalid
                 if let Some(start_pos) = markdown_opening {
-                    let content_slice = content[start_pos..start_idx].trim();
+                    let content_slice = line[start_pos..start_idx].trim();
                     result.invalid.push(InvalidWikilink {
                         content: content_slice.to_string(),
                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
@@ -153,7 +153,7 @@ pub fn extract_wikilinks_from_content(content: &str) -> ExtractedWikilinks {
 
     // If we reach the end with an unclosed markdown link, add it as invalid
     if let Some(start_pos) = markdown_opening {
-        let content_slice = content[start_pos..].trim();
+        let content_slice = line[start_pos..].trim();
         result.invalid.push(InvalidWikilink {
             content: content_slice.to_string(),
             reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
@@ -200,31 +200,14 @@ impl WikilinkState {
         }
     }
 
-    fn transition_to_display(self, pipe_pos: usize) -> Self {
-        match self {
-            WikilinkState::Target { content, start_pos } => WikilinkState::Display {
-                target: content,
-                _target_span: (start_pos, pipe_pos),
+    fn transition_to_display(&mut self, pipe_pos: usize) {
+        if let WikilinkState::Target { content, start_pos } = self {
+            *self = WikilinkState::Display {
+                target: content.clone(),
+                _target_span: (*start_pos, pipe_pos),
                 content: String::new(),
                 _start_pos: pipe_pos + 1,
-            },
-            display_state => display_state,
-        }
-    }
-
-    fn transition_to_invalid(self, reason: InvalidWikilinkReason) -> Self {
-        match self {
-            WikilinkState::Target { content, start_pos } => WikilinkState::Invalid {
-                reason,
-                content,
-                start_pos,
-            },
-            WikilinkState::Display { target, content, .. } => WikilinkState::Invalid {
-                reason,
-                content: format!("[[{}|{}", target, content),
-                start_pos: 0, // Use 0 or another appropriate fallback
-            },
-            invalid_state => invalid_state, // Already invalid, no transition needed
+            };
         }
     }
 
@@ -272,11 +255,48 @@ fn parse_wikilink(
     let mut error_state: Option<InvalidWikilinkReason> = None;
 
     while let Some((pos, c)) = chars.next() {
-        if error_state.is_some() {
-            // Continue accumulating until we reach `]]` after an error
+        if error_state.is_none() {
+            match c {
+                '\\' => {
+                    // Consume the next character once and then handle it
+                    if let Some((_, next_c)) = chars.next() {
+                        if next_c == '|' {
+                            handle_pipe_or_escaped_pipe(&mut state, pos, &mut error_state, None);
+                        } else {
+                            state.push_char(next_c); // Add other escaped characters as-is
+                        }
+                    }
+                }
+                '|' => handle_pipe_or_escaped_pipe(&mut state, pos, &mut error_state, Some('|')),
+                ']' => {
+                    if is_next_char(chars, ']') {
+                        chars.next(); // Consume the second ']'
+
+                        // Handle empty or valid wikilink cases if no error has been set
+                        if let Some(empty_wikilink) = maybe_create_empty_wikilink(start_pos, &mut state, pos) {
+                            return Some(empty_wikilink);
+                        }
+
+                        return Some(state.to_wikilink());
+                    } else {
+                        error_state = Some(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                        state.push_char(c);
+                    }
+                }
+                '[' => {
+                    if !is_next_char(chars, '[') {
+                        error_state = Some(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                        state.push_char(c);
+                    } else {
+                        chars.next(); // Consume the second `[`
+                    }
+                }
+                _ => state.push_char(c),
+            }
+        } else {
+            // Accumulate characters after an error has been detected, until we reach `]]`
             if c == ']' && is_next_char(chars, ']') {
                 chars.next(); // Consume the second ']'
-
                 return Some(WikilinkParseResult::Invalid(InvalidWikilink {
                     content: format!("[[{}]]", state.formatted_content()),
                     reason: error_state.unwrap(),
@@ -284,69 +304,34 @@ fn parse_wikilink(
                 }));
             } else {
                 state.push_char(c);
-                continue;
             }
-        }
-
-        match c {
-            '\\' => {
-                if let Some((_, next_c)) = chars.next() {
-                    if next_c == '|' {
-                        match &state {
-                            WikilinkState::Target { .. } => state = state.transition_to_display(pos),
-                            WikilinkState::Display { .. } => {
-                                error_state = Some(InvalidWikilinkReason::DoubleAlias);
-                            }
-                            _ => {}
-                        }
-                    } else {
-                        state.push_char(next_c); // Add other escaped characters as-is
-                    }
-                }
-            }
-            '|' => {
-                match &state {
-                    WikilinkState::Target { .. } => state = state.transition_to_display(pos),
-                    WikilinkState::Display { .. } => {
-                        error_state = Some(InvalidWikilinkReason::DoubleAlias);
-                        state.push_char(c); // Treat as part of content
-                    }
-                    _ => {}
-                }
-            }
-            ']' => {
-                if is_next_char(chars, ']') {
-                    chars.next(); // Consume the second ']'
-
-                    if let Some(empty_wikilink) = maybe_create_empty_wikilink(start_pos, &mut state, pos) {
-                        return Some(empty_wikilink);
-                    }
-
-                    return Some(state.to_wikilink());
-                } else {
-                    error_state = Some(InvalidWikilinkReason::UnmatchedSingleInWikilink);
-                    state.push_char(c);
-                }
-            }
-            '[' => {
-                if !is_next_char(chars, '[') {
-                    error_state = Some(InvalidWikilinkReason::UnmatchedSingleInWikilink);
-                    state.push_char(c);
-                } else {
-                    chars.next(); // Consume the second `[`
-                }
-            }
-            _ => state.push_char(c),
         }
     }
 
-    // we'll use whatever error state may have already been discovered but if there
-    // isn't one, then we are implicitly an UnmatchedOpening so mark it so
+    // Handle unmatched opening or incomplete wikilink cases at the end
     Some(WikilinkParseResult::Invalid(InvalidWikilink {
         content: format!("[[{}", state.formatted_content()), // No closing `]]`
         reason: error_state.unwrap_or(InvalidWikilinkReason::UnmatchedOpening),
         span: (start_pos, start_pos + state.formatted_content().len() + 2),
     }))
+}
+
+fn handle_pipe_or_escaped_pipe(
+    state: &mut WikilinkState,
+    pos: usize,
+    error_state: &mut Option<InvalidWikilinkReason>,
+    push_char: Option<char>,
+) {
+    match state {
+        WikilinkState::Target { .. } => state.transition_to_display(pos),
+        WikilinkState::Display { .. } => {
+            *error_state = Some(InvalidWikilinkReason::DoubleAlias);
+            if let Some(c) = push_char {
+                state.push_char(c); // Push if provided, treating `|` as part of content
+            }
+        }
+        _ => {}
+    }
 }
 
 fn maybe_create_empty_wikilink(
@@ -424,7 +409,7 @@ mod extract_wikilinks_tests {
     }
 
     fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
-        let extracted = extract_wikilinks_from_content(test_case.input);
+        let extracted = extract_wikilinks(test_case.input);
 
         // Verify valid wikilinks
         assert_eq!(
@@ -927,7 +912,7 @@ mod collect_wikilinks_tests {
     }
 
     #[test]
-    fn collect_all_wikilinks_with_aliases() {
+    fn test_collect_file_wikilinks_with_aliases() {
         let content = "# Test\nHere's a [[Regular Link]] and [[Target|Display Text]]";
         let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
 
@@ -935,7 +920,7 @@ mod collect_wikilinks_tests {
         let file_path = temp_dir.path().join("test file.md");
         std::fs::write(&file_path, content).unwrap();
 
-        let extracted = collect_all_wikilinks(content, &aliases, &file_path).unwrap();
+        let extracted = collect_file_wikilinks(content, &aliases, &file_path).unwrap();
 
         // Verify expected wikilinks
         assert_contains_wikilink(&extracted.valid, "test file", None, false);
@@ -949,13 +934,13 @@ mod collect_wikilinks_tests {
     }
 
     #[test]
-    fn test_collect_all_wikilinks_with_invalid() {
+    fn test_collect_file_wikilinks_with_invalid() {
         let content = "Some [[good link]] and [[bad|link|extra]] here [[unmatched";
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test.md");
         std::fs::write(&file_path, content).unwrap();
 
-        let extracted = collect_all_wikilinks(content, &None, &file_path).unwrap();
+        let extracted = collect_file_wikilinks(content, &None, &file_path).unwrap();
 
         // Check valid wikilinks
         assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
@@ -986,7 +971,7 @@ mod collect_wikilinks_tests {
         let file_path = temp_dir.path().join("test.md");
         std::fs::write(&file_path, content).unwrap();
 
-        let extracted = collect_all_wikilinks(content, &None, &file_path).unwrap();
+        let extracted = collect_file_wikilinks(content, &None, &file_path).unwrap();
 
         // Check that both empty wikilinks are marked as invalid
         assert_eq!(

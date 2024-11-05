@@ -3,7 +3,7 @@ use crate::{
     frontmatter::{deserialize_frontmatter, FrontMatter},
     sha256_cache::{CacheFileStatus, Sha256Cache},
     validated_config::ValidatedConfig,
-    wikilink::collect_all_wikilinks,
+    wikilink::collect_file_wikilinks,
 };
 
 use crate::wikilink_types::{InvalidWikilink, Wikilink};
@@ -332,12 +332,14 @@ fn scan_markdown_file(
 
     extract_do_not_back_populate(&mut markdown_file_info);
 
-    // Pass only the aliases to collect_all_wikilinks
     let aliases = markdown_file_info
         .frontmatter
         .as_ref()
         .and_then(|fm| fm.aliases().cloned());
-    let extracted_wikilinks = collect_all_wikilinks(&content, &aliases, file_path)?;
+
+    // collect_file_wikilinks constructs a set of wikilinks from the content (&content),
+    // the aliases (&aliases) in the frontmatter and the name of the file itself (file_path)
+    let extracted_wikilinks = collect_file_wikilinks(&content, &aliases, file_path)?;
 
     // Store invalid wikilinks in markdown_file_info
     markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);

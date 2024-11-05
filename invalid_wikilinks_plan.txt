@@ -13,15 +13,7 @@ Modify existing tests rather than creating new ones when possible
 Use TempDir for all file operation tests
 Keep changes localized until necessary to expand - that is, Don't change return signatures until we've handled each step so we don't have to do one big global change
 
-Proposed Step-by-Step Plan:
-Update scan_markdown_file to appropriately pass back the ExtractedWikilinks struct and its caller to
-properly add invalid links to MarkDownFileInfo
-
-Modify MarkdownFileInfo / scan_markdown_file
-Add invalid_wikilinks field to store InvalidWikilink instances on each individual MarkdownFileInfo instances
-Update constructor and related functions
-Update existing MarkdownFileInfo tests
-
+Plan:
 Enhance back_populate Processing
 Add logic to use invalid wikilink spans as exclusion zones
 Don't attempt to replace text within invalid wikilink spans
