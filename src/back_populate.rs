@@ -493,6 +493,7 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
     let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
     let mut file_info: HashMap<String, (String, bool)> = HashMap::new(); // Tracks replacement and table status per file
 
+
     // Group matches by file and line
     for match_info in matches {
         let key = (match_info.file_path.clone(), match_info.line_number);
@@ -770,7 +771,11 @@ fn write_back_populate_table(
 
             // Create a row for each line, maintaining the consolidation of occurrences
             for line_info in m.line_info {
-                let highlighted_line = highlight_matches(&line_info.line_text, found_text);
+                let highlighted_line = highlight_matches(
+                    &line_info.line_text,
+                    &line_info.positions,
+                    found_text.len()
+                );
 
                 let mut row = vec![
                     file_stem.to_wikilink(),
@@ -821,44 +826,36 @@ fn write_back_populate_table(
 }
 
 // Helper function to highlight all instances of a pattern in text
-fn highlight_matches(text: &str, pattern: &str) -> String {
-    let mut result = String::new();
+fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
+    let mut result = String::with_capacity(text.len() * 2);
     let mut last_end = 0;
 
-    // Create a case-insensitive regex pattern for the search
-    let pattern_regex = match regex::Regex::new(&format!(r"(?i){}", regex::escape(pattern))) {
-        Ok(regex) => regex,
-        Err(e) => {
-            eprintln!("Failed to create regex pattern: {}", e);
-            return text.to_string(); // Return original text on regex creation failure
-        }
-    };
+    // Sort positions to ensure we process them in order
+    let mut sorted_positions = positions.to_vec();
+    sorted_positions.sort_unstable();
 
-    // Iterate over all non-overlapping matches of the pattern in the text
-    for mat in pattern_regex.find_iter(text) {
-        let start = mat.start();
-        let end = mat.end();
+    for &start in sorted_positions.iter() {
+        let end = start + match_length;
 
-        // Check if the match starts within a wikilink
-        if is_within_wikilink(text, start) {
-            // If within a wikilink, skip highlighting and include the text as-is
-            result.push_str(&text[last_end..end]);
-        } else {
-            // If not within a wikilink, highlight the match
-            result.push_str(&text[last_end..start]); // Add text before the match
-            result.push_str(&format!(
-                "<span style=\"color: red;\">{}</span>",
-                &text[start..end]
-            ));
+        // Validate UTF-8 boundaries
+        if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
+            eprintln!("Invalid UTF-8 boundary detected at position {} or {}", start, end);
+            return text.to_string();
         }
 
-        // Update the last_end to the end of the current match
+        // Add text before the match
+        result.push_str(&text[last_end..start]);
+
+        // Add the highlighted match
+        result.push_str("<span style=\"color: red;\">");
+        result.push_str(&text[start..end]);
+        result.push_str("</span>");
+
         last_end = end;
     }
 
-    // Append any remaining text after the last match
+    // Add any remaining text after the last match
     result.push_str(&text[last_end..]);
-
     result
 }
 

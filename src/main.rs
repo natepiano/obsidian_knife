@@ -23,34 +23,28 @@ impl Error for MainError {}
 // Separate error handling and reporting logic
 fn handle_error(
     e: Box<dyn Error + Send + Sync>,
-    writer: &ThreadSafeWriter,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL1, ERROR_OCCURRED)?;
-    writer.writeln(LEVEL2, ERROR_TYPE)?;
-    writer.writeln("", &format!("{}", std::any::type_name_of_val(&*e)))?;
-    writer.writeln(ERROR_DETAILS, &format!("{}", e))?;
+    println!("error occurred");
+    println!("error type:");
+    println!("{}", std::any::type_name_of_val(&*e));
+    println!("error details: {}", e);
 
     if let Some(source) = e.source() {
-        writer.writeln(ERROR_SOURCE, &format!("{}", source))?;
+        println!("error source: {}", source);
     }
 
-    output_duration(ERROR_DURATION, writer, start_time)?;
+    output_duration("error duration:", start_time)?;
 
     Err(e)
 }
 
 fn output_duration(
     prefix: &str,
-    writer: &ThreadSafeWriter,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
-    writer.writeln(
-        prefix,
-        &format!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS),
-    )?;
     println!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS);
     Ok(())
 }
@@ -58,16 +52,10 @@ fn output_duration(
 // Process successful execution
 fn handle_success(
     config_file: &str,
-    writer: &ThreadSafeWriter,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(
-        LEVEL1,
-        &format!("{} {}", PROCESSING_FINAL_MESSAGE, config_file),
-    )?;
-
-    output_duration(PROCESSING_DURATION, writer, start_time)?;
-
+    println!("{} {}", PROCESSING_FINAL_MESSAGE, config_file);
+    output_duration(PROCESSING_DURATION, start_time)?;
     Ok(())
 }
 
@@ -104,8 +92,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     write_execution_start(&validated_config, &writer)?;
 
     match process_config(validated_config, &writer) {
-        Ok(_) => handle_success(&config_file, &writer, start_time),
-        Err(e) => handle_error(e, &writer, start_time),
+        Ok(_) => handle_success(&config_file, start_time),
+        Err(e) => handle_error(e, start_time), // Removed writer parameter
     }
 }
 
