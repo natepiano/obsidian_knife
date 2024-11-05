@@ -50,13 +50,15 @@ pub struct Wikilink {
     pub display_text: String,
     pub target: String,
     pub is_alias: bool,
+    pub is_image: bool,
 }
 
 impl fmt::Display for Wikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}{}{}",
+            "{}{}{}{}",
+            if self.is_image { "!" } else { "" },
             self.target,
             if self.is_alias { "|" } else { "" },
             if self.is_alias {
@@ -124,7 +126,7 @@ pub struct ParsedInvalidWikilink {
 }
 
 impl ParsedInvalidWikilink {
-    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
+    pub fn into_invalid_wikilink(self, line: String, line_number: usize,) -> InvalidWikilink {
         InvalidWikilink {
             content: self.content,
             reason: self.reason,

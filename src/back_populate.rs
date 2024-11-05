@@ -4,7 +4,7 @@ use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::MARKDOWN_REGEX;
-use crate::wikilink_types::{ToWikilink, Wikilink};
+use crate::wikilink_types::{InvalidWikilink, ToWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -88,6 +88,9 @@ pub fn process_back_populate(
         ),
     )?;
     let start = Instant::now();
+
+    // Write invalid wikilinks table first
+    write_invalid_wikilinks_table(writer, obsidian_repository_info)?;
 
     let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
     if let Some(filter) = config.back_populate_file_filter() {
@@ -567,6 +570,90 @@ fn write_ambiguous_matches(
     Ok(())
 }
 
+fn write_invalid_wikilinks_table(
+    writer: &ThreadSafeWriter,
+    obsidian_repository_info: &ObsidianRepositoryInfo,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+
+    // Collect all invalid wikilinks from all files
+    let mut invalid_wikilinks: Vec<(&Path, &InvalidWikilink)> = Vec::new();
+    for (file_path, file_info) in &obsidian_repository_info.markdown_files {
+        for invalid_wikilink in &file_info.invalid_wikilinks {
+            invalid_wikilinks.push((file_path, invalid_wikilink));
+        }
+    }
+
+    // If no invalid wikilinks, return early
+    if invalid_wikilinks.is_empty() {
+        return Ok(());
+    }
+
+    // Sort by filename and then line number
+    invalid_wikilinks.sort_by(|a, b| {
+        let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+        let file_cmp = file_a.cmp(file_b);
+        if file_cmp != std::cmp::Ordering::Equal {
+            file_cmp
+        } else {
+            a.1.line_number.cmp(&b.1.line_number)
+        }
+    });
+
+    writer.writeln(LEVEL2, "invalid wikilinks")?;
+
+    // Write header describing the count
+    writer.writeln(
+        "",
+        &format!(
+            "found {} invalid wikilinks in {} files\n",
+            invalid_wikilinks.len(),
+            invalid_wikilinks.iter().map(|(p, _)| p).collect::<HashSet<_>>().len()
+        ),
+    )?;
+
+    // Prepare headers and alignments for the table
+    let headers = vec![
+        "file name",
+        "line",
+        "line text",
+        "reason",
+        "invalid wikilink",
+    ];
+
+    let alignments = vec![
+        ColumnAlignment::Left,
+        ColumnAlignment::Right,
+        ColumnAlignment::Left,
+        ColumnAlignment::Left,
+        ColumnAlignment::Left,
+    ];
+
+    // Prepare rows
+    let rows: Vec<Vec<String>> = invalid_wikilinks
+        .iter()
+        .map(|(file_path, invalid_wikilink)| {
+            vec![
+                file_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_wikilink(),
+                invalid_wikilink.line_number.to_string(),
+                escape_pipe(&invalid_wikilink.line),
+                invalid_wikilink.reason.to_string(),
+                escape_pipe(&invalid_wikilink.content),
+            ]
+        })
+        .collect();
+
+    // Write the table
+    writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
+    writer.writeln("", "\n---\n")?;
+
+    Ok(())
+}
+
 fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
@@ -964,6 +1051,7 @@ mod tests {
                 display_text: "Test Link".to_string(),
                 target: "Test Link".to_string(),
                 is_alias: false,
+                is_image: false,
             };
             repo_info.wikilinks_sorted = vec![wikilink];
         }
@@ -1038,6 +1126,7 @@ mod tests {
                     display_text: "Test Link".to_string(),
                     target: "Test Link".to_string(),
                     is_alias: false,
+                    is_image: false,
                 },
                 expected_matches: vec![
                     ("test link", "[[Test Link|test link]]"),
@@ -1052,6 +1141,7 @@ mod tests {
                     display_text: "josh".to_string(),
                     target: "Joshua Strayhorn".to_string(),
                     is_alias: true,
+                    is_image: false,
                 },
                 expected_matches: vec![("josh", "[[Joshua Strayhorn|josh]]")],
                 description: "Alias case preservation",
@@ -1062,6 +1152,7 @@ mod tests {
                     display_text: "Test Link".to_string(),
                     target: "Test Link".to_string(),
                     is_alias: false,
+                    is_image: false,
                 },
                 expected_matches: vec![
                     ("Test Link", "[[Test Link]]"), // Exact match
@@ -1209,11 +1300,14 @@ mod tests {
             display_text: "Kyri".to_string(),
             target: "Kyri".to_string(),
             is_alias: false,
+            is_image: false,
         };
         let wikilink2 = Wikilink {
             display_text: "Kyri".to_string(),
             target: "Kyriana McCoy".to_string(),
             is_alias: true,
+            is_image: false,
+
         };
 
         // Clear and add to the sorted vec
@@ -1244,6 +1338,8 @@ mod tests {
             display_text: "cheese".to_string(),
             target: "fromage".to_string(),
             is_alias: true,
+            is_image: false,
+
         };
 
         let ac = build_aho_corasick(&[wikilink.clone()]);
@@ -1291,6 +1387,8 @@ mod tests {
             display_text: "Will".to_string(),
             target: "William.md".to_string(),
             is_alias: true,
+            is_image: false,
+
         };
 
         // Update repo_info with the custom wikilink
@@ -1434,6 +1532,8 @@ mod tests {
             display_text: "Will".to_string(),
             target: "William.md".to_string(),
             is_alias: true,
+            is_image: false,
+
         };
 
         // Clear and add to the sorted vec
@@ -1484,11 +1584,15 @@ mod tests {
                 display_text: "Test Link".to_string(),
                 target: "Target Page".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "Another Link".to_string(),
                 target: "Other Page".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
         ];
         // Initialize environment with custom wikilinks
@@ -1694,12 +1798,16 @@ mod tests {
                 display_text: "tomatoes".to_string(),
                 target: "tomato".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             // Also include a direct "tomatoes" wikilink that should not be used
             Wikilink {
                 display_text: "tomatoes".to_string(),
                 target: "tomatoes".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
         ];
 
@@ -1733,16 +1841,22 @@ mod tests {
                 display_text: "Ed".to_string(),
                 target: "Ed Barnes".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "Ed".to_string(),
                 target: "Ed Stanfield".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "Unique".to_string(),
                 target: "Unique Target".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
         ];
 
@@ -1790,11 +1904,15 @@ mod tests {
                 display_text: "Amazon".to_string(),
                 target: "Amazon".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "amazon".to_string(),
                 target: "amazon".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
         ];
 
@@ -1843,11 +1961,15 @@ mod tests {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
         ];
 
@@ -1884,22 +2006,30 @@ mod tests {
                 display_text: "AWS".to_string(),
                 target: "AWS".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "aws".to_string(),
                 target: "aws".to_string(),
                 is_alias: false,
+                is_image: false,
+
             },
             // Truly different targets
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
+                is_image: false,
+
             },
         ];
 

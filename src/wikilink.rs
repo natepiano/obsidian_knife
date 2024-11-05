@@ -26,6 +26,7 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
         display_text: display_text.clone(),
         target: display_text,
         is_alias: false,
+        is_image: false,
     }
 }
 
@@ -59,6 +60,7 @@ pub fn collect_file_wikilinks(
                 display_text: alias.clone(),
                 target: filename_wikilink.target.clone(),
                 is_alias: true,
+                is_image: false,
             };
             result.valid.push(wikilink);
         }
@@ -122,13 +124,11 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     markdown_opening = None;
                 }
 
-                // Check if the previous character was '!' (image link)
-                if start_idx > 0 && is_previous_char(line, start_idx, '!') {
-                    continue; // Skip image links
-                }
+                // Check if this is an image wikilink
+                let is_image = start_idx > 0 && is_previous_char(line, start_idx, '!');
 
                 // Attempt to parse the wikilink
-                if let Some(wikilink_result) = parse_wikilink(&mut chars) {
+                if let Some(wikilink_result) = parse_wikilink(&mut chars, is_image) {
                     match wikilink_result {
                         WikilinkParseResult::Valid(wikilink) => {
                             result.valid.push(wikilink);
@@ -228,7 +228,7 @@ impl WikilinkState {
         };
     }
 
-    fn to_wikilink(self, end_pos: usize) -> WikilinkParseResult {
+    fn to_wikilink(self, end_pos: usize, is_image: bool) -> WikilinkParseResult {
         match self {
             WikilinkState::Target { content, start_pos } => {
                 let trimmed = content.trim().to_string();
@@ -243,6 +243,7 @@ impl WikilinkState {
                         display_text: trimmed.clone(),
                         target: trimmed,
                         is_alias: false,
+                        is_image,
                     })
                 }
             }
@@ -260,6 +261,7 @@ impl WikilinkState {
                         display_text: trimmed_display,
                         target: trimmed_target,
                         is_alias: true,
+                        is_image,
                     })
                 }
             }
@@ -280,6 +282,7 @@ impl WikilinkState {
 
 fn parse_wikilink(
     chars: &mut Peekable<CharIndices>,
+    is_image: bool,
 ) -> Option<WikilinkParseResult> {
     let initial_pos = chars.peek()?.0;
     let start_pos = initial_pos.saturating_sub(2);
@@ -292,7 +295,7 @@ fn parse_wikilink(
     while let Some((pos, c)) = chars.next() {
         if matches!(state, WikilinkState::Invalid { .. }) {
             if c == ']' && is_next_char(chars, ']') {
-                return Some(state.to_wikilink(pos + 2));
+                return Some(state.to_wikilink(pos + 2, is_image));
             }
             state.push_char(c);
             continue;
@@ -330,7 +333,7 @@ fn parse_wikilink(
             }
             ']' => {
                 if is_next_char(chars, ']') {
-                    return Some(state.to_wikilink(pos + 2));
+                    return Some(state.to_wikilink(pos + 2, is_image));
                 } else {
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
@@ -346,7 +349,7 @@ fn parse_wikilink(
 
     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedOpening);
     let content_len = state.formatted_content().len();
-    Some(state.to_wikilink(start_pos + content_len + 2))
+    Some(state.to_wikilink(start_pos + content_len + 2, is_image))
 }
 
 /// Helper function to check if the next character matches the expected one
@@ -624,7 +627,7 @@ mod wikilink_creation_tests {
             // Extract the substring after `[[` and include the closing `]]`
             let inner = &input[2..];
             let mut chars = inner.char_indices().peekable();
-            parse_wikilink(&mut chars)
+            parse_wikilink(&mut chars, false)
         } else {
             // Invalid format if it doesn't start and end with brackets
             None
