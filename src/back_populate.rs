@@ -109,6 +109,7 @@ pub fn process_back_populate(
     if matches.is_empty() {
         return Ok(());
     }
+
     // Split matches into ambiguous and unambiguous
     let (ambiguous_matches, unambiguous_matches) =
         identify_ambiguous_matches(&matches, &obsidian_repository_info.wikilinks_sorted);
@@ -187,28 +188,35 @@ fn identify_ambiguous_matches(
         if !target_map.contains_key(&lower_target)
             || wikilink.target.to_lowercase() == wikilink.target
         {
-            target_map.insert(lower_target, wikilink.target.clone());
+            target_map.insert(lower_target.clone(), wikilink.target.clone());
+            // println!(
+            //     "[DEBUG] Added to target_map: '{}', canonical: '{}'",
+            //     lower_target, wikilink.target
+            // );
         }
     }
 
-    // Create a map of display_text to normalized targets
+    // Create a map of lowercased display_text to normalized targets
     let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
     for wikilink in &non_image_wikilinks {
+        let lower_display_text = wikilink.display_text.to_lowercase(); // Lowercase display_text
         let lower_target = wikilink.target.to_lowercase();
         // Use the canonical form of the target from our target_map
         if let Some(canonical_target) = target_map.get(&lower_target) {
             display_text_map
-                .entry(wikilink.display_text.clone())
+                .entry(lower_display_text.clone()) // Use lowercased display_text as key
                 .or_default()
                 .insert(canonical_target.clone());
         }
     }
 
-    // Group matches by their found_text
+    // Group matches by their lowercased found_text
     let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
     for match_info in matches {
+        let lower_found_text = match_info.found_text.to_lowercase(); // Lowercase found_text
+
         matches_by_text
-            .entry(match_info.found_text.clone())
+            .entry(lower_found_text) // Use lowercased found_text as key
             .or_default()
             .push(match_info.clone());
     }
@@ -216,28 +224,68 @@ fn identify_ambiguous_matches(
     // Identify truly ambiguous matches and separate them
     let mut ambiguous_matches = Vec::new();
     let mut unambiguous_matches = Vec::new();
+    let mut unclassified_matches = Vec::new();
 
-    for (found_text, text_matches) in matches_by_text {
-        if let Some(targets) = display_text_map.get(&found_text) {
-            // After normalizing case, if we still have multiple distinct targets,
-            // then it's truly ambiguous
+    for (found_text_lower, text_matches) in matches_by_text {
+        if let Some(targets) = display_text_map.get(&found_text_lower) {
             if targets.len() > 1 {
+                // Only log ambiguous matches when there are multiple targets
+
                 ambiguous_matches.push(AmbiguousMatch {
-                    display_text: found_text,
+                    display_text: found_text_lower.clone(), // Use lowercased found_text
                     targets: targets.iter().cloned().collect(),
-                    matches: text_matches,
+                    matches: text_matches.clone(),
                 });
             } else {
-                unambiguous_matches.extend(text_matches);
+
+                unambiguous_matches.extend(text_matches.clone());
             }
+        } else {
+            // Collect unclassified matches
+            unclassified_matches.extend(text_matches.clone());
         }
     }
+
+    // Log unclassified matches
+    if !unclassified_matches.is_empty() {
+        println!(
+            "[WARNING] Found {} unclassified matches.",
+            unclassified_matches.len()
+        );
+        for m in &unclassified_matches {
+            println!(
+                "[WARNING] Unclassified Match: '{}' in file '{}'",
+                m.found_text, m.file_path
+            );
+        }
+
+        // Optionally, treat them as unambiguous - don't
+        // let it fail if we have something unclassified
+       // unambiguous_matches.extend(unclassified_matches);
+    }
+
+    // Calculate the total number of classified matches
+    let total_classified = ambiguous_matches
+        .iter()
+        .map(|m| m.matches.len())
+        .sum::<usize>()
+        + unambiguous_matches.len();
+
+    // Assert that the total matches classified equals the total matches passed in
+    assert_eq!(
+        total_classified,
+        matches.len(),
+        "Mismatch in match classification: total_classified={}, matches.len()={}",
+        total_classified,
+        matches.len()
+    );
 
     // Sort ambiguous matches by display text for consistent output
     ambiguous_matches.sort_by(|a, b| a.display_text.cmp(&b.display_text));
 
     (ambiguous_matches, unambiguous_matches)
 }
+
 
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     // Helper to check if a char is a word character (\w in regex)
@@ -251,7 +299,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         match (chars.next(), chars.next()) {
             // Check for "'t" or "'t" (curly apostrophe)
             (Some('\''), Some('t')) | (Some('\u{2019}'), Some('t')) => true,
-            _ => false
+            _ => false,
         }
     }
 
@@ -260,14 +308,13 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     let after_chars = &line[ends_at..];
 
     // Check start boundary
-    let start_is_boundary = starts_at == 0 ||
-        before.map_or(true, |ch| !is_word_char(ch));
+    let start_is_boundary = starts_at == 0 || before.map_or(true, |ch| !is_word_char(ch));
 
     // Check end boundary
     // No need to check for possessives as they should be valid candidates for replacement
-    let end_is_boundary = ends_at == line.len() ||
-        (!is_word_char(after_chars.chars().next().unwrap_or(' ')) &&
-            !is_t_contraction(after_chars));
+    let end_is_boundary = ends_at == line.len()
+        || (!is_word_char(after_chars.chars().next().unwrap_or(' '))
+            && !is_t_contraction(after_chars));
 
     start_is_boundary && end_is_boundary
 }
@@ -509,7 +556,6 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
     let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
     let mut file_info: HashMap<String, (String, bool)> = HashMap::new(); // Tracks replacement and table status per file
 
-
     // Group matches by file and line
     for match_info in matches {
         let key = (match_info.file_path.clone(), match_info.line_number);
@@ -706,7 +752,9 @@ fn write_back_populate_table(
     let mut display_text_map: HashMap<String, String> = HashMap::new();
     for m in matches {
         let key = m.found_text.to_lowercase();
-        display_text_map.entry(key).or_insert_with(|| m.found_text.clone());
+        display_text_map
+            .entry(key)
+            .or_insert_with(|| m.found_text.clone());
     }
 
     if is_unambiguous_match {
@@ -745,7 +793,8 @@ fn write_back_populate_table(
         let text_matches = &matches_by_text[&found_text_key];
         let display_text = &display_text_map[&found_text_key];
         let total_occurrences = text_matches.len();
-        let file_paths: HashSet<String> = text_matches.iter().map(|m| m.file_path.clone()).collect();
+        let file_paths: HashSet<String> =
+            text_matches.iter().map(|m| m.file_path.clone()).collect();
 
         let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
 
@@ -795,7 +844,7 @@ fn write_back_populate_table(
                 let highlighted_line = highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
-                    display_text.len()
+                    display_text.len(),
                 );
 
                 let mut row = vec![
@@ -860,7 +909,10 @@ fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> St
 
         // Validate UTF-8 boundaries
         if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-            eprintln!("Invalid UTF-8 boundary detected at position {} or {}", start, end);
+            eprintln!(
+                "Invalid UTF-8 boundary detected at position {} or {}",
+                start, end
+            );
             return text.to_string();
         }
 
@@ -1042,7 +1094,7 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scan::MarkdownFileInfo;
+    use crate::scan::{scan_folders, MarkdownFileInfo};
     use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason, Wikilink};
     use std::collections::HashMap;
     use std::fs::File;
@@ -1185,6 +1237,17 @@ mod tests {
                 },
                 expected_matches: vec![("josh", "[[Joshua Strayhorn|josh]]")],
                 description: "Alias case preservation",
+            },
+            TestCase {
+                content: "karen likes math",
+                wikilink: Wikilink {
+                    display_text: "Karen".to_string(),
+                    target: "Karen McCoy".to_string(),
+                    is_alias: true,
+                    is_image: false,
+                },
+                expected_matches: vec![("karen", "[[Karen McCoy|karen]]")],
+                description: "Alias case preservation when display case differs from content",
             },
             TestCase {
                 content: "| Test Link | Another test link |",
@@ -1918,7 +1981,7 @@ mod tests {
 
         // Check ambiguous matches
         assert_eq!(ambiguous.len(), 1, "Should have one ambiguous match group");
-        assert_eq!(ambiguous[0].display_text, "Ed");
+        assert_eq!(ambiguous[0].display_text, "ed");
         assert_eq!(ambiguous[0].targets.len(), 2);
         assert!(ambiguous[0].targets.contains(&"Ed Barnes".to_string()));
         assert!(ambiguous[0].targets.contains(&"Ed Stanfield".to_string()));
@@ -2269,5 +2332,120 @@ mod tests {
             zones.is_empty(),
             "Should not have exclusion zones for different line"
         );
+    }
+
+    // This test sets up an **ambiguous alias** (`"Nate"`) mapping to two different targets.
+    // It ensures that the `identify_ambiguous_matches` function correctly **classifies** both instances of `"Nate"` as **ambiguous**.
+    //
+    // Validate that the function can handle **both unambiguous and ambiguous matches simultaneously** without interference.
+    // prior to this the real world failure was that it would find Karen as an alias but not karen
+    // even though we have a case-insensitive search
+    // the problem with the old test is that when there wa sno ambiguous matches - then
+    // the lower case karen wasn't getting stripped out and the test would pass even though the real world failed
+    // so in this case we are creating a more realistic test that has a mix of ambiguous and unambiguous
+    #[test]
+    fn test_combined_ambiguous_and_unambiguous_matches() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create Karen McCoy file with aliases
+        let karen_path = temp_dir.path().join("Karen McCoy.md");
+        let karen_content = r#"---
+aliases:
+- "Karen"
+---
+# Karen McCoy's Page"#;
+        fs::write(&karen_path, karen_content).unwrap();
+
+        // Create Nate McCoy file with aliases
+        let nate_mcoy_path = temp_dir.path().join("Nate McCoy.md");
+        let nate_mcoy_content = r#"---
+aliases:
+- "Nate"
+---
+# Nate McCoy's Page"#;
+        fs::write(&nate_mcoy_path, nate_mcoy_content).unwrap();
+
+        // Create Nathan Dye file with aliases
+        let nathan_dye_path = temp_dir.path().join("Nathan Dye.md");
+        let nathan_dye_content = r#"---
+aliases:
+- "Nate"
+---
+# Nathan Dye's Page"#;
+        fs::write(&nathan_dye_path, nathan_dye_content).unwrap();
+
+        // Create another file that references both Karen and Nate
+        let other_path = temp_dir.path().join("other.md");
+        let other_content = r#"# Test Page
+Karen is here
+karen is here too
+Nate was here and so was Nate"#;
+        fs::write(&other_path, other_content).unwrap();
+
+        // Create minimal validated config
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        // Run the full back-populate process
+        let repo_info = scan_folders(&config).unwrap();
+        let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+
+        // We should find both "Karen", "karen", "Nate", and "Nate" in other.md
+        let other_matches: Vec<_> = matches
+            .iter()
+            .filter(|m| m.file_path.ends_with("other.md"))
+            .collect();
+
+        // Assert total matches
+        assert_eq!(
+            other_matches.len(),
+            4,
+            "Should match 'Karen', 'karen', and both 'Nate' instances"
+        );
+
+        // Verify unambiguous matches
+        let karen_match = other_matches
+            .iter()
+            .find(|m| m.found_text == "Karen")
+            .expect("Should find uppercase Karen");
+        assert_eq!(
+            karen_match.replacement, "[[Karen McCoy|Karen]]",
+            "Should replace uppercase Karen correctly"
+        );
+
+        let karen_lower_match = other_matches
+            .iter()
+            .find(|m| m.found_text == "karen")
+            .expect("Should find lowercase karen");
+        assert_eq!(
+            karen_lower_match.replacement, "[[Karen McCoy|karen]]",
+            "Should replace lowercase karen correctly"
+        );
+
+        // Verify ambiguous matches
+        let nate_matches: Vec<_> = other_matches
+            .iter()
+            .filter(|m| m.found_text == "Nate")
+            .collect();
+        assert_eq!(
+            nate_matches.len(),
+            2,
+            "Should find both 'Nate' instances as ambiguous"
+        );
+
+        for m in &nate_matches {
+            assert!(
+                m.replacement.contains("[[Nate McCoy|Nate]]")
+                    || m.replacement.contains("[[Nathan Dye|Nate]]"),
+                "Replacement should map to one of the ambiguous targets"
+            );
+        }
     }
 }

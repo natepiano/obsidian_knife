@@ -39,10 +39,7 @@ fn handle_error(
     Err(e)
 }
 
-fn output_duration(
-    prefix: &str,
-    start_time: Instant,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn output_duration(prefix: &str, start_time: Instant) -> Result<(), Box<dyn Error + Send + Sync>> {
     let duration = start_time.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
     println!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS);
