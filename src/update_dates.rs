@@ -243,13 +243,20 @@ fn create_validation_context(
     path: &PathBuf,
     file_info: &MarkdownFileInfo,
 ) -> Result<FileValidationContext, Box<dyn Error + Send + Sync>> {
+    // Extract the error message from frontmatter_error if it exists
+    let property_error = file_info
+        .frontmatter_error
+        .as_ref()
+        .map(|err| format!("{}: {}", err.message, err.yaml_content));
+
     Ok(FileValidationContext {
         path: path.clone(),
         created_time: get_file_creation_time(path).unwrap_or_else(|_| Local::now()),
         frontmatter: file_info.frontmatter.clone(),
-        property_error: file_info.property_error.clone(),
+        property_error,
     })
 }
+
 
 fn process_file(
     results: &mut DateValidationResults,

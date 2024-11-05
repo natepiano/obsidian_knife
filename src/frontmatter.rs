@@ -1,10 +1,46 @@
-use crate::yaml_utils;
+use crate::{yaml_utils, ThreadSafeWriter, constants::*};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use crate::scan::MarkdownFileInfo;
+use crate::wikilink::format_wikilink;
+
+#[derive(Debug)]
+pub struct FrontmatterError {
+    pub message: String,
+    pub yaml_content: String,
+}
+
+impl FrontmatterError {
+    pub fn new(message: String, content: &str) -> Self {
+        // Strip out any "Content:" prefix from the message
+        let message = if message.contains("Content:") {
+            message.split("Content:").next().unwrap_or(&message).trim().to_string()
+        } else {
+            message
+        };
+
+        // Extract the YAML section between --- markers
+        let yaml_content = extract_yaml_section(content);
+
+        FrontmatterError {
+            message,
+            yaml_content,
+        }
+    }
+}
+
+fn extract_yaml_section(content: &str) -> String {
+    content
+        .lines()
+        .skip_while(|line| !line.starts_with("---"))
+        .take_while(|line| !line.starts_with("---") || line == &"---")
+        .collect::<Vec<_>>()
+        .join("\n")
+}
 
 // when we set date_created_fix to None it won't serialize - cool
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -111,6 +147,59 @@ pub fn update_file_frontmatter(
     let updated_content = update_frontmatter(&content, &frontmatter)?;
 
     fs::write(file_path, updated_content)?;
+
+    Ok(())
+}
+
+fn add_line_numbers(content: &str) -> String {
+    content
+        .lines()
+        .enumerate()
+        .map(|(i, line)| format!("{:>3} | {}", i, line))
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+pub fn report_frontmatter_issues(
+    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    writer: &ThreadSafeWriter,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let files_with_errors: Vec<_> = markdown_files
+        .iter()
+        .filter_map(|(path, info)| {
+            info.frontmatter_error
+                .as_ref()
+                .map(|err| (path, err))
+        })
+        .collect();
+
+    writer.writeln(LEVEL1, "frontmatter issues")?;
+
+    if files_with_errors.is_empty() {
+        return Ok(());
+    }
+
+    writer.writeln(
+        "",
+        &format!(
+            "found {} files with frontmatter parsing errors",
+            files_with_errors.len()
+        ),
+    )?;
+
+    for (path, err) in files_with_errors {
+        writer.writeln(LEVEL3, &format!("in file {}", format_wikilink(path)))?;
+        writer.writeln("", &format!("error: {}", err.message))?;
+
+        if !err.yaml_content.trim().is_empty() && err.yaml_content.trim() != "---" {
+            writer.writeln("", "yaml content:")?;
+            writer.writeln("", "```yaml")?;
+            writer.writeln("", &add_line_numbers(&err.yaml_content.trim()))?;
+            writer.writeln("", "```")?;
+        }
+
+        writer.writeln("", "")?;
+    }
 
     Ok(())
 }

@@ -20,6 +20,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
+use crate::frontmatter::FrontmatterError;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -31,9 +32,9 @@ pub struct ImageInfo {
 pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
     pub frontmatter: Option<FrontMatter>,
+    pub frontmatter_error: Option<FrontmatterError>,  // Replace property_error with this
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
-    pub property_error: Option<String>,
 }
 
 impl MarkdownFileInfo {
@@ -41,9 +42,9 @@ impl MarkdownFileInfo {
         MarkdownFileInfo {
             do_not_back_populate: None,
             frontmatter: None,
+            frontmatter_error: None,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
-            property_error: None,
         }
     }
 
@@ -291,8 +292,12 @@ fn scan_markdown_file(
 
     let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
 
-    let mut markdown_file_info = initialize_markdown_file_info(frontmatter.clone(), property_error);
-
+    let mut markdown_file_info = initialize_markdown_file_info(
+        frontmatter.clone(),
+        property_error,
+        &content,
+    );
+    
     extract_do_not_back_populate(&mut markdown_file_info);
 
     let aliases = markdown_file_info
@@ -326,11 +331,19 @@ fn deserialize_frontmatter_content(content: &str) -> (Option<FrontMatter>, Optio
 
 fn initialize_markdown_file_info(
     frontmatter: Option<FrontMatter>,
-    property_error: Option<String>,
+    error: Option<String>,
+    content: &str,
 ) -> MarkdownFileInfo {
     let mut file_info = MarkdownFileInfo::new();
     file_info.frontmatter = frontmatter;
-    file_info.property_error = property_error;
+
+    if let Some(error_msg) = error {
+        file_info.frontmatter_error = Some(FrontmatterError::new(
+            error_msg,
+            content,
+        ));
+    }
+
     file_info
 }
 
