@@ -58,8 +58,8 @@ pub struct ObsidianRepositoryInfo {
     pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
-    pub wikilinks_ac: Option<AhoCorasick>, // Add the new field
-    pub wikilinks_sorted: Vec<Wikilink>,   // New field for all unique wikilinks
+    pub wikilinks_ac: Option<AhoCorasick>,
+    pub wikilinks_sorted: Vec<Wikilink>,
 }
 
 pub fn scan_obsidian_folder(
@@ -83,8 +83,6 @@ fn get_image_info_map(
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
     let (mut cache, _) = Sha256Cache::new(cache_file_path.clone())?;
-
-    //  print_cache_file_info(&cache_file_path, cache_file_status);
 
     let mut image_info_map = HashMap::new();
 
@@ -119,52 +117,8 @@ fn get_image_info_map(
     cache.remove_non_existent_entries();
     cache.save()?;
 
-    // print_cache_statistics(&cache, &image_info_map);
-
     Ok(image_info_map)
 }
-
-// fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFileStatus) {
-//     if !cfg!(test) {
-//         match cache_file_status {
-//             CacheFileStatus::ReadFromCache => {
-//                 println!("{} {:?}", CACHE_INFO_READING_FROM, cache_file_path)
-//             }
-//             CacheFileStatus::CreatedNewCache => {
-//                 println!("{} {:?}", CACHE_INFO_CREATE_NEW, cache_file_path)
-//             }
-//             CacheFileStatus::CacheCorrupted => {
-//                 println!("{} {:?}", CACHE_INFO_CORRUPTED, cache_file_path)
-//             }
-//         }
-//     }
-// }
-
-// fn print_cache_statistics(cache: &Sha256Cache, image_info_map: &HashMap<PathBuf, ImageInfo>) {
-//     let stats = cache.get_stats();
-//
-//     if !cfg!(test) {
-//         println!("\ncache statistics:");
-//         println!(
-//             "  total entries in cache (initial): {}",
-//             stats.initial_count
-//         );
-//         println!("  matching files read from cache: {}", stats.files_read);
-//         println!("  files added to cache: {}", stats.files_added);
-//         println!(
-//             "  matching files updated in cache: {}",
-//             stats.files_modified
-//         );
-//         println!("  files deleted from cache: {}", stats.files_deleted);
-//         println!("  total files in cache (final): {}", stats.total_files);
-//     }
-//
-//     assert_eq!(
-//         image_info_map.len(),
-//         stats.total_files,
-//         "the number of entries in image_info_map does not match the total files in cache"
-//     );
-// }
 
 fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
     let path = entry.path();
@@ -419,45 +373,6 @@ fn collect_image_reference(
         }
     }
 }
-
-// fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {
-//     let counts: HashMap<String, usize> = image_map
-//         .keys()
-//         .filter_map(|path| path.extension())
-//         .filter_map(|ext| ext.to_str())
-//         .map(|ext| ext.to_lowercase())
-//         .filter(|ext| IMAGE_EXTENSIONS.contains(&ext.as_str()))
-//         .fold(HashMap::new(), |mut acc, ext| {
-//             *acc.entry(ext).or_insert(0) += 1;
-//             acc
-//         });
-//
-//     let mut count_vec: Vec<(String, usize)> = counts.into_iter().collect();
-//     count_vec.sort_by_key(|&(_, count)| Reverse(count));
-//     count_vec
-// }
-
-// fn print_file_info(collected_files: &ObsidianRepositoryInfo) {
-//     println!("\nfile counts:");
-//     println!("  markdown files: {}", collected_files.markdown_files.len());
-//     println!("  other files: {}", collected_files.other_files.len());
-//     println!("  image files: {}", collected_files.image_map.len());
-//
-//     let image_counts = count_image_types(&collected_files.image_map);
-//
-//     // Print image type statistics
-//     for (ext, count) in image_counts {
-//         println!("    .{}: {}", ext, count);
-//     }
-//
-//     if !collected_files.other_files.is_empty() {
-//         println!("\n  other files found:");
-//         for file in &collected_files.other_files {
-//             println!("    - {}", file.display());
-//         }
-//     }
-//     println!();
-// }
 
 #[cfg(test)]
 mod tests {

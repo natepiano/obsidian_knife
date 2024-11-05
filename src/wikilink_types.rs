@@ -45,7 +45,6 @@ fn strip_md_extension(text: &str) -> &str {
     }
 }
 
-
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Wikilink {
     pub display_text: String,

@@ -333,9 +333,7 @@ impl WikilinkState {
     }
 }
 
-fn parse_wikilink(
-    chars: &mut Peekable<CharIndices>,
-) -> Option<WikilinkParseResult> {
+fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResult> {
     let initial_pos = chars.peek()?.0;
     let start_pos = initial_pos.saturating_sub(2);
 
@@ -518,7 +516,6 @@ mod extract_wikilinks_tests {
                     (10, 30),
                 )],
             },
-            // Add to existing test cases
             WikilinkTestCase {
                 description: "Unmatched closing bracket within wikilink",
                 input: "Text with [[test]text]] here",
@@ -602,7 +599,6 @@ mod extract_wikilinks_tests {
                     (11, 27),
                 )],
             },
-            // Additional Test Cases to Ensure Robustness
             WikilinkTestCase {
                 description: "No wikilinks",
                 input: "This is a plain text without any wikilinks.",

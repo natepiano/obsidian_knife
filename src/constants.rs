@@ -145,7 +145,6 @@ pub const fn pluralize(count: usize, phrase: Phrase) -> &'static str {
     }
 }
 
-// Add new helper function for compound pluralization
 pub fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {
     // We want "time" for 1, "times" for other numbers
     let occurrence_word = pluralize(occurrences, Phrase::Times);

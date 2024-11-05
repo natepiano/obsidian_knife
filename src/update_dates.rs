@@ -729,7 +729,6 @@ fn write_date_modified_table(
     Ok(())
 }
 
-// Add this new function to update_dates.rs
 fn format_error_for_table(error: &str) -> String {
     // Replace newlines and pipes with spaces to keep content in one cell
     let error = error.replace('\n', " ").replace('|', "\\|");

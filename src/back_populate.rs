@@ -173,7 +173,6 @@ fn identify_ambiguous_matches(
     matches: &[BackPopulateMatch],
     wikilinks: &[Wikilink],
 ) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
-
     // Create a case-insensitive map of targets to their canonical forms
     let mut target_map: HashMap<String, String> = HashMap::new();
     for wikilink in wikilinks {
@@ -229,7 +228,6 @@ fn identify_ambiguous_matches(
                     matches: text_matches.clone(),
                 });
             } else {
-
                 unambiguous_matches.extend(text_matches.clone());
             }
         } else {
@@ -253,7 +251,7 @@ fn identify_ambiguous_matches(
 
         // Optionally, treat them as unambiguous - don't
         // let it fail if we have something unclassified
-       // unambiguous_matches.extend(unclassified_matches);
+        // unambiguous_matches.extend(unclassified_matches);
     }
 
     // Calculate the total number of classified matches
@@ -278,7 +276,6 @@ fn identify_ambiguous_matches(
     (ambiguous_matches, unambiguous_matches)
 }
 
-
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     // Helper to check if a char is a word character (\w in regex)
     fn is_word_char(ch: char) -> bool {
@@ -290,7 +287,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         let mut chars = chars.chars();
         match (chars.next(), chars.next()) {
             // Check for "'t" or "'t" (curly apostrophe)
-            (Some('\''), Some('t') | Some('T')) | (Some('\u{2019}'), Some('t') | Some('T') ) => true,
+            (Some('\''), Some('t') | Some('T')) | (Some('\u{2019}'), Some('t') | Some('T')) => true,
             _ => false,
         }
     }
@@ -438,7 +435,6 @@ fn process_line(
 
         let matched_text = &line[starts_at..ends_at];
 
-        // Add word boundary check
         if !is_word_boundary(line, starts_at, ends_at) {
             continue;
         }
