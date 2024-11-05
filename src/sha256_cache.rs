@@ -27,20 +27,20 @@ pub struct CachedImageInfo {
     pub time_stamp: SystemTime,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct CacheStats {
-    pub initial_count: usize,
-    pub files_read: usize,
-    pub files_added: usize,
-    pub files_modified: usize,
-    pub files_deleted: usize,
-    pub total_files: usize,
-}
+// #[derive(Debug, Clone, Copy)]
+// pub struct CacheStats {
+//     pub initial_count: usize,
+//     pub files_read: usize,
+//     pub files_added: usize,
+//     pub files_modified: usize,
+//     pub files_deleted: usize,
+//     pub total_files: usize,
+// }
 
 pub struct Sha256Cache {
     cache: HashMap<PathBuf, CachedImageInfo>,
     cache_file_path: PathBuf,
-    initial_count: usize,
+    //initial_count: usize,
     files_read: usize,
     files_added: usize,
     files_modified: usize,
@@ -66,13 +66,13 @@ impl Sha256Cache {
             (HashMap::new(), CacheFileStatus::CreatedNewCache)
         };
 
-        let initial_count = cache.len();
+        // let initial_count = cache.len();
 
         Ok((
             Sha256Cache {
                 cache,
                 cache_file_path,
-                initial_count,
+               // initial_count,
                 files_read: 0,
                 files_added: 0,
                 files_modified: 0,
@@ -132,16 +132,16 @@ impl Sha256Cache {
         Ok(())
     }
 
-    pub fn get_stats(&self) -> CacheStats {
-        CacheStats {
-            initial_count: self.initial_count,
-            files_read: self.files_read,
-            files_added: self.files_added,
-            files_modified: self.files_modified,
-            files_deleted: self.files_deleted,
-            total_files: self.cache.len(),
-        }
-    }
+    // pub fn get_stats(&self) -> CacheStats {
+    //     CacheStats {
+    //         initial_count: self.initial_count,
+    //         files_read: self.files_read,
+    //         files_added: self.files_added,
+    //         files_modified: self.files_modified,
+    //         files_deleted: self.files_deleted,
+    //         total_files: self.cache.len(),
+    //     }
+    // }
 
     fn hash_file(&self, path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut file = File::open(path)?;

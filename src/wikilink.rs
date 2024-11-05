@@ -9,6 +9,7 @@ use std::str::CharIndices;
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
+    static ref EMAIL_REGEX: Regex = Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
 }
 
 pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
@@ -42,6 +43,7 @@ pub fn collect_file_wikilinks(
     aliases: &Option<Vec<String>>,
     file_path: &Path,
 ) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
+
     let mut result = ExtractedWikilinks::default();
 
     // Add filename-based wikilink
@@ -82,95 +84,11 @@ pub fn collect_file_wikilinks(
     Ok(result)
 }
 
-// pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
-//     let mut result = ParsedExtractedWikilinks::default();
-//     let mut chars = line.char_indices().peekable();
-//     let mut markdown_opening: Option<usize> = None;
-//
-//     while let Some((start_idx, ch)) = chars.next() {
-//         // Handle escaped characters
-//         if ch == '\\' {
-//             chars.next(); // Skip next character
-//             continue;
-//         }
-//
-//         // Handle unmatched closing brackets when not in a wikilink
-//         if ch == ']' && is_next_char(&mut chars, ']') {
-//             // Calculate start position - either from last markdown opening or start of line
-//             let start_pos = markdown_opening.unwrap_or(0);
-//             let content = line[start_pos..=start_idx + 1].to_string();
-//
-//             result.invalid.push(ParsedInvalidWikilink {
-//                 content,
-//                 reason: InvalidWikilinkReason::UnmatchedClosing,
-//                 span: (start_pos, start_idx + 2),
-//             });
-//             markdown_opening = None; // Reset markdown opening state
-//             continue;
-//         }
-//
-//         // Handle regular closing bracket - could close a markdown link
-//         if ch == ']' {
-//             markdown_opening = None;
-//         }
-//
-//         if ch == '[' {
-//             if is_next_char(&mut chars, '[') {
-//                 // If we had an unclosed markdown link before this wikilink, add it as invalid
-//                 if let Some(start_pos) = markdown_opening {
-//                     let content_slice = line[start_pos..start_idx].trim();
-//                     result.invalid.push(ParsedInvalidWikilink {
-//                         content: content_slice.to_string(),
-//                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
-//                         span: (start_pos, start_pos + content_slice.len()),
-//                     });
-//                     markdown_opening = None;
-//                 }
-//
-//                 // Check if this is an image wikilink
-//                 let is_image = start_idx > 0 && is_previous_char(line, start_idx, '!');
-//
-//                 // Attempt to parse the wikilink
-//                 if let Some(wikilink_result) = parse_wikilink(&mut chars, is_image) {
-//                     match wikilink_result {
-//                         WikilinkParseResult::Valid(wikilink) => {
-//                             result.valid.push(wikilink);
-//                         }
-//                         WikilinkParseResult::Invalid(invalid) => {
-//                             result.invalid.push(invalid);
-//                         }
-//                     }
-//                 }
-//             } else {
-//                 // If we had an unclosed markdown link before this one, add it as invalid
-//                 if let Some(start_pos) = markdown_opening {
-//                     let content_slice = line[start_pos..start_idx].trim();
-//                     result.invalid.push(ParsedInvalidWikilink {
-//                         content: content_slice.to_string(),
-//                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
-//                         span: (start_pos, start_pos + content_slice.len()),
-//                     });
-//                 }
-//                 // Start tracking new markdown opening
-//                 markdown_opening = Some(start_idx);
-//             }
-//         }
-//     }
-//
-//     // If we reach the end with an unclosed markdown link, add it as invalid
-//     if let Some(start_pos) = markdown_opening {
-//         let content_slice = line[start_pos..].trim();
-//         result.invalid.push(ParsedInvalidWikilink {
-//             content: content_slice.to_string(),
-//             reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
-//             span: (start_pos, start_pos + content_slice.len()),
-//         });
-//     }
-//
-//     result
-// }
-pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
+fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut result = ParsedExtractedWikilinks::default();
+
+    parse_email_addresses(line, &mut result);
+
     let mut chars = line.char_indices().peekable();
     let mut markdown_opening: Option<usize> = None;
     let mut last_position: usize = 0;
@@ -258,6 +176,17 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     }
 
     result
+}
+
+fn parse_email_addresses(line: &str, result: &mut ParsedExtractedWikilinks) {
+    //Add email addresses as invalid wikilinks
+    for email_match in EMAIL_REGEX.find_iter(line) {
+        result.invalid.push(ParsedInvalidWikilink {
+            content: email_match.as_str().to_string(),
+            reason: InvalidWikilinkReason::EmailAddress,
+            span: (email_match.start(), email_match.end()),
+        });
+    }
 }
 
 #[derive(Debug)]
@@ -678,6 +607,43 @@ mod extract_wikilinks_tests {
                 expected_valid: vec![],
                 expected_invalid: vec![
                     ("[unclosed", InvalidWikilinkReason::UnmatchedMarkdownOpening, (14, 23)), // Fixed span
+                ],
+            },
+        ];
+
+        for test_case in test_cases {
+            assert_wikilink_extraction(test_case);
+        }
+    }
+
+    #[test]
+    fn test_email_detection() {
+        let test_cases = vec![
+            WikilinkTestCase {
+                description: "Simple email address",
+                input: "Contact bob@example.com for more info",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("bob@example.com", InvalidWikilinkReason::EmailAddress, (8, 23)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Email with wikilink",
+                input: "[[Contact]] john.doe@company.org today",
+                expected_valid: vec![
+                    ("Contact", "Contact", false),
+                ],
+                expected_invalid: vec![
+                    ("john.doe@company.org", InvalidWikilinkReason::EmailAddress, (12, 32)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Multiple emails",
+                input: "Email user1@test.com or user2@test.com",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("user1@test.com", InvalidWikilinkReason::EmailAddress, (6, 20)),
+                    ("user2@test.com", InvalidWikilinkReason::EmailAddress, (24, 38)),
                 ],
             },
         ];

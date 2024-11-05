@@ -4,7 +4,7 @@ use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::MARKDOWN_REGEX;
-use crate::wikilink_types::{InvalidWikilink, ToWikilink, Wikilink};
+use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -13,6 +13,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
+use itertools::Itertools;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -589,29 +590,28 @@ fn write_invalid_wikilinks_table(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Collect all invalid wikilinks from all files
-    let mut invalid_wikilinks: Vec<(&Path, &InvalidWikilink)> = Vec::new();
-    for (file_path, file_info) in &obsidian_repository_info.markdown_files {
-        for invalid_wikilink in &file_info.invalid_wikilinks {
-            invalid_wikilinks.push((file_path, invalid_wikilink));
-        }
-    }
+    let invalid_wikilinks = obsidian_repository_info
+        .markdown_files
+        .iter()
+        .flat_map(|(file_path, file_info)| {
+            file_info
+                .invalid_wikilinks
+                .iter()
+                .filter(|wikilink| !matches!(wikilink.reason, InvalidWikilinkReason::EmailAddress))
+                .map(move |wikilink| (file_path.as_path(), wikilink))
+        })
+        .collect::<Vec<_>>()
+        .into_iter()
+        .sorted_by(|a, b| {
+            let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            file_a.cmp(file_b).then(a.1.line_number.cmp(&b.1.line_number))
+        })
+        .collect::<Vec<_>>();
 
-    // If no invalid wikilinks, return early
     if invalid_wikilinks.is_empty() {
         return Ok(());
     }
-
-    // Sort by filename and then line number
-    invalid_wikilinks.sort_by(|a, b| {
-        let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-        let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-        let file_cmp = file_a.cmp(file_b);
-        if file_cmp != std::cmp::Ordering::Equal {
-            file_cmp
-        } else {
-            a.1.line_number.cmp(&b.1.line_number)
-        }
-    });
 
     writer.writeln(LEVEL2, "invalid wikilinks")?;
 

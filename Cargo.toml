@@ -4,11 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "obsidian_knife"
+name = "ok"
 path = "src/lib.rs"
 
 [[bin]]
-name = "obsidian_knife"
+name = "ok"
 path = "src/main.rs"
 
 [dependencies]
@@ -32,3 +32,12 @@ opt-level = 3
 [profile.dev]
 opt-level = 3
 debug = true
+
+[profile.release]
+opt-level=3
+codegen-units = 1
+lto = "fat"
+panic = "abort"
+debug = false
+split-debuginfo = "off"
+overflow-checks = false

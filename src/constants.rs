@@ -24,7 +24,7 @@ pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
 // cache stuff
 pub const CACHE_FOLDER: &str = ".obsidian_knife";
 pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
-pub const CACHE_INFO_READING_FROM: &str = "reading from cache:";
+//pub const CACHE_INFO_READING_FROM: &str = "reading from cache:";
 pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
 pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 

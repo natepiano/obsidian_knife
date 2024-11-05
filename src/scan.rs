@@ -1,7 +1,7 @@
 use crate::{
     constants::*,
     frontmatter::{deserialize_frontmatter, FrontMatter},
-    sha256_cache::{CacheFileStatus, Sha256Cache},
+    sha256_cache::Sha256Cache,
     validated_config::ValidatedConfig,
     wikilink::collect_file_wikilinks,
 };
@@ -11,7 +11,6 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
 use rayon::prelude::*;
 use regex::Regex;
-use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::ffi::OsStr;
@@ -83,9 +82,9 @@ fn get_image_info_map(
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
-    let (mut cache, cache_file_status) = Sha256Cache::new(cache_file_path.clone())?;
+    let (mut cache, _) = Sha256Cache::new(cache_file_path.clone())?;
 
-    print_cache_file_info(&cache_file_path, cache_file_status);
+   //  print_cache_file_info(&cache_file_path, cache_file_status);
 
     let mut image_info_map = HashMap::new();
 
@@ -120,52 +119,52 @@ fn get_image_info_map(
     cache.remove_non_existent_entries();
     cache.save()?;
 
-    print_cache_statistics(&cache, &image_info_map);
+    // print_cache_statistics(&cache, &image_info_map);
 
     Ok(image_info_map)
 }
 
-fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFileStatus) {
-    if !cfg!(test) {
-        match cache_file_status {
-            CacheFileStatus::ReadFromCache => {
-                println!("{} {:?}", CACHE_INFO_READING_FROM, cache_file_path)
-            }
-            CacheFileStatus::CreatedNewCache => {
-                println!("{} {:?}", CACHE_INFO_CREATE_NEW, cache_file_path)
-            }
-            CacheFileStatus::CacheCorrupted => {
-                println!("{} {:?}", CACHE_INFO_CORRUPTED, cache_file_path)
-            }
-        }
-    }
-}
+// fn print_cache_file_info(cache_file_path: &PathBuf, cache_file_status: CacheFileStatus) {
+//     if !cfg!(test) {
+//         match cache_file_status {
+//             CacheFileStatus::ReadFromCache => {
+//                 println!("{} {:?}", CACHE_INFO_READING_FROM, cache_file_path)
+//             }
+//             CacheFileStatus::CreatedNewCache => {
+//                 println!("{} {:?}", CACHE_INFO_CREATE_NEW, cache_file_path)
+//             }
+//             CacheFileStatus::CacheCorrupted => {
+//                 println!("{} {:?}", CACHE_INFO_CORRUPTED, cache_file_path)
+//             }
+//         }
+//     }
+// }
 
-fn print_cache_statistics(cache: &Sha256Cache, image_info_map: &HashMap<PathBuf, ImageInfo>) {
-    let stats = cache.get_stats();
-
-    if !cfg!(test) {
-        println!("\ncache statistics:");
-        println!(
-            "  total entries in cache (initial): {}",
-            stats.initial_count
-        );
-        println!("  matching files read from cache: {}", stats.files_read);
-        println!("  files added to cache: {}", stats.files_added);
-        println!(
-            "  matching files updated in cache: {}",
-            stats.files_modified
-        );
-        println!("  files deleted from cache: {}", stats.files_deleted);
-        println!("  total files in cache (final): {}", stats.total_files);
-    }
-
-    assert_eq!(
-        image_info_map.len(),
-        stats.total_files,
-        "the number of entries in image_info_map does not match the total files in cache"
-    );
-}
+// fn print_cache_statistics(cache: &Sha256Cache, image_info_map: &HashMap<PathBuf, ImageInfo>) {
+//     let stats = cache.get_stats();
+//
+//     if !cfg!(test) {
+//         println!("\ncache statistics:");
+//         println!(
+//             "  total entries in cache (initial): {}",
+//             stats.initial_count
+//         );
+//         println!("  matching files read from cache: {}", stats.files_read);
+//         println!("  files added to cache: {}", stats.files_added);
+//         println!(
+//             "  matching files updated in cache: {}",
+//             stats.files_modified
+//         );
+//         println!("  files deleted from cache: {}", stats.files_deleted);
+//         println!("  total files in cache (final): {}", stats.total_files);
+//     }
+//
+//     assert_eq!(
+//         image_info_map.len(),
+//         stats.total_files,
+//         "the number of entries in image_info_map does not match the total files in cache"
+//     );
+// }
 
 fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
     let path = entry.path();
@@ -270,9 +269,9 @@ fn scan_folders(
         &image_files,
     )?;
 
-    if !cfg!(test) {
-        print_file_info(&obsidian_repository_info);
-    }
+    // if !cfg!(test) {
+    //     print_file_info(&obsidian_repository_info);
+    // }
 
     Ok(obsidian_repository_info)
 }
@@ -280,6 +279,9 @@ fn scan_folders(
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<(HashMap<PathBuf, MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
+
+    let start = Instant::now();
+
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
@@ -316,6 +318,12 @@ fn scan_markdown_files(
         .unwrap()
         .into_inner()
         .unwrap();
+
+    if !cfg!(test) {
+        let duration = start.elapsed();
+        let duration_string = &format!("{:.2}", duration.as_millis());
+        println!("collect_file_wikilinks took: {}ms", duration_string);
+    }
 
     Ok((markdown_info, all_wikilinks))
 }
@@ -411,44 +419,44 @@ fn collect_image_reference(
     }
 }
 
-fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {
-    let counts: HashMap<String, usize> = image_map
-        .keys()
-        .filter_map(|path| path.extension())
-        .filter_map(|ext| ext.to_str())
-        .map(|ext| ext.to_lowercase())
-        .filter(|ext| IMAGE_EXTENSIONS.contains(&ext.as_str()))
-        .fold(HashMap::new(), |mut acc, ext| {
-            *acc.entry(ext).or_insert(0) += 1;
-            acc
-        });
+// fn count_image_types(image_map: &HashMap<PathBuf, ImageInfo>) -> Vec<(String, usize)> {
+//     let counts: HashMap<String, usize> = image_map
+//         .keys()
+//         .filter_map(|path| path.extension())
+//         .filter_map(|ext| ext.to_str())
+//         .map(|ext| ext.to_lowercase())
+//         .filter(|ext| IMAGE_EXTENSIONS.contains(&ext.as_str()))
+//         .fold(HashMap::new(), |mut acc, ext| {
+//             *acc.entry(ext).or_insert(0) += 1;
+//             acc
+//         });
+//
+//     let mut count_vec: Vec<(String, usize)> = counts.into_iter().collect();
+//     count_vec.sort_by_key(|&(_, count)| Reverse(count));
+//     count_vec
+// }
 
-    let mut count_vec: Vec<(String, usize)> = counts.into_iter().collect();
-    count_vec.sort_by_key(|&(_, count)| Reverse(count));
-    count_vec
-}
-
-fn print_file_info(collected_files: &ObsidianRepositoryInfo) {
-    println!("\nfile counts:");
-    println!("  markdown files: {}", collected_files.markdown_files.len());
-    println!("  other files: {}", collected_files.other_files.len());
-    println!("  image files: {}", collected_files.image_map.len());
-
-    let image_counts = count_image_types(&collected_files.image_map);
-
-    // Print image type statistics
-    for (ext, count) in image_counts {
-        println!("    .{}: {}", ext, count);
-    }
-
-    if !collected_files.other_files.is_empty() {
-        println!("\n  other files found:");
-        for file in &collected_files.other_files {
-            println!("    - {}", file.display());
-        }
-    }
-    println!();
-}
+// fn print_file_info(collected_files: &ObsidianRepositoryInfo) {
+//     println!("\nfile counts:");
+//     println!("  markdown files: {}", collected_files.markdown_files.len());
+//     println!("  other files: {}", collected_files.other_files.len());
+//     println!("  image files: {}", collected_files.image_map.len());
+//
+//     let image_counts = count_image_types(&collected_files.image_map);
+//
+//     // Print image type statistics
+//     for (ext, count) in image_counts {
+//         println!("    .{}: {}", ext, count);
+//     }
+//
+//     if !collected_files.other_files.is_empty() {
+//         println!("\n  other files found:");
+//         for file in &collected_files.other_files {
+//             println!("    - {}", file.display());
+//         }
+//     }
+//     println!();
+// }
 
 #[cfg(test)]
 mod tests {

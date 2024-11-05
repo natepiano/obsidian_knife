@@ -1,5 +1,5 @@
 use chrono::Local;
-use obsidian_knife::*;
+use ok::*;
 use std::error::Error;
 use std::path::PathBuf;
 use std::time::Instant;

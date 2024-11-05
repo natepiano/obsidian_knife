@@ -74,6 +74,7 @@ impl fmt::Display for Wikilink {
 pub enum InvalidWikilinkReason {
     DoubleAlias,                 // e.g. [[A|B|C]]
     EmptyWikilink,               // [[]] or [[|]]
+    EmailAddress,                // bob@rock.com
     UnmatchedClosing,            // ]] without matching [[
     UnmatchedMarkdownOpening,    // [ without following ]
     UnmatchedOpening,            // [[ without closing ]]
@@ -84,6 +85,7 @@ impl fmt::Display for InvalidWikilinkReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
+            Self::EmailAddress => write!(f, "ignore email addresses for back population"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),
