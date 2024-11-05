@@ -75,6 +75,7 @@ pub enum InvalidWikilinkReason {
     DoubleAlias,                 // e.g. [[A|B|C]]
     EmptyWikilink,               // [[]] or [[|]]
     EmailAddress,                // bob@rock.com
+    NestedOpening,               // [[blah [[blah]]
     UnmatchedClosing,            // ]] without matching [[
     UnmatchedMarkdownOpening,    // [ without following ]
     UnmatchedOpening,            // [[ without closing ]]
@@ -87,6 +88,7 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
             Self::EmailAddress => write!(f, "ignore email addresses for back population"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
+            Self::NestedOpening => write!(f, "contains a nested opening"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),

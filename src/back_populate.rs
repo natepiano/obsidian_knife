@@ -630,8 +630,8 @@ fn write_invalid_wikilinks_table(
         "file name",
         "line",
         "line text",
-        "reason",
-        "invalid wikilink",
+        "invalid reason",
+        "source text",
     ];
 
     let alignments = vec![
@@ -655,7 +655,7 @@ fn write_invalid_wikilinks_table(
                 invalid_wikilink.line_number.to_string(),
                 escape_pipe(&invalid_wikilink.line),
                 invalid_wikilink.reason.to_string(),
-                escape_pipe(&invalid_wikilink.content),
+                escape_brackets(&invalid_wikilink.content),
             ]
         })
         .collect();
@@ -1022,7 +1022,7 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
-    use crate::wikilink_types::{InvalidWikilinkReason, Wikilink};
+    use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason, Wikilink};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;

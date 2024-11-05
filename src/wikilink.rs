@@ -362,9 +362,15 @@ fn parse_wikilink(
                 }
             }
             '[' => {
-                state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
-                state.push_char(c);
-            }
+                if is_next_char(chars, '[') {
+                    state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
+                    state.push_char(c);  // push first '['
+                    state.push_char('['); // push second '['
+                } else {
+                    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                    state.push_char(c);
+                }
+            },
             _ => state.push_char(c),
         }
     }
@@ -495,6 +501,14 @@ mod extract_wikilinks_tests {
                 expected_valid: vec![],
                 expected_invalid: vec![
                     ("[[test[text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink, (10, 23)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Nested wikilink",
+                input: "Text with [[target[[inner]] here",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("[[target[[inner]]", InvalidWikilinkReason::NestedOpening, (10, 27)),
                 ],
             },
         ];
