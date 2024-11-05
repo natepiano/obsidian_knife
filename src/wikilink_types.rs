@@ -52,12 +52,6 @@ pub struct Wikilink {
     pub is_alias: bool,
 }
 
-#[derive(Debug, Default)]
-pub struct ExtractedWikilinks {
-    pub valid: Vec<Wikilink>,
-    pub invalid: Vec<InvalidWikilink>,
-}
-
 impl fmt::Display for Wikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
@@ -99,17 +93,19 @@ impl fmt::Display for InvalidWikilinkReason {
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidWikilink {
-    pub content: String, // The actual problematic wikilink text
+    pub content: String,     // The actual problematic wikilink text
     pub reason: InvalidWikilinkReason,
     pub span: (usize, usize), // Start and end positions in the original text
+    pub line: String,        // The full line containing the invalid wikilink
+    pub line_number: usize,  // The line number where the invalid wikilink appears
 }
 
 impl fmt::Display for InvalidWikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Invalid wikilink at position {}-{}: '{}' {}",
-            self.span.0, self.span.1, self.content, self.reason
+            "Invalid wikilink at line {}, position {}-{}: '{}' {}",
+            self.line_number, self.span.0, self.span.1, self.content, self.reason
         )
     }
 }
@@ -117,5 +113,36 @@ impl fmt::Display for InvalidWikilink {
 #[derive(Debug, PartialEq)]
 pub enum WikilinkParseResult {
     Valid(Wikilink),
-    Invalid(InvalidWikilink),
+    Invalid(ParsedInvalidWikilink),
+}
+
+#[derive(Debug, PartialEq)]
+pub struct ParsedInvalidWikilink {
+    pub content: String,
+    pub reason: InvalidWikilinkReason,
+    pub span: (usize, usize),
+}
+
+impl ParsedInvalidWikilink {
+    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
+        InvalidWikilink {
+            content: self.content,
+            reason: self.reason,
+            span: self.span,
+            line,
+            line_number,
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub struct ExtractedWikilinks {
+    pub valid: Vec<Wikilink>,
+    pub invalid: Vec<InvalidWikilink>,
+}
+
+#[derive(Debug, Default)]
+pub struct ParsedExtractedWikilinks {
+    pub valid: Vec<Wikilink>,
+    pub invalid: Vec<ParsedInvalidWikilink>,
 }
