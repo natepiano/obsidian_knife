@@ -171,9 +171,14 @@ fn identify_ambiguous_matches(
     matches: &[BackPopulateMatch],
     wikilinks: &[Wikilink],
 ) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
+    let non_image_wikilinks: Vec<&Wikilink> = wikilinks
+        .iter()
+        .filter(|wikilink| !wikilink.is_image)
+        .collect();
+
     // Create a case-insensitive map of targets to their canonical forms
     let mut target_map: HashMap<String, String> = HashMap::new();
-    for wikilink in wikilinks {
+    for wikilink in &non_image_wikilinks {
         let lower_target = wikilink.target.to_lowercase();
         // If this is the first time we've seen this target (case-insensitive),
         // or if this version is an exact match for the lowercase version,
@@ -187,7 +192,7 @@ fn identify_ambiguous_matches(
 
     // Create a map of display_text to normalized targets
     let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
-    for wikilink in wikilinks {
+    for wikilink in &non_image_wikilinks {
         let lower_target = wikilink.target.to_lowercase();
         // Use the canonical form of the target from our target_map
         if let Some(canonical_target) = target_map.get(&lower_target) {
@@ -2065,6 +2070,73 @@ mod tests {
             unambiguous.len(),
             1,
             "Case variations should be identified as unambiguous"
+        );
+    }
+
+    #[test]
+    fn test_image_wikilink_exclusion() {
+        // Create test wikilinks including image and regular links with same display text
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "cat".to_string(),
+                target: "Cat Photo.png".to_string(),
+                is_alias: true,
+                is_image: true,
+            },
+            Wikilink {
+                display_text: "cat".to_string(),
+                target: "Cat (animal)".to_string(),
+                is_alias: true,
+                is_image: false,
+            },
+            Wikilink {
+                display_text: "cat".to_string(),
+                target: "Cat (command)".to_string(),
+                is_alias: true,
+                is_image: false,
+            },
+        ];
+
+        let matches = vec![
+            BackPopulateMatch {
+                file_path: "test1.md".to_string(),
+                line_number: 1,
+                line_text: "cat is a useful command".to_string(),
+                found_text: "cat".to_string(),
+                replacement: "[[Cat (command)|cat]]".to_string(),
+                position: 0,
+                in_markdown_table: false,
+            },
+            BackPopulateMatch {
+                file_path: "test2.md".to_string(),
+                line_number: 1,
+                line_text: "my cat is sleeping".to_string(),
+                found_text: "cat".to_string(),
+                replacement: "[[Cat (animal)|cat]]".to_string(),
+                position: 3,
+                in_markdown_table: false,
+            },
+        ];
+
+        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+
+        // Should still detect ambiguity between the two non-image wikilinks
+        assert_eq!(
+            ambiguous.len(),
+            1,
+            "Should have one ambiguous match group (excluding image link)"
+        );
+        assert_eq!(ambiguous[0].display_text, "cat");
+        assert_eq!(ambiguous[0].targets.len(), 2);
+        assert!(ambiguous[0].targets.contains(&"Cat (animal)".to_string()));
+        assert!(ambiguous[0].targets.contains(&"Cat (command)".to_string()));
+        // Verify image target is not included
+        assert!(!ambiguous[0].targets.contains(&"Cat Photo.png".to_string()));
+
+        assert_eq!(
+            unambiguous.len(),
+            0,
+            "Should have no unambiguous matches"
         );
     }
 }
