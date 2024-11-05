@@ -290,7 +290,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         let mut chars = chars.chars();
         match (chars.next(), chars.next()) {
             // Check for "'t" or "'t" (curly apostrophe)
-            (Some('\''), Some('t')) | (Some('\u{2019}'), Some('t')) => true,
+            (Some('\''), Some('t') | Some('T')) | (Some('\u{2019}'), Some('t') | Some('T') ) => true,
             _ => false,
         }
     }
