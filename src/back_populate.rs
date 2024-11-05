@@ -310,9 +310,17 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
 fn collect_exclusion_zones(
     line: &str,
     config: &ValidatedConfig,
-    file_patterns: Option<&[String]>,
+    markdown_file_info: &MarkdownFileInfo,
 ) -> Vec<(usize, usize)> {
     let mut exclusion_zones = Vec::new();
+
+    // Add invalid wikilinks as exclusion zones
+    for invalid_wikilink in &markdown_file_info.invalid_wikilinks {
+        // Only add exclusion zone if this invalid wikilink is on the current line
+        if invalid_wikilink.line == line {
+            exclusion_zones.push(invalid_wikilink.span);
+        }
+    }
 
     // Process patterns from config using the pre-built AC automaton
     if let Some(ac) = config.do_not_back_populate_ac() {
@@ -322,7 +330,7 @@ fn collect_exclusion_zones(
     }
 
     // Process file-specific patterns if they exist
-    if let Some(patterns) = file_patterns {
+    if let Some(patterns) = &markdown_file_info.do_not_back_populate {
         // Build AC automaton for file patterns
         if !patterns.is_empty() {
             if let Ok(file_ac) = AhoCorasickBuilder::new()
@@ -360,7 +368,7 @@ fn process_line(
     let exclusion_zones = collect_exclusion_zones(
         line,
         config,
-        markdown_file_info.do_not_back_populate.as_deref(),
+        markdown_file_info,
     );
 
     for mat in ac.find_iter(line) {
@@ -664,8 +672,8 @@ fn write_back_populate_table(
     matches: &[BackPopulateMatch],
     is_unambiguous_match: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // First, group matches by found_text
-    let mut matches_by_text: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
+    // Step 1: Group matches by found_text using a HashMap
+    let mut matches_by_text: HashMap<String, Vec<&BackPopulateMatch>> = HashMap::new();
     for m in matches {
         matches_by_text
             .entry(m.found_text.clone())
@@ -700,12 +708,17 @@ fn write_back_populate_table(
         vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
     };
 
-    // Rest of the function remains the same...
-    for (found_text, text_matches) in matches_by_text.iter() {
+    // Step 2: Collect and sort the keys case-insensitively
+    let mut sorted_found_texts: Vec<&String> = matches_by_text.keys().collect();
+    sorted_found_texts.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+
+    // Step 3: Iterate over the sorted keys
+    for found_text in sorted_found_texts {
+        let text_matches = &matches_by_text[found_text];
         let total_occurrences = text_matches.len();
         let file_paths: HashSet<String> = text_matches
             .iter()
-            .map(|m| m.file_path.to_string())
+            .map(|m| m.file_path.clone())
             .collect();
 
         let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
@@ -731,8 +744,8 @@ fn write_back_populate_table(
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
 
-            // First compare by file name
-            let file_cmp = file_a.cmp(file_b);
+            // First compare by file name (case-insensitive)
+            let file_cmp = file_a.to_lowercase().cmp(&file_b.to_lowercase());
             if file_cmp != std::cmp::Ordering::Equal {
                 return file_cmp;
             }
@@ -802,6 +815,7 @@ fn write_back_populate_table(
 
     Ok(())
 }
+
 
 // Helper function to highlight all instances of a pattern in text
 fn highlight_matches(text: &str, pattern: &str) -> String {
@@ -1008,7 +1022,7 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 mod tests {
     use super::*;
     use crate::scan::MarkdownFileInfo;
-    use crate::wikilink_types::Wikilink;
+    use crate::wikilink_types::{InvalidWikilinkReason, Wikilink};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
@@ -2138,5 +2152,109 @@ mod tests {
             0,
             "Should have no unambiguous matches"
         );
+    }
+
+    #[test]
+    fn test_collect_exclusion_zones_with_invalid_wikilinks() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let mut file_info = MarkdownFileInfo::new();
+        let line = "Text [[invalid|link|extra]] and more text";
+
+        // Add an invalid wikilink
+        file_info.invalid_wikilinks.push(InvalidWikilink {
+            content: "[[invalid|link|extra]]".to_string(),
+            reason: InvalidWikilinkReason::DoubleAlias,
+            span: (5, 27),
+            line: line.to_string(),
+            line_number: 1,
+        });
+
+        let zones = collect_exclusion_zones(line, &config, &file_info);
+
+        assert!(!zones.is_empty(), "Should have at least one exclusion zone");
+        assert!(zones.contains(&(5, 27)), "Should contain invalid wikilink span");
+    }
+
+    #[test]
+    fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let mut file_info = MarkdownFileInfo::new();
+        let line = "[[test|one|two]] some text [[]]";
+
+        // Add multiple invalid wikilinks
+        file_info.invalid_wikilinks.extend(vec![
+            InvalidWikilink {
+                content: "[[test|one|two]]".to_string(),
+                reason: InvalidWikilinkReason::DoubleAlias,
+                span: (0, 16),
+                line: line.to_string(),
+                line_number: 1,
+            },
+            InvalidWikilink {
+                content: "[[]]".to_string(),
+                reason: InvalidWikilinkReason::EmptyWikilink,
+                span: (27, 31),
+                line: line.to_string(),
+                line_number: 1,
+            },
+        ]);
+
+        let zones = collect_exclusion_zones(line, &config, &file_info);
+
+        assert_eq!(zones.len(), 2, "Should have two exclusion zones");
+        assert!(zones.contains(&(0, 16)), "Should contain first invalid wikilink span");
+        assert!(zones.contains(&(27, 31)), "Should contain second invalid wikilink span");
+    }
+
+    #[test]
+    fn test_exclusion_zones_only_matches_current_line() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = ValidatedConfig::new(
+            false,
+            None,
+            None,
+            None,
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
+        );
+
+        let mut file_info = MarkdownFileInfo::new();
+        let line1 = "Line 1 with [[bad|link|here]]";
+        let line2 = "Line 2 with normal text";
+
+        // Add invalid wikilink from a different line
+        file_info.invalid_wikilinks.push(InvalidWikilink {
+            content: "[[bad|link|here]]".to_string(),
+            reason: InvalidWikilinkReason::DoubleAlias,
+            span: (10, 26),
+            line: line1.to_string(),
+            line_number: 1,
+        });
+
+        // Check exclusion zones for line2
+        let zones = collect_exclusion_zones(line2, &config, &file_info);
+
+        assert!(zones.is_empty(), "Should not have exclusion zones for different line");
     }
 }
