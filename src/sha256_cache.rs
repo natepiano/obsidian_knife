@@ -72,7 +72,7 @@ impl Sha256Cache {
             Sha256Cache {
                 cache,
                 cache_file_path,
-               // initial_count,
+                // initial_count,
                 files_read: 0,
                 files_added: 0,
                 files_modified: 0,

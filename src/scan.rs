@@ -84,7 +84,7 @@ fn get_image_info_map(
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
     let (mut cache, _) = Sha256Cache::new(cache_file_path.clone())?;
 
-   //  print_cache_file_info(&cache_file_path, cache_file_status);
+    //  print_cache_file_info(&cache_file_path, cache_file_status);
 
     let mut image_info_map = HashMap::new();
 
@@ -279,7 +279,6 @@ fn scan_folders(
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<(HashMap<PathBuf, MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-
     let start = Instant::now();
 
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
@@ -462,10 +461,10 @@ fn collect_image_reference(
 mod tests {
     use super::*;
     use crate::test_utils::create_test_files;
+    use crate::wikilink_types::InvalidWikilinkReason;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
-    use crate::wikilink_types::InvalidWikilinkReason;
 
     #[test]
     fn test_scan_markdown_file_with_invalid_wikilinks() {
@@ -486,23 +485,31 @@ mod tests {
 
         // Check valid wikilinks
         assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
-        assert!(valid_wikilinks.iter().any(|w| w.display_text == "Valid Link"));
+        assert!(valid_wikilinks
+            .iter()
+            .any(|w| w.display_text == "Valid Link"));
 
         // Check invalid wikilinks
         assert_eq!(file_info.invalid_wikilinks.len(), 3);
 
         // Verify specific invalid wikilinks
-        let double_alias = file_info.invalid_wikilinks.iter()
+        let double_alias = file_info
+            .invalid_wikilinks
+            .iter()
             .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
             .expect("Should have a double alias invalid wikilink");
         assert_eq!(double_alias.content, "[[invalid|link|extra]]");
 
-        let unmatched = file_info.invalid_wikilinks.iter()
+        let unmatched = file_info
+            .invalid_wikilinks
+            .iter()
             .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
             .expect("Should have an unmatched opening invalid wikilink");
         assert_eq!(unmatched.content, "[[unmatched");
 
-        let empty = file_info.invalid_wikilinks.iter()
+        let empty = file_info
+            .invalid_wikilinks
+            .iter()
             .find(|w| w.reason == InvalidWikilinkReason::EmptyWikilink)
             .expect("Should have an empty wikilink");
         assert_eq!(empty.content, "[[]]");

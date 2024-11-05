@@ -72,14 +72,15 @@ impl fmt::Display for Wikilink {
 
 #[derive(Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
-    DoubleAlias,                 // e.g. [[A|B|C]]
-    EmptyWikilink,               // [[]] or [[|]]
-    EmailAddress,                // bob@rock.com
-    NestedOpening,               // [[blah [[blah]]
-    UnmatchedClosing,            // ]] without matching [[
-    UnmatchedMarkdownOpening,    // [ without following ]
-    UnmatchedOpening,            // [[ without closing ]]
-    UnmatchedSingleInWikilink,   // ] without [ or [ without ]
+    DoubleAlias,               // e.g. [[A|B|C]]
+    EmptyWikilink,             // [[]] or [[|]]
+    EmailAddress,              // bob@rock.com
+    NestedOpening,             // [[blah [[blah]]
+    Tag,                       // #tags should be ignored
+    UnmatchedClosing,          // ]] without matching [[
+    UnmatchedMarkdownOpening,  // [ without following ]
+    UnmatchedOpening,          // [[ without closing ]]
+    UnmatchedSingleInWikilink, // ] without [ or [ without ]
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -89,6 +90,7 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::EmailAddress => write!(f, "ignore email addresses for back population"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::NestedOpening => write!(f, "contains a nested opening"),
+            Self::Tag => write!(f, "ignore tags for back population"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
@@ -99,11 +101,11 @@ impl fmt::Display for InvalidWikilinkReason {
 
 #[derive(Debug, PartialEq)]
 pub struct InvalidWikilink {
-    pub content: String,     // The actual problematic wikilink text
+    pub content: String, // The actual problematic wikilink text
     pub reason: InvalidWikilinkReason,
     pub span: (usize, usize), // Start and end positions in the original text
-    pub line: String,        // The full line containing the invalid wikilink
-    pub line_number: usize,  // The line number where the invalid wikilink appears
+    pub line: String,         // The full line containing the invalid wikilink
+    pub line_number: usize,   // The line number where the invalid wikilink appears
 }
 
 impl fmt::Display for InvalidWikilink {
@@ -130,7 +132,7 @@ pub struct ParsedInvalidWikilink {
 }
 
 impl ParsedInvalidWikilink {
-    pub fn into_invalid_wikilink(self, line: String, line_number: usize,) -> InvalidWikilink {
+    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
         InvalidWikilink {
             content: self.content,
             reason: self.reason,

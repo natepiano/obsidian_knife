@@ -1,5 +1,8 @@
 use crate::constants::*;
-use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks, ParsedInvalidWikilink, Wikilink, WikilinkParseResult};
+use crate::wikilink_types::{
+    ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks,
+    ParsedInvalidWikilink, Wikilink, WikilinkParseResult,
+};
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::error::Error;
@@ -9,7 +12,9 @@ use std::str::CharIndices;
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
-    static ref EMAIL_REGEX: Regex = Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
+    static ref EMAIL_REGEX: Regex =
+        Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
+    static ref TAG_REGEX: Regex = Regex::new(r"(?:^|\s)#[a-zA-Z0-9_-]+").unwrap();
 }
 
 pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
@@ -43,7 +48,6 @@ pub fn collect_file_wikilinks(
     aliases: &Option<Vec<String>>,
     file_path: &Path,
 ) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
-
     let mut result = ExtractedWikilinks::default();
 
     // Add filename-based wikilink
@@ -74,7 +78,9 @@ pub fn collect_file_wikilinks(
         result.valid.extend(extracted.valid);
 
         // Convert ParsedInvalidWikilink to InvalidWikilink with line information
-        let invalid_with_lines: Vec<InvalidWikilink> = extracted.invalid.into_iter()
+        let invalid_with_lines: Vec<InvalidWikilink> = extracted
+            .invalid
+            .into_iter()
             .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
             .collect();
 
@@ -87,7 +93,7 @@ pub fn collect_file_wikilinks(
 fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut result = ParsedExtractedWikilinks::default();
 
-    parse_email_addresses(line, &mut result);
+    parse_special_patterns(line, &mut result);
 
     let mut chars = line.char_indices().peekable();
     let mut markdown_opening: Option<usize> = None;
@@ -178,13 +184,27 @@ fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     result
 }
 
-fn parse_email_addresses(line: &str, result: &mut ParsedExtractedWikilinks) {
-    //Add email addresses as invalid wikilinks
+// Replace parse_email_addresses with this more generic function
+fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
+    // Add email addresses as invalid wikilinks
     for email_match in EMAIL_REGEX.find_iter(line) {
         result.invalid.push(ParsedInvalidWikilink {
             content: email_match.as_str().to_string(),
             reason: InvalidWikilinkReason::EmailAddress,
             span: (email_match.start(), email_match.end()),
+        });
+    }
+
+    // Add tags as invalid wikilinks
+    for tag_match in TAG_REGEX.find_iter(line) {
+        let tag = tag_match.as_str().trim();
+        result.invalid.push(ParsedInvalidWikilink {
+            content: tag.to_string(),
+            reason: InvalidWikilinkReason::Tag,
+            span: (
+                tag_match.start() + tag_match.as_str().find(tag).unwrap_or(0),
+                tag_match.start() + tag_match.as_str().find(tag).unwrap_or(0) + tag.len(),
+            ),
         });
     }
 }
@@ -212,7 +232,9 @@ impl WikilinkState {
     fn formatted_content(&self) -> String {
         match self {
             WikilinkState::Target { content, .. } => content.to_string(),
-            WikilinkState::Display { target, content, .. } => format!("{}|{}", target, content),
+            WikilinkState::Display {
+                target, content, ..
+            } => format!("{}|{}", target, content),
             WikilinkState::Invalid { content, .. } => content.to_string(),
         }
     }
@@ -240,7 +262,10 @@ impl WikilinkState {
         let content = self.formatted_content();
         let start_pos = match self {
             WikilinkState::Target { start_pos, .. } => *start_pos,
-            WikilinkState::Display { _target_span: (start, _), .. } => *start,
+            WikilinkState::Display {
+                _target_span: (start, _),
+                ..
+            } => *start,
             WikilinkState::Invalid { start_pos, .. } => *start_pos,
         };
         *self = WikilinkState::Invalid {
@@ -269,7 +294,12 @@ impl WikilinkState {
                     })
                 }
             }
-            WikilinkState::Display { target, content, _target_span: (start_pos, _), .. } => {
+            WikilinkState::Display {
+                target,
+                content,
+                _target_span: (start_pos, _),
+                ..
+            } => {
                 let trimmed_target = target.trim().to_string();
                 let trimmed_display = content.trim().to_string();
                 if trimmed_target.is_empty() || trimmed_display.is_empty() {
@@ -287,10 +317,14 @@ impl WikilinkState {
                     })
                 }
             }
-            WikilinkState::Invalid { content, reason, start_pos } => {
+            WikilinkState::Invalid {
+                content,
+                reason,
+                start_pos,
+            } => {
                 let formatted = match reason {
                     InvalidWikilinkReason::UnmatchedOpening => format!("[[{}", content),
-                    _ => format!("[[{}]]", content)
+                    _ => format!("[[{}]]", content),
                 };
                 WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                     content: formatted,
@@ -343,16 +377,14 @@ fn parse_wikilink(
                     }
                 }
             }
-            '|' => {
-                match state {
-                    WikilinkState::Target { .. } => state.transition_to_display(pos),
-                    WikilinkState::Display { .. } => {
-                        state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
-                        state.push_char(c);
-                    }
-                    _ => unreachable!(),
+            '|' => match state {
+                WikilinkState::Target { .. } => state.transition_to_display(pos),
+                WikilinkState::Display { .. } => {
+                    state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
+                    state.push_char(c);
                 }
-            }
+                _ => unreachable!(),
+            },
             ']' => {
                 if is_next_char(chars, ']') {
                     return Some(state.to_wikilink(pos + 2, is_image));
@@ -364,13 +396,13 @@ fn parse_wikilink(
             '[' => {
                 if is_next_char(chars, '[') {
                     state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
-                    state.push_char(c);  // push first '['
+                    state.push_char(c); // push first '['
                     state.push_char('['); // push second '['
                 } else {
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
                 }
-            },
+            }
             _ => state.push_char(c),
         }
     }
@@ -474,42 +506,52 @@ mod extract_wikilinks_tests {
                 description: "Double alias with closing brackets",
                 input: "Text with [[target|alias|extra]] here",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[[target|alias|extra]]", InvalidWikilinkReason::DoubleAlias, (10, 32)),
-                ],
+                expected_invalid: vec![(
+                    "[[target|alias|extra]]",
+                    InvalidWikilinkReason::DoubleAlias,
+                    (10, 32),
+                )],
             },
             WikilinkTestCase {
                 description: "Double alias without closing",
                 input: "Text with [[target|alias|extra",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[[target|alias|extra", InvalidWikilinkReason::UnmatchedOpening, (10, 30)),
-                ],
+                expected_invalid: vec![(
+                    "[[target|alias|extra",
+                    InvalidWikilinkReason::UnmatchedOpening,
+                    (10, 30),
+                )],
             },
             // Add to existing test cases
             WikilinkTestCase {
                 description: "Unmatched closing bracket within wikilink",
                 input: "Text with [[test]text]] here",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[[test]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink, (10, 23)),
-                ],
+                expected_invalid: vec![(
+                    "[[test]text]]",
+                    InvalidWikilinkReason::UnmatchedSingleInWikilink,
+                    (10, 23),
+                )],
             },
             WikilinkTestCase {
                 description: "Unmatched opening bracket within wikilink",
                 input: "Text with [[test[text]] here",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[[test[text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink, (10, 23)),
-                ],
+                expected_invalid: vec![(
+                    "[[test[text]]",
+                    InvalidWikilinkReason::UnmatchedSingleInWikilink,
+                    (10, 23),
+                )],
             },
             WikilinkTestCase {
                 description: "Nested wikilink",
                 input: "Text with [[target[[inner]] here",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[[target[[inner]]", InvalidWikilinkReason::NestedOpening, (10, 27)),
-                ],
+                expected_invalid: vec![(
+                    "[[target[[inner]]",
+                    InvalidWikilinkReason::NestedOpening,
+                    (10, 27),
+                )],
             },
         ];
 
@@ -525,7 +567,11 @@ mod extract_wikilinks_tests {
                 description: "Single unmatched closing brackets",
                 input: "Some text here]] more text",
                 expected_valid: vec![],
-                expected_invalid: vec![("Some text here]]", InvalidWikilinkReason::UnmatchedClosing, (0, 16))],
+                expected_invalid: vec![(
+                    "Some text here]]",
+                    InvalidWikilinkReason::UnmatchedClosing,
+                    (0, 16),
+                )],
             },
             WikilinkTestCase {
                 description: "Multiple unmatched closings",
@@ -543,7 +589,11 @@ mod extract_wikilinks_tests {
                     ("Valid Link", "Valid Link", false),
                     ("Another", "Another", false),
                 ],
-                expected_invalid: vec![(" but here]]", InvalidWikilinkReason::UnmatchedClosing, (14, 25))],
+                expected_invalid: vec![(
+                    " but here]]",
+                    InvalidWikilinkReason::UnmatchedClosing,
+                    (14, 25),
+                )],
             },
             // New Test Case for Unmatched Opening
             WikilinkTestCase {
@@ -570,7 +620,6 @@ mod extract_wikilinks_tests {
         }
     }
 
-
     #[test]
     fn test_unclosed_markdown_links() {
         let test_cases = vec![
@@ -578,35 +627,47 @@ mod extract_wikilinks_tests {
                 description: "Basic unclosed markdown link",
                 input: "[display",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[display", InvalidWikilinkReason::UnmatchedMarkdownOpening, (0, 8)),
-                ],
+                expected_invalid: vec![(
+                    "[display",
+                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    (0, 8),
+                )],
             },
             WikilinkTestCase {
                 description: "Unclosed link in context",
                 input: "some text [link",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("[link", InvalidWikilinkReason::UnmatchedMarkdownOpening, (10, 15)),
-                ],
+                expected_invalid: vec![(
+                    "[link",
+                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    (10, 15),
+                )],
             },
             WikilinkTestCase {
                 description: "Mixed valid wikilink and unclosed markdown",
                 input: "[[valid link]] [unclosed",
-                expected_valid: vec![
-                    ("valid link", "valid link", false),
-                ],
-                expected_invalid: vec![
-                    ("[unclosed", InvalidWikilinkReason::UnmatchedMarkdownOpening, (15, 24)),
-                ],
+                expected_valid: vec![("valid link", "valid link", false)],
+                expected_invalid: vec![(
+                    "[unclosed",
+                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    (15, 24),
+                )],
             },
             WikilinkTestCase {
                 description: "Multiple unclosed markdown links",
                 input: "[first [second",
                 expected_valid: vec![],
                 expected_invalid: vec![
-                    ("[first", InvalidWikilinkReason::UnmatchedMarkdownOpening, (0, 6)),
-                    ("[second", InvalidWikilinkReason::UnmatchedMarkdownOpening, (7, 14)),
+                    (
+                        "[first",
+                        InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        (0, 6),
+                    ),
+                    (
+                        "[second",
+                        InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        (7, 14),
+                    ),
                 ],
             },
             WikilinkTestCase {
@@ -620,7 +681,11 @@ mod extract_wikilinks_tests {
                 input: "[valid](link) [unclosed",
                 expected_valid: vec![],
                 expected_invalid: vec![
-                    ("[unclosed", InvalidWikilinkReason::UnmatchedMarkdownOpening, (14, 23)), // Fixed span
+                    (
+                        "[unclosed",
+                        InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        (14, 23),
+                    ), // Fixed span
                 ],
             },
         ];
@@ -637,28 +702,81 @@ mod extract_wikilinks_tests {
                 description: "Simple email address",
                 input: "Contact bob@example.com for more info",
                 expected_valid: vec![],
-                expected_invalid: vec![
-                    ("bob@example.com", InvalidWikilinkReason::EmailAddress, (8, 23)),
-                ],
+                expected_invalid: vec![(
+                    "bob@example.com",
+                    InvalidWikilinkReason::EmailAddress,
+                    (8, 23),
+                )],
             },
             WikilinkTestCase {
                 description: "Email with wikilink",
                 input: "[[Contact]] john.doe@company.org today",
-                expected_valid: vec![
-                    ("Contact", "Contact", false),
-                ],
-                expected_invalid: vec![
-                    ("john.doe@company.org", InvalidWikilinkReason::EmailAddress, (12, 32)),
-                ],
+                expected_valid: vec![("Contact", "Contact", false)],
+                expected_invalid: vec![(
+                    "john.doe@company.org",
+                    InvalidWikilinkReason::EmailAddress,
+                    (12, 32),
+                )],
             },
             WikilinkTestCase {
                 description: "Multiple emails",
                 input: "Email user1@test.com or user2@test.com",
                 expected_valid: vec![],
                 expected_invalid: vec![
-                    ("user1@test.com", InvalidWikilinkReason::EmailAddress, (6, 20)),
-                    ("user2@test.com", InvalidWikilinkReason::EmailAddress, (24, 38)),
+                    (
+                        "user1@test.com",
+                        InvalidWikilinkReason::EmailAddress,
+                        (6, 20),
+                    ),
+                    (
+                        "user2@test.com",
+                        InvalidWikilinkReason::EmailAddress,
+                        (24, 38),
+                    ),
                 ],
+            },
+        ];
+
+        for test_case in test_cases {
+            assert_wikilink_extraction(test_case);
+        }
+    }
+
+    #[test]
+    fn test_tag_detection() {
+        let test_cases = vec![
+            WikilinkTestCase {
+                description: "Simple tag at start of line",
+                input: "#obsidian_knife is great",
+                expected_valid: vec![],
+                expected_invalid: vec![("#obsidian_knife", InvalidWikilinkReason::Tag, (0, 15))],
+            },
+            WikilinkTestCase {
+                description: "Tag after space",
+                input: "Check out this #ka-fave tag",
+                expected_valid: vec![],
+                expected_invalid: vec![("#ka-fave", InvalidWikilinkReason::Tag, (15, 23))],
+            },
+            WikilinkTestCase {
+                description: "Multiple tags",
+                input: "#tag1 some text #tag2",
+                expected_valid: vec![],
+                expected_invalid: vec![
+                    ("#tag1", InvalidWikilinkReason::Tag, (0, 5)),
+                    ("#tag2", InvalidWikilinkReason::Tag, (16, 21)),
+                ],
+            },
+            WikilinkTestCase {
+                description: "Tag with wikilink",
+                input: "[[Note]] #important reference",
+                expected_valid: vec![("Note", "Note", false)],
+                expected_invalid: vec![("#important", InvalidWikilinkReason::Tag, (9, 19))],
+            },
+            WikilinkTestCase {
+                description: "Tag with underscore and numbers",
+                input: "Task #todo_123 pending",
+                expected_valid: vec![],
+                expected_invalid: vec![("#todo_123", InvalidWikilinkReason::Tag, (5, 14))],
             },
         ];
 
@@ -844,19 +962,34 @@ mod wikilink_creation_tests {
         // Invalid cases
         let invalid_cases = vec![
             // Basic double alias case
-            ("[[target|alias|second]]", InvalidWikilinkReason::DoubleAlias),
+            (
+                "[[target|alias|second]]",
+                InvalidWikilinkReason::DoubleAlias,
+            ),
             // Multiple pipes
-            ("[[target|alias|second|third]]", InvalidWikilinkReason::DoubleAlias),
+            (
+                "[[target|alias|second|third]]",
+                InvalidWikilinkReason::DoubleAlias,
+            ),
             // Consecutive pipes
             ("[[target||alias]]", InvalidWikilinkReason::DoubleAlias),
             // Mixed consecutive and separated pipes
-            ("[[target||alias|another]]", InvalidWikilinkReason::DoubleAlias),
+            (
+                "[[target||alias|another]]",
+                InvalidWikilinkReason::DoubleAlias,
+            ),
             // Complex case with double pipe
-            ("[[target|display|another]]", InvalidWikilinkReason::DoubleAlias),
+            (
+                "[[target|display|another]]",
+                InvalidWikilinkReason::DoubleAlias,
+            ),
             // Multiple consecutive pipes
             ("[[target|||display]]", InvalidWikilinkReason::DoubleAlias),
             // Escaped pipe is still a pipe
-            ("[[target\\|text|DoubleAlias]]", InvalidWikilinkReason::DoubleAlias),
+            (
+                "[[target\\|text|DoubleAlias]]",
+                InvalidWikilinkReason::DoubleAlias,
+            ),
         ];
 
         for (input, expected_reason) in invalid_cases {
@@ -879,8 +1012,18 @@ mod wikilink_creation_tests {
                 false,
             ),
             // Escaped single brackets
-            ("[[text\\[in\\]brackets]]", "text[in]brackets", "text[in]brackets", false),
-            ("[[target\\[x\\]|display\\[y\\]]]", "target[x]", "display[y]", true),
+            (
+                "[[text\\[in\\]brackets]]",
+                "text[in]brackets",
+                "text[in]brackets",
+                false,
+            ),
+            (
+                "[[target\\[x\\]|display\\[y\\]]]",
+                "target[x]",
+                "display[y]",
+                true,
+            ),
         ];
 
         for (input, target, display, is_alias) in test_cases {
@@ -892,16 +1035,32 @@ mod wikilink_creation_tests {
     fn test_parse_wikilink_unmatched_brackets() {
         let test_cases = vec![
             // Basic unmatched brackets
-            ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
-            ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
-
+            (
+                "[[text]text]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ),
+            (
+                "[[text[text]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ),
             // Mixed escape scenarios - only flag when a bracket is actually unmatched
-            ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),  // first [ is unmatched, second is escaped
-            ("[[text\\[]text]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),  // ] is unmatched, [ is escaped
-
+            (
+                "[[text[\\]text]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ), // first [ is unmatched, second is escaped
+            (
+                "[[text\\[]text]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ), // ] is unmatched, [ is escaped
             // Complex cases with aliases
-            ("[[target[x|display]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
-            ("[[target|display]x]]", InvalidWikilinkReason::UnmatchedSingleInWikilink),
+            (
+                "[[target[x|display]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ),
+            (
+                "[[target|display]x]]",
+                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            ),
         ];
 
         for (input, expected_reason) in test_cases {
@@ -921,7 +1080,6 @@ mod wikilink_creation_tests {
             ),
             ("[[file (1)]]", "file (1)", "file (1)", false),
             ("[[file (1)|version 1]]", "file (1)", "version 1", true),
-
             ("[[target|(text)]]", "target", "(text)", true),
         ];
 
@@ -973,7 +1131,10 @@ mod collect_wikilinks_tests {
         assert_contains_wikilink(&extracted.valid, "Target", Some("Display Text"), true);
 
         // Verify no invalid wikilinks in this case
-        assert!(extracted.invalid.is_empty(), "Should not have invalid wikilinks");
+        assert!(
+            extracted.invalid.is_empty(),
+            "Should not have invalid wikilinks"
+        );
     }
 
     #[test]
@@ -990,19 +1151,30 @@ mod collect_wikilinks_tests {
         assert_contains_wikilink(&extracted.valid, "good link", None, false);
 
         // Verify invalid wikilinks with line information
-        assert_eq!(extracted.invalid.len(), 2, "Should have exactly two invalid wikilinks");
+        assert_eq!(
+            extracted.invalid.len(),
+            2,
+            "Should have exactly two invalid wikilinks"
+        );
 
         // Find and verify the double alias invalid wikilink
-        let double_alias = extracted.invalid.iter()
+        let double_alias = extracted
+            .invalid
+            .iter()
             .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
             .expect("Should have a double alias invalid wikilink");
 
         assert_eq!(double_alias.line_number, 1);
-        assert_eq!(double_alias.line, "Some [[good link]] and [[bad|link|extra]] here");
+        assert_eq!(
+            double_alias.line,
+            "Some [[good link]] and [[bad|link|extra]] here"
+        );
         assert_eq!(double_alias.content, "[[bad|link|extra]]");
 
         // Find and verify the unmatched opening invalid wikilink
-        let unmatched = extracted.invalid.iter()
+        let unmatched = extracted
+            .invalid
+            .iter()
             .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
             .expect("Should have an unmatched opening invalid wikilink");
 
@@ -1021,7 +1193,8 @@ mod collect_wikilinks_tests {
         let extracted = collect_file_wikilinks(content, &None, &file_path).unwrap();
 
         assert_eq!(
-            extracted.invalid.len(), 2,
+            extracted.invalid.len(),
+            2,
             "Should have two invalid empty wikilinks"
         );
 

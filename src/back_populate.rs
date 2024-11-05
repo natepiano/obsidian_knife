@@ -6,6 +6,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::MARKDOWN_REGEX;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
@@ -13,7 +14,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
-use itertools::Itertools;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -366,11 +366,7 @@ fn process_line(
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let mut matches = Vec::new();
 
-    let exclusion_zones = collect_exclusion_zones(
-        line,
-        config,
-        markdown_file_info,
-    );
+    let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
 
     for mat in ac.find_iter(line) {
         // use the ac pattern - which returns the index that matches
@@ -588,7 +584,6 @@ fn write_invalid_wikilinks_table(
     writer: &ThreadSafeWriter,
     obsidian_repository_info: &ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     // Collect all invalid wikilinks from all files
     let invalid_wikilinks = obsidian_repository_info
         .markdown_files
@@ -597,7 +592,12 @@ fn write_invalid_wikilinks_table(
             file_info
                 .invalid_wikilinks
                 .iter()
-                .filter(|wikilink| !matches!(wikilink.reason, InvalidWikilinkReason::EmailAddress))
+                .filter(|wikilink| {
+                    !matches!(
+                        wikilink.reason,
+                        InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag
+                    )
+                })
                 .map(move |wikilink| (file_path.as_path(), wikilink))
         })
         .collect::<Vec<_>>()
@@ -605,7 +605,9 @@ fn write_invalid_wikilinks_table(
         .sorted_by(|a, b| {
             let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
             let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            file_a.cmp(file_b).then(a.1.line_number.cmp(&b.1.line_number))
+            file_a
+                .cmp(file_b)
+                .then(a.1.line_number.cmp(&b.1.line_number))
         })
         .collect::<Vec<_>>();
 
@@ -621,7 +623,11 @@ fn write_invalid_wikilinks_table(
         &format!(
             "found {} invalid wikilinks in {} files\n",
             invalid_wikilinks.len(),
-            invalid_wikilinks.iter().map(|(p, _)| p).collect::<HashSet<_>>().len()
+            invalid_wikilinks
+                .iter()
+                .map(|(p, _)| p)
+                .collect::<HashSet<_>>()
+                .len()
         ),
     )?;
 
@@ -716,10 +722,8 @@ fn write_back_populate_table(
     for found_text in sorted_found_texts {
         let text_matches = &matches_by_text[found_text];
         let total_occurrences = text_matches.len();
-        let file_paths: HashSet<String> = text_matches
-            .iter()
-            .map(|m| m.file_path.clone())
-            .collect();
+        let file_paths: HashSet<String> =
+            text_matches.iter().map(|m| m.file_path.clone()).collect();
 
         let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
 
@@ -815,7 +819,6 @@ fn write_back_populate_table(
 
     Ok(())
 }
-
 
 // Helper function to highlight all instances of a pattern in text
 fn highlight_matches(text: &str, pattern: &str) -> String {
@@ -1326,7 +1329,6 @@ mod tests {
             target: "Kyriana McCoy".to_string(),
             is_alias: true,
             is_image: false,
-
         };
 
         // Clear and add to the sorted vec
@@ -1358,7 +1360,6 @@ mod tests {
             target: "fromage".to_string(),
             is_alias: true,
             is_image: false,
-
         };
 
         let ac = build_aho_corasick(&[wikilink.clone()]);
@@ -1407,7 +1408,6 @@ mod tests {
             target: "William.md".to_string(),
             is_alias: true,
             is_image: false,
-
         };
 
         // Update repo_info with the custom wikilink
@@ -1552,7 +1552,6 @@ mod tests {
             target: "William.md".to_string(),
             is_alias: true,
             is_image: false,
-
         };
 
         // Clear and add to the sorted vec
@@ -1604,14 +1603,12 @@ mod tests {
                 target: "Target Page".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "Another Link".to_string(),
                 target: "Other Page".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
         ];
         // Initialize environment with custom wikilinks
@@ -1818,7 +1815,6 @@ mod tests {
                 target: "tomato".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             // Also include a direct "tomatoes" wikilink that should not be used
             Wikilink {
@@ -1826,7 +1822,6 @@ mod tests {
                 target: "tomatoes".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
         ];
 
@@ -1861,21 +1856,18 @@ mod tests {
                 target: "Ed Barnes".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "Ed".to_string(),
                 target: "Ed Stanfield".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "Unique".to_string(),
                 target: "Unique Target".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
         ];
 
@@ -1924,14 +1916,12 @@ mod tests {
                 target: "Amazon".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "amazon".to_string(),
                 target: "amazon".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
         ];
 
@@ -1981,14 +1971,12 @@ mod tests {
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
         ];
 
@@ -2026,14 +2014,12 @@ mod tests {
                 target: "AWS".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "aws".to_string(),
                 target: "aws".to_string(),
                 is_alias: false,
                 is_image: false,
-
             },
             // Truly different targets
             Wikilink {
@@ -2041,14 +2027,12 @@ mod tests {
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
                 is_image: false,
-
             },
         ];
 
@@ -2147,11 +2131,7 @@ mod tests {
         // Verify image target is not included
         assert!(!ambiguous[0].targets.contains(&"Cat Photo.png".to_string()));
 
-        assert_eq!(
-            unambiguous.len(),
-            0,
-            "Should have no unambiguous matches"
-        );
+        assert_eq!(unambiguous.len(), 0, "Should have no unambiguous matches");
     }
 
     #[test]
@@ -2182,7 +2162,10 @@ mod tests {
         let zones = collect_exclusion_zones(line, &config, &file_info);
 
         assert!(!zones.is_empty(), "Should have at least one exclusion zone");
-        assert!(zones.contains(&(5, 27)), "Should contain invalid wikilink span");
+        assert!(
+            zones.contains(&(5, 27)),
+            "Should contain invalid wikilink span"
+        );
     }
 
     #[test]
@@ -2222,8 +2205,14 @@ mod tests {
         let zones = collect_exclusion_zones(line, &config, &file_info);
 
         assert_eq!(zones.len(), 2, "Should have two exclusion zones");
-        assert!(zones.contains(&(0, 16)), "Should contain first invalid wikilink span");
-        assert!(zones.contains(&(27, 31)), "Should contain second invalid wikilink span");
+        assert!(
+            zones.contains(&(0, 16)),
+            "Should contain first invalid wikilink span"
+        );
+        assert!(
+            zones.contains(&(27, 31)),
+            "Should contain second invalid wikilink span"
+        );
     }
 
     #[test]
@@ -2255,6 +2244,9 @@ mod tests {
         // Check exclusion zones for line2
         let zones = collect_exclusion_zones(line2, &config, &file_info);
 
-        assert!(zones.is_empty(), "Should not have exclusion zones for different line");
+        assert!(
+            zones.is_empty(),
+            "Should not have exclusion zones for different line"
+        );
     }
 }
