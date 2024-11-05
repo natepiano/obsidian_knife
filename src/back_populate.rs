@@ -695,13 +695,18 @@ fn write_back_populate_table(
     matches: &[BackPopulateMatch],
     is_unambiguous_match: bool,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Step 1: Group matches by found_text using a HashMap
+    // Step 1: Group matches by found_text (case-insensitive) using a HashMap
     let mut matches_by_text: HashMap<String, Vec<&BackPopulateMatch>> = HashMap::new();
     for m in matches {
-        matches_by_text
-            .entry(m.found_text.clone())
-            .or_default()
-            .push(m);
+        let key = m.found_text.to_lowercase();
+        matches_by_text.entry(key).or_default().push(m);
+    }
+
+    // Step 2: Get display text for each group (use first occurrence's case)
+    let mut display_text_map: HashMap<String, String> = HashMap::new();
+    for m in matches {
+        let key = m.found_text.to_lowercase();
+        display_text_map.entry(key).or_insert_with(|| m.found_text.clone());
     }
 
     if is_unambiguous_match {
@@ -731,16 +736,16 @@ fn write_back_populate_table(
         vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
     };
 
-    // Step 2: Collect and sort the keys case-insensitively
-    let mut sorted_found_texts: Vec<&String> = matches_by_text.keys().collect();
-    sorted_found_texts.sort_by(|a, b| a.to_lowercase().cmp(&b.to_lowercase()));
+    // Step 3: Collect and sort the keys
+    let mut sorted_found_texts: Vec<String> = matches_by_text.keys().cloned().collect();
+    sorted_found_texts.sort();
 
-    // Step 3: Iterate over the sorted keys
-    for found_text in sorted_found_texts {
-        let text_matches = &matches_by_text[found_text];
+    // Step 4: Iterate over the sorted keys
+    for found_text_key in sorted_found_texts {
+        let text_matches = &matches_by_text[&found_text_key];
+        let display_text = &display_text_map[&found_text_key];
         let total_occurrences = text_matches.len();
-        let file_paths: HashSet<String> =
-            text_matches.iter().map(|m| m.file_path.clone()).collect();
+        let file_paths: HashSet<String> = text_matches.iter().map(|m| m.file_path.clone()).collect();
 
         let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
 
@@ -748,7 +753,7 @@ fn write_back_populate_table(
             level_string,
             &format!(
                 "found text: \"{}\" ({})",
-                found_text,
+                display_text,
                 pluralize_occurrence_in_files(total_occurrences, file_paths.len())
             ),
         )?;
@@ -790,7 +795,7 @@ fn write_back_populate_table(
                 let highlighted_line = highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
-                    found_text.len()
+                    display_text.len()
                 );
 
                 let mut row = vec![
