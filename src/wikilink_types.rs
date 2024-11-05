@@ -45,20 +45,19 @@ fn strip_md_extension(text: &str) -> &str {
     }
 }
 
+
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Wikilink {
     pub display_text: String,
     pub target: String,
     pub is_alias: bool,
-    pub is_image: bool,
 }
 
 impl fmt::Display for Wikilink {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "{}{}{}{}",
-            if self.is_image { "!" } else { "" },
+            "{}{}{}",
             self.target,
             if self.is_alias { "|" } else { "" },
             if self.is_alias {

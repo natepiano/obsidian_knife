@@ -32,7 +32,6 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
         display_text: display_text.clone(),
         target: display_text,
         is_alias: false,
-        is_image: false,
     }
 }
 
@@ -66,7 +65,6 @@ pub fn collect_file_wikilinks(
                 display_text: alias.clone(),
                 target: filename_wikilink.target.clone(),
                 is_alias: true,
-                is_image: false,
             };
             result.valid.push(wikilink);
         }
@@ -114,7 +112,7 @@ fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 reason: InvalidWikilinkReason::UnmatchedClosing,
                 span: (last_position, start_idx + 2),
             });
-            markdown_opening = None; // Reset markdown opening state
+            markdown_opening = None;
             last_position = start_idx + 2;
             continue;
         }
@@ -137,15 +135,17 @@ fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     markdown_opening = None;
                 }
 
-                // Check if this is an image wikilink
+                // Check if this is an image reference
                 let is_image = start_idx > 0 && is_previous_char(line, start_idx, '!');
 
-                // Attempt to parse the wikilink
-                if let Some(wikilink_result) = parse_wikilink(&mut chars, is_image) {
+                // Still parse the wikilink normally
+                if let Some(wikilink_result) = parse_wikilink(&mut chars) {
                     match wikilink_result {
                         WikilinkParseResult::Valid(wikilink) => {
-                            result.valid.push(wikilink);
-                            // After a valid wikilink, update last_position to after the wikilink
+                            // Only add non-image wikilinks to the result
+                            if !is_image {
+                                result.valid.push(wikilink);
+                            }
                             if let Some((pos, _)) = chars.peek() {
                                 last_position = *pos;
                             }
@@ -156,7 +156,7 @@ fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     }
                 }
             } else {
-                // If we had an unclosed markdown link before this one, add it as invalid
+                // Handle markdown link opening as before...
                 if let Some(start_pos) = markdown_opening {
                     let content_slice = line[start_pos..start_idx].trim();
                     result.invalid.push(ParsedInvalidWikilink {
@@ -165,13 +165,12 @@ fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                         span: (start_pos, start_pos + content_slice.len()),
                     });
                 }
-                // Start tracking new markdown opening
                 markdown_opening = Some(start_idx);
             }
         }
     }
 
-    // If we reach the end with an unclosed markdown link, add it as invalid
+    // Handle unclosed markdown link at end of line
     if let Some(start_pos) = markdown_opening {
         let content_slice = line[start_pos..].trim();
         result.invalid.push(ParsedInvalidWikilink {
@@ -275,7 +274,7 @@ impl WikilinkState {
         };
     }
 
-    fn to_wikilink(self, end_pos: usize, is_image: bool) -> WikilinkParseResult {
+    fn to_wikilink(self, end_pos: usize) -> WikilinkParseResult {
         match self {
             WikilinkState::Target { content, start_pos } => {
                 let trimmed = content.trim().to_string();
@@ -290,7 +289,6 @@ impl WikilinkState {
                         display_text: trimmed.clone(),
                         target: trimmed,
                         is_alias: false,
-                        is_image,
                     })
                 }
             }
@@ -313,7 +311,6 @@ impl WikilinkState {
                         display_text: trimmed_display,
                         target: trimmed_target,
                         is_alias: true,
-                        is_image,
                     })
                 }
             }
@@ -338,7 +335,6 @@ impl WikilinkState {
 
 fn parse_wikilink(
     chars: &mut Peekable<CharIndices>,
-    is_image: bool,
 ) -> Option<WikilinkParseResult> {
     let initial_pos = chars.peek()?.0;
     let start_pos = initial_pos.saturating_sub(2);
@@ -351,7 +347,7 @@ fn parse_wikilink(
     while let Some((pos, c)) = chars.next() {
         if matches!(state, WikilinkState::Invalid { .. }) {
             if c == ']' && is_next_char(chars, ']') {
-                return Some(state.to_wikilink(pos + 2, is_image));
+                return Some(state.to_wikilink(pos + 2));
             }
             state.push_char(c);
             continue;
@@ -387,7 +383,7 @@ fn parse_wikilink(
             },
             ']' => {
                 if is_next_char(chars, ']') {
-                    return Some(state.to_wikilink(pos + 2, is_image));
+                    return Some(state.to_wikilink(pos + 2));
                 } else {
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
@@ -409,7 +405,7 @@ fn parse_wikilink(
 
     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedOpening);
     let content_len = state.formatted_content().len();
-    Some(state.to_wikilink(start_pos + content_len + 2, is_image))
+    Some(state.to_wikilink(start_pos + content_len + 2))
 }
 
 /// Helper function to check if the next character matches the expected one
@@ -818,7 +814,7 @@ mod wikilink_creation_tests {
             // Extract the substring after `[[` and include the closing `]]`
             let inner = &input[2..];
             let mut chars = inner.char_indices().peekable();
-            parse_wikilink(&mut chars, false)
+            parse_wikilink(&mut chars)
         } else {
             // Invalid format if it doesn't start and end with brackets
             None

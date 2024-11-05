@@ -215,15 +215,9 @@ pub fn scan_folders(
     let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files)?;
     obsidian_repository_info.markdown_files = markdown_info;
 
-    // **Temporarily filter out image links**
-    let filtered_wikilinks: HashSet<_> = all_wikilinks
-        .into_iter()
-        .filter(|wikilink| !wikilink.is_image)
-        .collect();
-
     // Convert HashSet to sorted Vec and store in repository info
     // Modified sorting logic to ensure total ordering
-    obsidian_repository_info.wikilinks_sorted = filtered_wikilinks
+    obsidian_repository_info.wikilinks_sorted = all_wikilinks
         .into_iter()
         .sorted_by(|a, b| {
             // First compare by display text length (longer first)
@@ -259,7 +253,6 @@ pub fn scan_folders(
     let patterns: Vec<&str> = obsidian_repository_info
         .wikilinks_sorted
         .iter()
-        .filter(|w| !w.is_image)
         .map(|w| w.display_text.as_str())
         .collect();
 
@@ -487,7 +480,7 @@ mod tests {
 [[unmatched
 [[]]"#;
 
-        std::fs::write(&file_path, content).unwrap();
+        fs::write(&file_path, content).unwrap();
 
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
         let (file_info, valid_wikilinks) = scan_markdown_file(&file_path, &image_regex).unwrap();

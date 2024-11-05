@@ -173,14 +173,10 @@ fn identify_ambiguous_matches(
     matches: &[BackPopulateMatch],
     wikilinks: &[Wikilink],
 ) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
-    let non_image_wikilinks: Vec<&Wikilink> = wikilinks
-        .iter()
-        .filter(|wikilink| !wikilink.is_image)
-        .collect();
 
     // Create a case-insensitive map of targets to their canonical forms
     let mut target_map: HashMap<String, String> = HashMap::new();
-    for wikilink in &non_image_wikilinks {
+    for wikilink in wikilinks {
         let lower_target = wikilink.target.to_lowercase();
         // If this is the first time we've seen this target (case-insensitive),
         // or if this version is an exact match for the lowercase version,
@@ -189,16 +185,12 @@ fn identify_ambiguous_matches(
             || wikilink.target.to_lowercase() == wikilink.target
         {
             target_map.insert(lower_target.clone(), wikilink.target.clone());
-            // println!(
-            //     "[DEBUG] Added to target_map: '{}', canonical: '{}'",
-            //     lower_target, wikilink.target
-            // );
         }
     }
 
     // Create a map of lowercased display_text to normalized targets
     let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
-    for wikilink in &non_image_wikilinks {
+    for wikilink in wikilinks {
         let lower_display_text = wikilink.display_text.to_lowercase(); // Lowercase display_text
         let lower_target = wikilink.target.to_lowercase();
         // Use the canonical form of the target from our target_map
@@ -1143,7 +1135,6 @@ mod tests {
                 display_text: "Test Link".to_string(),
                 target: "Test Link".to_string(),
                 is_alias: false,
-                is_image: false,
             };
             repo_info.wikilinks_sorted = vec![wikilink];
         }
@@ -1218,7 +1209,6 @@ mod tests {
                     display_text: "Test Link".to_string(),
                     target: "Test Link".to_string(),
                     is_alias: false,
-                    is_image: false,
                 },
                 expected_matches: vec![
                     ("test link", "[[Test Link|test link]]"),
@@ -1233,7 +1223,6 @@ mod tests {
                     display_text: "josh".to_string(),
                     target: "Joshua Strayhorn".to_string(),
                     is_alias: true,
-                    is_image: false,
                 },
                 expected_matches: vec![("josh", "[[Joshua Strayhorn|josh]]")],
                 description: "Alias case preservation",
@@ -1244,7 +1233,6 @@ mod tests {
                     display_text: "Karen".to_string(),
                     target: "Karen McCoy".to_string(),
                     is_alias: true,
-                    is_image: false,
                 },
                 expected_matches: vec![("karen", "[[Karen McCoy|karen]]")],
                 description: "Alias case preservation when display case differs from content",
@@ -1255,7 +1243,6 @@ mod tests {
                     display_text: "Test Link".to_string(),
                     target: "Test Link".to_string(),
                     is_alias: false,
-                    is_image: false,
                 },
                 expected_matches: vec![
                     ("Test Link", "[[Test Link]]"), // Exact match
@@ -1406,13 +1393,11 @@ mod tests {
             display_text: "Kyri".to_string(),
             target: "Kyri".to_string(),
             is_alias: false,
-            is_image: false,
         };
         let wikilink2 = Wikilink {
             display_text: "Kyri".to_string(),
             target: "Kyriana McCoy".to_string(),
             is_alias: true,
-            is_image: false,
         };
 
         // Clear and add to the sorted vec
@@ -1443,7 +1428,6 @@ mod tests {
             display_text: "cheese".to_string(),
             target: "fromage".to_string(),
             is_alias: true,
-            is_image: false,
         };
 
         let ac = build_aho_corasick(&[wikilink.clone()]);
@@ -1491,7 +1475,6 @@ mod tests {
             display_text: "Will".to_string(),
             target: "William.md".to_string(),
             is_alias: true,
-            is_image: false,
         };
 
         // Update repo_info with the custom wikilink
@@ -1635,7 +1618,6 @@ mod tests {
             display_text: "Will".to_string(),
             target: "William.md".to_string(),
             is_alias: true,
-            is_image: false,
         };
 
         // Clear and add to the sorted vec
@@ -1686,13 +1668,11 @@ mod tests {
                 display_text: "Test Link".to_string(),
                 target: "Target Page".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             Wikilink {
                 display_text: "Another Link".to_string(),
                 target: "Other Page".to_string(),
                 is_alias: false,
-                is_image: false,
             },
         ];
         // Initialize environment with custom wikilinks
@@ -1898,14 +1878,12 @@ mod tests {
                 display_text: "tomatoes".to_string(),
                 target: "tomato".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             // Also include a direct "tomatoes" wikilink that should not be used
             Wikilink {
                 display_text: "tomatoes".to_string(),
                 target: "tomatoes".to_string(),
                 is_alias: false,
-                is_image: false,
             },
         ];
 
@@ -1939,19 +1917,16 @@ mod tests {
                 display_text: "Ed".to_string(),
                 target: "Ed Barnes".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             Wikilink {
                 display_text: "Ed".to_string(),
                 target: "Ed Stanfield".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             Wikilink {
                 display_text: "Unique".to_string(),
                 target: "Unique Target".to_string(),
                 is_alias: false,
-                is_image: false,
             },
         ];
 
@@ -1999,13 +1974,11 @@ mod tests {
                 display_text: "Amazon".to_string(),
                 target: "Amazon".to_string(),
                 is_alias: false,
-                is_image: false,
             },
             Wikilink {
                 display_text: "amazon".to_string(),
                 target: "amazon".to_string(),
                 is_alias: false,
-                is_image: false,
             },
         ];
 
@@ -2054,13 +2027,11 @@ mod tests {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
-                is_image: false,
             },
         ];
 
@@ -2097,26 +2068,22 @@ mod tests {
                 display_text: "AWS".to_string(),
                 target: "AWS".to_string(),
                 is_alias: false,
-                is_image: false,
             },
             Wikilink {
                 display_text: "aws".to_string(),
                 target: "aws".to_string(),
                 is_alias: false,
-                is_image: false,
             },
             // Truly different targets
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (company)".to_string(),
                 is_alias: true,
-                is_image: false,
             },
             Wikilink {
                 display_text: "Amazon".to_string(),
                 target: "Amazon (river)".to_string(),
                 is_alias: true,
-                is_image: false,
             },
         ];
 
@@ -2153,69 +2120,6 @@ mod tests {
             1,
             "Case variations should be identified as unambiguous"
         );
-    }
-
-    #[test]
-    fn test_image_wikilink_exclusion() {
-        // Create test wikilinks including image and regular links with same display text
-        let wikilinks = vec![
-            Wikilink {
-                display_text: "cat".to_string(),
-                target: "Cat Photo.png".to_string(),
-                is_alias: true,
-                is_image: true,
-            },
-            Wikilink {
-                display_text: "cat".to_string(),
-                target: "Cat (animal)".to_string(),
-                is_alias: true,
-                is_image: false,
-            },
-            Wikilink {
-                display_text: "cat".to_string(),
-                target: "Cat (command)".to_string(),
-                is_alias: true,
-                is_image: false,
-            },
-        ];
-
-        let matches = vec![
-            BackPopulateMatch {
-                file_path: "test1.md".to_string(),
-                line_number: 1,
-                line_text: "cat is a useful command".to_string(),
-                found_text: "cat".to_string(),
-                replacement: "[[Cat (command)|cat]]".to_string(),
-                position: 0,
-                in_markdown_table: false,
-            },
-            BackPopulateMatch {
-                file_path: "test2.md".to_string(),
-                line_number: 1,
-                line_text: "my cat is sleeping".to_string(),
-                found_text: "cat".to_string(),
-                replacement: "[[Cat (animal)|cat]]".to_string(),
-                position: 3,
-                in_markdown_table: false,
-            },
-        ];
-
-        let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
-
-        // Should still detect ambiguity between the two non-image wikilinks
-        assert_eq!(
-            ambiguous.len(),
-            1,
-            "Should have one ambiguous match group (excluding image link)"
-        );
-        assert_eq!(ambiguous[0].display_text, "cat");
-        assert_eq!(ambiguous[0].targets.len(), 2);
-        assert!(ambiguous[0].targets.contains(&"Cat (animal)".to_string()));
-        assert!(ambiguous[0].targets.contains(&"Cat (command)".to_string()));
-        // Verify image target is not included
-        assert!(!ambiguous[0].targets.contains(&"Cat Photo.png".to_string()));
-
-        assert_eq!(unambiguous.len(), 0, "Should have no unambiguous matches");
     }
 
     #[test]
