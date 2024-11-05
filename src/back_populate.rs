@@ -245,13 +245,28 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         ch.is_alphanumeric() || ch == '_'
     }
 
+    // Helper to check if character is part of a contraction
+    fn is_contraction(chars: &str) -> bool {
+        let mut chars = chars.chars();
+        match (chars.next(), chars.next()) {
+            // Handle both straight and curly apostrophes
+            (Some('\''), Some(c)) | (Some('\u{2019}'), Some(c)) => c.is_ascii_lowercase(),
+            _ => false
+        }
+    }
+
+    // Get chars before and after safely
+    let before = line[..starts_at].chars().last();
+    let after_chars = &line[ends_at..];
+
     // Check start boundary
-    let start_is_boundary =
-        starts_at == 0 || !is_word_char(line[..starts_at].chars().last().unwrap());
+    let start_is_boundary = starts_at == 0 ||
+        before.map_or(true, |ch| !is_word_char(ch));
 
     // Check end boundary
-    let end_is_boundary =
-        ends_at == line.len() || !is_word_char(line[ends_at..].chars().next().unwrap());
+    let end_is_boundary = ends_at == line.len() ||
+        (!is_word_char(after_chars.chars().next().unwrap()) &&
+            !is_contraction(after_chars));
 
     start_is_boundary && end_is_boundary
 }
@@ -1256,8 +1271,11 @@ mod tests {
     fn test_find_matches_with_existing_wikilinks() {
         // Create test environment with default settings
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
-        let content =
-            "[[Some Link]] and Test Link in same line\nTest Link [[Other Link]] Test Link mixed";
+        let content = "[[Some Link]] and Test Link in same line\n\
+                   Test Link [[Other Link]] Test Link mixed\n\
+                   This don't match\n\
+                   This don't match either\n\
+                   But this Test Link should match";
 
         // Create the test Markdown file using the helper function
         create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
@@ -1265,11 +1283,11 @@ mod tests {
         // Find matches
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
-        // We expect 3 matches for "Test Link" outside existing wikilinks
-        assert_eq!(matches.len(), 3, "Mismatch in number of matches");
+        // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
+        assert_eq!(matches.len(), 4, "Mismatch in number of matches");
 
         // Verify that the matches are at the expected positions
-        let expected_lines = vec![1, 2, 2];
+        let expected_lines = vec![1, 2, 2, 5];
         let actual_lines: Vec<usize> = matches.iter().map(|m| m.line_number).collect();
         assert_eq!(
             actual_lines, expected_lines,
