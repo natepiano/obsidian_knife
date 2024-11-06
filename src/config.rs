@@ -84,7 +84,11 @@ impl Config {
 
         // Add output folder and cache folder to ignored folders
         let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
-        let mut folders_to_add = vec![output_folder.clone(), expanded_path.join(CACHE_FOLDER)];
+        let mut folders_to_add = vec![
+            output_folder.clone(),
+            expanded_path.join(CACHE_FOLDER),
+            expanded_path.join(OBSIDIAN_HIDDEN_FOLDER),
+        ];
 
         if let Some(ref mut folders) = ignore_folders {
             folders.append(&mut folders_to_add);
@@ -143,29 +147,16 @@ impl Config {
         &self,
         expanded_path: &PathBuf,
     ) -> Result<Option<Vec<PathBuf>>, Box<dyn Error + Send + Sync>> {
-        let ignore_folders = if let Some(folders) = &self.ignore_folders {
-            if folders.is_empty() {
-                None
-            } else {
-                let mut validated_folders = Vec::new();
-                for (index, folder) in folders.iter().enumerate() {
-                    // Convert PathBuf to string and check if it's empty
-                    if folder.to_string_lossy().trim().is_empty() {
-                        return Err(format!(
-                            "ignore_folders: entry at index {} is empty or only contains whitespace",
-                            index
-                        )
-                            .into());
-                    }
-                    let full_path = expanded_path.join(folder);
-                    validated_folders.push(full_path);
-                }
-                Some(validated_folders)
+        Ok(if let Some(folders) = &self.ignore_folders {
+            let mut validated_folders = Vec::new();
+            for folder in folders.iter() {
+                let full_path = expanded_path.join(folder);
+                validated_folders.push(full_path);
             }
+            Some(validated_folders)
         } else {
             None
-        };
-        Ok(ignore_folders)
+        })
     }
 }
 

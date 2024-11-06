@@ -51,7 +51,7 @@ Review proposed changes in "obsidian knife output.md" before enabling apply_chan
 
 ### date handling
 Currently obsidian_knife (herefater referred to a "ok") is hard coded for how i use dates in obsidian - as yaml properties in the markdown front matter like so:
-```aiignore
+```
 ---
 date_created: "[[2024-10-22]]"
 date_modified: "[[2024-11-06]]"
@@ -83,7 +83,7 @@ Every .md page in your repo will also get added as a wikilink to back populate i
 
 If you have the property "aliases" in your markdown frontmatter, they will also be created as links that can be backpopulated.  For example, this is the frontmatter for a page named sugar.md
 
-```aiignore
+```
 ---
 aliases:
   - brown sugar
@@ -165,4 +165,4 @@ Optional. List of folders to skip during processing. Paths are relative to obsid
 
 ## cache
 
-ok creates a `.obsidian_knife` folder in your vault to store image hashes. This cache improves performance when checking for duplicate images across multiple runs. Especially in larger repos.
+ok creates a `.ok` folder in your vault to store image hashes. This cache improves performance when checking for duplicate images across multiple runs. Especially in larger repos.

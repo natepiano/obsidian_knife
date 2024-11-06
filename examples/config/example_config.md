@@ -15,9 +15,7 @@ do_not_back_populate:
   - "[[mozzarella]] cheese"
 
 ignore_folders:
-  - .idea
-  - .obsidian
-  - conf/templates
+  - templates
 
 ignore_rendered_text:
  - "Ed: music reco:"

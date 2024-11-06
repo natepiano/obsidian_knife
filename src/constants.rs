@@ -19,11 +19,11 @@ pub const ERROR_NOT_FOUND: &str = "config file not found: ";
 pub const ERROR_READING: &str = "error reading config file ";
 pub const ERROR_BACK_POPULATE_FILE_FILTER: &str = "back_populate_filter_filter cannot be empty";
 pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
+pub const OBSIDIAN_HIDDEN_FOLDER: &str = ".obsidian";
 
 // cache stuff
-pub const CACHE_FOLDER: &str = ".obsidian_knife";
+pub const CACHE_FOLDER: &str = ".ok";
 pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
-//pub const CACHE_INFO_READING_FROM: &str = "reading from cache:";
 pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
 pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
