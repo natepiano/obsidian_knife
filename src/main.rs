@@ -48,10 +48,8 @@ fn output_duration(prefix: &str, start_time: Instant) -> Result<(), Box<dyn Erro
 
 // Process successful execution
 fn handle_success(
-    config_file: &str,
     start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("{} {}", PROCESSING_FINAL_MESSAGE, config_file);
     output_duration(PROCESSING_DURATION, start_time)?;
     Ok(())
 }
@@ -82,14 +80,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let start_time = Instant::now();
     let config_path = get_config_file()?;
 
-    // Store config_file string before moving config_path
-    let config_file = config_path.to_string_lossy().into_owned();
-
     let (validated_config, writer) = initialize_config(config_path)?;
     write_execution_start(&validated_config, &writer)?;
 
     match process_config(validated_config, &writer) {
-        Ok(_) => handle_success(&config_file, start_time),
+        Ok(_) => handle_success(start_time),
         Err(e) => handle_error(e, start_time), // Removed writer parameter
     }
 }

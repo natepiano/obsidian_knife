@@ -211,7 +211,7 @@ pub fn process_dates(
     markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL1, "update dates")?;
+    writer.writeln(LEVEL1, "dates")?;
 
     let results = collect_date_entries(markdown_files, config)?;
     results.write_tables(writer, config.apply_changes())?;
@@ -256,7 +256,6 @@ fn create_validation_context(
         property_error,
     })
 }
-
 
 fn process_file(
     results: &mut DateValidationResults,

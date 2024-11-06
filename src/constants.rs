@@ -9,7 +9,6 @@ pub const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
 pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
 pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
 pub const PROCESSING_DURATION: &str = "total processing time:";
-pub const PROCESSING_FINAL_MESSAGE: &str = "obsidian_knife made the cut using:";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 pub const YAML_TIMESTAMP: &str = "time_stamp: ";
 pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
@@ -34,7 +33,7 @@ pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
-pub const SECTION_IMAGE_CLEANUP: &str = "image cleanup";
+pub const SECTION_IMAGE_CLEANUP: &str = "images";
 pub const TIFF_EXTENSION: &str = "tiff";
 pub const TIFF_IMAGES: &str = "TIFF images";
 pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
@@ -61,8 +60,8 @@ pub const BACK_POPULATE_TABLE_HEADER_PREFIX: &str = "the following";
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
 pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
 
-pub const BACK_POPULATE_SECTION_PREFIX: &str = "back populate";
-pub const BACK_POPULATE_SECTION_SUFFIX: &str = "wikilinks";
+pub const BACK_POPULATE_COUNT_PREFIX: &str = "back populate";
+pub const BACK_POPULATE_COUNT_SUFFIX: &str = "wikilinks";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
     "using back_populate_file_filter config parameter: ";
 pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
@@ -72,7 +71,7 @@ pub const COL_SOURCE_TEXT: &str = "source text";
 pub const COL_TEXT: &str = "text";
 pub const COL_WILL_REPLACE_WITH: &str = "will replace with";
 pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
-pub const MATCHES_UNAMBIGUOUS: &str = "wikilinks to back populate";
+pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

@@ -1,12 +1,12 @@
-use crate::{yaml_utils, ThreadSafeWriter, constants::*};
+use crate::scan::MarkdownFileInfo;
+use crate::wikilink::format_wikilink;
+use crate::{constants::*, yaml_utils, ThreadSafeWriter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::scan::MarkdownFileInfo;
-use crate::wikilink::format_wikilink;
 
 #[derive(Debug)]
 pub struct FrontmatterError {
@@ -18,7 +18,12 @@ impl FrontmatterError {
     pub fn new(message: String, content: &str) -> Self {
         // Strip out any "Content:" prefix from the message
         let message = if message.contains("Content:") {
-            message.split("Content:").next().unwrap_or(&message).trim().to_string()
+            message
+                .split("Content:")
+                .next()
+                .unwrap_or(&message)
+                .trim()
+                .to_string()
         } else {
             message
         };
@@ -166,14 +171,10 @@ pub fn report_frontmatter_issues(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let files_with_errors: Vec<_> = markdown_files
         .iter()
-        .filter_map(|(path, info)| {
-            info.frontmatter_error
-                .as_ref()
-                .map(|err| (path, err))
-        })
+        .filter_map(|(path, info)| info.frontmatter_error.as_ref().map(|err| (path, err)))
         .collect();
 
-    writer.writeln(LEVEL1, "frontmatter issues")?;
+    writer.writeln(LEVEL1, "frontmatter")?;
 
     if files_with_errors.is_empty() {
         return Ok(());

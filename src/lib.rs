@@ -33,7 +33,7 @@ pub fn process_config(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let obsidian_repository_info = scan::scan_obsidian_folder(&config)?;
-    frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files,writer)?;
+    frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, writer)?;
     cleanup_images::cleanup_images(&config, &obsidian_repository_info, writer)?;
     update_dates::process_dates(&config, &obsidian_repository_info.markdown_files, writer)?;
     back_populate::process_back_populate(&config, &obsidian_repository_info, &writer)?;

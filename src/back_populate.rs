@@ -79,15 +79,7 @@ pub fn process_back_populate(
     obsidian_repository_info: &ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(
-        LEVEL1,
-        &format!(
-            "{} {} {}",
-            BACK_POPULATE_SECTION_PREFIX,
-            obsidian_repository_info.wikilinks_sorted.len(),
-            BACK_POPULATE_SECTION_SUFFIX
-        ),
-    )?;
+    writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
     let start = Instant::now();
 
     // Write invalid wikilinks table first
@@ -119,11 +111,12 @@ pub fn process_back_populate(
 
     // Only process unambiguous matches
     if !unambiguous_matches.is_empty() {
-        if ambiguous_matches.len() > 0 {
-            writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
-        }
-
-        write_back_populate_table(writer, &unambiguous_matches, true)?;
+        write_back_populate_table(
+            writer,
+            &unambiguous_matches,
+            true,
+            obsidian_repository_info.wikilinks_sorted.len(),
+        )?;
         apply_back_populate_changes(config, &unambiguous_matches)?;
     }
 
@@ -613,7 +606,7 @@ fn write_ambiguous_matches(
         writer.writeln(
             LEVEL3,
             &format!(
-                "the text \"{}\" matches {} targets:",
+                "\"{}\" matches {} targets:",
                 ambiguous_match.display_text,
                 ambiguous_match.targets.len(),
             ),
@@ -621,11 +614,18 @@ fn write_ambiguous_matches(
 
         // Write out all possible targets
         for target in &ambiguous_match.targets {
-            writer.writeln("", &format!("- {}", target.to_wikilink()))?;
+            writer.writeln(
+                "",
+                &format!(
+                    "- \\[\\[{}|{}]]",
+                    target.to_wikilink(),
+                    ambiguous_match.display_text
+                ),
+            )?;
         }
 
         // Reuse existing table writing code for the matches
-        write_back_populate_table(writer, &ambiguous_match.matches, false)?;
+        write_back_populate_table(writer, &ambiguous_match.matches, false, 0)?;
     }
 
     Ok(())
@@ -728,7 +728,20 @@ fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
     is_unambiguous_match: bool,
+    match_count: usize,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if is_unambiguous_match {
+        writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
+        writer.writeln(
+            "",
+            &format!(
+                "{} {} {}",
+                BACK_POPULATE_COUNT_PREFIX, match_count, BACK_POPULATE_COUNT_SUFFIX
+            ),
+        )?;
+        writer.writeln("", "")?;
+    }
+
     // Step 1: Group matches by found_text (case-insensitive) using a HashMap
     let mut matches_by_text: HashMap<String, Vec<&BackPopulateMatch>> = HashMap::new();
     for m in matches {
@@ -789,7 +802,7 @@ fn write_back_populate_table(
         writer.writeln(
             level_string,
             &format!(
-                "found text: \"{}\" ({})",
+                "found: \"{}\" ({})",
                 display_text,
                 pluralize_occurrence_in_files(total_occurrences, file_paths.len())
             ),
@@ -877,7 +890,7 @@ fn write_back_populate_table(
         };
 
         writer.write_markdown_table(&headers, &table_rows, Some(&alignments))?;
-        writer.writeln("", "\n---\n")?;
+        writer.writeln("", "\n---")?;
     }
 
     Ok(())

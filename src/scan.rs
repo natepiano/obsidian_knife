@@ -6,6 +6,7 @@ use crate::{
     wikilink::collect_file_wikilinks,
 };
 
+use crate::frontmatter::FrontmatterError;
 use crate::wikilink_types::{InvalidWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
@@ -20,7 +21,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::frontmatter::FrontmatterError;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -32,7 +32,7 @@ pub struct ImageInfo {
 pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
     pub frontmatter: Option<FrontMatter>,
-    pub frontmatter_error: Option<FrontmatterError>,  // Replace property_error with this
+    pub frontmatter_error: Option<FrontmatterError>, // Replace property_error with this
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
 }
@@ -292,12 +292,9 @@ fn scan_markdown_file(
 
     let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
 
-    let mut markdown_file_info = initialize_markdown_file_info(
-        frontmatter.clone(),
-        property_error,
-        &content,
-    );
-    
+    let mut markdown_file_info =
+        initialize_markdown_file_info(frontmatter.clone(), property_error, &content);
+
     extract_do_not_back_populate(&mut markdown_file_info);
 
     let aliases = markdown_file_info
@@ -338,10 +335,7 @@ fn initialize_markdown_file_info(
     file_info.frontmatter = frontmatter;
 
     if let Some(error_msg) = error {
-        file_info.frontmatter_error = Some(FrontmatterError::new(
-            error_msg,
-            content,
-        ));
+        file_info.frontmatter_error = Some(FrontmatterError::new(error_msg, content));
     }
 
     file_info
