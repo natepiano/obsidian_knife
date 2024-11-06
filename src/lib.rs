@@ -5,6 +5,7 @@ mod constants;
 mod deterministic_file_search;
 mod file_utils;
 mod frontmatter;
+mod regex_utils;
 mod scan;
 mod sha256_cache;
 mod thread_safe_writer;

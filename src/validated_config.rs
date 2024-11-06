@@ -1,5 +1,6 @@
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use std::path::{Path, PathBuf};
+use regex::Regex;
+use crate::regex_utils::build_case_insensitive_word_finder;
 
 #[derive(Debug)]
 pub struct ValidatedConfig {
@@ -7,7 +8,7 @@ pub struct ValidatedConfig {
     back_populate_file_count: Option<usize>,
     back_populate_file_filter: Option<String>, // New field
     do_not_back_populate: Option<Vec<String>>,
-    do_not_back_populate_ac: Option<AhoCorasick>,
+    do_not_back_populate_regexes: Option<Vec<Regex>>,
     ignore_folders: Option<Vec<PathBuf>>, // Changed from String to PathBuf
     obsidian_path: PathBuf,
     output_folder: PathBuf,
@@ -23,21 +24,15 @@ impl ValidatedConfig {
         obsidian_path: PathBuf,
         output_folder: PathBuf,
     ) -> Self {
-        // Build AC automaton if we have patterns to exclude
-        let do_not_back_populate_ac = do_not_back_populate.as_ref().map(|patterns| {
-            AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(patterns)
-                .expect("Failed to build Aho-Corasick automaton for exclusion patterns")
-        });
+        // Build regexes if we have patterns to exclude
+        let do_not_back_populate_regexes = build_case_insensitive_word_finder(&do_not_back_populate);
 
         Self {
             apply_changes,
             back_populate_file_count,
             back_populate_file_filter,
             do_not_back_populate,
-            do_not_back_populate_ac,
+            do_not_back_populate_regexes,
             ignore_folders,
             obsidian_path,
             output_folder,
@@ -74,8 +69,8 @@ impl ValidatedConfig {
         self.do_not_back_populate.as_deref()
     }
 
-    pub fn do_not_back_populate_ac(&self) -> Option<&AhoCorasick> {
-        self.do_not_back_populate_ac.as_ref()
+    pub fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
+        self.do_not_back_populate_regexes.as_deref()
     }
 
     pub fn ignore_folders(&self) -> Option<&[PathBuf]> {

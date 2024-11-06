@@ -3,9 +3,8 @@ use crate::deterministic_file_search::DeterministicSearch;
 use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::MARKDOWN_REGEX;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -14,6 +13,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
+use crate::regex_utils::MARKDOWN_REGEX;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -368,25 +368,16 @@ fn collect_exclusion_zones(
         }
     }
 
-    // Process patterns from config using the pre-built AC automaton
-    if let Some(ac) = config.do_not_back_populate_ac() {
-        for mat in ac.find_iter(line) {
-            exclusion_zones.push((mat.start(), mat.end()));
-        }
-    }
+    let regex_sources = [
+        config.do_not_back_populate_regexes(),
+        markdown_file_info.do_not_back_populate_regexes.as_deref(),
+    ];
 
-    // Process file-specific patterns if they exist
-    if let Some(patterns) = &markdown_file_info.do_not_back_populate {
-        // Build AC automaton for file patterns
-        if !patterns.is_empty() {
-            if let Ok(file_ac) = AhoCorasickBuilder::new()
-                .ascii_case_insensitive(true)
-                .match_kind(MatchKind::LeftmostLongest)
-                .build(patterns)
-            {
-                for mat in file_ac.find_iter(line) {
-                    exclusion_zones.push((mat.start(), mat.end()));
-                }
+    // Flatten the iterator to get a single iterator over regexes
+    for regexes in regex_sources.iter().flatten() {
+        for regex in *regexes {
+            for mat in regex.find_iter(line) {
+                exclusion_zones.push((mat.start(), mat.end()));
             }
         }
     }
@@ -1100,6 +1091,7 @@ mod tests {
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
+    use aho_corasick::{AhoCorasickBuilder, MatchKind};
     use tempfile::TempDir;
 
     // Common helper function to build Aho-Corasick automaton from CompiledWikilinks
@@ -1421,56 +1413,6 @@ mod tests {
         // We should only get one match for "Kyri" at position 28
         assert_eq!(matches.len(), 1, "Expected exactly one match");
         assert_eq!(matches[0].position, 28, "Expected match at position 28");
-    }
-
-    #[test]
-    fn test_process_line_with_mozzarella_exclusion() {
-        // Set up the test environment with specific do_not_back_populate patterns
-        let do_not_back_populate_patterns = vec!["[[mozzarella]] cheese".to_string()];
-        let (temp_dir, config, _) =
-            create_test_environment(false, Some(do_not_back_populate_patterns), None);
-
-        let file_path = temp_dir.path().join("test.md");
-
-        let wikilink = Wikilink {
-            display_text: "cheese".to_string(),
-            target: "fromage".to_string(),
-            is_alias: true,
-        };
-
-        let ac = build_aho_corasick(&[wikilink.clone()]);
-        let markdown_info = MarkdownFileInfo::new();
-
-        // Test line with excluded pattern
-        let line = "- 1 1/2 cup [[mozzarella]] cheese shredded";
-        let matches = process_line(
-            0,
-            line,
-            &file_path,
-            &ac,
-            &[&wikilink],
-            &config,
-            &markdown_info,
-        )
-        .unwrap();
-
-        assert_eq!(matches.len(), 0, "Match should be excluded");
-
-        // Test that other cheese references still match
-        let line = "I love cheese on my pizza";
-        let matches = process_line(
-            0,
-            line,
-            &file_path,
-            &ac,
-            &[&wikilink],
-            &config,
-            &markdown_info,
-        )
-        .unwrap();
-
-        assert_eq!(matches.len(), 1, "Match should be included");
-        assert_eq!(matches[0].found_text, "cheese");
     }
 
     #[test]

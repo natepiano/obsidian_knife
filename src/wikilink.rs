@@ -1,21 +1,13 @@
 use crate::constants::*;
+use crate::regex_utils::*;
 use crate::wikilink_types::{
     ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks,
     ParsedInvalidWikilink, Wikilink, WikilinkParseResult,
 };
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::error::Error;
 use std::iter::Peekable;
 use std::path::Path;
 use std::str::CharIndices;
-
-lazy_static! {
-    pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
-    static ref EMAIL_REGEX: Regex =
-        Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
-    static ref TAG_REGEX: Regex = Regex::new(r"(?:^|\s)#[a-zA-Z0-9_-]+").unwrap();
-}
 
 pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
@@ -1208,7 +1200,7 @@ mod collect_wikilinks_tests {
 
 #[cfg(test)]
 mod markdown_links_tests {
-    use super::*;
+    use crate::regex_utils::MARKDOWN_REGEX;
 
     #[test]
     fn test_markdown_regex_matches() {

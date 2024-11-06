@@ -21,6 +21,7 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
+use crate::regex_utils::build_case_insensitive_word_finder;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -31,6 +32,7 @@ pub struct ImageInfo {
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
+    pub do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<FrontmatterError>, // Replace property_error with this
     pub image_links: Vec<String>,
@@ -41,6 +43,7 @@ impl MarkdownFileInfo {
     pub fn new() -> Self {
         MarkdownFileInfo {
             do_not_back_populate: None,
+            do_not_back_populate_regexes: None,
             frontmatter: None,
             frontmatter_error: None,
             invalid_wikilinks: Vec::new(),
@@ -348,7 +351,9 @@ fn extract_do_not_back_populate(markdown_file_info: &mut MarkdownFileInfo) {
             do_not_populate.extend(aliases.iter().cloned());
         }
         if !do_not_populate.is_empty() {
-            markdown_file_info.do_not_back_populate = Some(do_not_populate);
+            markdown_file_info.do_not_back_populate = Some(do_not_populate.clone());
+            markdown_file_info.do_not_back_populate_regexes = build_case_insensitive_word_finder(&Some(do_not_populate));
+
         }
     }
 }
