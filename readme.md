@@ -1,100 +1,168 @@
-# obsidian_knife
-cli utility to manage my [obsidian](https://obsidian.md) folder
+# obsidian_knife - aka "ok"
+
+CLI utility to maintain [Obsidian](https://obsidian.md) repositories by automating backlinks, image cleanup, and date maintenance.
 
 ## usage
-Use example_config.md (tests/test/example_config.md) as your starting point.This config can be invoked anywhere, but I recommend you name it what you wish and
-place it in your obsidian repo. I use a folder in my repo named conf and in that i have my templates folder - i also have a folder for output from obsidian_knife named,... "obsidian_knife"
-I put the configuration file in this folder and named it conf.md.  
-
-One of the parameters in the configuration yaml (the frontmatter section of example_config.md) - is "output_folder". If you specify the same folder as your output folder then when you run the CLI
-you'll get the "obsidian knife output.md" in that same folder. 
-
-example invocation:
-
-```
-obsidian_knife ~/Documents/my_obsidian_folder/conf/obsidian_knife/config.md
+the binary for obsidian knife is "ok" - clever, eh?
+```bash
+ok <config_file.md>
 ```
 
-As mentioned, the output file "[obsidian_path]/[output_folder]/obsidian knife output.md" will be created where you can preview changes 
+The config file must be a markdown file with yaml frontmatter - an example can be found in the examples folder. 
 
-If you want to apply changes then change apply_changes to true. If you have placed the config.md (or whatever you name it) as a file in obsidian,
-then obsidian will see the apply_changes field as a boolean that you can toggle by clicking on the rendered radio button.
 
-## capabilities
-- configurable apply_changes - set to false for a dry-run
-- output changes to a file in a specified folder in your obsidian repo
-- simplify unintentionally created wikilinks**
-- deduplicate images 
-- remove local images and image references that won't render such as
-    - tiff images
-    - zero byte images
-    - references to non-existent images
+## configuration
 
-### ** simplify unintentional wikilinks
-Q: what does this mean?
-
-A: when automatically creating wikilinks from text that matches an existing note in obsidian, sometimes we get links that we don't want.
-For example, I use the abbreviation Ed: or ed: to indicate "editorial". I also have a couple of friends named Ed.  Wikilinks for my friend might look like this:
-
-```
-[[Ed Smith|Ed]] or [[Ed Jones|Ed]] 
-```
-
-When i use "apply new links to existing text" automation, the code looks for both the main link (i.e. "Ed Smith") but  
-also searches for the alias (i.e. "Ed"). My first algo naively replaced 
-```
-Ed:
-``` 
-with
-```
-[[Ed Smith|Ed]]:
-```
-
-Of course i could create a simple search/replace utility but i'd have to capture a few variations or get more clever with my regex. and maybe a future version i will do so. 
-but for now, i created the simplify wikilinks to "undo" any unintentional wikilink replacements. A similar problem exists with any friend 
-named Will - where Will is one of the aliases. The word shows up a lot.
-
-```
-will you come to the store?
-``` 
-
-might get replaced with a case insensitive replacement a la:
-
-```
-[[Will Jones|Will]] you come to the store?
-```
-
-# yaml doc
 ```yaml
-# false = dry-run, true=destructive 
-apply_changes: false
+# required
+obsidian_path: ~/Documents/obsidian            # path to obsidian vault
+output_folder: obsidian_knife                  # where to place output file (relative to obsidian_path)
 
-# the number of files to process for back_populate
-# remove this if you want it to populate all
-back_populate_file_count: 1
-
-# when back populating there are some strings you don't want to 
-# be replaced, such as the cheese in [[mozzarella]] cheese
-do_not_back_populate: 
-  - "[[mozzarella]] cheese"
-
-# add this value to name a property used in your md containing a file creation date you want to set
-# if you set (for example) the date_creation property to a valid date in "[[yyyy-mm-dd]]" format then 
-# the actual file creation date will be updated to this, and then the date_creation property will be removed from the md
-creation_date_property: date_creation
-
-# folders to ignore when scanning - this comes from my current actual configuration
-ignore_folders:
-- .idea
-- .obsidian
-- conf/templates
-
-# path to obsidian folder - ~ welcome
-obsidian_path: ~/Documents/obsidian_folder
-
-# path to where you want the "obsidian knife output.md" file placed - defaults to "obsidian_knife"
-output_folder: conf/obsidian_knife
+# optional
+apply_changes: false                           # true to apply changes, false for dry-run
+back_populate_file_count: 1                    # limit files processed during back population 
+back_populate_file_filter: [[some note]]       # optionally process this specific file for back population
+do_not_back_populate:                          # text patterns to skip during back population
+  - bill
+  - will
+ignore_folders:                                # folders to skip during processing
+  - templates
 ```
-# todo
-- replace create date on markdown file using defined property - also update date_created property in frontmatter
-- apply new links to existing text  
+It's important that the yaml is placed between lines with only --- in them to mark the beginning and ending of the frontmatter in the markdown file. Then you can place the configuration file in your output_folder (which by default is ignored when scanning the repo). 
+
+This way you can see both the configuration and the output as markdown files within your obsidian repo.  It's not required that you place the configuration file there but it can be convenient. 
+
+## preview changes
+
+Review proposed changes in "obsidian knife output.md" before enabling apply_changes.
+
+## features
+
+- dry-run support with detailed change preview
+- back-populate wikilinks for existing content - useful for when you create a toipc and would like existing text to have links added to match the topic
+- detect and report invalid wikilinks
+- detect and report yaml frontmatter errors
+- clean up images:
+  - remove duplicates
+  - remove broken image references
+  - remove zero-byte images
+  - convert non-rendering formats (tiff)
+- manage frontmatter dates and file creation times
+
+### date handling
+Currently obsidian_knife (herefater referred to a "ok") is hard coded for how i use dates in obsidian - as yaml properties in the markdown front matter like so:
+```aiignore
+---
+date_created: "[[2024-10-22]]"
+date_modified: "[[2024-11-06]]"
+---
+```
+if the date_created doesn't match the file date created, ok will update date_created to match the file's actual create date
+
+if the file modify date is different than the property in the file, then the property will be updated
+
+if you want to change the file create date to something else you can add a property called "date_create_fix" to the front matter with thte date that you'd like the file to have.  ok will change the file create date, update the date_created property and remove the date_create_fix property after.
+
+at some point, i may make this a configurable feature - for now it's default behavior
+
+### useful troubleshooting info
+ok will output a list of any files that have invalid frontmatter.
+
+ok will output any invalid wikilinks so your repo doesn't get messed up
+
+### back populate behavior
+Any existing wikilinks found in your markdown files will be back populated. Useful when you create a topic and want to get every instance in your repo that could target that new topic to have a link to it.
+
+for example, if you create a new topic for [[OLED Displays]] and you already have a bunch of notes that refer to OLED Displays, then back populate will add links to the existing text. It's a useful search and replace.
+
+If you have an alias in the wikilink such as [[OLED Displays|OLED]], then OLED will also become a target for replacing with [[OLED Displays|OLED]] so it will still render as OLED in obsidian (but now with a link)
+
+If you have linked text but haven't created the note then no note will be created but other text that matches that link will also get the link attached.
+
+Every .md page in your repo will also get added as a wikilink to back populate in case you haven't already linked them up.
+
+If you have the property "aliases" in your markdown frontmatter, they will also be created as links that can be backpopulated.  For example, this is the frontmatter for a page named sugar.md
+
+```aiignore
+---
+aliases:
+  - brown sugar
+  - white sugar
+  - powdered sugar
+date_created: "[[2024-08-27]]"
+date_modified: "[[2024-10-26]]"
+tags:
+  - ingredient
+---
+```
+
+if your text has the phrase "brown sugar" in it, then ok will replace it with [[sugar|brown sugar]] - useful!
+
+because of the potential for edge cases i haven't thought of - you can run ok in dry run mode with apply_changes set to false so you can verify the changes before they happen.
+
+#### amgibuous wikilinks
+if two different pages have the same alias - for example, if you have pages for people and they have the same first name which you use as an alias, then back population can find two different target pages for the same text. 
+
+because of this, ok will not replace these with wikilinks but instead will show them to you so you can take action and change them to whichever target you wish.  
+
+ok will protect you!
+### images
+images are hashed to determine whether there are file duplicates. if there are, then one will be chosen to be kept and the rest will be deleted and any references to the deleted images will be updated to point at the one that is kept.
+
+this may or may not work for you and it is not currently configurable so you you'll either need to fork the code and remove this functionality or wait for me to make it a configurable capability.
+
+Any images that are not referenced by files will be deleted - very destructive!
+
+Any images that can't render (TIFF, Zero-Byte length files) will be deleted - very destructive!
+
+## configuration details
+
+### obsidian_path
+
+Required. Path to your Obsidian vault. Supports shell expansion using `~` for home directory.
+
+### output_folder
+
+Required. Location for the "obsidian knife output.md" file. Path is relative to obsidian_path. 
+
+This output folder will be automatically added to ignore_folders. As such it's a convenient place for you to store your configuration.md file if you wish. 
+
+### apply_changes
+
+Optional. Default: false
+- false: dry-run mode, only shows proposed changes
+- true: applies all changes shown in output file
+
+if you have this configuration.md (or whatever you name it) in obsidian, then the apply_changes will output as a radio button you can click to enable. 
+
+After ok does an update with apply_changes: true, it will set this property back to false so you don't accidentally apply changes when you may not want to - especially when making sure that things work.
+
+### back_populate_file_count
+
+Optional. Limits the number of files processed for back population. Useful for testing changes on a subset of files. 
+
+For example, you can set apply_changes: false and then limit the number of files processed so you can assess if ok is doing the right thing.  once your happy with the results, you can either remove this property or set it to a very large number.
+
+### back_populate_file_filter
+
+Optional. Process only a specific file for back population. Value can be in wikilink format (`[[note]]`) or plain text (`note.md`). Useful for debugging.
+
+### do_not_back_populate
+
+Optional. List of text patterns to exclude from back population. Useful for:
+- Common phrases that should not become wikilinks
+- Text that renders the same as a note title or alias but shouldn't be linked
+
+Each pattern is matched case-insensitively as a complete word.
+
+In my repo i have a file for a friend named Will. The file is his full name but Will is an alias.  I don't want the word Will to be turned into [[Will A Friend|Will]] everywhere so will one of my do_not_back_populate entries in my config.
+
+do_not_back_populate is special in that you can also add it as a yaml property on any of your pages to prevent substituting wikilinks just on that page
+
+### ignore_folders
+
+Optional. List of folders to skip during processing. Paths are relative to obsidian_path. The output_folder from the configuration file, `.obsidian`  and `.obsidian_knife` are automatically added to this list.
+
+## cache
+
+ok creates a `.obsidian_knife` folder in your vault to store image hashes. This cache improves performance when checking for duplicate images across multiple runs. Especially in larger repos.
