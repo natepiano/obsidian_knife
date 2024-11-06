@@ -56,7 +56,6 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // wikilink back populate
-pub const BACK_POPULATE_TABLE_HEADER_PREFIX: &str = "the following";
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
 pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
 
@@ -162,8 +161,7 @@ pub fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> S
 
 pub fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
     format!(
-        "{} {} {} {} {} {}",
-        BACK_POPULATE_TABLE_HEADER_PREFIX,
+        "{} {} {} {} {}",
         match_count,
         pluralize(match_count, Phrase::Matches),
         BACK_POPULATE_TABLE_HEADER_MIDDLE,

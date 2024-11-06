@@ -739,7 +739,6 @@ fn write_back_populate_table(
                 BACK_POPULATE_COUNT_PREFIX, match_count, BACK_POPULATE_COUNT_SUFFIX
             ),
         )?;
-        writer.writeln("", "")?;
     }
 
     // Step 1: Group matches by found_text (case-insensitive) using a HashMap
