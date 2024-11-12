@@ -1,7 +1,6 @@
 use crate::scan::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::yaml_utils::{extract_yaml_section, update_yaml_in_markdown};
 use crate::{constants::*, ThreadSafeWriter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
@@ -31,7 +30,8 @@ impl FrontMatterError {
         };
 
         // Extract the YAML section between --- markers
-        let yaml_content = extract_yaml_section(content);
+        let yaml_content = FrontMatter::extract_yaml_section(content)
+            .unwrap_or_default();
 
         FrontMatterError {
             message,
@@ -110,7 +110,8 @@ pub fn update_file_frontmatter(
 
     update_fn(&mut frontmatter);
 
-    let updated_content = update_yaml_in_markdown(&content, &frontmatter)?;
+    let updated_content = frontmatter.update_in_markdown_str(&content)
+        .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
 
     fs::write(file_path, updated_content)?;
 
@@ -353,5 +354,58 @@ boolean_field: true
             Some(&Value::String(complex_str.to_string()))
         );
         assert!(updated_fm.other_fields.contains_key("nested_field"));
+    }
+
+    #[test]
+    fn test_frontmatter_error() {
+        let test_cases = vec![
+            (
+                "basic frontmatter",
+                "---\ntitle: test\n---\ncontent",
+                "some error",
+                "title: test",
+            ),
+            (
+                "missing frontmatter",
+                "no frontmatter here",
+                "missing frontmatter",
+                "",
+            ),
+            (
+                "content prefix stripping",
+                "---\ntitle: test\n---",
+                "Error: Content: something went wrong",
+                "title: test",
+            ),
+            (
+                "multiple sections",
+                "---\ntitle: test\n---\ncontent\n---\nmore: yaml\n---",
+                "error message",
+                "title: test",
+            ),
+        ];
+
+        for (name, content, message, expected_yaml) in test_cases {
+            let error = FrontMatterError::new(message.to_string(), content);
+
+            // Test message handling
+            if message.contains("Content:") {
+                assert!(!error.message.contains("Content:"), "Failed to strip Content: prefix in test: {}", name);
+            }
+
+            // Test YAML content extraction
+            assert_eq!(
+                error.yaml_content.trim(),
+                expected_yaml.trim(),
+                "YAML content mismatch in test: {}",
+                name
+            );
+
+            // Test line number formatting
+            if !expected_yaml.is_empty() {
+                let with_line_numbers = error.get_yaml_with_line_numbers();
+                assert!(with_line_numbers.contains("0 |"), "Missing line numbers in test: {}", name);
+            }
+        }
     }
 }

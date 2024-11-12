@@ -13,7 +13,6 @@ mod update_dates;
 mod validated_config;
 mod wikilink;
 mod wikilink_types;
-mod yaml_utils;
 
 #[cfg(test)]
 pub(crate) mod test_utils;

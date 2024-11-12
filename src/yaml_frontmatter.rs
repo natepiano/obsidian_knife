@@ -61,6 +61,32 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
             ))
         }
     }
+
+    /// Updates YAML frontmatter in markdown content with this instance's data
+    fn update_in_markdown_str(&self, content: &str) -> Result<String, YamlFrontMatterError> {
+        let yaml_str = self.to_yaml_str()?;
+        let yaml_str = yaml_str.trim_start_matches("---").trim().to_string();
+
+        // Find the opening '---\n'
+        if let Some(start) = content.find("---\n") {
+            // Start searching for the closing delimiter after the opening '---\n'
+            let search_start = start + 4; // Length of '---\n' is 4
+            if let Some(end_rel) = content[search_start..].find("\n---\n") {
+                let end = search_start + end_rel + 1; // Position of '\n---\n'
+                let before = &content[..start];
+                let after = &content[end + 4..];
+                Ok(format!("{}---\n{}\n---\n{}", before, yaml_str, after))
+            } else {
+                // No closing delimiter found - this is invalid frontmatter
+                Err(YamlFrontMatterError::Invalid(
+                    "missing closing delimiter (---)".to_string(),
+                ))
+            }
+        } else {
+            // No opening delimiter - add new frontmatter at the beginning
+            Ok(format!("---\n{}\n---\n{}", yaml_str, content))
+        }
+    }
 }
 
 #[cfg(test)]
@@ -252,6 +278,111 @@ tags: [not, valid, yaml
                     )
                 },
             );
+        }
+    }
+
+    #[test]
+    fn test_update_in_markdown_str() {
+        struct YamlUpdateTestCase {
+            description: &'static str,
+            input: &'static str,
+            frontmatter: TestFrontMatter,
+            expected: Option<&'static str>,
+            expected_err: Option<YamlFrontMatterError>,
+        }
+
+        let test_cases = vec![
+            YamlUpdateTestCase {
+                description: "Basic YAML update",
+                input: "---\ntitle: old\ntags:\n  - tag1\n---\ncontent",
+                frontmatter: TestFrontMatter {
+                    title: "new".to_string(),
+                    tags: vec!["tag1".to_string()],
+                },
+                expected: Some("---\ntitle: new\ntags:\n- tag1\n---\ncontent"),
+                expected_err: None,
+            },
+            YamlUpdateTestCase {
+                description: "Complex frontmatter update",
+                input: "---\ntitle: old\ntags:\n  - tag1\n---\ncontent",
+                frontmatter: TestFrontMatter {
+                    title: "new".to_string(),
+                    tags: vec!["tag1".to_string(), "tag2".to_string()],
+                },
+                expected: Some(
+                    "---\ntitle: new\ntags:\n- tag1\n- tag2\n---\ncontent",
+                ),
+                expected_err: None,
+            },
+            YamlUpdateTestCase {
+                description: "Invalid frontmatter - no closing delimiter",
+                input: "---\ntitle: old\ncontent",
+                frontmatter: TestFrontMatter {
+                    title: "new".to_string(),
+                    tags: vec![],
+                },
+                expected: None,
+                expected_err: Some(YamlFrontMatterError::Invalid(
+                    "missing closing delimiter (---)".to_string(),
+                )),
+            },
+            YamlUpdateTestCase {
+                description: "Empty document",
+                input: "",
+                frontmatter: TestFrontMatter {
+                    title: "new".to_string(),
+                    tags: vec![],
+                },
+                expected: Some("---\ntitle: new\ntags: []\n---\n"),
+                expected_err: None,
+            },
+            YamlUpdateTestCase {
+                description: "Preserve spacing",
+                input: "---\ntitle: old\n---\n\nContent with\n\nmultiple lines",
+                frontmatter: TestFrontMatter {
+                    title: "new".to_string(),
+                    tags: vec![],
+                },
+                expected: Some("---\ntitle: new\ntags: []\n---\n\nContent with\n\nmultiple lines"),
+                expected_err: None,
+            },
+        ];
+
+        for test_case in test_cases {
+            let result = test_case.frontmatter.update_in_markdown_str(test_case.input);
+
+            match (result, test_case.expected_err) {
+                (Ok(output), None) => {
+                    assert_eq!(
+                        output.trim(),
+                        test_case.expected.unwrap().trim(),
+                        "Failed test: {}",
+                        test_case.description
+                    );
+                }
+                (Err(e), Some(expected_err)) => {
+                    assert_eq!(
+                        e.to_string(),
+                        expected_err.to_string(),
+                        "Failed test: {} - error message mismatch",
+                        test_case.description
+                    );
+                }
+                (Ok(_), Some(expected_err)) => {
+                    panic!(
+                        "Failed test: {} - expected error '{}' but got success",
+                        test_case.description,
+                        expected_err
+                    );
+                }
+                (Err(e), None) => {
+                    panic!(
+                        "Failed test: {} - expected success but got error: {}",
+                        test_case.description,
+                        e
+                    );
+                }
+            }
         }
     }
 }
