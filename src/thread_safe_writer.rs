@@ -149,7 +149,7 @@ mod tests {
 
     #[test]
     fn test_write_count() -> io::Result<()> {
-        let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new()?;
         let writer = ThreadSafeWriter::new(temp_dir.path())?;
 
         writer.writeln_pluralized(1, Phrase::InvalidDates)?;

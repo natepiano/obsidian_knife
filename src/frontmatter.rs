@@ -195,7 +195,7 @@ pub fn report_frontmatter_issues(
         if !err.yaml_content.trim().is_empty() && err.yaml_content.trim() != "---" {
             writer.writeln("", "yaml content:")?;
             writer.writeln("", "```yaml")?;
-            writer.writeln("", &add_line_numbers(&err.yaml_content.trim()))?;
+            writer.writeln("", &add_line_numbers(err.yaml_content.trim()))?;
             writer.writeln("", "```")?;
         }
 

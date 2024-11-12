@@ -64,7 +64,7 @@ pub fn cleanup_images(
     writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
 
     let grouped_images = group_images(&collected_files.image_map);
-    let missing_references = generate_missing_references(&collected_files)?;
+    let missing_references = generate_missing_references(collected_files)?;
 
     let empty_vec = Vec::new();
     let tiff_images = grouped_images
@@ -277,7 +277,7 @@ fn extract_local_image_filename(image_link: &str) -> Option<String> {
         let url = &image_link[start..end];
 
         // Check if the URL is local (doesn't start with http:// or https://)
-        if !url.starts_with("http://") && !url.starts_with("https://") {
+        if !url.starts_with("https://") && !url.starts_with("https://") {
             url.rsplit(FORWARD_SLASH).next().map(|s| s.to_lowercase())
         } else {
             None

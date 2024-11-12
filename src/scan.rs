@@ -71,7 +71,7 @@ pub fn scan_obsidian_folder(
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let start = Instant::now();
 
-    let obsidian_repository_info = scan_folders(&config)?;
+    let obsidian_repository_info = scan_folders(config)?;
 
     let duration = start.elapsed();
     let duration_string = &format!("{:.2}", duration.as_millis());
@@ -91,7 +91,7 @@ fn get_image_info_map(
     let mut image_info_map = HashMap::new();
 
     for image_path in image_files {
-        let (hash, _) = cache.get_or_update(&image_path)?;
+        let (hash, _) = cache.get_or_update(image_path)?;
 
         let image_file_name = image_path
             .file_name()
@@ -224,7 +224,7 @@ pub fn scan_folders(
 
     // Process image info
     obsidian_repository_info.image_map = get_image_info_map(
-        &config,
+        config,
         &obsidian_repository_info.markdown_files,
         &image_files,
     )?;
@@ -365,7 +365,7 @@ fn collect_image_references(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let reader = BufReader::new(content.as_bytes());
 
-    for (_line_number, line_result) in reader.lines().enumerate() {
+    for line_result in reader.lines() {
         let line = line_result?;
         collect_image_reference(image_regex, file_info, &line);
     }
@@ -378,7 +378,7 @@ fn collect_image_reference(
     file_info: &mut MarkdownFileInfo,
     line: &String,
 ) {
-    for capture in image_regex.captures_iter(&line) {
+    for capture in image_regex.captures_iter(line) {
         if let Some(reference) = capture.get(0) {
             let reference_string = reference.as_str().to_string();
             file_info.image_links.push(reference_string);

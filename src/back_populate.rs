@@ -275,7 +275,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         ch.is_alphanumeric() || ch == '_'
     }
 
-    // Helper to check if string matches a contraction pattern ending in 't
+    // Helper to check if string matches a contraction pattern ending in apostrophe t or T
     fn is_t_contraction(chars: &str) -> bool {
         let mut chars = chars.chars();
         match (chars.next(), chars.next()) {
@@ -426,15 +426,13 @@ fn process_line(
         // Rest of the validation
         if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
             let mut replacement = if matched_text == wikilink.target {
-                // Only use simple format if exact match (case-sensitive)
-                format!("{}", wikilink.target.to_wikilink())
+                 wikilink.target.to_wikilink()
             } else {
                 // Use aliased format for case differences or actual aliases
-                //format!("[[{}|{}]]", wikilink.wikilink.target, matched_text)
-                format!("{}", wikilink.target.to_aliased_wikilink(matched_text))
+                wikilink.target.to_aliased_wikilink(matched_text)
             };
 
-            let in_markdown_table = is_in_markdown_table(&line, &matched_text);
+            let in_markdown_table = is_in_markdown_table(line, matched_text);
             if in_markdown_table {
                 replacement = replacement.replace('|', r"\|");
             }
@@ -2211,13 +2209,13 @@ aliases:
         fs::write(&karen_path, karen_content).unwrap();
 
         // Create Nate McCoy file with aliases
-        let nate_mcoy_path = temp_dir.path().join("Nate McCoy.md");
-        let nate_mcoy_content = r#"---
+        let nate_mccoy_path = temp_dir.path().join("Nate McCoy.md");
+        let nate_mccoy_content = r#"---
 aliases:
 - "Nate"
 ---
 # Nate McCoy's Page"#;
-        fs::write(&nate_mcoy_path, nate_mcoy_content).unwrap();
+        fs::write(&nate_mccoy_path, nate_mccoy_content).unwrap();
 
         // Create Nathan Dye file with aliases
         let nathan_dye_path = temp_dir.path().join("Nathan Dye.md");

@@ -163,7 +163,6 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml;
     use std::io::Write;
     use tempfile::NamedTempFile;
     use tempfile::TempDir;

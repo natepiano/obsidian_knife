@@ -39,7 +39,7 @@ Review proposed changes in "obsidian knife output.md" before enabling apply_chan
 ## features
 
 - dry-run support with detailed change preview
-- back-populate wikilinks for existing content - useful for when you create a toipc and would like existing text to have links added to match the topic
+- back-populate wikilinks for existing content - useful for when you create a topic and would like existing text to have links added to match the topic
 - detect and report invalid wikilinks
 - detect and report yaml frontmatter errors
 - clean up images:
@@ -50,7 +50,7 @@ Review proposed changes in "obsidian knife output.md" before enabling apply_chan
 - manage frontmatter dates and file creation times
 
 ### date handling
-Currently obsidian_knife (herefater referred to a "ok") is hard coded for how i use dates in obsidian - as yaml properties in the markdown front matter like so:
+Currently, obsidian_knife (hereafter referred to an "ok") is hard coded for how i use dates in obsidian - as yaml properties in the markdown front matter like so:
 ```
 ---
 date_created: "[[2024-10-22]]"
@@ -59,9 +59,9 @@ date_modified: "[[2024-11-06]]"
 ```
 if the date_created doesn't match the file date created, ok will update date_created to match the file's actual create date
 
-if the file modify date is different than the property in the file, then the property will be updated
+if the file modify date is different from the property in the file, then the property will be updated
 
-if you want to change the file create date to something else you can add a property called "date_create_fix" to the front matter with thte date that you'd like the file to have.  ok will change the file create date, update the date_created property and remove the date_create_fix property after.
+if you want to change the file create date to something else you can add a property called "date_create_fix" to the front matter with the date that you'd like the file to have.  ok will change the file create date, update the date_created property and remove the date_create_fix property after.
 
 at some point, i may make this a configurable feature - for now it's default behavior
 
@@ -81,7 +81,7 @@ If you have linked text but haven't created the note then no note will be create
 
 Every .md page in your repo will also get added as a wikilink to back populate in case you haven't already linked them up.
 
-If you have the property "aliases" in your markdown frontmatter, they will also be created as links that can be backpopulated.  For example, this is the frontmatter for a page named sugar.md
+If you have the property "aliases" in your markdown frontmatter, they will also be created as links that can be back-populated.  For example, this is the frontmatter for a page named sugar.md
 
 ```
 ---
@@ -100,7 +100,7 @@ if your text has the phrase "brown sugar" in it, then ok will replace it with [[
 
 because of the potential for edge cases i haven't thought of - you can run ok in dry run mode with apply_changes set to false so you can verify the changes before they happen.
 
-#### amgibuous wikilinks
+#### ambiguous wikilinks
 if two different pages have the same alias - for example, if you have pages for people and they have the same first name which you use as an alias, then back population can find two different target pages for the same text. 
 
 because of this, ok will not replace these with wikilinks but instead will show them to you so you can take action and change them to whichever target you wish.  
@@ -109,7 +109,7 @@ ok will protect you!
 ### images
 images are hashed to determine whether there are file duplicates. if there are, then one will be chosen to be kept and the rest will be deleted and any references to the deleted images will be updated to point at the one that is kept.
 
-this may or may not work for you and it is not currently configurable so you you'll either need to fork the code and remove this functionality or wait for me to make it a configurable capability.
+this may or may not work for you and it is not currently configurable so you'll either need to fork the code and remove this functionality or wait for me to make it a configurable capability.
 
 Any images that are not referenced by files will be deleted - very destructive!
 
