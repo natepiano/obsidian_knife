@@ -4,6 +4,8 @@ use std::error::Error;
 /// Error types specific to YAML frontmatter handling
 #[derive(Debug, Clone)]
 pub enum YamlFrontMatterError {
+    /// there two lines with --- at the start, but nothing is there)
+    Empty,
     /// No YAML frontmatter section found (no opening ---)
     Missing,
     /// Invalid YAML frontmatter (no closing ---)
@@ -17,6 +19,7 @@ pub enum YamlFrontMatterError {
 impl std::fmt::Display for YamlFrontMatterError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Empty => write!(f, "yaml frontmatter delimiters are present but there is no yaml"),
             Self::Missing => write!(f, "file must start with YAML frontmatter (---)"),
             Self::Invalid(msg) => write!(f, "invalid YAML frontmatter: {}", msg),
             Self::Parse(msg) => write!(f, "error parsing YAML frontmatter: {}", msg),
@@ -45,22 +48,28 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
         Self::from_yaml_str(&yaml)
     }
 
-    /// Extracts the YAML section from markdown content
     fn extract_yaml_section(content: &str) -> Result<String, YamlFrontMatterError> {
-        let trimmed = content.trim_start();
-        if !trimmed.starts_with("---") {
+        // Check that the content starts with "---\n"
+        if !content.starts_with("---\n") {
             return Err(YamlFrontMatterError::Missing);
         }
 
-        let after_first = &trimmed[3..];
-        if let Some(end_index) = after_first.find("---") {
-            Ok(after_first[..end_index].trim().to_string())
+        // Look for the closing "\n---\n" after the opening "---\n"
+        let after_start = &content[4..]; // Skip the first "---\n" (4 characters)
+        if let Some(end_index) = after_start.find("\n---\n") {
+            let yaml_section = &after_start[..end_index].trim();
+            if yaml_section.is_empty() {
+                return Err(YamlFrontMatterError::Empty); // Return error for empty YAML
+            }
+            Ok(yaml_section.to_string())
         } else {
+            // If we don't find the "\n---\n", it's an invalid frontmatter
             Err(YamlFrontMatterError::Invalid(
                 "missing closing frontmatter delimiter (---)".to_string(),
             ))
         }
     }
+
 
     /// Updates YAML frontmatter in markdown content with this instance's data
     fn update_in_markdown_str(&self, content: &str) -> Result<String, YamlFrontMatterError> {
@@ -260,7 +269,7 @@ tags: [not, valid, yaml
             ExtractionTestCase {
                 name: "empty yaml section",
                 input: "---\n---\ncontent",
-                expected: Ok("".to_string()),
+                expected: Err(YamlFrontMatterError::Empty), // Updated to expect `Empty` error
             },
         ];
 
