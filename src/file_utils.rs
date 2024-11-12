@@ -112,6 +112,11 @@ mod tests {
     use std::io::Write;
     use tempfile::TempDir;
 
+    #[cfg(test)]
+    fn is_macos() -> bool {
+        cfg!(target_os = "macos")
+    }
+
     /// Use `GetFileInfo` to verify creation time on macOS
     fn get_creation_time(file_path: &Path) -> io::Result<NaiveDateTime> {
         let output = Command::new("GetFileInfo")
@@ -231,6 +236,11 @@ mod tests {
 
     #[test]
     fn test_set_file_times_with_full_datetime() {
+        if !is_macos() {
+            println!("Skipping test on non-macOS platform");
+            return;
+        }
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("test_file.txt");
 
@@ -257,6 +267,11 @@ mod tests {
 
     #[test]
     fn test_set_file_times_with_edge_case_times() {
+        if !is_macos() {
+            println!("Skipping test on non-macOS platform");
+            return;
+        }
+
         let temp_dir = TempDir::new().unwrap();
         let file_path = temp_dir.path().join("edge_case_file.txt");
 
