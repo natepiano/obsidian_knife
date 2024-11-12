@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
+use crate::regex_utils::MARKDOWN_REGEX;
 use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
@@ -13,7 +14,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
-use crate::regex_utils::MARKDOWN_REGEX;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -426,7 +426,7 @@ fn process_line(
         // Rest of the validation
         if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
             let mut replacement = if matched_text == wikilink.target {
-                 wikilink.target.to_wikilink()
+                wikilink.target.to_wikilink()
             } else {
                 // Use aliased format for case differences or actual aliases
                 wikilink.target.to_aliased_wikilink(matched_text)
@@ -1085,11 +1085,11 @@ mod tests {
     use super::*;
     use crate::scan::{scan_folders, MarkdownFileInfo};
     use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason, Wikilink};
+    use aho_corasick::{AhoCorasickBuilder, MatchKind};
     use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
-    use aho_corasick::{AhoCorasickBuilder, MatchKind};
     use tempfile::TempDir;
 
     // Common helper function to build Aho-Corasick automaton from CompiledWikilinks

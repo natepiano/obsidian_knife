@@ -47,9 +47,7 @@ fn output_duration(prefix: &str, start_time: Instant) -> Result<(), Box<dyn Erro
 }
 
 // Process successful execution
-fn handle_success(
-    start_time: Instant,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn handle_success(start_time: Instant) -> Result<(), Box<dyn Error + Send + Sync>> {
     output_duration(PROCESSING_DURATION, start_time)?;
     Ok(())
 }

@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
-use regex::Regex;
 use crate::regex_utils::build_case_insensitive_word_finder;
+use regex::Regex;
+use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
 pub struct ValidatedConfig {
@@ -25,7 +25,8 @@ impl ValidatedConfig {
         output_folder: PathBuf,
     ) -> Self {
         // Build regexes if we have patterns to exclude
-        let do_not_back_populate_regexes = build_case_insensitive_word_finder(&do_not_back_populate);
+        let do_not_back_populate_regexes =
+            build_case_insensitive_word_finder(&do_not_back_populate);
 
         Self {
             apply_changes,

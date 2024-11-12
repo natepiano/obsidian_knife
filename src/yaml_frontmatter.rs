@@ -1,5 +1,5 @@
+use serde::{de::DeserializeOwned, Serialize};
 use std::error::Error;
-use serde::{Serialize, de::DeserializeOwned};
 
 /// Error types specific to YAML frontmatter handling
 #[derive(Debug, Clone)]
@@ -96,7 +96,7 @@ mod tests {
                     _expected_err,
                     actual_err
                 );
-            },
+            }
             _ => panic!(
                 "Failed test: {} - Result mismatch. Expected {:?}, got {:?}",
                 test_name, expected, result
@@ -243,12 +243,14 @@ tags: [not, valid, yaml
                 TestFrontMatter::extract_yaml_section(test_case.input),
                 test_case.expected.to_owned(),
                 test_case.name,
-                |actual, expected| assert_eq!(
-                    actual.trim(),
-                    expected.trim(),
-                    "Failed test: {}",
-                    test_case.name
-                ),
+                |actual, expected| {
+                    assert_eq!(
+                        actual.trim(),
+                        expected.trim(),
+                        "Failed test: {}",
+                        test_case.name
+                    )
+                },
             );
         }
     }

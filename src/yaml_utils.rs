@@ -1,76 +1,13 @@
-use serde::de::DeserializeOwned;
-use std::error::Error;
 use crate::frontmatter::FrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatter;
-
-#[derive(Debug)]
-pub enum YamlError {
-    Missing,
-    Invalid(String),
-    Parse(String),
-}
-
-// In YamlError::fmt implementation
-impl std::fmt::Display for YamlError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            YamlError::Missing => write!(f, "file must start with YAML frontmatter (---)"),
-            YamlError::Invalid(msg) => {
-                write!(f, "file must have closing YAML frontmatter (---): {}", msg)
-            }
-            YamlError::Parse(msg) => write!(f, "error parsing YAML frontmatter: {}", msg),
-        }
-    }
-}
-
-impl Error for YamlError {}
-
-/// Extracts and deserializes YAML front matter from the given content string.
-///
-/// # Arguments
-///
-/// * `content` - A string slice containing the entire file content.
-///
-/// # Returns
-///
-/// * `Ok(T)` where `T` is the deserialized structure.
-/// * `Err(Box<dyn Error + Send + Sync>)` if extraction or deserialization fails.
-pub fn deserialize_yaml_frontmatter<T: YamlFrontMatter>(content: &str) -> Result<T, Box<dyn Error + Send + Sync>> {
-    T::from_markdown_str(content)
-        .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
-}
-
-/// Extracts YAML front matter from the given content string.
-///
-/// # Arguments
-///
-/// * `content` - A string slice containing the entire file content.
-///
-/// # Returns
-///
-/// * `Ok(String)` containing the extracted YAML front matter.
-/// * `Err(Box<dyn Error + Send + Sync>)` if extraction fails.
-pub fn extract_yaml_frontmatter(content: &str) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let trimmed = content.trim_start();
-    if !trimmed.starts_with("---") {
-        return Err(Box::new(YamlError::Missing));
-    }
-
-    let after_first = &trimmed[3..];
-    if let Some(end_index) = after_first.find("---") {
-        Ok(after_first[..end_index].trim().to_string())
-    } else {
-        Err(Box::new(YamlError::Invalid(
-            "missing closing frontmatter delimiter (---)".to_string(),
-        )))
-    }
-}
+use std::error::Error;
 
 pub fn update_yaml_in_markdown<T: YamlFrontMatter>(
     content: &str,
     updated_frontmatter: &T,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let yaml_str = updated_frontmatter.to_yaml_str()
+    let yaml_str = updated_frontmatter
+        .to_yaml_str()
         .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
 
     let yaml_str = yaml_str.trim_start_matches("---").trim().to_string();
@@ -106,14 +43,14 @@ pub fn extract_yaml_section(content: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::frontmatter::update_file_frontmatter;
+    use serde::{Deserialize, Serialize};
+    use serde_yaml::{Mapping, Number, Value};
     use std::collections::HashMap;
     use std::fs;
     use std::fs::File;
     use std::io::Write;
-    use serde::{Deserialize, Serialize};
-    use serde_yaml::{Mapping, Number, Value};
     use tempfile::TempDir;
-    use crate::frontmatter:: update_file_frontmatter;
 
     #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct TestConfig {
@@ -152,10 +89,10 @@ boolean_field: true
         update_file_frontmatter(&file_path, |fm| {
             fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
         })
-            .unwrap();
+        .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
-        let updated_fm:FrontMatter = deserialize_yaml_frontmatter(&updated_content).unwrap();
+        let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
 
         // Verify updated fields
         assert_eq!(updated_fm.date_modified, Some("[[2024-01-02]]".to_string()));
@@ -173,14 +110,6 @@ boolean_field: true
         // Verify content after frontmatter is preserved
         let parts: Vec<&str> = updated_content.splitn(3, "---").collect();
         assert_eq!(parts[2].trim(), "# Test Content");
-    }
-
-    // New struct for deserialization test cases
-    struct YamlDeserializeTestCase {
-        description: &'static str,
-        input: &'static str,
-        expected_result: Option<TestConfig>,
-        expected_err_type: Option<&'static str>,
     }
 
     #[test]
@@ -227,12 +156,12 @@ boolean_field: true
         update_file_frontmatter(&file_path, |fm| {
             fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
         })
-            .unwrap();
+        .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
 
         // Verify updated fields and ensure complex structure is preserved
-        let updated_fm: FrontMatter = deserialize_yaml_frontmatter(&updated_content).unwrap();
+        let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
         assert_eq!(
             updated_fm.other_fields.get("complex_field"),
             Some(&Value::String(complex_str.to_string()))
@@ -313,11 +242,15 @@ boolean_field: true
                     do_not_back_populate: None,
                     other_fields: {
                         let mut map = HashMap::new();
-                        map.insert("custom_field".to_string(), Value::String("value".to_string()));
+                        map.insert(
+                            "custom_field".to_string(),
+                            Value::String("value".to_string()),
+                        );
                         map
                     },
                 },
-                expected: Some(r#"---
+                expected: Some(
+                    r#"---
 aliases:
 - alias1
 - alias2
@@ -325,7 +258,8 @@ date_created: new
 date_modified: today
 custom_field: value
 ---
-content"#),
+content"#,
+                ),
                 expected_err: None,
             },
             YamlUpdateTestCase {
@@ -392,12 +326,7 @@ content"#),
                 "Failed test: {}",
                 test_case.description
             ),
-            None => assert_eq!(
-                result.trim(),
-                "",
-                "Failed test: {}",
-                test_case.description
-            ),
+            None => assert_eq!(result.trim(), "", "Failed test: {}", test_case.description),
         }
     }
 

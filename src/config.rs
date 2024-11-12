@@ -1,12 +1,11 @@
 use crate::constants::*;
 use crate::file_utils::expand_tilde;
 use crate::validated_config::ValidatedConfig;
-use crate::yaml_utils::deserialize_yaml_frontmatter;
+use crate::yaml_frontmatter::YamlFrontMatter;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::yaml_frontmatter::YamlFrontMatter;
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
@@ -21,7 +20,6 @@ pub struct Config {
 
 impl YamlFrontMatter for Config {}
 
-
 impl Config {
     /// Creates a `Config` instance from an Obsidian file by deserializing the YAML front matter.
     ///
@@ -35,6 +33,7 @@ impl Config {
     /// * `Err(Box<dyn Error + Send + Sync>)` if reading or deserialization fails.
     pub fn from_obsidian_file(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(path);
+        // todo: centralize read_to_string's error handling
         let contents =
             fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -50,7 +49,8 @@ impl Config {
                 }
             })?;
 
-        deserialize_yaml_frontmatter(&contents)
+        Config::from_markdown_str(&contents)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
     /// Validates the `Config` and returns a `ValidatedConfig`.
     ///

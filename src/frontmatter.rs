@@ -1,22 +1,22 @@
 use crate::scan::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
-use crate::{constants::*, yaml_utils, ThreadSafeWriter};
+use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::yaml_utils::{extract_yaml_section, update_yaml_in_markdown};
+use crate::{constants::*, ThreadSafeWriter};
 use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::yaml_utils::{extract_yaml_section, update_yaml_in_markdown};
 
 #[derive(Debug)]
-pub struct FrontmatterError {
+pub struct FrontMatterError {
     pub message: String,
     pub yaml_content: String,
 }
 
-impl FrontmatterError {
+impl FrontMatterError {
     pub fn new(message: String, content: &str) -> Self {
         // Strip out any "Content:" prefix from the message
         let message = if message.contains("Content:") {
@@ -33,10 +33,19 @@ impl FrontmatterError {
         // Extract the YAML section between --- markers
         let yaml_content = extract_yaml_section(content);
 
-        FrontmatterError {
+        FrontMatterError {
             message,
             yaml_content,
         }
+    }
+
+    pub fn get_yaml_with_line_numbers(&self) -> String {
+        self.yaml_content.trim()
+            .lines()
+            .enumerate()
+            .map(|(i, line)| format!("{:>3} | {}", i, line))
+            .collect::<Vec<_>>()
+            .join("\n")
     }
 }
 
@@ -97,9 +106,7 @@ pub fn update_file_frontmatter(
     update_fn: impl FnOnce(&mut FrontMatter),
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
-   // let mut frontmatter = deserialize_frontmatter(&content)?;
-    let mut frontmatter = yaml_utils::deserialize_yaml_frontmatter(&content)?;
-
+    let mut frontmatter = FrontMatter::from_markdown_str(&content)?;
 
     update_fn(&mut frontmatter);
 
@@ -108,15 +115,6 @@ pub fn update_file_frontmatter(
     fs::write(file_path, updated_content)?;
 
     Ok(())
-}
-
-fn add_line_numbers(content: &str) -> String {
-    content
-        .lines()
-        .enumerate()
-        .map(|(i, line)| format!("{:>3} | {}", i, line))
-        .collect::<Vec<_>>()
-        .join("\n")
 }
 
 pub fn report_frontmatter_issues(
@@ -149,7 +147,7 @@ pub fn report_frontmatter_issues(
         if !err.yaml_content.trim().is_empty() && err.yaml_content.trim() != "---" {
             writer.writeln("", "yaml content:")?;
             writer.writeln("", "```yaml")?;
-            writer.writeln("", &add_line_numbers(err.yaml_content.trim()))?;
+            writer.writeln("", &err.get_yaml_with_line_numbers())?;
             writer.writeln("", "```")?;
         }
 
@@ -190,7 +188,7 @@ tags:
         .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
-        let updated_fm: FrontMatter = yaml_utils::deserialize_yaml_frontmatter(&updated_content).unwrap();
+        let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
 
         // Check that the modified date was updated and other fields remain the same
         assert_eq!(updated_fm.date_modified, Some("[[2023-10-24]]".to_string()));
@@ -223,7 +221,7 @@ date_created: "2024-01-01"
 ---
 Some content"#;
 
-        let fm: FrontMatter = yaml_utils::deserialize_yaml_frontmatter(content).unwrap();
+        let fm = FrontMatter::from_markdown_str(content).unwrap();
         assert_eq!(
             fm.aliases,
             Some(vec!["old name".to_string(), "another name".to_string()])

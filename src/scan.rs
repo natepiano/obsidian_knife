@@ -1,7 +1,14 @@
-use crate::{constants::*, frontmatter::FrontMatter, sha256_cache::Sha256Cache, validated_config::ValidatedConfig, wikilink::collect_file_wikilinks, yaml_utils};
+use crate::regex_utils::build_case_insensitive_word_finder;
+use crate::{
+    constants::*,
+    frontmatter::*,
+    sha256_cache::Sha256Cache,
+    validated_config::ValidatedConfig,
+    wikilink::collect_file_wikilinks,
+    wikilink_types::{InvalidWikilink, Wikilink},
+    yaml_frontmatter::YamlFrontMatter,
+};
 
-use crate::frontmatter::FrontmatterError;
-use crate::wikilink_types::{InvalidWikilink, Wikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -15,7 +22,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::regex_utils::build_case_insensitive_word_finder;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -28,7 +34,7 @@ pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub frontmatter: Option<FrontMatter>,
-    pub frontmatter_error: Option<FrontmatterError>, // Replace property_error with this
+    pub frontmatter_error: Option<FrontMatterError>, // Replace property_error with this
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
 }
@@ -317,7 +323,7 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
 }
 
 fn deserialize_frontmatter_content(content: &str) -> (Option<FrontMatter>, Option<String>) {
-    match yaml_utils::deserialize_yaml_frontmatter(content) {
+    match FrontMatter::from_markdown_str(content) {
         Ok(fm) => (Some(fm), None),
         Err(e) => (None, Some(e.to_string())),
     }
@@ -332,7 +338,7 @@ fn initialize_markdown_file_info(
     file_info.frontmatter = frontmatter;
 
     if let Some(error_msg) = error {
-        file_info.frontmatter_error = Some(FrontmatterError::new(error_msg, content));
+        file_info.frontmatter_error = Some(FrontMatterError::new(error_msg, content));
     }
 
     file_info
@@ -346,8 +352,8 @@ fn extract_do_not_back_populate(markdown_file_info: &mut MarkdownFileInfo) {
         }
         if !do_not_populate.is_empty() {
             markdown_file_info.do_not_back_populate = Some(do_not_populate.clone());
-            markdown_file_info.do_not_back_populate_regexes = build_case_insensitive_word_finder(&Some(do_not_populate));
-
+            markdown_file_info.do_not_back_populate_regexes =
+                build_case_insensitive_word_finder(&Some(do_not_populate));
         }
     }
 }
