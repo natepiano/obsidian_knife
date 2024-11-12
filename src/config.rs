@@ -2,12 +2,13 @@ use crate::constants::*;
 use crate::file_utils::expand_tilde;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_utils::deserialize_yaml_frontmatter;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::yaml_frontmatter::YamlFrontMatter;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct Config {
     apply_changes: Option<bool>,
     back_populate_file_count: Option<usize>,
@@ -17,6 +18,9 @@ pub struct Config {
     obsidian_path: String,
     output_folder: Option<String>,
 }
+
+impl YamlFrontMatter for Config {}
+
 
 impl Config {
     /// Creates a `Config` instance from an Obsidian file by deserializing the YAML front matter.
@@ -48,7 +52,6 @@ impl Config {
 
         deserialize_yaml_frontmatter(&contents)
     }
-
     /// Validates the `Config` and returns a `ValidatedConfig`.
     ///
     /// # Returns

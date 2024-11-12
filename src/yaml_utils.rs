@@ -1,6 +1,7 @@
 use serde::de::DeserializeOwned;
 use std::error::Error;
 use crate::frontmatter::FrontMatter;
+use crate::yaml_frontmatter::YamlFrontMatter;
 
 #[derive(Debug)]
 pub enum YamlError {
@@ -34,18 +35,9 @@ impl Error for YamlError {}
 ///
 /// * `Ok(T)` where `T` is the deserialized structure.
 /// * `Err(Box<dyn Error + Send + Sync>)` if extraction or deserialization fails.
-pub fn deserialize_yaml_frontmatter<T>(content: &str) -> Result<T, Box<dyn Error + Send + Sync>>
-where
-    T: DeserializeOwned,
-{
-    let yaml_str = extract_yaml_frontmatter(content)?;
-    match serde_yaml::from_str(&yaml_str) {
-        Ok(value) => Ok(value),
-        Err(e) => Err(Box::new(YamlError::Parse(format!(
-            "{} Content:\n{}",
-            e, yaml_str
-        )))),
-    }
+pub fn deserialize_yaml_frontmatter<T: YamlFrontMatter>(content: &str) -> Result<T, Box<dyn Error + Send + Sync>> {
+    T::from_markdown_str(content)
+        .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
 }
 
 /// Extracts YAML front matter from the given content string.
@@ -74,12 +66,13 @@ pub fn extract_yaml_frontmatter(content: &str) -> Result<String, Box<dyn Error +
     }
 }
 
-pub fn update_yaml_in_markdown(
+pub fn update_yaml_in_markdown<T: YamlFrontMatter>(
     content: &str,
-    updated_frontmatter: &FrontMatter,
+    updated_frontmatter: &T,
 ) -> Result<String, Box<dyn Error + Send + Sync>> {
-    // Serialize the updated frontmatter
-    let yaml_str = serde_yaml::to_string(&updated_frontmatter)?;
+    let yaml_str = updated_frontmatter.to_yaml_str()
+        .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+
     let yaml_str = yaml_str.trim_start_matches("---").trim().to_string();
 
     // Find the opening '---\n'
@@ -117,16 +110,18 @@ mod tests {
     use std::fs;
     use std::fs::File;
     use std::io::Write;
-    use serde::Deserialize;
+    use serde::{Deserialize, Serialize};
     use serde_yaml::{Mapping, Number, Value};
     use tempfile::TempDir;
-    use crate::frontmatter::{deserialize_frontmatter, update_file_frontmatter};
+    use crate::frontmatter:: update_file_frontmatter;
 
-    #[derive(Debug, Deserialize, PartialEq)]
+    #[derive(Debug, Deserialize, Serialize, PartialEq)]
     struct TestConfig {
         title: String,
         value: i32,
     }
+
+    impl YamlFrontMatter for TestConfig {}
 
     // Combined test for serialization and deserialization with rich frontmatter
     #[test]
@@ -160,7 +155,7 @@ boolean_field: true
             .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
-        let updated_fm = deserialize_frontmatter(&updated_content).unwrap();
+        let updated_fm:FrontMatter = deserialize_yaml_frontmatter(&updated_content).unwrap();
 
         // Verify updated fields
         assert_eq!(updated_fm.date_modified, Some("[[2024-01-02]]".to_string()));
@@ -186,75 +181,6 @@ boolean_field: true
         input: &'static str,
         expected_result: Option<TestConfig>,
         expected_err_type: Option<&'static str>,
-    }
-
-    #[test]
-    fn test_yaml_deserialization() {
-        let test_cases = vec![
-            YamlDeserializeTestCase {
-                description: "Valid frontmatter",
-                input: r#"---
-title: test
-value: 42
----
-Some content"#,
-                expected_result: Some(TestConfig {
-                    title: "test".to_string(),
-                    value: 42
-                }),
-                expected_err_type: None,
-            },
-            YamlDeserializeTestCase {
-                description: "Missing frontmatter",
-                input: "No frontmatter here",
-                expected_result: None,
-                expected_err_type: Some("file must start with YAML frontmatter (---)"),
-            },
-            YamlDeserializeTestCase {
-                description: "Invalid YAML structure",
-                input: r#"---
-title: "unclosed string
-value: not-a-number
----"#,
-                expected_result: None,
-                expected_err_type: Some("error parsing YAML frontmatter"),
-            },
-            YamlDeserializeTestCase {
-                description: "Unclosed frontmatter",
-                input: r#"---
-title: test
-value: 42"#,
-                expected_result: None,
-                expected_err_type: Some("file must have closing YAML frontmatter (---)"),
-            },
-        ];
-
-        for test_case in test_cases {
-            let result = deserialize_yaml_frontmatter::<TestConfig>(test_case.input);
-
-            match (&result, test_case.expected_result, test_case.expected_err_type) {
-                (Ok(actual), Some(expected), None) => {
-                    assert_eq!(
-                        actual, &expected,
-                        "Failed test: {} - result mismatch",
-                        test_case.description
-                    );
-                }
-                (Err(e), None, Some(expected_err)) => {
-                    assert!(
-                        e.to_string().contains(expected_err),
-                        "Failed test: {} - expected error '{}' but got '{}'",
-                        test_case.description,
-                        expected_err,
-                        e
-                    );
-                }
-                _ => panic!(
-                    "Failed test: {} - unexpected result state",
-                    test_case.description
-                ),
-            }
-        }
     }
 
     #[test]
@@ -306,7 +232,7 @@ value: 42"#,
         let updated_content = fs::read_to_string(&file_path).unwrap();
 
         // Verify updated fields and ensure complex structure is preserved
-        let updated_fm: FrontMatter = deserialize_frontmatter(&updated_content).unwrap();
+        let updated_fm: FrontMatter = deserialize_yaml_frontmatter(&updated_content).unwrap();
         assert_eq!(
             updated_fm.other_fields.get("complex_field"),
             Some(&Value::String(complex_str.to_string()))

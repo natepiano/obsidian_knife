@@ -7,6 +7,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_utils::{extract_yaml_section, update_yaml_in_markdown};
 
 #[derive(Debug)]
@@ -88,10 +89,7 @@ impl FrontMatter {
     }
 }
 
-/// Extract frontmatter from content and deserialize it
-pub fn deserialize_frontmatter(content: &str) -> Result<FrontMatter, Box<dyn Error + Send + Sync>> {
-    yaml_utils::deserialize_yaml_frontmatter(content)
-}
+impl YamlFrontMatter for FrontMatter {}
 
 // Update frontmatter in a file
 pub fn update_file_frontmatter(
@@ -99,7 +97,9 @@ pub fn update_file_frontmatter(
     update_fn: impl FnOnce(&mut FrontMatter),
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let content = fs::read_to_string(file_path)?;
-    let mut frontmatter = deserialize_frontmatter(&content)?;
+   // let mut frontmatter = deserialize_frontmatter(&content)?;
+    let mut frontmatter = yaml_utils::deserialize_yaml_frontmatter(&content)?;
+
 
     update_fn(&mut frontmatter);
 
@@ -190,7 +190,7 @@ tags:
         .unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
-        let updated_fm = deserialize_frontmatter(&updated_content).unwrap();
+        let updated_fm: FrontMatter = yaml_utils::deserialize_yaml_frontmatter(&updated_content).unwrap();
 
         // Check that the modified date was updated and other fields remain the same
         assert_eq!(updated_fm.date_modified, Some("[[2023-10-24]]".to_string()));
@@ -223,7 +223,7 @@ date_created: "2024-01-01"
 ---
 Some content"#;
 
-        let fm = deserialize_frontmatter(content).unwrap();
+        let fm: FrontMatter = yaml_utils::deserialize_yaml_frontmatter(content).unwrap();
         assert_eq!(
             fm.aliases,
             Some(vec!["old name".to_string(), "another name".to_string()])

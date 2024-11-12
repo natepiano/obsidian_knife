@@ -17,6 +17,7 @@ mod yaml_utils;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
+mod yaml_frontmatter;
 
 use std::error::Error;
 

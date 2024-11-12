@@ -1,10 +1,4 @@
-use crate::{
-    constants::*,
-    frontmatter::{deserialize_frontmatter, FrontMatter},
-    sha256_cache::Sha256Cache,
-    validated_config::ValidatedConfig,
-    wikilink::collect_file_wikilinks,
-};
+use crate::{constants::*, frontmatter::FrontMatter, sha256_cache::Sha256Cache, validated_config::ValidatedConfig, wikilink::collect_file_wikilinks, yaml_utils};
 
 use crate::frontmatter::FrontmatterError;
 use crate::wikilink_types::{InvalidWikilink, Wikilink};
@@ -323,7 +317,7 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
 }
 
 fn deserialize_frontmatter_content(content: &str) -> (Option<FrontMatter>, Option<String>) {
-    match deserialize_frontmatter(content) {
+    match yaml_utils::deserialize_yaml_frontmatter(content) {
         Ok(fm) => (Some(fm), None),
         Err(e) => (None, Some(e.to_string())),
     }
