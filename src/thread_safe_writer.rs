@@ -32,18 +32,6 @@ impl ThreadSafeWriter {
         })
     }
 
-    // pub fn write_markdown_table(
-    //     &self,
-    //     headers: &[&str],
-    //     rows: &[Vec<String>],
-    //     alignments: Option<&[ColumnAlignment]>,
-    // ) -> io::Result<()> {
-    //     // Write to file (Markdown format)
-    //     self.write_markdown_table_to_file(headers, rows, alignments)?;
-    //
-    //     Ok(())
-    // }
-
     pub(crate) fn write_markdown_table(
         &self,
         headers: &[&str],

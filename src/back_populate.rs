@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
 use crate::regex_utils::MARKDOWN_REGEX;
-use crate::scan::{MarkdownFileInfo, ObsidianRepositoryInfo};
+use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
@@ -14,6 +14,7 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
+use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
@@ -1083,7 +1084,7 @@ fn format_relative_path(path: &Path, base_path: &Path) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::scan::{scan_folders, MarkdownFileInfo};
+    use crate::scan::scan_folders;
     use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason, Wikilink};
     use aho_corasick::{AhoCorasickBuilder, MatchKind};
     use std::collections::HashMap;

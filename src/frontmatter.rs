@@ -1,4 +1,3 @@
-use crate::scan::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{constants::*, ThreadSafeWriter};
@@ -6,48 +5,8 @@ use serde::{Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs;
-use std::path::{Path, PathBuf};
-
-#[derive(Debug)]
-pub struct FrontMatterError {
-    pub message: String,
-    pub yaml_content: String,
-}
-
-impl FrontMatterError {
-    pub fn new(message: String, content: &str) -> Self {
-        // Strip out any "Content:" prefix from the message
-        let message = if message.contains("Content:") {
-            message
-                .split("Content:")
-                .next()
-                .unwrap_or(&message)
-                .trim()
-                .to_string()
-        } else {
-            message
-        };
-
-        // Extract the YAML section between --- markers
-        let yaml_content = FrontMatter::extract_yaml_section(content)
-            .unwrap_or_default();
-
-        FrontMatterError {
-            message,
-            yaml_content,
-        }
-    }
-
-    pub fn get_yaml_with_line_numbers(&self) -> String {
-        self.yaml_content.trim()
-            .lines()
-            .enumerate()
-            .map(|(i, line)| format!("{:>3} | {}", i, line))
-            .collect::<Vec<_>>()
-            .join("\n")
-    }
-}
+use std::path::PathBuf;
+use crate::markdown_file_info::MarkdownFileInfo;
 
 // when we set date_created_fix to None it won't serialize - cool
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -100,24 +59,6 @@ impl FrontMatter {
 
 impl YamlFrontMatter for FrontMatter {}
 
-// Update frontmatter in a file
-pub fn update_file_frontmatter(
-    file_path: &Path,
-    update_fn: impl FnOnce(&mut FrontMatter),
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let content = fs::read_to_string(file_path)?;
-    let mut frontmatter = FrontMatter::from_markdown_str(&content)?;
-
-    update_fn(&mut frontmatter);
-
-    let updated_content = frontmatter.update_in_markdown_str(&content)
-        .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-
-    fs::write(file_path, updated_content)?;
-
-    Ok(())
-}
-
 pub fn report_frontmatter_issues(
     markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
@@ -143,15 +84,7 @@ pub fn report_frontmatter_issues(
 
     for (path, err) in files_with_errors {
         writer.writeln(LEVEL3, &format!("in file {}", format_wikilink(path)))?;
-        writer.writeln("", &format!("error: {}", err.message))?;
-
-        if !err.yaml_content.trim().is_empty() && err.yaml_content.trim() != "---" {
-            writer.writeln("", "yaml content:")?;
-            writer.writeln("", "```yaml")?;
-            writer.writeln("", &err.get_yaml_with_line_numbers())?;
-            writer.writeln("", "```")?;
-        }
-
+        writer.writeln("", &format!("{}", err))?;
         writer.writeln("", "")?;
     }
 
@@ -160,6 +93,7 @@ pub fn report_frontmatter_issues(
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
     use super::*;
     use std::fs::File;
     use std::io::Write;
@@ -184,10 +118,12 @@ tags:
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", initial_content).unwrap();
 
-        update_file_frontmatter(&file_path, |frontmatter| {
-            frontmatter.update_date_modified(Some("[[2023-10-24]]".to_string()));
-        })
-        .unwrap();
+        let mut file_info = MarkdownFileInfo::new();
+        file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
+
+        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2023-10-24]]".to_string()));
+
+        file_info.persist_frontmatter(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
@@ -230,23 +166,6 @@ Some content"#;
         );
     }
 
-    #[test]
-    fn test_serialize_frontmatter_with_aliases() {
-        let fm = FrontMatter {
-            aliases: Some(vec!["alias1".to_string(), "alias2".to_string()]),
-            date_created: Some("2024-01-01".to_string()),
-            date_modified: None,
-            date_created_fix: None,
-            do_not_back_populate: None,
-            other_fields: HashMap::new(),
-        };
-
-        let yaml = serde_yaml::to_string(&fm).unwrap();
-        assert!(yaml.contains("aliases:"));
-        assert!(yaml.contains("- alias1"));
-        assert!(yaml.contains("- alias2"));
-    }
-
     // Combined test for serialization and deserialization with rich frontmatter
     #[test]
     fn test_frontmatter_serialization_and_deserialization() {
@@ -273,10 +192,10 @@ boolean_field: true
         write!(file, "{}", initial_content).unwrap();
 
         // Update frontmatter
-        update_file_frontmatter(&file_path, |fm| {
-            fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
-        })
-            .unwrap();
+        let mut file_info = MarkdownFileInfo::new();
+        file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
+        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2024-01-02]]".to_string()));
+        file_info.persist_frontmatter(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
@@ -340,10 +259,10 @@ boolean_field: true
         write!(file, "{}", initial_content).unwrap();
 
         // Update the frontmatter
-        update_file_frontmatter(&file_path, |fm| {
-            fm.update_date_modified(Some("[[2024-01-02]]".to_string()));
-        })
-            .unwrap();
+        let mut file_info = MarkdownFileInfo::new();
+        file_info.frontmatter = Some(initial_frontmatter);
+        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2024-01-02]]".to_string()));
+        file_info.persist_frontmatter(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
 
@@ -354,58 +273,5 @@ boolean_field: true
             Some(&Value::String(complex_str.to_string()))
         );
         assert!(updated_fm.other_fields.contains_key("nested_field"));
-    }
-
-    #[test]
-    fn test_frontmatter_error() {
-        let test_cases = vec![
-            (
-                "basic frontmatter",
-                "---\ntitle: test\n---\ncontent",
-                "some error",
-                "title: test",
-            ),
-            (
-                "missing frontmatter",
-                "no frontmatter here",
-                "missing frontmatter",
-                "",
-            ),
-            (
-                "content prefix stripping",
-                "---\ntitle: test\n---",
-                "Error: Content: something went wrong",
-                "title: test",
-            ),
-            (
-                "multiple sections",
-                "---\ntitle: test\n---\ncontent\n---\nmore: yaml\n---",
-                "error message",
-                "title: test",
-            ),
-        ];
-
-        for (name, content, message, expected_yaml) in test_cases {
-            let error = FrontMatterError::new(message.to_string(), content);
-
-            // Test message handling
-            if message.contains("Content:") {
-                assert!(!error.message.contains("Content:"), "Failed to strip Content: prefix in test: {}", name);
-            }
-
-            // Test YAML content extraction
-            assert_eq!(
-                error.yaml_content.trim(),
-                expected_yaml.trim(),
-                "YAML content mismatch in test: {}",
-                name
-            );
-
-            // Test line number formatting
-            if !expected_yaml.is_empty() {
-                let with_line_numbers = error.get_yaml_with_line_numbers();
-                assert!(with_line_numbers.contains("0 |"), "Missing line numbers in test: {}", name);
-            }
-        }
     }
 }

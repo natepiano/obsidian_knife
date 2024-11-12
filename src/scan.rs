@@ -5,7 +5,7 @@ use crate::{
     sha256_cache::Sha256Cache,
     validated_config::ValidatedConfig,
     wikilink::collect_file_wikilinks,
-    wikilink_types::{InvalidWikilink, Wikilink},
+    wikilink_types::Wikilink,
     yaml_frontmatter::YamlFrontMatter,
 };
 
@@ -22,39 +22,12 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
+use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
     pub hash: String,
     pub(crate) references: Vec<String>,
-}
-
-#[derive(Debug)]
-pub struct MarkdownFileInfo {
-    pub do_not_back_populate: Option<Vec<String>>,
-    pub do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub frontmatter: Option<FrontMatter>,
-    pub frontmatter_error: Option<FrontMatterError>, // Replace property_error with this
-    pub image_links: Vec<String>,
-    pub invalid_wikilinks: Vec<InvalidWikilink>,
-}
-
-impl MarkdownFileInfo {
-    pub fn new() -> Self {
-        MarkdownFileInfo {
-            do_not_back_populate: None,
-            do_not_back_populate_regexes: None,
-            frontmatter: None,
-            frontmatter_error: None,
-            invalid_wikilinks: Vec::new(),
-            image_links: Vec::new(),
-        }
-    }
-
-    // Helper method to add invalid wikilinks
-    pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
-        self.invalid_wikilinks.extend(wikilinks);
-    }
 }
 
 #[derive(Default)]
@@ -293,10 +266,7 @@ fn scan_markdown_file(
 ) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
     let content = read_file_content(file_path)?;
 
-    let (frontmatter, property_error) = deserialize_frontmatter_content(&content);
-
-    let mut markdown_file_info =
-        initialize_markdown_file_info(frontmatter.clone(), property_error, &content);
+    let mut markdown_file_info = initialize_markdown_file_info(&content);
 
     extract_do_not_back_populate(&mut markdown_file_info);
 
@@ -322,23 +292,18 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
     Ok(content)
 }
 
-fn deserialize_frontmatter_content(content: &str) -> (Option<FrontMatter>, Option<String>) {
-    match FrontMatter::from_markdown_str(content) {
-        Ok(fm) => (Some(fm), None),
-        Err(e) => (None, Some(e.to_string())),
-    }
-}
-
 fn initialize_markdown_file_info(
-    frontmatter: Option<FrontMatter>,
-    error: Option<String>,
     content: &str,
 ) -> MarkdownFileInfo {
     let mut file_info = MarkdownFileInfo::new();
-    file_info.frontmatter = frontmatter;
 
-    if let Some(error_msg) = error {
-        file_info.frontmatter_error = Some(FrontMatterError::new(error_msg, content));
+    match FrontMatter::from_markdown_str(content) {
+        Ok(frontmatter) => {
+            file_info.frontmatter = Some(frontmatter);
+        }
+        Err(error) => {
+            file_info.frontmatter_error = Some(error);
+        }
     }
 
     file_info

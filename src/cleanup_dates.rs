@@ -1,9 +1,8 @@
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
-use crate::scan::MarkdownFileInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink::{format_wikilink, is_wikilink};
-use crate::{file_utils, frontmatter, ValidatedConfig};
+use crate::{file_utils, ValidatedConfig};
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 
@@ -11,6 +10,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug)]
 struct DateUpdates {
@@ -106,8 +106,6 @@ impl DateValidationResults {
 struct FileValidationContext {
     path: PathBuf,
     created_time: DateTime<Local>,
-    frontmatter: Option<FrontMatter>,
-    property_error: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -208,7 +206,7 @@ enum DateCreatedPropertyUpdate {
 // Update process_dates to use the new implementation
 pub fn process_dates(
     config: &ValidatedConfig,
-    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    markdown_files: &mut HashMap<PathBuf, MarkdownFileInfo>,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, "dates")?;
@@ -220,14 +218,25 @@ pub fn process_dates(
 }
 
 fn collect_date_entries(
-    collected_files: &HashMap<PathBuf, MarkdownFileInfo>,
-    config: &ValidatedConfig, // Add config parameter
+    collected_files: &mut HashMap<PathBuf, MarkdownFileInfo>,
+    config: &ValidatedConfig,
 ) -> Result<DateValidationResults, Box<dyn Error + Send + Sync>> {
     let mut results = DateValidationResults::new();
 
-    for (path, file_info) in collected_files {
-        let context = create_validation_context(path, file_info)?;
-        process_file(&mut results, context, config)?;
+    // Create a Vec of paths to iterate over to avoid borrow checker issues
+    let paths: Vec<PathBuf> = collected_files.keys().cloned().collect();
+
+    for path in paths {
+        let context = FileValidationContext {
+            path: path.clone(),
+            created_time: get_file_creation_time(&path).unwrap_or_else(|_| Local::now()),
+        };
+
+
+        // Get mutable reference to file_info
+        if let Some(file_info) = collected_files.get_mut(&path) {
+            process_file(&mut results, context, file_info, config)?;
+        }
     }
 
     // Sort all results by filename
@@ -239,52 +248,32 @@ fn collect_date_entries(
     Ok(results)
 }
 
-fn create_validation_context(
-    path: &PathBuf,
-    file_info: &MarkdownFileInfo,
-) -> Result<FileValidationContext, Box<dyn Error + Send + Sync>> {
-    // Extract the error message from frontmatter_error if it exists
-    let property_error = file_info
-        .frontmatter_error
-        .as_ref()
-        .map(|err| format!("{}: {}", err.message, err.yaml_content));
-
-    Ok(FileValidationContext {
-        path: path.clone(),
-        created_time: get_file_creation_time(path).unwrap_or_else(|_| Local::now()),
-        frontmatter: file_info.frontmatter.clone(),
-        property_error,
-    })
-}
-
 fn process_file(
     results: &mut DateValidationResults,
     context: FileValidationContext,
+    file_info: &mut MarkdownFileInfo,
     config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Handle property errors first
-    if let Some(error) = context.property_error {
-        results.property_errors.push((context.path, error));
+
+    // Early return if no frontmatter
+    if file_info.frontmatter.is_none() {
+        // we output frontmatter issues elsewhere
+        // todo - just create the dates here so that we now have a frontmatter
         return Ok(());
     }
 
-    // Early return if no frontmatter
-    let fm = match &context.frontmatter {
-        Some(fm) => fm,
-        None => return Ok(()),
-    };
-
+    let fm = file_info.frontmatter.as_ref().unwrap();
     let validation = validate_date_fields(fm);
     let has_invalid_dates = validation.has_invalid_dates();
 
     if has_invalid_dates {
         results
             .invalid_entries
-            .push((context.path, validation.create_validation_error(fm)));
+            .push((context.path.clone(), validation.create_validation_error(fm)));
         return Ok(());
     }
 
-    process_valid_dates(results, &context, fm, config)
+    process_valid_dates(results, &context, file_info, config)
 }
 
 struct DateFieldValidation {
@@ -355,9 +344,14 @@ fn check_date_validity(date: Option<&String>) -> Option<String> {
 fn process_valid_dates(
     results: &mut DateValidationResults,
     context: &FileValidationContext,
-    fm: &FrontMatter,
+    file_info: &mut MarkdownFileInfo,
     config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    let fm = match &file_info.frontmatter {
+        Some(fm) => fm,
+        None => return Ok(()),
+    };
+
     let mut updates = DateUpdates {
         date_created: None,
         date_modified: None,
@@ -399,18 +393,16 @@ fn process_valid_dates(
         }
 
         // Set the file_creation_time based on the final_set_value
-        updates.file_creation_time = if file_creation_date_approach
-            != SetFileCreationDateWith::NoChange
-        {
+        updates.file_creation_time = if file_creation_date_approach != SetFileCreationDateWith::NoChange {
             Some(file_creation_date_approach.to_string(context.created_time, fm.date_created_fix()))
         } else {
             None
         };
 
         updates.remove_date_created_fix = match file_creation_date_approach {
-            SetFileCreationDateWith::CreatedFixWithTimestamp => true, // Only remove if we used date_created_fix
-            SetFileCreationDateWith::FileCreationTime => false, // Nothing to remove in this case
-            SetFileCreationDateWith::NoChange => false,         // No changes needed
+            SetFileCreationDateWith::CreatedFixWithTimestamp => true,
+            SetFileCreationDateWith::FileCreationTime => false,
+            SetFileCreationDateWith::NoChange => false,
         };
 
         results.date_created_entries.push((
@@ -445,7 +437,7 @@ fn process_valid_dates(
         }
     }
 
-    apply_date_changes(config, &context.path, &updates)?;
+    apply_date_changes(config, &context.path, file_info, &updates)?;
 
     Ok(())
 }
@@ -453,6 +445,7 @@ fn process_valid_dates(
 fn apply_date_changes(
     config: &ValidatedConfig,
     path: &Path,
+    file_info: &mut MarkdownFileInfo,
     updates: &DateUpdates,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Early return if:
@@ -460,14 +453,14 @@ fn apply_date_changes(
     // 2. We have no actual changes to make
     if !config.apply_changes()
         || !(updates.date_created.is_some()
-            || updates.date_modified.is_some()
-            || updates.remove_date_created_fix)
+        || updates.date_modified.is_some()
+        || updates.remove_date_created_fix)
     {
         return Ok(());
     }
 
-    // First update the file's frontmatter
-    frontmatter::update_file_frontmatter(path, |fm| {
+    // Update the frontmatter directly in MarkdownFileInfo
+    if let Some(fm) = &mut file_info.frontmatter {
         if let Some(date_created) = &updates.date_created {
             fm.update_date_created(Some(date_created.clone()));
         }
@@ -477,7 +470,7 @@ fn apply_date_changes(
         if updates.remove_date_created_fix {
             fm.update_date_created_fix(None);
         }
-    })?;
+    }
 
     // After successful frontmatter update, set the file creation time if we have one
     if let Some(time_str) = &updates.file_creation_time {
@@ -485,6 +478,9 @@ fn apply_date_changes(
             file_utils::set_file_create_date(path, parsed_time)?;
         }
     }
+
+    // Persist the changes
+    file_info.persist_frontmatter(path)?;
 
     Ok(())
 }
