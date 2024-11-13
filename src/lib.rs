@@ -134,7 +134,10 @@ output_folder: output
         match Config::from_obsidian_file(&config_path) {
             Ok(config) => {
                 let validated_config = config.validate().unwrap();
-                assert!(!validated_config.apply_changes(), "apply_changes should be false");
+                assert!(
+                    !validated_config.apply_changes(),
+                    "apply_changes should be false"
+                );
                 assert!(
                     validated_config.obsidian_path().exists(),
                     "Obsidian path should exist"

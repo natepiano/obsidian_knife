@@ -61,7 +61,7 @@ impl Config {
             .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
 
         // Set the expanded path after creation
-        config.config_file_path =  expanded_path;
+        config.config_file_path = expanded_path;
 
         Ok(config)
     }
@@ -75,7 +75,9 @@ impl Config {
     pub fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         let expanded_obsidian_path = expand_tilde(&self.obsidian_path);
         if !expanded_obsidian_path.exists() {
-            return Err(format!("obsidian path does not exist: {:?}", expanded_obsidian_path).into());
+            return Err(
+                format!("obsidian path does not exist: {:?}", expanded_obsidian_path).into(),
+            );
         }
 
         // Validate back_populate_file_filter if present

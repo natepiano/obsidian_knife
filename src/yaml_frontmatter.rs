@@ -1,6 +1,5 @@
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Serialize};
 use serde_yaml::Value;
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -50,46 +49,8 @@ impl std::fmt::Display for YamlFrontMatterError {
 
 impl Error for YamlFrontMatterError {}
 
-// New helper struct that handles the storage of other fields not defined
-// in whatever yaml frontmatter struct you've defined
-// this way when you persist, all the other field data is preserved
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct YamlFields {
-    #[serde(flatten)]
-    pub(crate) fields: HashMap<String, Value>,
-}
-
-impl YamlFields {
-    pub fn new() -> Self {
-        Self {
-            fields: HashMap::new(),
-        }
-    }
-
-    pub fn get(&self, key: &str) -> Option<&Value> {
-        self.fields.get(key)
-    }
-
-    pub fn contains_key(&self, key: &str) -> bool {
-        self.fields.contains_key(key)
-    }
-}
-
-impl From<HashMap<String, Value>> for YamlFields {
-    fn from(fields: HashMap<String, Value>) -> Self {
-        Self { fields }
-    }
-}
-
-impl Default for YamlFields {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 /// Trait for types that can be serialized to and deserialized from YAML frontmatter
 pub trait YamlFrontMatter: DeserializeOwned + Serialize {
-
     /// Creates an instance from a YAML string
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
         serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
@@ -107,7 +68,8 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
             let mut sorted_map = serde_yaml::Mapping::new();
 
             // Collect all keys and sort them
-            let mut keys: Vec<String> = map.keys()
+            let mut keys: Vec<String> = map
+                .keys()
                 .filter_map(|k| k.as_str().map(String::from))
                 .collect();
             keys.sort();
@@ -118,16 +80,13 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
                     // Sort sequence/list values if present
                     let sorted_value = match value {
                         Value::Sequence(seq) => {
-                            let mut sorted_seq: Vec<String> = seq.iter()
+                            let mut sorted_seq: Vec<String> = seq
+                                .iter()
                                 .filter_map(|v| v.as_str().map(String::from))
                                 .collect();
                             sorted_seq.sort();
-                            Value::Sequence(
-                                sorted_seq.into_iter()
-                                    .map(Value::String)
-                                    .collect()
-                            )
-                        },
+                            Value::Sequence(sorted_seq.into_iter().map(Value::String).collect())
+                        }
                         _ => value.clone(),
                     };
                     sorted_map.insert(Value::String(key), sorted_value);
@@ -138,7 +97,9 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
             serde_yaml::to_string(&Value::Mapping(sorted_map))
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
-            Err(YamlFrontMatterError::Serialize("Expected a mapping".to_string()))
+            Err(YamlFrontMatterError::Serialize(
+                "Expected a mapping".to_string(),
+            ))
         }
     }
 
@@ -226,17 +187,17 @@ fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMat
 mod tests {
     use super::*;
     use crate::test_utils::assert_result;
+    use crate::yaml_frontmatter_struct;
     use serde::{Deserialize, Serialize};
     use std::cmp::PartialEq;
-    use crate::yaml_frontmatter_struct;
 
     yaml_frontmatter_struct! {
-    #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
-    struct TestFrontMatter {
-        title: String,
-        tags: Vec<String>,
+        #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
+        struct TestFrontMatter {
+            title: String,
+            tags: Vec<String>,
+        }
     }
-}
 
     struct YamlTestCase {
         name: &'static str,
@@ -477,11 +438,7 @@ tags: [not, valid, yaml
             SerializationOrderTestCase {
                 name: "fields and lists should be sorted alphabetically",
                 input: TestFrontMatter {
-                    tags: vec![
-                        "zebra".to_string(),
-                        "alpha".to_string(),
-                        "beta".to_string()
-                    ],
+                    tags: vec!["zebra".to_string(), "alpha".to_string(), "beta".to_string()],
                     title: "test doc".to_string(),
                     other_fields: Default::default(),
                 },
