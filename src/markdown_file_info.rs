@@ -1,10 +1,10 @@
-use std::error::Error;
-use std::fs;
-use std::path::Path;
-use regex::Regex;
 use crate::frontmatter::FrontMatter;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
+use regex::Regex;
+use std::error::Error;
+use std::fs;
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
@@ -40,7 +40,8 @@ impl MarkdownFileInfo {
         };
 
         let content = fs::read_to_string(path)?;
-        let updated_content = frontmatter.update_in_markdown_str(&content)
+        let updated_content = frontmatter
+            .update_in_markdown_str(&content)
             .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
         fs::write(path, updated_content)?;
 
@@ -48,12 +49,11 @@ impl MarkdownFileInfo {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::fs;
+    use tempfile::TempDir;
 
     #[test]
     fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {

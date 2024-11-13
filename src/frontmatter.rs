@@ -1,3 +1,4 @@
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{constants::*, ThreadSafeWriter};
@@ -6,7 +7,6 @@ use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
-use crate::markdown_file_info::MarkdownFileInfo;
 
 // when we set date_created_fix to None it won't serialize - cool
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -93,11 +93,11 @@ pub fn report_frontmatter_issues(
 
 #[cfg(test)]
 mod tests {
-    use std::fs;
     use super::*;
+    use serde_yaml::{Mapping, Number};
+    use std::fs;
     use std::fs::File;
     use std::io::Write;
-    use serde_yaml::{Mapping, Number};
     use tempfile::TempDir;
 
     // Test the basic functionality of updating frontmatter fields
@@ -121,7 +121,11 @@ tags:
         let mut file_info = MarkdownFileInfo::new();
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
 
-        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2023-10-24]]".to_string()));
+        file_info
+            .frontmatter
+            .as_mut()
+            .unwrap()
+            .update_date_modified(Some("[[2023-10-24]]".to_string()));
 
         file_info.persist_frontmatter(&file_path).unwrap();
 
@@ -194,7 +198,11 @@ boolean_field: true
         // Update frontmatter
         let mut file_info = MarkdownFileInfo::new();
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
-        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2024-01-02]]".to_string()));
+        file_info
+            .frontmatter
+            .as_mut()
+            .unwrap()
+            .update_date_modified(Some("[[2024-01-02]]".to_string()));
         file_info.persist_frontmatter(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
@@ -261,7 +269,11 @@ boolean_field: true
         // Update the frontmatter
         let mut file_info = MarkdownFileInfo::new();
         file_info.frontmatter = Some(initial_frontmatter);
-        file_info.frontmatter.as_mut().unwrap().update_date_modified(Some("[[2024-01-02]]".to_string()));
+        file_info
+            .frontmatter
+            .as_mut()
+            .unwrap()
+            .update_date_modified(Some("[[2024-01-02]]".to_string()));
         file_info.persist_frontmatter(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();

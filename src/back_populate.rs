@@ -1,5 +1,6 @@
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::regex_utils::MARKDOWN_REGEX;
 use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
@@ -14,7 +15,6 @@ use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
 use std::time::Instant;
-use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {

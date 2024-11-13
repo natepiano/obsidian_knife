@@ -6,11 +6,11 @@ use crate::{file_utils, ValidatedConfig};
 
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 
+use crate::markdown_file_info::MarkdownFileInfo;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug)]
 struct DateUpdates {
@@ -232,7 +232,6 @@ fn collect_date_entries(
             created_time: get_file_creation_time(&path).unwrap_or_else(|_| Local::now()),
         };
 
-
         // Get mutable reference to file_info
         if let Some(file_info) = collected_files.get_mut(&path) {
             process_file(&mut results, context, file_info, config)?;
@@ -254,7 +253,6 @@ fn process_file(
     file_info: &mut MarkdownFileInfo,
     config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     // Early return if no frontmatter
     if file_info.frontmatter.is_none() {
         // we output frontmatter issues elsewhere
@@ -393,7 +391,9 @@ fn process_valid_dates(
         }
 
         // Set the file_creation_time based on the final_set_value
-        updates.file_creation_time = if file_creation_date_approach != SetFileCreationDateWith::NoChange {
+        updates.file_creation_time = if file_creation_date_approach
+            != SetFileCreationDateWith::NoChange
+        {
             Some(file_creation_date_approach.to_string(context.created_time, fm.date_created_fix()))
         } else {
             None
@@ -453,8 +453,8 @@ fn apply_date_changes(
     // 2. We have no actual changes to make
     if !config.apply_changes()
         || !(updates.date_created.is_some()
-        || updates.date_modified.is_some()
-        || updates.remove_date_created_fix)
+            || updates.date_modified.is_some()
+            || updates.remove_date_created_fix)
     {
         return Ok(());
     }

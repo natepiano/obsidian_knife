@@ -1,14 +1,10 @@
 use crate::regex_utils::build_case_insensitive_word_finder;
 use crate::{
-    constants::*,
-    frontmatter::*,
-    sha256_cache::Sha256Cache,
-    validated_config::ValidatedConfig,
-    wikilink::collect_file_wikilinks,
-    wikilink_types::Wikilink,
-    yaml_frontmatter::YamlFrontMatter,
+    constants::*, frontmatter::*, sha256_cache::Sha256Cache, validated_config::ValidatedConfig,
+    wikilink::collect_file_wikilinks, wikilink_types::Wikilink, yaml_frontmatter::YamlFrontMatter,
 };
 
+use crate::markdown_file_info::MarkdownFileInfo;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
 use rayon::prelude::*;
@@ -22,7 +18,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::markdown_file_info::MarkdownFileInfo;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -292,9 +287,7 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
     Ok(content)
 }
 
-fn initialize_markdown_file_info(
-    content: &str,
-) -> MarkdownFileInfo {
+fn initialize_markdown_file_info(content: &str) -> MarkdownFileInfo {
     let mut file_info = MarkdownFileInfo::new();
 
     match FrontMatter::from_markdown_str(content) {
