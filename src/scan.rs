@@ -262,6 +262,7 @@ fn scan_markdown_file(
     let content = read_file_content(file_path)?;
 
     let mut markdown_file_info = initialize_markdown_file_info(&content);
+    markdown_file_info.file_path = file_path.clone();
 
     extract_do_not_back_populate(&mut markdown_file_info);
 

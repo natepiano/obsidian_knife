@@ -1,3 +1,4 @@
+use std::path::PathBuf;
 use crate::frontmatter::FrontMatter;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::YamlFrontMatterError;
@@ -7,6 +8,7 @@ use regex::Regex;
 pub struct MarkdownFileInfo {
     pub do_not_back_populate: Option<Vec<String>>,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
+    pub file_path: PathBuf,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub image_links: Vec<String>,
@@ -18,6 +20,7 @@ impl MarkdownFileInfo {
         MarkdownFileInfo {
             do_not_back_populate: None,
             do_not_back_populate_regexes: None,
+            file_path: PathBuf::new(),
             frontmatter: None,
             frontmatter_error: None,
             invalid_wikilinks: Vec::new(),

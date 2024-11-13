@@ -132,17 +132,6 @@ impl Sha256Cache {
         Ok(())
     }
 
-    // pub fn get_stats(&self) -> CacheStats {
-    //     CacheStats {
-    //         initial_count: self.initial_count,
-    //         files_read: self.files_read,
-    //         files_added: self.files_added,
-    //         files_modified: self.files_modified,
-    //         files_deleted: self.files_deleted,
-    //         total_files: self.cache.len(),
-    //     }
-    // }
-
     fn hash_file(&self, path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut file = File::open(path)?;
         let mut hasher = Sha256::new();
