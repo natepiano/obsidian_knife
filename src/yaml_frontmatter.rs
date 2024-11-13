@@ -76,9 +76,51 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
         serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
     }
 
-    /// Converts the instance to a YAML string
+    /// Converts the instance to a YAML string for subsequent persistence
+    /// sorts all properties alphabetically, plus any contained lists are also sorted
     fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
-        serde_yaml::to_string(self).map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
+        // First serialize to Value to manipulate the structure
+        let value = serde_yaml::to_value(self)
+            .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
+
+        if let serde_yaml::Value::Mapping(map) = value {
+            // Create a sorted mapping
+            let mut sorted_map = serde_yaml::Mapping::new();
+
+            // Collect all keys and sort them
+            let mut keys: Vec<String> = map.keys()
+                .filter_map(|k| k.as_str().map(String::from))
+                .collect();
+            keys.sort();
+
+            // Rebuild mapping in sorted order
+            for key in keys {
+                if let Some(value) = map.get(&serde_yaml::Value::String(key.clone())) {
+                    // Sort sequence/list values if present
+                    let sorted_value = match value {
+                        serde_yaml::Value::Sequence(seq) => {
+                            let mut sorted_seq: Vec<String> = seq.iter()
+                                .filter_map(|v| v.as_str().map(String::from))
+                                .collect();
+                            sorted_seq.sort();
+                            serde_yaml::Value::Sequence(
+                                sorted_seq.into_iter()
+                                    .map(serde_yaml::Value::String)
+                                    .collect()
+                            )
+                        },
+                        _ => value.clone(),
+                    };
+                    sorted_map.insert(serde_yaml::Value::String(key), sorted_value);
+                }
+            }
+
+            // Serialize the sorted mapping
+            serde_yaml::to_string(&serde_yaml::Value::Mapping(sorted_map))
+                .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
+        } else {
+            Err(YamlFrontMatterError::Serialize("Expected a mapping".to_string()))
+        }
     }
 
     /// Creates an instance from markdown content containing YAML frontmatter
@@ -340,12 +382,12 @@ tags: [not, valid, yaml
         let test_cases = vec![
             YamlUpdateTestCase {
                 description: "Basic YAML update",
-                input: "---\ntitle: old\ntags:\n  - tag1\n---\ncontent",
+                input: "---\ntags:\n- tag1\ntitle: new\n---\ncontent",
                 frontmatter: TestFrontMatter {
                     title: "new".to_string(),
                     tags: vec!["tag1".to_string()],
                 },
-                expected: Ok("---\ntitle: new\ntags:\n- tag1\n---\ncontent".to_string()),
+                expected: Ok("---\ntags:\n- tag1\ntitle: new\n---\ncontent".to_string()),
             },
             YamlUpdateTestCase {
                 description: "Complex frontmatter update",
@@ -354,7 +396,7 @@ tags: [not, valid, yaml
                     title: "new".to_string(),
                     tags: vec!["tag1".to_string(), "tag2".to_string()],
                 },
-                expected: Ok("---\ntitle: new\ntags:\n- tag1\n- tag2\n---\ncontent".to_string()),
+                expected: Ok("---\ntags:\n- tag1\n- tag2\ntitle: new\n---\ncontent".to_string()),
             },
             YamlUpdateTestCase {
                 description: "Invalid frontmatter - no closing delimiter",
@@ -373,7 +415,7 @@ tags: [not, valid, yaml
                     tags: vec![],
                 },
                 expected: Ok(
-                    "---\ntitle: new\ntags: []\n---\n\nContent with\n\nmultiple lines".to_string(),
+                    "---\ntags: []\ntitle: new\n---\n\nContent with\n\nmultiple lines".to_string(),
                 ),
             },
         ];
@@ -391,6 +433,62 @@ tags: [not, valid, yaml
                         expected.trim(),
                         "Failed test: {}",
                         test_case.description
+                    )
+                },
+            );
+        }
+    }
+
+    #[test]
+    fn test_yaml_frontmatter_sorted_serialization() {
+        struct SerializationOrderTestCase {
+            name: &'static str,
+            input: TestFrontMatter,
+            expected: Result<String, YamlFrontMatterError>,
+        }
+
+        let test_cases = vec![
+            SerializationOrderTestCase {
+                name: "fields and lists should be sorted alphabetically",
+                input: TestFrontMatter {
+                    tags: vec![
+                        "zebra".to_string(),
+                        "alpha".to_string(),
+                        "beta".to_string()
+                    ],
+                    title: "test doc".to_string(),
+                },
+                expected: Ok("tags:\n- alpha\n- beta\n- zebra\ntitle: test doc".to_string()),
+            },
+            SerializationOrderTestCase {
+                name: "empty lists should maintain alphabetical field order",
+                input: TestFrontMatter {
+                    tags: vec![],
+                    title: "no tags".to_string(),
+                },
+                expected: Ok("tags: []\ntitle: no tags".to_string()),
+            },
+            SerializationOrderTestCase {
+                name: "single item lists should be sorted",
+                input: TestFrontMatter {
+                    tags: vec!["tag1".to_string()],
+                    title: "one tag".to_string(),
+                },
+                expected: Ok("tags:\n- tag1\ntitle: one tag".to_string()),
+            },
+        ];
+
+        for test_case in &test_cases {
+            assert_result(
+                test_case.input.to_yaml_str(),
+                test_case.expected.clone(),
+                test_case.name,
+                |actual, expected| {
+                    assert_eq!(
+                        actual.trim(),
+                        expected.trim(),
+                        "Failed test: {}",
+                        test_case.name
                     )
                 },
             );
