@@ -3,8 +3,6 @@ use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
 use regex::Regex;
 use std::error::Error;
-use std::fs;
-use std::path::Path;
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
@@ -32,21 +30,6 @@ impl MarkdownFileInfo {
     pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
         self.invalid_wikilinks.extend(wikilinks);
     }
-
-    pub fn persist_frontmatter(&self, path: &Path) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // Early return if no frontmatter to persist
-        let Some(frontmatter) = &self.frontmatter else {
-            return Ok(());
-        };
-
-        let content = fs::read_to_string(path)?;
-        let updated_content = frontmatter
-            .update_in_markdown_str(&content)
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        fs::write(path, updated_content)?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
@@ -73,32 +56,13 @@ date_created: "2024-01-01"
         // Update frontmatter directly
         if let Some(fm) = &mut file_info.frontmatter {
             fm.update_date_created(Some("[[2024-01-02]]".to_string()));
+            fm.persist(&file_path)?;
         }
-
-        // Persist changes
-        file_info.persist_frontmatter(&file_path)?;
 
         // Verify frontmatter was updated but content preserved
         let updated_content = fs::read_to_string(&file_path)?;
         assert!(updated_content.contains("[[2024-01-02]]"));
         assert!(updated_content.contains("# Test Content"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn test_persist_frontmatter_no_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let temp_dir = TempDir::new()?;
-        let file_path = temp_dir.path().join("test.md");
-
-        fs::write(&file_path, "# Just content")?;
-
-        let file_info = MarkdownFileInfo::new(); // No frontmatter
-        let result = file_info.persist_frontmatter(&file_path);
-
-        // Should be a no-op when no frontmatter exists
-        assert!(result.is_ok());
-        assert_eq!(fs::read_to_string(&file_path)?, "# Just content");
 
         Ok(())
     }
@@ -123,9 +87,8 @@ date_created: "2024-01-01"
 
         if let Some(fm) = &mut file_info.frontmatter {
             fm.update_date_created(Some("[[2024-01-02]]".to_string()));
+            fm.persist(&file_path)?;
         }
-
-        file_info.persist_frontmatter(&file_path)?;
 
         let updated_content = fs::read_to_string(&file_path)?;
         // Match exact YAML format serde_yaml produces

@@ -127,7 +127,7 @@ tags:
             .unwrap()
             .update_date_modified(Some("[[2023-10-24]]".to_string()));
 
-        file_info.persist_frontmatter(&file_path).unwrap();
+        file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
@@ -203,7 +203,7 @@ boolean_field: true
             .as_mut()
             .unwrap()
             .update_date_modified(Some("[[2024-01-02]]".to_string()));
-        file_info.persist_frontmatter(&file_path).unwrap();
+        file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
         let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
@@ -274,7 +274,7 @@ boolean_field: true
             .as_mut()
             .unwrap()
             .update_date_modified(Some("[[2024-01-02]]".to_string()));
-        file_info.persist_frontmatter(&file_path).unwrap();
+        file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
         let updated_content = fs::read_to_string(&file_path).unwrap();
 

@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use crate::yaml_frontmatter::YamlFrontMatter;
 
 #[derive(Debug)]
 struct DateUpdates {
@@ -470,6 +471,10 @@ fn apply_date_changes(
         if updates.remove_date_created_fix {
             fm.update_date_created_fix(None);
         }
+
+        // we know something changed so save it
+        fm.persist(path)?;
+
     }
 
     // After successful frontmatter update, set the file creation time if we have one
@@ -478,9 +483,6 @@ fn apply_date_changes(
             file_utils::set_file_create_date(path, parsed_time)?;
         }
     }
-
-    // Persist the changes
-    file_info.persist_frontmatter(path)?;
 
     Ok(())
 }

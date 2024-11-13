@@ -1,5 +1,7 @@
 use serde::{de::DeserializeOwned, Serialize};
 use std::error::Error;
+use std::fs;
+use std::path::Path;
 
 /// Error types specific to YAML frontmatter handling
 #[derive(Debug, Clone)]
@@ -86,6 +88,16 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
             }
         }
     }
+
+    fn persist(&self, path: &Path) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let content = fs::read_to_string(path)?;
+        let updated_content = self
+            .update_in_markdown_str(&content)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+        fs::write(path, updated_content)?;
+
+        Ok(())
+    }
 }
 
 fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
@@ -111,7 +123,7 @@ fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMat
             return Err(YamlFrontMatterError::Empty);
         }
 
-        // If `\n---\n` was found, skip 5 characters; otherwise, skip only 4 for `\n---`
+        // If `\n---\n` was found,d skip 5 characters; otherwise, skip only 4 for `\n---`
         let after_yaml_start = if after_start[end_index..].starts_with("\n---\n") {
             end_index + 5
         } else {
