@@ -250,7 +250,7 @@ boolean_field: true
                     Value::Number(Number::from(100)),
                 );
                 map.insert("nested_field".to_string(), Value::Mapping(nested_map));
-                map
+                map.into()
             },
         };
 

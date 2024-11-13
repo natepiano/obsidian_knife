@@ -1,4 +1,4 @@
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
@@ -8,7 +8,7 @@ use std::path::Path;
 /// Error types specific to YAML frontmatter handling
 #[derive(Debug, Clone)]
 pub enum YamlFrontMatterError {
-    /// there two lines with --- at the start, but nothing is there)
+    /// there are two lines with --- at the start, but nothing is there
     Empty,
     /// No YAML frontmatter section found (no opening ---)
     Missing,
@@ -50,26 +50,45 @@ impl std::fmt::Display for YamlFrontMatterError {
 
 impl Error for YamlFrontMatterError {}
 
-/// Trait for types that can be serialized to and deserialized from YAML frontmatter
-pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
-    // these need to exist in order for the macro to implement them when
-    // we use the macro
-    // the compiler can't tell that the macro implements these two
-    // so we put in the allow(dead_code) so that it doesn't try to warn us about it
-    //
-    // we can't put a reference to the field names themselves in the code
-    // because this trait is only used in conjunction with yaml_frontmatter_macros
-    // where we need to persist extra fields
-    #[allow(dead_code)]
-    fn other_fields(&self) -> &HashMap<String, Value> {
-        panic!("other_fields() not implemented")
+// New helper struct that handles the storage of other fields not defined
+// in whatever yaml frontmatter struct you've defined
+// this way when you persist, all the other field data is preserved
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct YamlFields {
+    #[serde(flatten)]
+    pub(crate) fields: HashMap<String, Value>,
+}
+
+impl YamlFields {
+    pub fn new() -> Self {
+        Self {
+            fields: HashMap::new(),
+        }
     }
 
-    /// Get a mutable reference to the unknown fields
-    #[allow(dead_code)]
-    fn other_fields_mut(&mut self) -> &mut HashMap<String, Value> {
-        panic!("other_fields_mut() not implemented")
+    pub fn get(&self, key: &str) -> Option<&Value> {
+        self.fields.get(key)
     }
+
+    pub fn contains_key(&self, key: &str) -> bool {
+        self.fields.contains_key(key)
+    }
+}
+
+impl From<HashMap<String, Value>> for YamlFields {
+    fn from(fields: HashMap<String, Value>) -> Self {
+        Self { fields }
+    }
+}
+
+impl Default for YamlFields {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+/// Trait for types that can be serialized to and deserialized from YAML frontmatter
+pub trait YamlFrontMatter: DeserializeOwned + Serialize {
 
     /// Creates an instance from a YAML string
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
@@ -83,7 +102,7 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
         let value = serde_yaml::to_value(self)
             .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
 
-        if let serde_yaml::Value::Mapping(map) = value {
+        if let Value::Mapping(map) = value {
             // Create a sorted mapping
             let mut sorted_map = serde_yaml::Mapping::new();
 
@@ -95,28 +114,28 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
 
             // Rebuild mapping in sorted order
             for key in keys {
-                if let Some(value) = map.get(&serde_yaml::Value::String(key.clone())) {
+                if let Some(value) = map.get(&Value::String(key.clone())) {
                     // Sort sequence/list values if present
                     let sorted_value = match value {
-                        serde_yaml::Value::Sequence(seq) => {
+                        Value::Sequence(seq) => {
                             let mut sorted_seq: Vec<String> = seq.iter()
                                 .filter_map(|v| v.as_str().map(String::from))
                                 .collect();
                             sorted_seq.sort();
-                            serde_yaml::Value::Sequence(
+                            Value::Sequence(
                                 sorted_seq.into_iter()
-                                    .map(serde_yaml::Value::String)
+                                    .map(Value::String)
                                     .collect()
                             )
                         },
                         _ => value.clone(),
                     };
-                    sorted_map.insert(serde_yaml::Value::String(key), sorted_value);
+                    sorted_map.insert(Value::String(key), sorted_value);
                 }
             }
 
             // Serialize the sorted mapping
-            serde_yaml::to_string(&serde_yaml::Value::Mapping(sorted_map))
+            serde_yaml::to_string(&Value::Mapping(sorted_map))
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
             Err(YamlFrontMatterError::Serialize("Expected a mapping".to_string()))
@@ -209,15 +228,15 @@ mod tests {
     use crate::test_utils::assert_result;
     use serde::{Deserialize, Serialize};
     use std::cmp::PartialEq;
+    use crate::yaml_frontmatter_struct;
 
-    // Add Clone derive to test struct
+    yaml_frontmatter_struct! {
     #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
     struct TestFrontMatter {
         title: String,
         tags: Vec<String>,
     }
-
-    impl YamlFrontMatter for TestFrontMatter {}
+}
 
     struct YamlTestCase {
         name: &'static str,
@@ -240,6 +259,7 @@ content"#,
                 expected: Ok(TestFrontMatter {
                     title: "test doc".to_string(),
                     tags: vec!["tag1".to_string(), "tag2".to_string()],
+                    other_fields: Default::default(),
                 }),
             },
             YamlTestCase {
@@ -293,6 +313,7 @@ tags: [not, valid, yaml
                 input: TestFrontMatter {
                     title: "test doc".to_string(),
                     tags: vec!["tag1".to_string(), "tag2".to_string()],
+                    other_fields: Default::default(),
                 },
                 expected_contains: vec!["title: test doc", "tags:", "- tag1", "- tag2"],
             },
@@ -301,6 +322,7 @@ tags: [not, valid, yaml
                 input: TestFrontMatter {
                     title: "no tags".to_string(),
                     tags: vec![],
+                    other_fields: Default::default(),
                 },
                 expected_contains: vec!["title: no tags", "tags: []"],
             },
@@ -386,6 +408,7 @@ tags: [not, valid, yaml
                 frontmatter: TestFrontMatter {
                     title: "new".to_string(),
                     tags: vec!["tag1".to_string()],
+                    other_fields: Default::default(),
                 },
                 expected: Ok("---\ntags:\n- tag1\ntitle: new\n---\ncontent".to_string()),
             },
@@ -395,6 +418,7 @@ tags: [not, valid, yaml
                 frontmatter: TestFrontMatter {
                     title: "new".to_string(),
                     tags: vec!["tag1".to_string(), "tag2".to_string()],
+                    other_fields: Default::default(),
                 },
                 expected: Ok("---\ntags:\n- tag1\n- tag2\ntitle: new\n---\ncontent".to_string()),
             },
@@ -404,6 +428,7 @@ tags: [not, valid, yaml
                 frontmatter: TestFrontMatter {
                     title: "new".to_string(),
                     tags: vec![],
+                    other_fields: Default::default(),
                 },
                 expected: Err(YamlFrontMatterError::Invalid("".to_string())), // Error variant only
             },
@@ -413,6 +438,7 @@ tags: [not, valid, yaml
                 frontmatter: TestFrontMatter {
                     title: "new".to_string(),
                     tags: vec![],
+                    other_fields: Default::default(),
                 },
                 expected: Ok(
                     "---\ntags: []\ntitle: new\n---\n\nContent with\n\nmultiple lines".to_string(),
@@ -457,6 +483,7 @@ tags: [not, valid, yaml
                         "beta".to_string()
                     ],
                     title: "test doc".to_string(),
+                    other_fields: Default::default(),
                 },
                 expected: Ok("tags:\n- alpha\n- beta\n- zebra\ntitle: test doc".to_string()),
             },
@@ -465,6 +492,7 @@ tags: [not, valid, yaml
                 input: TestFrontMatter {
                     tags: vec![],
                     title: "no tags".to_string(),
+                    other_fields: Default::default(),
                 },
                 expected: Ok("tags: []\ntitle: no tags".to_string()),
             },
@@ -473,6 +501,7 @@ tags: [not, valid, yaml
                 input: TestFrontMatter {
                     tags: vec!["tag1".to_string()],
                     title: "one tag".to_string(),
+                    other_fields: Default::default(),
                 },
                 expected: Ok("tags:\n- tag1\ntitle: one tag".to_string()),
             },
