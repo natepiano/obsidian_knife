@@ -1,3 +1,8 @@
+/// this macro allows us to persist any extra fields not specifically implemented in
+/// a struct you want to deserialize into the yaml frontmatter of a markdown file
+/// that way if other fields are added, they're not lost
+/// this makes it so we don't have to remember to manually
+/// add the field definitions
 #[macro_export]
 macro_rules! yaml_frontmatter_struct {
     (

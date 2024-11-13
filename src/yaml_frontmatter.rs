@@ -56,6 +56,10 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
     // we use the macro
     // the compiler can't tell that the macro implements these two
     // so we put in the allow(dead_code) so that it doesn't try to warn us about it
+    //
+    // we can't put a reference to the field names themselves in the code
+    // because this trait is only used in conjunction with yaml_frontmatter_macros
+    // where we need to persist extra fields
     #[allow(dead_code)]
     fn other_fields(&self) -> &HashMap<String, Value> {
         panic!("other_fields() not implemented")
