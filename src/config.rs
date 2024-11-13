@@ -23,6 +23,8 @@ yaml_frontmatter_struct! {
         ignore_folders: Option<Vec<PathBuf>>,
         obsidian_path: String,
         output_folder: Option<String>,
+        #[serde(skip)]
+        config_file_path: PathBuf,
     }
 }
 
@@ -39,7 +41,7 @@ impl Config {
     /// * `Err(Box<dyn Error + Send + Sync>)` if reading or deserialization fails.
     pub fn from_obsidian_file(path: &Path) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let expanded_path = expand_tilde(path);
-        // todo: centralize read_to_string's error handling
+
         let contents =
             fs::read_to_string(&expanded_path).map_err(|e| -> Box<dyn Error + Send + Sync> {
                 if e.kind() == std::io::ErrorKind::NotFound {
@@ -55,19 +57,25 @@ impl Config {
                 }
             })?;
 
-        Config::from_markdown_str(&contents)
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+        let mut config = Config::from_markdown_str(&contents)
+            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
+
+        // Set the expanded path after creation
+        config.config_file_path =  expanded_path;
+
+        Ok(config)
     }
+
     /// Validates the `Config` and returns a `ValidatedConfig`.
     ///
     /// # Returns
     ///
     /// * `Ok(ValidatedConfig)` if validation succeeds.
     /// * `Err(Box<dyn Error + Send + Sync>)` if validation fails.
-    pub fn validate(self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
-        let expanded_path = expand_tilde(&self.obsidian_path);
-        if !expanded_path.exists() {
-            return Err(format!("obsidian path does not exist: {:?}", expanded_path).into());
+    pub fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
+        let expanded_obsidian_path = expand_tilde(&self.obsidian_path);
+        if !expanded_obsidian_path.exists() {
+            return Err(format!("obsidian path does not exist: {:?}", expanded_obsidian_path).into());
         }
 
         // Validate back_populate_file_filter if present
@@ -86,17 +94,17 @@ impl Config {
             if folder.trim().is_empty() {
                 return Err(ERROR_OUTPUT_FOLDER.into());
             }
-            expanded_path.join(folder.trim())
+            expanded_obsidian_path.join(folder.trim())
         } else {
-            expanded_path.join(DEFAULT_OUTPUT_FOLDER) // Default folder name
+            expanded_obsidian_path.join(DEFAULT_OUTPUT_FOLDER) // Default folder name
         };
 
         // Add output folder and cache folder to ignored folders
-        let mut ignore_folders = self.validate_ignore_folders(&expanded_path)?;
+        let mut ignore_folders = self.validate_ignore_folders(&expanded_obsidian_path)?;
         let mut folders_to_add = vec![
             output_folder.clone(),
-            expanded_path.join(CACHE_FOLDER),
-            expanded_path.join(OBSIDIAN_HIDDEN_FOLDER),
+            expanded_obsidian_path.join(CACHE_FOLDER),
+            expanded_obsidian_path.join(OBSIDIAN_HIDDEN_FOLDER),
         ];
 
         if let Some(ref mut folders) = ignore_folders {
@@ -120,7 +128,7 @@ impl Config {
             validated_back_populate_file_filter, // Add new parameter
             validated_do_not_back_populate,
             ignore_folders,
-            expanded_path,
+            expanded_obsidian_path,
             output_folder,
         ))
     }
@@ -166,6 +174,15 @@ impl Config {
         } else {
             None
         })
+    }
+
+    pub fn reset_apply_changes(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        if let Some(true) = self.apply_changes {
+            let mut updated_config = self.clone();
+            updated_config.apply_changes = Some(false);
+            updated_config.persist(self.config_file_path.as_path())?;
+        }
+        Ok(())
     }
 }
 
@@ -308,5 +325,27 @@ obsidian_path: {}"#,
 
         let expected_output = temp_dir.path().join("obsidian_knife");
         assert_eq!(validated.output_folder(), expected_output.as_path());
+    }
+
+    #[test]
+    fn test_reset_apply_changes() {
+        // Create a temporary file with the config
+        let temp_dir = TempDir::new().unwrap();
+        let config_path = temp_dir.path().join("config.md");
+
+        let config_content = r#"---
+obsidian_path: /some/path
+apply_changes: true
+---
+"#;
+        fs::write(&config_path, config_content).unwrap();
+
+        // Create and test config
+        let config = Config::from_obsidian_file(&config_path).unwrap();
+        config.reset_apply_changes().unwrap();
+
+        // Read the file again and verify apply_changes is now false
+        let updated_config = Config::from_obsidian_file(&config_path).unwrap();
+        assert_eq!(updated_config.apply_changes, Some(false));
     }
 }

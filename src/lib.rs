@@ -18,51 +18,41 @@ mod yaml_frontmatter;
 mod yaml_frontmatter_macro;
 
 // Re-export types for main
-use config::Config;
-use validated_config::ValidatedConfig;
-use thread_safe_writer::ThreadSafeWriter;
-
 pub use constants::*;
+
+use crate::{
+    config::Config, thread_safe_writer::ThreadSafeWriter, validated_config::ValidatedConfig,
+};
+use chrono::Local;
+use std::error::Error;
+use std::path::PathBuf;
 
 #[cfg(test)]
 pub(crate) mod test_utils;
 
-use std::error::Error;
-use std::path::PathBuf;
-use chrono::Local;
-
-
-
 // lib was separated from main so it could be incorporated into integration tests
-// such as config_tests.rs
-pub fn process_config(
-    config_path: PathBuf,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-
-    let (config, writer) = initialize_config(config_path)?;
-    write_execution_start(&config, &writer)?;
-
-    let mut obsidian_repository_info = scan::scan_obsidian_folder(&config)?;
-    frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
-    cleanup_images::cleanup_images(&config, &obsidian_repository_info, &writer)?;
-    cleanup_dates::process_dates(
-        &config,
-        &mut obsidian_repository_info.markdown_files,
-        &writer,
-    )?;
-    back_populate::process_back_populate(&config, &obsidian_repository_info, &writer)?;
-    Ok(())
-}
-
-// Initialize configuration and writer
-fn initialize_config(
-    config_path: PathBuf,
-) -> Result<(ValidatedConfig, ThreadSafeWriter), Box<dyn Error + Send + Sync>> {
+// such as config_tests.rs - but that's not happening so...
+pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     let config = Config::from_obsidian_file(&config_path)?;
+
     let validated_config = config.validate()?;
     let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
 
-    Ok((validated_config, writer))
+    write_execution_start(&validated_config, &writer)?;
+
+    let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
+    frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
+    cleanup_images::cleanup_images(&validated_config, &obsidian_repository_info, &writer)?;
+    cleanup_dates::process_dates(
+        &validated_config,
+        &mut obsidian_repository_info.markdown_files,
+        &writer,
+    )?;
+    back_populate::process_back_populate(&validated_config, &obsidian_repository_info, &writer)?;
+
+    config.reset_apply_changes()?;
+
+    Ok(())
 }
 
 pub fn write_execution_start(
@@ -138,14 +128,15 @@ output_folder: output
     }
 
     #[test]
-    fn test_initialize_config_with_valid_setup() {
+    fn test_config_with_valid_setup() {
         let (_temp_dir, config_path) = create_test_environment();
 
-        match initialize_config(config_path) {
-            Ok((config, _)) => {
-                assert!(!config.apply_changes(), "apply_changes should be false");
+        match Config::from_obsidian_file(&config_path) {
+            Ok(config) => {
+                let validated_config = config.validate().unwrap();
+                assert!(!validated_config.apply_changes(), "apply_changes should be false");
                 assert!(
-                    config.obsidian_path().exists(),
+                    validated_config.obsidian_path().exists(),
                     "Obsidian path should exist"
                 );
             }
@@ -158,7 +149,7 @@ output_folder: output
     }
 
     #[test]
-    fn test_initialize_config_with_missing_obsidian_path() {
+    fn test_config_with_missing_obsidian_path() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.md");
 
@@ -170,14 +161,15 @@ apply_changes: false
         let mut file = File::create(&config_path).unwrap();
         write!(file, "{}", config_content).unwrap();
 
-        match initialize_config(config_path) {
+        let config = Config::from_obsidian_file(&config_path).unwrap();
+        match config.validate() {
             Ok(_) => panic!("Expected error for missing Obsidian path"),
             Err(e) => assert!(e.to_string().contains("obsidian path does not exist")),
         }
     }
 
     #[test]
-    fn test_initialize_config_with_invalid_yaml() {
+    fn test_config_with_invalid_yaml() {
         let temp_dir = TempDir::new().unwrap();
         let config_path = temp_dir.path().join("config.md");
 
@@ -188,7 +180,7 @@ invalid: yaml: content:
         let mut file = File::create(&config_path).unwrap();
         write!(file, "{}", config_content).unwrap();
 
-        match initialize_config(config_path) {
+        match Config::from_obsidian_file(&config_path) {
             Ok(_) => panic!("Expected error for invalid YAML"),
             Err(_) => (), // Any error is fine here as we just want to ensure it fails
         }

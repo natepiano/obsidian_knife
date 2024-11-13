@@ -33,11 +33,11 @@ impl MarkdownFileInfo {
 
 #[cfg(test)]
 mod tests {
-    use std::error::Error;
     use super::*;
+    use crate::yaml_frontmatter::YamlFrontMatter;
+    use std::error::Error;
     use std::fs;
     use tempfile::TempDir;
-    use crate::yaml_frontmatter::YamlFrontMatter;
 
     #[test]
     fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
