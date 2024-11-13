@@ -131,6 +131,7 @@ fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::assert_result;
     use serde::{Deserialize, Serialize};
     use std::cmp::PartialEq;
 
@@ -142,34 +143,6 @@ mod tests {
     }
 
     impl YamlFrontMatter for TestFrontMatter {}
-
-    fn assert_result<T, F>(
-        result: Result<T, YamlFrontMatterError>,
-        expected: Result<T, YamlFrontMatterError>,
-        test_name: &str,
-        ok_compare: F,
-    ) where
-        F: FnOnce(&T, &T),
-        T: std::fmt::Debug + PartialEq,
-    {
-        match (&result, &expected) {
-            (Ok(actual), Ok(expected)) => ok_compare(actual, expected),
-            (Err(actual_err), Err(expected_err)) => {
-                assert!(
-                    // matches!(&actual_err, &expected_err),
-                    actual_err == expected_err,
-                    "Failed test: {} - Expected error {:?}, got {:?}",
-                    test_name,
-                    expected_err,
-                    actual_err
-                );
-            }
-            _ => panic!(
-                "Failed test: {} - Result mismatch. Expected {:?}, got {:?}",
-                test_name, expected, result
-            ),
-        }
-    }
 
     struct YamlTestCase {
         name: &'static str,

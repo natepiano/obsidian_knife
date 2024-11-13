@@ -1,5 +1,4 @@
 use std::error::Error;
-#[cfg(test)]
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -22,4 +21,30 @@ pub fn create_test_files<P: AsRef<Path>>(
         write!(file, "{}", content)?;
     }
     Ok(())
+}
+
+pub fn assert_result<T, E, F>(
+    result: Result<T, E>,
+    expected: Result<T, E>,
+    test_name: &str,
+    ok_compare: F,
+) where
+    F: FnOnce(&T, &T),
+    T: std::fmt::Debug + PartialEq,
+    E: std::fmt::Debug + PartialEq,
+{
+    match (&result, &expected) {
+        (Ok(actual), Ok(expected)) => ok_compare(actual, expected),
+        (Err(actual_err), Err(expected_err)) => {
+            assert_eq!(
+                actual_err, expected_err,
+                "Failed test: {} - Expected error {:?}, got {:?}",
+                test_name, expected_err, actual_err
+            );
+        }
+        _ => panic!(
+            "Failed test: {} - Result mismatch. Expected {:?}, got {:?}",
+            test_name, expected, result
+        ),
+    }
 }
