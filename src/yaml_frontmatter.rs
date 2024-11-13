@@ -76,7 +76,7 @@ pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
         serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
     }
 
-    /// Converts the instance to a YAML string for subsequent persistence
+    /// serialize the instance to a YAML string
     /// sorts all properties alphabetically, plus any contained lists are also sorted
     fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
         // First serialize to Value to manipulate the structure
