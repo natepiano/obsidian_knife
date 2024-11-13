@@ -7,11 +7,11 @@ use crate::{file_utils, ValidatedConfig};
 use chrono::{DateTime, Local, NaiveDate, NaiveDateTime};
 
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::yaml_frontmatter::YamlFrontMatter;
 use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::yaml_frontmatter::YamlFrontMatter;
 
 #[derive(Debug)]
 struct DateUpdates {
@@ -474,7 +474,6 @@ fn apply_date_changes(
 
         // we know something changed so save it
         fm.persist(path)?;
-
     }
 
     // After successful frontmatter update, set the file creation time if we have one

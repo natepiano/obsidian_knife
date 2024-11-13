@@ -2,23 +2,29 @@ use crate::constants::*;
 use crate::file_utils::expand_tilde;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::yaml_frontmatter_struct;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct Config {
-    apply_changes: Option<bool>,
-    back_populate_file_count: Option<usize>,
-    back_populate_file_filter: Option<String>,
-    do_not_back_populate: Option<Vec<String>>,
-    ignore_folders: Option<Vec<PathBuf>>,
-    obsidian_path: String,
-    output_folder: Option<String>,
+yaml_frontmatter_struct! {
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    pub struct Config {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        apply_changes: Option<bool>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        back_populate_file_count: Option<usize>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        back_populate_file_filter: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        do_not_back_populate: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        ignore_folders: Option<Vec<PathBuf>>,
+        obsidian_path: String,
+        output_folder: Option<String>,
+    }
 }
-
-impl YamlFrontMatter for Config {}
 
 impl Config {
     /// Creates a `Config` instance from an Obsidian file by deserializing the YAML front matter.

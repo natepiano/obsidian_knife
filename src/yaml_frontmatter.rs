@@ -1,4 +1,6 @@
 use serde::{de::DeserializeOwned, Serialize};
+use serde_yaml::Value;
+use std::collections::HashMap;
 use std::error::Error;
 use std::fs;
 use std::path::Path;
@@ -50,6 +52,21 @@ impl Error for YamlFrontMatterError {}
 
 /// Trait for types that can be serialized to and deserialized from YAML frontmatter
 pub trait YamlFrontMatter: Sized + DeserializeOwned + Serialize {
+    // these need to exist in order for the macro to implement them when
+    // we use the macro
+    // the compiler can't tell that the macro implements these two
+    // so we put in the allow(dead_code) so that it doesn't try to warn us about it
+    #[allow(dead_code)]
+    fn other_fields(&self) -> &HashMap<String, Value> {
+        panic!("other_fields() not implemented")
+    }
+
+    /// Get a mutable reference to the unknown fields
+    #[allow(dead_code)]
+    fn other_fields_mut(&mut self) -> &mut HashMap<String, Value> {
+        panic!("other_fields_mut() not implemented")
+    }
+
     /// Creates an instance from a YAML string
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
         serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))

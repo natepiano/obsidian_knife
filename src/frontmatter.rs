@@ -1,30 +1,27 @@
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
-use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::{constants::*, ThreadSafeWriter};
+use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
 use serde::{Deserialize, Serialize};
-use serde_yaml::Value;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 
 // when we set date_created_fix to None it won't serialize - cool
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct FrontMatter {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub aliases: Option<Vec<String>>,
-    // Fields we explicitly care about
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_created: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_created_fix: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_modified: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub do_not_back_populate: Option<Vec<String>>,
-    // Catch-all field for unknown properties
-    #[serde(flatten)]
-    pub(crate) other_fields: HashMap<String, Value>,
+// the macro adds support for serializing any fields not explicitly named
+yaml_frontmatter_struct! {
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    pub struct FrontMatter {
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub aliases: Option<Vec<String>>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub date_created: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub date_created_fix: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub date_modified: Option<String>,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub do_not_back_populate: Option<Vec<String>>
+    }
 }
 
 impl FrontMatter {
@@ -56,8 +53,6 @@ impl FrontMatter {
         self.date_created_fix = value;
     }
 }
-
-impl YamlFrontMatter for FrontMatter {}
 
 pub fn report_frontmatter_issues(
     markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
@@ -94,11 +89,12 @@ pub fn report_frontmatter_issues(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use serde_yaml::{Mapping, Number};
+    use serde_yaml::{Mapping, Number, Value};
     use std::fs;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
+    use crate::yaml_frontmatter::YamlFrontMatter;
 
     // Test the basic functionality of updating frontmatter fields
     #[test]

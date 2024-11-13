@@ -1,8 +1,7 @@
 use crate::frontmatter::FrontMatter;
 use crate::wikilink_types::InvalidWikilink;
-use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
+use crate::yaml_frontmatter::YamlFrontMatterError;
 use regex::Regex;
-use std::error::Error;
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
@@ -34,9 +33,11 @@ impl MarkdownFileInfo {
 
 #[cfg(test)]
 mod tests {
+    use std::error::Error;
     use super::*;
     use std::fs;
     use tempfile::TempDir;
+    use crate::yaml_frontmatter::YamlFrontMatter;
 
     #[test]
     fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
