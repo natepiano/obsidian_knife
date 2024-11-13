@@ -15,7 +15,6 @@ mod validated_config;
 mod wikilink;
 mod wikilink_types;
 mod yaml_frontmatter;
-mod yaml_frontmatter_macro;
 
 // Re-export types for main
 pub use constants::*;
