@@ -1,11 +1,13 @@
-use std::path::PathBuf;
 use crate::frontmatter::FrontMatter;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::YamlFrontMatterError;
 use regex::Regex;
+use std::path::PathBuf;
+use chrono::{DateTime, Local};
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
+    pub created_time: DateTime<Local>,
     pub do_not_back_populate: Option<Vec<String>>,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub file_path: PathBuf,
@@ -18,6 +20,7 @@ pub struct MarkdownFileInfo {
 impl MarkdownFileInfo {
     pub fn new() -> Self {
         MarkdownFileInfo {
+            created_time: Local::now(),
             do_not_back_populate: None,
             do_not_back_populate_regexes: None,
             file_path: PathBuf::new(),

@@ -1,4 +1,4 @@
-use chrono::{Local, NaiveDateTime};
+use chrono::{DateTime, Local, NaiveDateTime};
 use regex::Regex;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -102,6 +102,12 @@ pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> i
         .status()?;
 
     Ok(())
+}
+
+pub fn get_file_creation_time(path: &Path) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
+    let metadata = fs::metadata(path)?;
+    let created = metadata.created()?;
+    Ok(DateTime::from(created))
 }
 
 #[cfg(test)]

@@ -10,7 +10,6 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use std::collections::HashMap;
 use std::error::Error;
-use std::fs;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug)]
@@ -101,12 +100,6 @@ impl DateValidationResults {
 
         Ok(())
     }
-}
-
-#[derive(Debug)]
-struct FileValidationContext {
-    path: PathBuf,
-    created_time: DateTime<Local>,
 }
 
 #[derive(Clone, Debug)]
@@ -207,7 +200,7 @@ enum DateCreatedPropertyUpdate {
 // Update process_dates to use the new implementation
 pub fn process_dates(
     config: &ValidatedConfig,
-    markdown_files: &mut HashMap<PathBuf, MarkdownFileInfo>,
+    markdown_files: &mut [MarkdownFileInfo],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, "dates")?;
@@ -219,27 +212,28 @@ pub fn process_dates(
 }
 
 fn collect_date_entries(
-    collected_files: &mut HashMap<PathBuf, MarkdownFileInfo>,
+    collected_files: &mut [MarkdownFileInfo],
     config: &ValidatedConfig,
 ) -> Result<DateValidationResults, Box<dyn Error + Send + Sync>> {
     let mut results = DateValidationResults::new();
 
-    // Create a Vec of paths to iterate over to avoid borrow checker issues
-    let paths: Vec<PathBuf> = collected_files.keys().cloned().collect();
+    // Create HashMap for efficient lookups
+    let mut file_map: HashMap<PathBuf, &mut MarkdownFileInfo> = collected_files
+        .iter_mut()
+        .map(|info| (info.file_path.clone(), info))
+        .collect();
+
+    // Get paths to iterate over
+    let paths: Vec<PathBuf> = file_map.keys().cloned().collect();
 
     for path in paths {
-        let context = FileValidationContext {
-            path: path.clone(),
-            created_time: get_file_creation_time(&path).unwrap_or_else(|_| Local::now()),
-        };
 
-        // Get mutable reference to file_info
-        if let Some(file_info) = collected_files.get_mut(&path) {
-            process_file(&mut results, context, file_info, config)?;
+        if let Some(file_info) = file_map.get_mut(&path) {
+            process_file(&mut results, file_info, config)?;
         }
     }
 
-    // Sort all results by filename
+    // Sort results
     results.invalid_entries.sort_by_filename();
     results.date_created_entries.sort_by_filename();
     results.date_modified_entries.sort_by_filename();
@@ -250,7 +244,6 @@ fn collect_date_entries(
 
 fn process_file(
     results: &mut DateValidationResults,
-    context: FileValidationContext,
     file_info: &mut MarkdownFileInfo,
     config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -268,11 +261,11 @@ fn process_file(
     if has_invalid_dates {
         results
             .invalid_entries
-            .push((context.path.clone(), validation.create_validation_error(fm)));
+            .push((file_info.file_path.clone(), validation.create_validation_error(fm)));
         return Ok(());
     }
 
-    process_valid_dates(results, &context, file_info, config)
+    process_valid_dates(results, file_info, config)
 }
 
 struct DateFieldValidation {
@@ -342,7 +335,6 @@ fn check_date_validity(date: Option<&String>) -> Option<String> {
 
 fn process_valid_dates(
     results: &mut DateValidationResults,
-    context: &FileValidationContext,
     file_info: &mut MarkdownFileInfo,
     config: &ValidatedConfig,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -367,13 +359,13 @@ fn process_valid_dates(
             calculate_file_creation_date_approach(fm.date_created(), fm.date_created_fix());
 
         let date_info = DateInfo {
-            created_timestamp: context.created_time,
+            created_timestamp: file_info.created_time,
             date_created: fm.date_created().cloned(),
             date_created_fix: fm.date_created_fix().cloned(),
             updated_property: determine_updated_property(
                 fm.date_created(),
                 fm.date_created_fix(),
-                context.created_time,
+                file_info.created_time,
             ),
         };
 
@@ -395,7 +387,7 @@ fn process_valid_dates(
         updates.file_creation_time = if file_creation_date_approach
             != SetFileCreationDateWith::NoChange
         {
-            Some(file_creation_date_approach.to_string(context.created_time, fm.date_created_fix()))
+            Some(file_creation_date_approach.to_string(file_info.created_time, fm.date_created_fix()))
         } else {
             None
         };
@@ -407,7 +399,7 @@ fn process_valid_dates(
         };
 
         results.date_created_entries.push((
-            context.path.clone(),
+            file_info.file_path.clone(),
             date_info,
             file_creation_date_approach,
         ));
@@ -422,7 +414,7 @@ fn process_valid_dates(
                 let fix = format!("[[{}]]", date_modified);
                 updates.date_modified = Some(fix.clone());
                 results.date_modified_entries.push((
-                    context.path.clone(),
+                    file_info.file_path.clone(),
                     date_modified.clone(),
                     fix,
                 ));
@@ -431,21 +423,20 @@ fn process_valid_dates(
         None => {
             updates.date_modified = Some(today.clone());
             results.date_modified_entries.push((
-                context.path.clone(),
+                file_info.file_path.clone(),
                 "missing".to_string(),
                 today,
             ));
         }
     }
 
-    apply_date_changes(config, &context.path, file_info, &updates)?;
+    apply_date_changes(config, file_info, &updates)?;
 
     Ok(())
 }
 
 fn apply_date_changes(
     config: &ValidatedConfig,
-    path: &Path,
     file_info: &mut MarkdownFileInfo,
     updates: &DateUpdates,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -473,13 +464,13 @@ fn apply_date_changes(
         }
 
         // we know something changed so save it
-        fm.persist(path)?;
+        fm.persist(&file_info.file_path)?;
     }
 
     // After successful frontmatter update, set the file creation time if we have one
     if let Some(time_str) = &updates.file_creation_time {
         if let Ok(parsed_time) = NaiveDateTime::parse_from_str(time_str, "%Y-%m-%d %H:%M:%S") {
-            file_utils::set_file_create_date(path, parsed_time)?;
+            file_utils::set_file_create_date(&file_info.file_path, parsed_time)?;
         }
     }
 
@@ -552,12 +543,6 @@ fn validate_wikilink_and_date(date: &str) -> (bool, bool) {
     let is_valid_date = NaiveDate::parse_from_str(clean_date, "%Y-%m-%d").is_ok();
 
     (is_wikilink, is_valid_date)
-}
-
-fn get_file_creation_time(path: &Path) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
-    let metadata = fs::metadata(path)?;
-    let created = metadata.created()?;
-    Ok(DateTime::from(created))
 }
 
 fn write_invalid_dates_table(

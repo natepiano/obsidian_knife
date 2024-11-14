@@ -14,10 +14,11 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
+use crate::file_utils::get_file_creation_time;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -27,7 +28,7 @@ pub struct ImageInfo {
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
-    pub markdown_files: HashMap<PathBuf, MarkdownFileInfo>,
+    pub markdown_files: Vec<MarkdownFileInfo>,
     pub image_map: HashMap<PathBuf, ImageInfo>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
@@ -50,7 +51,7 @@ pub fn scan_obsidian_folder(
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    markdown_files: &[MarkdownFileInfo],
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
@@ -68,13 +69,13 @@ fn get_image_info_map(
 
         let references: Vec<String> = markdown_files
             .par_iter()
-            .filter_map(|(markdown_path, file_info)| {
+            .filter_map(|file_info| {
                 if file_info
                     .image_links
                     .iter()
                     .any(|link| link.contains(image_file_name))
                 {
-                    Some(markdown_path.to_string_lossy().to_string())
+                    Some(file_info.file_path.to_string_lossy().to_string())
                 } else {
                     None
                 }
@@ -197,16 +198,12 @@ pub fn scan_folders(
         &image_files,
     )?;
 
-    // if !cfg!(test) {
-    //     print_file_info(&obsidian_repository_info);
-    // }
-
     Ok(obsidian_repository_info)
 }
 
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
-) -> Result<(HashMap<PathBuf, MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
+) -> Result<(Vec<MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let start = Instant::now();
 
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
@@ -216,16 +213,13 @@ fn scan_markdown_files(
     ))?);
 
     // Use Arc<Mutex<...>> for safe shared collection
-    let markdown_info = Arc::new(Mutex::new(HashMap::new()));
+    let markdown_info = Arc::new(Mutex::new(Vec::new()));
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
     markdown_files.par_iter().try_for_each(|file_path| {
         match scan_markdown_file(file_path, &image_regex) {
             Ok((file_info, wikilinks)) => {
-                markdown_info
-                    .lock()
-                    .unwrap()
-                    .insert(file_path.clone(), file_info);
+                markdown_info.lock().unwrap().push(file_info);
                 all_wikilinks.lock().unwrap().extend(wikilinks);
                 Ok(())
             }
@@ -261,7 +255,7 @@ fn scan_markdown_file(
 ) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
     let content = read_file_content(file_path)?;
 
-    let mut markdown_file_info = initialize_markdown_file_info(&content);
+    let mut markdown_file_info = initialize_markdown_file_info(&content, file_path)?;
     markdown_file_info.file_path = file_path.clone();
 
     extract_do_not_back_populate(&mut markdown_file_info);
@@ -288,8 +282,9 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
     Ok(content)
 }
 
-fn initialize_markdown_file_info(content: &str) -> MarkdownFileInfo {
+fn initialize_markdown_file_info(content: &str, file_path: &Path) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
     let mut file_info = MarkdownFileInfo::new();
+    file_info.created_time = get_file_creation_time(file_path)?;
 
     match FrontMatter::from_markdown_str(content) {
         Ok(frontmatter) => {
@@ -300,7 +295,7 @@ fn initialize_markdown_file_info(content: &str) -> MarkdownFileInfo {
         }
     }
 
-    file_info
+    Ok(file_info)
 }
 
 fn extract_do_not_back_populate(markdown_file_info: &mut MarkdownFileInfo) {
@@ -518,17 +513,19 @@ aliases:
         // Filter for .md files only and exclude "obsidian knife output" explicitly
         let wikilinks: HashSet<String> = repo_info
             .markdown_files
-            .keys()
-            .filter(|path| path.extension().and_then(|ext| ext.to_str()) == Some("md"))
-            .flat_map(|file_path| {
+            .iter()
+            .filter(|file_info| {
+                file_info.file_path.extension().and_then(|ext| ext.to_str()) == Some("md")
+            })
+            .flat_map(|file_info| {
                 let (_, file_wikilinks) = scan_markdown_file(
-                    file_path,
+                    &file_info.file_path,
                     &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
                 )
                 .unwrap();
                 file_wikilinks.into_iter().map(|w| w.display_text)
             })
-            .filter(|link| link != "obsidian knife output") // Exclude "obsidian knife output"
+            .filter(|link| link != "obsidian knife output")
             .collect();
 
         // Verify expected wikilinks are present

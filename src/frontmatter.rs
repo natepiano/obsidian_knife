@@ -2,9 +2,7 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::wikilink::format_wikilink;
 use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 use std::error::Error;
-use std::path::PathBuf;
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -55,12 +53,16 @@ impl FrontMatter {
 }
 
 pub fn report_frontmatter_issues(
-    markdown_files: &HashMap<PathBuf, MarkdownFileInfo>,
+    markdown_files: &[MarkdownFileInfo],
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let files_with_errors: Vec<_> = markdown_files
         .iter()
-        .filter_map(|(path, info)| info.frontmatter_error.as_ref().map(|err| (path, err)))
+        .filter_map(|info| {
+            info.frontmatter_error
+                .as_ref()
+                .map(|err| (&info.file_path, err))
+        })
         .collect();
 
     writer.writeln(LEVEL1, "frontmatter")?;
@@ -94,6 +96,7 @@ mod tests {
     use std::fs;
     use std::fs::File;
     use std::io::Write;
+    use std::collections::HashMap;
     use tempfile::TempDir;
 
     // Test the basic functionality of updating frontmatter fields

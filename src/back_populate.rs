@@ -143,17 +143,22 @@ fn find_all_back_populate_matches(
 
     let matches = searcher.search_with_info(
         &obsidian_repository_info.markdown_files,
-        |file_path, markdown_file_info| {
+        |markdown_file_info| {
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
-                    if !file_path.ends_with(filter) {
+                    if !markdown_file_info.file_path.ends_with(filter) {
                         return None;
                     }
                 }
             }
 
-            // Process the file if it matches the filter
-            match process_file(file_path, &sorted_wikilinks, config, markdown_file_info, ac) {
+            match process_file(
+                &markdown_file_info.file_path,
+                &sorted_wikilinks,
+                config,
+                markdown_file_info,
+                ac,
+            ) {
                 Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
                 _ => None,
             }
@@ -629,7 +634,7 @@ fn write_invalid_wikilinks_table(
     let invalid_wikilinks = obsidian_repository_info
         .markdown_files
         .iter()
-        .flat_map(|(file_path, file_info)| {
+        .flat_map(|file_info| {
             file_info
                 .invalid_wikilinks
                 .iter()
@@ -639,7 +644,7 @@ fn write_invalid_wikilinks_table(
                         InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag
                     )
                 })
-                .map(move |wikilink| (file_path.as_path(), wikilink))
+                .map(move |wikilink| (&file_info.file_path, wikilink))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -1087,7 +1092,6 @@ mod tests {
     use crate::scan::scan_folders;
     use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason, Wikilink};
     use aho_corasick::{AhoCorasickBuilder, MatchKind};
-    use std::collections::HashMap;
     use std::fs::File;
     use std::io::Write;
     use std::path::PathBuf;
@@ -1141,7 +1145,7 @@ mod tests {
         // Build the Aho-Corasick automaton
         repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
-        repo_info.markdown_files = HashMap::new();
+        repo_info.markdown_files = Vec::new();
 
         (temp_dir, config, repo_info)
     }
@@ -1156,11 +1160,17 @@ mod tests {
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", content).unwrap();
 
-        repo_info
-            .markdown_files
-            .insert(file_path.clone(), MarkdownFileInfo::new());
+        let markdown_file_info = create_test_markdown_file_info(&file_path);
+
+        repo_info.markdown_files.push(markdown_file_info);
 
         file_path
+    }
+
+    fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFileInfo {
+        let mut markdown_file = MarkdownFileInfo::new();
+        markdown_file.file_path = file_path.clone();
+        markdown_file
     }
 
     // Helper struct for test cases
@@ -1381,11 +1391,7 @@ mod tests {
         let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
         let content = "[[Kyriana McCoy|Kyriana]] - Kyri and [[Kalina McCoy|Kali]]";
 
-        let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
-
-        repo_info
-            .markdown_files
-            .insert(file_path.clone(), MarkdownFileInfo::new());
+        let _ = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
 
         // Add the overlapping wikilinks to repo_info
         let wikilink1 = Wikilink {
@@ -1584,7 +1590,7 @@ mod tests {
 
         repo_info
             .markdown_files
-            .insert(file_path.clone(), MarkdownFileInfo::new());
+            .push(create_test_markdown_file_info(&file_path));
 
         // Now, use the config returned from create_test_environment
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
@@ -1602,7 +1608,7 @@ mod tests {
 
         repo_info
             .markdown_files
-            .insert(other_file_path.clone(), MarkdownFileInfo::new());
+            .push(create_test_markdown_file_info(&other_file_path));
 
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
