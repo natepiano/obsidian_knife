@@ -47,158 +47,112 @@ mod tests {
     use super::*;
     use std::path::PathBuf;
     use tempfile::TempDir;
+    use crate::test_utils::assert_test_case;
 
-    #[test]
-    fn test_deterministic_results() {
-        let searcher = DeterministicSearch::new(None);
+    struct SearchTestCase {
+        name: &'static str,
+        max_results: Option<usize>,
+        file_count: usize,
+        find_matches: Box<dyn Fn(&PathBuf) -> Option<Vec<String>> + Send + Sync>,
+        expected: Vec<Vec<String>>,
+    }
 
-        // Create test files map
-        let files = vec![
-            PathBuf::from("file1.md"),
-            PathBuf::from("file2.md"),
-            PathBuf::from("file3.md"),
-        ];
-
-        // Define a simple find matches function with the correct signature
-        let find_matches = |path: &PathBuf| -> Option<Vec<String>> {
-            Some(vec![path.to_string_lossy().to_string()])
-        };
-
-        // Run multiple searches and verify they return the same results
-        let results1 = searcher.search_with_info(&files, find_matches);
-        let results2 = searcher.search_with_info(&files, find_matches);
-
-        assert_eq!(results1.len(), results2.len());
-
-        let results1_sorted: Vec<_> = results1.iter().collect();
-        let results2_sorted: Vec<_> = results2.iter().collect();
-
-        assert_eq!(
-            results1_sorted, results2_sorted,
-            "Results should be identical"
-        );
+    fn setup_test_files(count: usize) -> (TempDir, Vec<PathBuf>) {
+        let temp_dir = TempDir::new().unwrap();
+        let files: Vec<PathBuf> = (0..count)
+            .map(|i| temp_dir.path().join(format!("file{}.txt", i)))
+            .collect();
+        (temp_dir, files)
     }
 
     #[test]
-    fn test_less_matches_than_requested() {
-        let searcher = DeterministicSearch::new(Some(10));
-        let temp_dir = TempDir::new().unwrap();
+    fn test_search_cases() {
+        let test_cases = vec![
+            SearchTestCase {
+                name: "less matches than requested - content check",
+                max_results: Some(10),
+                file_count: 5,
+                find_matches: Box::new(|path| {
+                    Some(vec![format!(
+                        "match in {}",
+                        path.file_name().unwrap().to_string_lossy()
+                    )])
+                }),
+                expected: (0..5)
+                    .map(|i| vec![format!("match in file{}.txt", i)])
+                    .collect(),
+            },
+            SearchTestCase {
+                name: "with limit",
+                max_results: Some(5),
+                file_count: 10,
+                find_matches: Box::new(|_| {
+                    Some(vec!["count".to_string()])
+                }),
+                expected: vec![vec!["count".to_string()]; 5],
+            },
+            SearchTestCase {
+                name: "empty files",
+                max_results: None,
+                file_count: 0,
+                find_matches: Box::new(|_| Some(vec!["test".to_string()])),
+                expected: vec![],
+            },
+            SearchTestCase {
+                name: "no matches - should return empty results",
+                max_results: None,
+                file_count: 5,
+                find_matches: Box::new(|_| None),
+                expected: vec![],
+            },
+            SearchTestCase {
+                name: "no limit",
+                max_results: None,
+                file_count: 100,
+                find_matches: Box::new(|path| {
+                    Some(vec![path.file_name()
+                        .unwrap()
+                        .to_string_lossy()
+                        .to_string()])
+                }),
+                expected: (0..100)
+                    .map(|i| vec![format!("file{}.txt", i)])
+                    .collect(),
+            },
+        ];
 
-        // Create a Vec of files with sample content
-        let mut files = Vec::new();
+        for case in test_cases {
+            let searcher = DeterministicSearch::new(case.max_results);
+            let (_temp_dir, files) = setup_test_files(case.file_count);
+            let actual = searcher.search_with_info(&files, &case.find_matches);
 
-        // Create 5 files
-        for i in 1..=5 {
-            let path = temp_dir.path().join(format!("file{}.txt", i));
-            files.push(path);
-        }
-
-        // Create a match finder that returns a vec of matches for testing
-        let find_matches = |path: &PathBuf| -> Option<Vec<String>> {
-            Some(vec![format!(
-                "match in {}",
-                path.file_name().unwrap().to_string_lossy()
-            )])
-        };
-
-        // Should return all matches since we have fewer files than requested
-        let results = searcher.search_with_info(&files, find_matches);
-        assert_eq!(results.len(), 5, "Should return matches from all files");
-
-        // Verify each file produced a match
-        for i in 1..=5 {
-            let expected_match = format!("match in file{}.txt", i);
-            assert!(
-                results
-                    .iter()
-                    .any(|matches| matches.contains(&expected_match)),
-                "Missing match for file{}.txt",
-                i
+            assert_test_case(
+                actual,
+                case.expected,
+                case.name,
+                |a, e| assert!(a == e, "Results don't match"),
             );
         }
     }
 
     #[test]
-    fn test_no_limit() {
+    fn test_deterministic_results() {
         let searcher = DeterministicSearch::new(None);
-        let mut files = Vec::new();
-        let temp_dir = TempDir::new().unwrap();
+        let files = vec![
+            PathBuf::from("file1.md"),
+            PathBuf::from("file2.md"),
+            PathBuf::from("file3.md"),
+        ];
+        let find_matches = |path: &PathBuf| Some(vec![path.to_string_lossy().to_string()]);
 
-        // Create test files
-        for i in 0..100 {
-            files.push(temp_dir.path().join(format!("file{}.txt", i)));
-        }
+        let results1 = searcher.search_with_info(&files, find_matches);
+        let results2 = searcher.search_with_info(&files, find_matches);
 
-        // Define match function that matches file50.txt
-        let find_matches =
-            |file_path: &PathBuf| Some(vec![file_path.to_string_lossy().to_string()]);
-
-        let results = searcher.search_with_info(&files, find_matches);
-        assert!(!results.is_empty());
-
-        // Convert both strings to same type for comparison
-        let found_file50 = results.iter().any(|result_vec| {
-            result_vec
-                .iter()
-                .any(|path_str| path_str.contains(&"file50".to_string()))
-        });
-
-        assert!(found_file50, "Should have found file50.txt");
-    }
-
-    #[test]
-    fn test_with_limit() {
-        let searcher = DeterministicSearch::new(Some(5));
-        let mut files = Vec::new();
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create test files
-        for i in 0..10 {
-            files.push(temp_dir.path().join(format!("file{}.txt", i)));
-        }
-
-        let find_matches =
-            |file_path: &PathBuf| Some(vec![file_path.to_string_lossy().to_string()]);
-
-        let results = searcher.search_with_info(&files, find_matches);
-        assert_eq!(
-            results.len(),
-            5,
-            "Should only return 5 results due to limit"
-        );
-    }
-
-    #[test]
-    fn test_empty_files() {
-        let searcher = DeterministicSearch::new(None);
-        let files = Vec::new();
-
-        let find_matches = |_: &PathBuf| Some(vec!["test".to_string()]);
-
-        let results = searcher.search_with_info(&files, find_matches);
-        assert!(
-            results.is_empty(),
-            "Should return no results for empty files"
-        );
-    }
-
-    #[test]
-    fn test_no_matches() {
-        let searcher = DeterministicSearch::new(None);
-        let mut files = Vec::new();
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create test files
-        for i in 0..5 {
-            files.push(temp_dir.path().join(format!("file{}.txt", i)));
-        }
-
-        let find_matches = |_: &PathBuf| -> Option<Vec<String>> { None };
-
-        let results = searcher.search_with_info(&files, find_matches);
-        assert!(
-            results.is_empty(),
-            "Should return no results when no matches found"
+        assert_test_case(
+            results1.iter().collect::<Vec<_>>(),
+            results2.iter().collect::<Vec<_>>(),
+            "deterministic results",
+            |a, e| assert!(a == e, "Results don't match"),
         );
     }
 }
