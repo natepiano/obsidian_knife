@@ -10,11 +10,12 @@ pub struct MarkdownFileInfo {
     pub created_time: DateTime<Local>,
     pub do_not_back_populate: Option<Vec<String>>,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub file_path: PathBuf,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
+    pub path: PathBuf,
+
 }
 
 impl MarkdownFileInfo {
@@ -23,11 +24,11 @@ impl MarkdownFileInfo {
             created_time: Local::now(),
             do_not_back_populate: None,
             do_not_back_populate_regexes: None,
-            file_path: PathBuf::new(),
             frontmatter: None,
             frontmatter_error: None,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
+            path: PathBuf::new(),
         }
     }
 

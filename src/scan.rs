@@ -75,7 +75,7 @@ fn get_image_info_map(
                     .iter()
                     .any(|link| link.contains(image_file_name))
                 {
-                    Some(file_info.file_path.to_string_lossy().to_string())
+                    Some(file_info.path.to_string_lossy().to_string())
                 } else {
                     None
                 }
@@ -256,7 +256,7 @@ fn scan_markdown_file(
     let content = read_file_content(file_path)?;
 
     let mut markdown_file_info = initialize_markdown_file_info(&content, file_path)?;
-    markdown_file_info.file_path = file_path.clone();
+    markdown_file_info.path = file_path.clone();
 
     extract_do_not_back_populate(&mut markdown_file_info);
 
@@ -515,11 +515,11 @@ aliases:
             .markdown_files
             .iter()
             .filter(|file_info| {
-                file_info.file_path.extension().and_then(|ext| ext.to_str()) == Some("md")
+                file_info.path.extension().and_then(|ext| ext.to_str()) == Some("md")
             })
             .flat_map(|file_info| {
                 let (_, file_wikilinks) = scan_markdown_file(
-                    &file_info.file_path,
+                    &file_info.path,
                     &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
                 )
                 .unwrap();

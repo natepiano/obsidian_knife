@@ -146,14 +146,14 @@ fn find_all_back_populate_matches(
         |markdown_file_info| {
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
-                    if !markdown_file_info.file_path.ends_with(filter) {
+                    if !markdown_file_info.path.ends_with(filter) {
                         return None;
                     }
                 }
             }
 
             match process_file(
-                &markdown_file_info.file_path,
+                &markdown_file_info.path,
                 &sorted_wikilinks,
                 config,
                 markdown_file_info,
@@ -644,7 +644,7 @@ fn write_invalid_wikilinks_table(
                         InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag
                     )
                 })
-                .map(move |wikilink| (&file_info.file_path, wikilink))
+                .map(move |wikilink| (&file_info.path, wikilink))
         })
         .collect::<Vec<_>>()
         .into_iter()
@@ -1169,7 +1169,7 @@ mod tests {
 
     fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFileInfo {
         let mut markdown_file = MarkdownFileInfo::new();
-        markdown_file.file_path = file_path.clone();
+        markdown_file.path = file_path.clone();
         markdown_file
     }
 

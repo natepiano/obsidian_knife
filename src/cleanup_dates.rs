@@ -220,7 +220,7 @@ fn collect_date_entries(
     // Create HashMap for efficient lookups
     let mut file_map: HashMap<PathBuf, &mut MarkdownFileInfo> = collected_files
         .iter_mut()
-        .map(|info| (info.file_path.clone(), info))
+        .map(|info| (info.path.clone(), info))
         .collect();
 
     // Get paths to iterate over
@@ -261,7 +261,7 @@ fn process_file(
     if has_invalid_dates {
         results
             .invalid_entries
-            .push((file_info.file_path.clone(), validation.create_validation_error(fm)));
+            .push((file_info.path.clone(), validation.create_validation_error(fm)));
         return Ok(());
     }
 
@@ -399,7 +399,7 @@ fn process_valid_dates(
         };
 
         results.date_created_entries.push((
-            file_info.file_path.clone(),
+            file_info.path.clone(),
             date_info,
             file_creation_date_approach,
         ));
@@ -414,7 +414,7 @@ fn process_valid_dates(
                 let fix = format!("[[{}]]", date_modified);
                 updates.date_modified = Some(fix.clone());
                 results.date_modified_entries.push((
-                    file_info.file_path.clone(),
+                    file_info.path.clone(),
                     date_modified.clone(),
                     fix,
                 ));
@@ -423,7 +423,7 @@ fn process_valid_dates(
         None => {
             updates.date_modified = Some(today.clone());
             results.date_modified_entries.push((
-                file_info.file_path.clone(),
+                file_info.path.clone(),
                 "missing".to_string(),
                 today,
             ));
@@ -464,13 +464,13 @@ fn apply_date_changes(
         }
 
         // we know something changed so save it
-        fm.persist(&file_info.file_path)?;
+        fm.persist(&file_info.path)?;
     }
 
     // After successful frontmatter update, set the file creation time if we have one
     if let Some(time_str) = &updates.file_creation_time {
         if let Ok(parsed_time) = NaiveDateTime::parse_from_str(time_str, "%Y-%m-%d %H:%M:%S") {
-            file_utils::set_file_create_date(&file_info.file_path, parsed_time)?;
+            file_utils::set_file_create_date(&file_info.path, parsed_time)?;
         }
     }
 

@@ -195,7 +195,7 @@ fn generate_missing_references(
         for image_link in &file_info.image_links {
             if let Some(extracted_filename) = extract_local_image_filename(image_link) {
                 if !image_exists_in_set(&extracted_filename, &image_filenames) {
-                    missing_references.push((&file_info.file_path, extracted_filename));
+                    missing_references.push((&file_info.path, extracted_filename));
                 }
             }
         }

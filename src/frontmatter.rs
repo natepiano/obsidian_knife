@@ -61,7 +61,7 @@ pub fn report_frontmatter_issues(
         .filter_map(|info| {
             info.frontmatter_error
                 .as_ref()
-                .map(|err| (&info.file_path, err))
+                .map(|err| (&info.path, err))
         })
         .collect();
 
