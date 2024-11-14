@@ -227,7 +227,6 @@ fn collect_date_entries(
     let paths: Vec<PathBuf> = file_map.keys().cloned().collect();
 
     for path in paths {
-
         if let Some(file_info) = file_map.get_mut(&path) {
             process_file(&mut results, file_info, config)?;
         }
@@ -259,9 +258,10 @@ fn process_file(
     let has_invalid_dates = validation.has_invalid_dates();
 
     if has_invalid_dates {
-        results
-            .invalid_entries
-            .push((file_info.path.clone(), validation.create_validation_error(fm)));
+        results.invalid_entries.push((
+            file_info.path.clone(),
+            validation.create_validation_error(fm),
+        ));
         return Ok(());
     }
 
@@ -384,13 +384,15 @@ fn process_valid_dates(
         }
 
         // Set the file_creation_time based on the final_set_value
-        updates.file_creation_time = if file_creation_date_approach
-            != SetFileCreationDateWith::NoChange
-        {
-            Some(file_creation_date_approach.to_string(file_info.created_time, fm.date_created_fix()))
-        } else {
-            None
-        };
+        updates.file_creation_time =
+            if file_creation_date_approach != SetFileCreationDateWith::NoChange {
+                Some(
+                    file_creation_date_approach
+                        .to_string(file_info.created_time, fm.date_created_fix()),
+                )
+            } else {
+                None
+            };
 
         updates.remove_date_created_fix = match file_creation_date_approach {
             SetFileCreationDateWith::CreatedFixWithTimestamp => true,

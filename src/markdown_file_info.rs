@@ -1,13 +1,16 @@
 use crate::frontmatter::FrontMatter;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::YamlFrontMatterError;
-use regex::Regex;
-use std::path::PathBuf;
 use chrono::{DateTime, Local};
+use regex::Regex;
+use std::error::Error;
+use std::fs;
+use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub created_time: DateTime<Local>,
+    pub content: String,
     pub do_not_back_populate: Option<Vec<String>>,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub frontmatter: Option<FrontMatter>,
@@ -15,21 +18,23 @@ pub struct MarkdownFileInfo {
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
     pub path: PathBuf,
-
 }
 
 impl MarkdownFileInfo {
-    pub fn new() -> Self {
-        MarkdownFileInfo {
+    pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let content = fs::read_to_string(&path)?;
+
+        Ok(MarkdownFileInfo {
             created_time: Local::now(),
+            content,
             do_not_back_populate: None,
             do_not_back_populate_regexes: None,
             frontmatter: None,
             frontmatter_error: None,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
-            path: PathBuf::new(),
-        }
+            path,
+        })
     }
 
     // Helper method to add invalid wikilinks
@@ -58,7 +63,7 @@ date_created: "2024-01-01"
 # Test Content"#;
         fs::write(&file_path, initial_content)?;
 
-        let mut file_info = MarkdownFileInfo::new();
+        let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(initial_content)?);
 
         // Update frontmatter directly
@@ -90,7 +95,7 @@ date_created: "2024-01-01"
 # Content"#;
         fs::write(&file_path, initial_content)?;
 
-        let mut file_info = MarkdownFileInfo::new();
+        let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(initial_content)?);
 
         if let Some(fm) = &mut file_info.frontmatter {

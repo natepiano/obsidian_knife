@@ -104,7 +104,9 @@ pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> i
     Ok(())
 }
 
-pub fn get_file_creation_time(path: &Path) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
+pub fn get_file_creation_time(
+    path: &Path,
+) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
     let metadata = fs::metadata(path)?;
     let created = metadata.created()?;
     Ok(DateTime::from(created))

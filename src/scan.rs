@@ -4,6 +4,7 @@ use crate::{
     wikilink::collect_file_wikilinks, wikilink_types::Wikilink, yaml_frontmatter::YamlFrontMatter,
 };
 
+use crate::file_utils::get_file_creation_time;
 use crate::markdown_file_info::MarkdownFileInfo;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use itertools::Itertools;
@@ -18,7 +19,6 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 use walkdir::{DirEntry, WalkDir};
-use crate::file_utils::get_file_creation_time;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -282,8 +282,11 @@ fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send
     Ok(content)
 }
 
-fn initialize_markdown_file_info(content: &str, file_path: &Path) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
-    let mut file_info = MarkdownFileInfo::new();
+fn initialize_markdown_file_info(
+    content: &str,
+    file_path: &Path,
+) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
+    let mut file_info = MarkdownFileInfo::new(file_path.to_path_buf())?;
     file_info.created_time = get_file_creation_time(file_path)?;
 
     match FrontMatter::from_markdown_str(content) {
@@ -571,7 +574,8 @@ aliases:
             let filename = format!("note{}.md", i);
             let content = format!("![image{}](test{}.jpg)\n![shared](common.jpg)", i, i);
             let file_path = temp_dir.path().join(&filename);
-            let mut info = MarkdownFileInfo::new();
+            fs::write(&file_path, &content).unwrap();
+            let mut info = MarkdownFileInfo::new(file_path.clone()).unwrap();
             info.image_links = content.split('\n').map(|s| s.to_string()).collect();
             markdown_files.insert(file_path, info);
         }

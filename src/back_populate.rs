@@ -1108,44 +1108,45 @@ mod tests {
             .expect("Failed to build Aho-Corasick automaton")
     }
 
-    #[cfg(test)]
     fn create_test_environment(
         apply_changes: bool,
         do_not_back_populate: Option<Vec<String>>,
         wikilinks: Option<Vec<Wikilink>>,
+        initial_content: Option<&str>,
     ) -> (TempDir, ValidatedConfig, ObsidianRepositoryInfo) {
         let temp_dir = TempDir::new().unwrap();
 
         let config = ValidatedConfig::new(
             apply_changes,
-            None, // back_populate_file_count
-            None, // back_populate_filter
+            None,
+            None,
             do_not_back_populate,
-            None,                           // ignore_folders
-            temp_dir.path().to_path_buf(),  // obsidian_path
-            temp_dir.path().join("output"), // output_folder
+            None,
+            temp_dir.path().to_path_buf(),
+            temp_dir.path().join("output"),
         );
 
-        // Initialize repository info with default values
         let mut repo_info = ObsidianRepositoryInfo::default();
 
-        // If custom wikilinks are provided, use them
+        // Use provided content or safe default
+        let content = initial_content.unwrap_or("Initial test content");
+        let test_file_path = temp_dir.path().join("test.md");
+        fs::write(&test_file_path, content).unwrap();
+        let markdown_info = MarkdownFileInfo::new(test_file_path).unwrap();
+        repo_info.markdown_files.push(markdown_info);
+
+        // Set up wikilinks
         if let Some(wikilinks) = wikilinks {
-            repo_info.wikilinks_sorted = wikilinks
+            repo_info.wikilinks_sorted = wikilinks;
         } else {
-            // Default wikilink
-            let wikilink = Wikilink {
+            repo_info.wikilinks_sorted = vec![Wikilink {
                 display_text: "Test Link".to_string(),
                 target: "Test Link".to_string(),
                 is_alias: false,
-            };
-            repo_info.wikilinks_sorted = vec![wikilink];
+            }];
         }
 
-        // Build the Aho-Corasick automaton
         repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
-
-        repo_info.markdown_files = Vec::new();
 
         (temp_dir, config, repo_info)
     }
@@ -1168,9 +1169,7 @@ mod tests {
     }
 
     fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFileInfo {
-        let mut markdown_file = MarkdownFileInfo::new();
-        markdown_file.path = file_path.clone();
-        markdown_file
+        MarkdownFileInfo::new(file_path.clone()).unwrap()
     }
 
     // Helper struct for test cases
@@ -1265,16 +1264,16 @@ mod tests {
     #[test]
     fn test_config_creation() {
         // Basic usage with defaults
-        let (_, basic_config, _) = create_test_environment(false, None, None);
+        let (_, basic_config, _) = create_test_environment(false, None, None, None);
         assert!(!basic_config.apply_changes());
 
         // With apply_changes set to true
-        let (_, apply_config, _) = create_test_environment(true, None, None);
+        let (_, apply_config, _) = create_test_environment(true, None, None, None);
         assert!(apply_config.apply_changes());
 
         // With do_not_back_populate patterns
         let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
-        let (_, pattern_config, _) = create_test_environment(false, Some(patterns.clone()), None);
+        let (_, pattern_config, _) = create_test_environment(false, Some(patterns.clone()), None, None);
         assert_eq!(
             pattern_config.do_not_back_populate(),
             Some(patterns.as_slice())
@@ -1282,7 +1281,7 @@ mod tests {
 
         // With both parameters
         let (_, full_config, _) =
-            create_test_environment(true, Some(vec!["pattern".to_string()]), None);
+            create_test_environment(true, Some(vec!["pattern".to_string()]), None, None);
         assert!(full_config.apply_changes());
         assert!(full_config.do_not_back_populate().is_some());
     }
@@ -1290,7 +1289,7 @@ mod tests {
     #[test]
     fn test_case_sensitivity_behavior() {
         // Initialize test environment without specific wikilinks
-        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
 
         for case in get_case_sensitivity_test_cases() {
             let file_path =
@@ -1299,7 +1298,7 @@ mod tests {
             // Create a custom wikilink and build AC automaton directly
             let wikilink = case.wikilink;
             let ac = build_aho_corasick(&[wikilink.clone()]);
-            let markdown_info = MarkdownFileInfo::new();
+            let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
 
             let matches = process_line(
                 0,
@@ -1334,16 +1333,13 @@ mod tests {
 
     #[test]
     fn test_find_matches_with_existing_wikilinks() {
-        // Create test environment with default settings
-        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
         let content = "[[Some Link]] and Test Link in same line\n\
-                   Test Link [[Other Link]] Test Link mixed\n\
-                   This don't match\n\
-                   This don't match either\n\
-                   But this Test Link should match";
+               Test Link [[Other Link]] Test Link mixed\n\
+               This don't match\n\
+               This don't match either\n\
+               But this Test Link should match";
 
-        // Create the test Markdown file using the helper function
-        create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
+        let (_temp_dir, config, repo_info) = create_test_environment(false, None, None, Some(content));
 
         // Find matches
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
@@ -1362,21 +1358,17 @@ mod tests {
 
     #[test]
     fn test_apply_changes() {
-        // Create test environment with apply_changes set to true
-        let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None);
-
-        // Create a test Markdown file using the helper function
         let content = "Here is Test Link\nNo change here\nAnother Test Link";
-        let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
+        let (temp_dir, config, repo_info) = create_test_environment(true, None, None, Some(content));
 
         // Find matches
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
-        // Apply changes using the config from create_test_environment
+        // Apply changes
         apply_back_populate_changes(&config, &matches).unwrap();
 
         // Verify changes
-        let updated_content = fs::read_to_string(&file_path).unwrap();
+        let updated_content = fs::read_to_string(temp_dir.path().join("test.md")).unwrap();
         assert!(updated_content.contains("[[Test Link]]"));
         assert!(updated_content.contains("No change here"));
         assert_eq!(
@@ -1388,34 +1380,24 @@ mod tests {
 
     #[test]
     fn test_overlapping_wikilink_matches() {
-        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
         let content = "[[Kyriana McCoy|Kyriana]] - Kyri and [[Kalina McCoy|Kali]]";
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target: "Kyri".to_string(),
+                is_alias: false,
+            },
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target: "Kyriana McCoy".to_string(),
+                is_alias: true,
+            },
+        ];
 
-        let _ = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
-
-        // Add the overlapping wikilinks to repo_info
-        let wikilink1 = Wikilink {
-            display_text: "Kyri".to_string(),
-            target: "Kyri".to_string(),
-            is_alias: false,
-        };
-        let wikilink2 = Wikilink {
-            display_text: "Kyri".to_string(),
-            target: "Kyriana McCoy".to_string(),
-            is_alias: true,
-        };
-
-        // Clear and add to the sorted vec
-        repo_info.wikilinks_sorted.clear();
-        repo_info.wikilinks_sorted.push(wikilink1);
-        repo_info.wikilinks_sorted.push(wikilink2);
-
-        // Use the helper function to build the automaton
-        repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
+        let (_temp_dir, config, repo_info) = create_test_environment(false, None, Some(wikilinks), Some(content));
 
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
-        // We should only get one match for "Kyri" at position 28
         assert_eq!(matches.len(), 1, "Expected exactly one match");
         assert_eq!(matches[0].position, 28, "Expected match at position 28");
     }
@@ -1423,7 +1405,7 @@ mod tests {
     #[test]
     fn test_no_self_referential_back_population() {
         // Create test environment with apply_changes set to false
-        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
 
         // Create a wikilink for testing that includes an alias
         let wikilink = Wikilink {
@@ -1470,10 +1452,10 @@ mod tests {
     #[test]
     fn test_should_create_match_in_table() {
         // Set up the test environment
-        let (temp_dir, _, _) = create_test_environment(false, None, None);
+        let (temp_dir, _, _) = create_test_environment(false, None, None, None);
         let file_path = temp_dir.path().join("test.md");
 
-        let markdown_info = MarkdownFileInfo::new();
+        let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
 
         // Test simple table cell match
         assert!(should_create_match(
@@ -1497,7 +1479,7 @@ mod tests {
     #[test]
     fn test_back_populate_content() {
         // Initialize environment with `apply_changes` set to true
-        let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None, None);
 
         // Define test cases with various content structures
         let test_cases = vec![
@@ -1566,7 +1548,7 @@ mod tests {
 
     #[test]
     fn test_no_matches_for_frontmatter_aliases() {
-        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None);
+        let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
 
         // Create a wikilink for testing that includes an alias
         let wikilink = Wikilink {
@@ -1632,14 +1614,14 @@ mod tests {
         ];
         // Initialize environment with custom wikilinks
         let (temp_dir, config, repo_info) =
-            create_test_environment(false, None, Some(wikilinks.clone()));
+            create_test_environment(false, None, Some(wikilinks.clone()),None);
 
         // Compile the wikilinks
         let sorted_wikilinks = &repo_info.wikilinks_sorted;
 
         let ac = build_aho_corasick(sorted_wikilinks);
 
-        let markdown_info = MarkdownFileInfo::new();
+        let markdown_info = repo_info.markdown_files.first().unwrap();
 
         // Define test cases with different table formats and expected replacements
         let test_cases = vec![
@@ -1843,7 +1825,7 @@ mod tests {
         ];
 
         let (temp_dir, config, mut repo_info) =
-            create_test_environment(false, None, Some(wikilinks));
+            create_test_environment(false, None, Some(wikilinks), None);
 
         // Create a test file that contains the word "tomatoes"
         let content = "I love tomatoes in my salad";
@@ -2079,7 +2061,7 @@ mod tests {
 
     #[test]
     fn test_collect_exclusion_zones_with_invalid_wikilinks() {
-        let temp_dir = TempDir::new().unwrap();
+       let temp_dir = TempDir::new().unwrap();
         let config = ValidatedConfig::new(
             false,
             None,
@@ -2089,8 +2071,9 @@ mod tests {
             temp_dir.path().to_path_buf(),
             temp_dir.path().join("output"),
         );
-
-        let mut file_info = MarkdownFileInfo::new();
+        let test_file = temp_dir.path().join("test.md");
+        fs::write(&test_file, "").unwrap();
+        let mut file_info = MarkdownFileInfo::new(test_file).unwrap();
         let line = "Text [[invalid|link|extra]] and more text";
 
         // Add an invalid wikilink
@@ -2124,7 +2107,10 @@ mod tests {
             temp_dir.path().join("output"),
         );
 
-        let mut file_info = MarkdownFileInfo::new();
+        let test_file = temp_dir.path().join("test.md");
+        fs::write(&test_file, "").unwrap();
+        let mut file_info = MarkdownFileInfo::new(test_file).unwrap();
+
         let line = "[[test|one|two]] some text [[]]";
 
         // Add multiple invalid wikilinks
@@ -2160,6 +2146,7 @@ mod tests {
 
     #[test]
     fn test_exclusion_zones_only_matches_current_line() {
+
         let temp_dir = TempDir::new().unwrap();
         let config = ValidatedConfig::new(
             false,
@@ -2170,8 +2157,10 @@ mod tests {
             temp_dir.path().to_path_buf(),
             temp_dir.path().join("output"),
         );
+        let test_file = temp_dir.path().join("test.md");
+        fs::write(&test_file, "").unwrap();
+        let mut file_info = MarkdownFileInfo::new(test_file).unwrap();
 
-        let mut file_info = MarkdownFileInfo::new();
         let line1 = "Line 1 with [[bad|link|here]]";
         let line2 = "Line 2 with normal text";
 

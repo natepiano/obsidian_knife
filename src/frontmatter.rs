@@ -58,11 +58,7 @@ pub fn report_frontmatter_issues(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let files_with_errors: Vec<_> = markdown_files
         .iter()
-        .filter_map(|info| {
-            info.frontmatter_error
-                .as_ref()
-                .map(|err| (&info.path, err))
-        })
+        .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
         .collect();
 
     writer.writeln(LEVEL1, "frontmatter")?;
@@ -93,10 +89,10 @@ mod tests {
     use super::*;
     use crate::yaml_frontmatter::YamlFrontMatter;
     use serde_yaml::{Mapping, Number, Value};
+    use std::collections::HashMap;
     use std::fs;
     use std::fs::File;
     use std::io::Write;
-    use std::collections::HashMap;
     use tempfile::TempDir;
 
     // Test the basic functionality of updating frontmatter fields
@@ -117,7 +113,7 @@ tags:
         let mut file = File::create(&file_path).unwrap();
         write!(file, "{}", initial_content).unwrap();
 
-        let mut file_info = MarkdownFileInfo::new();
+        let mut file_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
 
         file_info
@@ -195,7 +191,7 @@ boolean_field: true
         write!(file, "{}", initial_content).unwrap();
 
         // Update frontmatter
-        let mut file_info = MarkdownFileInfo::new();
+        let mut file_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
         file_info.frontmatter = Some(FrontMatter::from_markdown_str(&initial_content).unwrap());
         file_info
             .frontmatter
@@ -266,7 +262,7 @@ boolean_field: true
         write!(file, "{}", initial_content).unwrap();
 
         // Update the frontmatter
-        let mut file_info = MarkdownFileInfo::new();
+        let mut file_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
         file_info.frontmatter = Some(initial_frontmatter);
         file_info
             .frontmatter

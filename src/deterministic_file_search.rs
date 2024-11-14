@@ -45,8 +45,8 @@ impl DeterministicSearch {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::TempDir;
     use std::path::PathBuf;
+    use tempfile::TempDir;
 
     #[test]
     fn test_deterministic_results() {
