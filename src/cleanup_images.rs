@@ -58,13 +58,13 @@ impl GroupedImages {
 
 pub fn cleanup_images(
     config: &ValidatedConfig,
-    collected_files: &ObsidianRepositoryInfo,
+    obsidian_repository_info: &ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
 
-    let grouped_images = group_images(&collected_files.image_map);
-    let missing_references = generate_missing_references(collected_files)?;
+    let grouped_images = group_images(&obsidian_repository_info.image_map);
+    let missing_references = generate_missing_references(obsidian_repository_info)?;
 
     let empty_vec = Vec::new();
     let tiff_images = grouped_images

@@ -1,24 +1,18 @@
-use crate::regex_utils::build_case_insensitive_word_finder;
 use crate::{
-    constants::*, frontmatter::*, sha256_cache::Sha256Cache, validated_config::ValidatedConfig,
-    wikilink::collect_file_wikilinks, wikilink_types::Wikilink, yaml_frontmatter::YamlFrontMatter,
+    constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
+    sha256_cache::Sha256Cache, validated_config::ValidatedConfig, wikilink::collect_file_wikilinks,
+    wikilink_types::Wikilink,
 };
 
-use crate::file_utils::get_file_creation_time;
-use crate::markdown_file_info::MarkdownFileInfo;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-use itertools::Itertools;
 use rayon::prelude::*;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::ffi::OsStr;
-use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use std::time::Instant;
-use walkdir::{DirEntry, WalkDir};
+use crate::timer::Timer;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -38,13 +32,9 @@ pub struct ObsidianRepositoryInfo {
 pub fn scan_obsidian_folder(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
-    let start = Instant::now();
+    let _timer = Timer::new("scan_obsidian_folder");
 
     let obsidian_repository_info = scan_folders(config)?;
-
-    let duration = start.elapsed();
-    let duration_string = &format!("{:.2}", duration.as_millis());
-    println!("scan took: {}ms", duration_string);
 
     Ok(obsidian_repository_info)
 }
@@ -54,142 +44,77 @@ fn get_image_info_map(
     markdown_files: &[MarkdownFileInfo],
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+
+    let _timer = Timer::new("get_image_info_map");
+
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
-    let (mut cache, _) = Sha256Cache::new(cache_file_path.clone())?;
+    let cache = Arc::new(Mutex::new(Sha256Cache::new(cache_file_path.clone())?.0));
 
-    let mut image_info_map = HashMap::new();
+    // Pre-process markdown references
+    let markdown_refs: HashMap<String, Vec<String>> = markdown_files
+        .par_iter()
+        .filter(|file_info| !file_info.image_links.is_empty())
+        .map(|file_info| {
+            let path = file_info.path.to_string_lossy().to_string();
+            let images: HashSet<_> = file_info
+                .image_links
+                .iter()
+                .map(|link| link.to_string())
+                .collect();
+            (path, images.into_iter().collect())
+        })
+        .collect();
 
-    for image_path in image_files {
-        let (hash, _) = cache.get_or_update(image_path)?;
+    // Process images
+    let image_info_map: HashMap<_, _> = image_files
+        .par_iter()
+        .filter_map(|image_path| {
+            let hash = cache.lock().ok()?.get_or_update(image_path).ok()?.0;
 
-        let image_file_name = image_path
-            .file_name()
-            .and_then(OsStr::to_str)
-            .unwrap_or_default();
+            let image_name = image_path.file_name()?.to_str()?;
+            let references: Vec<String> = markdown_refs
+                .iter()
+                .filter_map(|(path, links)| {
+                    if links.iter().any(|link| link.contains(image_name)) {
+                        Some(path.clone())
+                    } else {
+                        None
+                    }
+                })
+                .collect();
 
-        let references: Vec<String> = markdown_files
-            .par_iter()
-            .filter_map(|file_info| {
-                if file_info
-                    .image_links
-                    .iter()
-                    .any(|link| link.contains(image_file_name))
-                {
-                    Some(file_info.path.to_string_lossy().to_string())
-                } else {
-                    None
-                }
-            })
-            .collect();
+            Some((image_path.clone(), ImageInfo { hash, references }))
+        })
+        .collect();
 
-        let image_info = ImageInfo { hash, references };
-
-        image_info_map.insert(image_path.clone(), image_info);
+    // Final cache operations
+    if let Ok(mut cache) = Arc::try_unwrap(cache).unwrap().into_inner() {
+        cache.remove_non_existent_entries();
+        cache.save()?;
     }
 
-    cache.remove_non_existent_entries();
-    cache.save()?;
-
     Ok(image_info_map)
-}
-
-fn is_ignored_folder(entry: &DirEntry, ignore_folders: &[PathBuf]) -> bool {
-    let path = entry.path();
-    ignore_folders
-        .iter()
-        .any(|ignored| path.starts_with(ignored))
 }
 
 pub fn scan_folders(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
+
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
-    let mut markdown_files = Vec::new();
-    let mut image_files = Vec::new();
 
-    // Create the list of files to operate on
-    for entry in WalkDir::new(config.obsidian_path())
-        .follow_links(true)
-        .into_iter()
-        .filter_entry(|e| !is_ignored_folder(e, ignore_folders))
-    {
-        let entry = entry?;
-        let path = entry.path();
+    let (markdown_files, image_files, other_files) =
+        collect_repository_files(config, ignore_folders)?;
 
-        if entry.file_type().is_file() {
-            if path.file_name().and_then(|s| s.to_str()) == Some(".DS_Store") {
-                continue;
-            }
-
-            match path
-                .extension()
-                .and_then(|s| s.to_str())
-                .map(|s| s.to_lowercase())
-            {
-                Some(ext) if ext == "md" => markdown_files.push(path.to_path_buf()),
-                Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => {
-                    image_files.push(path.to_path_buf())
-                }
-                _ => obsidian_repository_info
-                    .other_files
-                    .push(path.to_path_buf()),
-            }
-        }
-    }
+    obsidian_repository_info.other_files = other_files;
 
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
     let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files)?;
     obsidian_repository_info.markdown_files = markdown_info;
 
-    // Convert HashSet to sorted Vec and store in repository info
-    // Modified sorting logic to ensure total ordering
-    obsidian_repository_info.wikilinks_sorted = all_wikilinks
-        .into_iter()
-        .sorted_by(|a, b| {
-            // First compare by display text length (longer first)
-            let length_cmp = b.display_text.len().cmp(&a.display_text.len());
-            if length_cmp != std::cmp::Ordering::Equal {
-                return length_cmp;
-            }
-
-            // Then compare display texts
-            let display_cmp = a.display_text.cmp(&b.display_text);
-            if display_cmp != std::cmp::Ordering::Equal {
-                return display_cmp;
-            }
-
-            // For same display text, prefer aliases over non-aliases
-            let alias_cmp = match (a.is_alias, b.is_alias) {
-                (true, false) => std::cmp::Ordering::Less,
-                (false, true) => std::cmp::Ordering::Greater,
-                _ => std::cmp::Ordering::Equal,
-            };
-            if alias_cmp != std::cmp::Ordering::Equal {
-                return alias_cmp;
-            }
-
-            // If everything else is equal, compare targets to ensure total ordering
-            a.target.cmp(&b.target)
-        })
-        .collect();
-
-    // Build the AC pattern from sorted wikilinks
-    // exclude image links because when they have a size specified (like the number 300)
-    // they'll match too many possible replacement targets
-    let patterns: Vec<&str> = obsidian_repository_info
-        .wikilinks_sorted
-        .iter()
-        .map(|w| w.display_text.as_str())
-        .collect();
-
-    obsidian_repository_info.wikilinks_ac = Some(
-        AhoCorasickBuilder::new()
-            .ascii_case_insensitive(true)
-            .match_kind(MatchKind::LeftmostLongest)
-            .build(&patterns)
-            .expect("Failed to build Aho-Corasick automaton for wikilinks"),
-    );
+    let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
+    obsidian_repository_info.wikilinks_sorted = sorted;
+    obsidian_repository_info.wikilinks_ac = Some(ac);
 
     // Process image info
     obsidian_repository_info.image_map = get_image_info_map(
@@ -201,10 +126,38 @@ pub fn scan_folders(
     Ok(obsidian_repository_info)
 }
 
+fn compare_wikilinks(a: &Wikilink, b: &Wikilink) -> std::cmp::Ordering {
+    b.display_text.len().cmp(&a.display_text.len())
+        .then(a.display_text.cmp(&b.display_text))
+        .then_with(|| match (a.is_alias, b.is_alias) {
+            (true, false) => std::cmp::Ordering::Less,
+            (false, true) => std::cmp::Ordering::Greater,
+            _ => a.target.cmp(&b.target)
+        })
+}
+
+fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
+
+    let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
+    wikilinks.sort_unstable_by(compare_wikilinks);
+
+    let mut patterns = Vec::with_capacity(wikilinks.len());
+    patterns.extend(wikilinks.iter().map(|w| w.display_text.as_str()));
+
+    let ac = AhoCorasickBuilder::new()
+        .ascii_case_insensitive(true)
+        .match_kind(MatchKind::LeftmostLongest)
+        .build(&patterns)
+        .expect("Failed to build Aho-Corasick automaton for wikilinks");
+
+    (wikilinks, ac)
+}
+
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<(Vec<MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let start = Instant::now();
+
+    let _timer = Timer::new("scan_markdown_files");
 
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
@@ -240,12 +193,6 @@ fn scan_markdown_files(
         .into_inner()
         .unwrap();
 
-    if !cfg!(test) {
-        let duration = start.elapsed();
-        let duration_string = &format!("{:.2}", duration.as_millis());
-        println!("collect_file_wikilinks took: {}ms", duration_string);
-    }
-
     Ok((markdown_info, all_wikilinks))
 }
 
@@ -253,12 +200,9 @@ fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
 ) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let content = read_file_content(file_path)?;
+    let mut markdown_file_info = MarkdownFileInfo::new(file_path.clone())?;
 
-    let mut markdown_file_info = initialize_markdown_file_info(&content, file_path)?;
-    markdown_file_info.path = file_path.clone();
-
-    extract_do_not_back_populate(&mut markdown_file_info);
+    // extract_do_not_back_populate(&mut markdown_file_info);
 
     let aliases = markdown_file_info
         .frontmatter
@@ -267,80 +211,34 @@ fn scan_markdown_file(
 
     // collect_file_wikilinks constructs a set of wikilinks from the content (&content),
     // the aliases (&aliases) in the frontmatter and the name of the file itself (file_path)
-    let extracted_wikilinks = collect_file_wikilinks(&content, &aliases, file_path)?;
+    let extracted_wikilinks =
+        collect_file_wikilinks(&markdown_file_info.content, &aliases, file_path)?;
 
     // Store invalid wikilinks in markdown_file_info
     markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);
 
-    collect_image_references(&content, image_regex, &mut markdown_file_info)?;
+    collect_image_references(image_regex, &mut markdown_file_info)?;
 
     Ok((markdown_file_info, extracted_wikilinks.valid))
 }
 
-fn read_file_content(file_path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let content = fs::read_to_string(file_path)?;
-    Ok(content)
-}
-
-fn initialize_markdown_file_info(
-    content: &str,
-    file_path: &Path,
-) -> Result<MarkdownFileInfo, Box<dyn Error + Send + Sync>> {
-    let mut file_info = MarkdownFileInfo::new(file_path.to_path_buf())?;
-    file_info.created_time = get_file_creation_time(file_path)?;
-
-    match FrontMatter::from_markdown_str(content) {
-        Ok(frontmatter) => {
-            file_info.frontmatter = Some(frontmatter);
-        }
-        Err(error) => {
-            file_info.frontmatter_error = Some(error);
-        }
-    }
-
-    Ok(file_info)
-}
-
-fn extract_do_not_back_populate(markdown_file_info: &mut MarkdownFileInfo) {
-    if let Some(fm) = &markdown_file_info.frontmatter {
-        let mut do_not_populate = fm.do_not_back_populate.clone().unwrap_or_default();
-        if let Some(aliases) = fm.aliases() {
-            do_not_populate.extend(aliases.iter().cloned());
-        }
-        if !do_not_populate.is_empty() {
-            markdown_file_info.do_not_back_populate = Some(do_not_populate.clone());
-            markdown_file_info.do_not_back_populate_regexes =
-                build_case_insensitive_word_finder(&Some(do_not_populate));
-        }
-    }
-}
-
 fn collect_image_references(
-    content: &str,
     image_regex: &Arc<Regex>,
-    file_info: &mut MarkdownFileInfo,
+    markdown_file_info: &mut MarkdownFileInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let reader = BufReader::new(content.as_bytes());
+    let reader = BufReader::new(markdown_file_info.content.as_bytes());
 
     for line_result in reader.lines() {
         let line = line_result?;
-        collect_image_reference(image_regex, file_info, &line);
+        for capture in image_regex.captures_iter(&line) {
+            if let Some(reference) = capture.get(0) {
+                let reference_string = reference.as_str().to_string();
+                markdown_file_info.image_links.push(reference_string);
+            }
+        }
     }
 
     Ok(())
-}
-
-fn collect_image_reference(
-    image_regex: &Arc<Regex>,
-    file_info: &mut MarkdownFileInfo,
-    line: &String,
-) {
-    for capture in image_regex.captures_iter(line) {
-        if let Some(reference) = capture.get(0) {
-            let reference_string = reference.as_str().to_string();
-            file_info.image_links.push(reference_string);
-        }
-    }
 }
 
 #[cfg(test)]
@@ -348,6 +246,7 @@ mod tests {
     use super::*;
     use crate::test_utils::create_test_files;
     use crate::wikilink_types::InvalidWikilinkReason;
+    use std::fs;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
@@ -624,8 +523,8 @@ aliases:
 
         let content = r#"---
 do_not_back_populate:
- - "test phrase"
- - "another phrase"
+- "test phrase"
+- "another phrase"
 ---
 # Test Content"#;
 
@@ -635,11 +534,13 @@ do_not_back_populate:
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
         let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
 
-        assert!(file_info.do_not_back_populate.is_some());
-        let patterns = file_info.do_not_back_populate.unwrap();
-        assert_eq!(patterns.len(), 2);
-        assert!(patterns.contains(&"test phrase".to_string()));
-        assert!(patterns.contains(&"another phrase".to_string()));
+        assert!(file_info.do_not_back_populate_regexes.is_some());
+        let regexes = file_info.do_not_back_populate_regexes.unwrap();
+        assert_eq!(regexes.len(), 2);
+
+        let test_line = "here is a test phrase and another phrase";
+        assert!(regexes[0].is_match(test_line));
+        assert!(regexes[1].is_match(test_line));
     }
 
     #[test]
@@ -662,12 +563,14 @@ do_not_back_populate:
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
         let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
 
-        assert!(file_info.do_not_back_populate.is_some());
-        let patterns = file_info.do_not_back_populate.unwrap();
-        assert_eq!(patterns.len(), 3);
-        assert!(patterns.contains(&"First Alias".to_string()));
-        assert!(patterns.contains(&"Second Alias".to_string()));
-        assert!(patterns.contains(&"exclude this".to_string()));
+        assert!(file_info.do_not_back_populate_regexes.is_some());
+        let regexes = file_info.do_not_back_populate_regexes.unwrap();
+        assert_eq!(regexes.len(), 3);
+
+        let test_line = "First Alias and Second Alias and exclude this";
+        assert!(regexes[0].is_match(test_line));
+        assert!(regexes[1].is_match(test_line));
+        assert!(regexes[2].is_match(test_line));
     }
 
     #[test]
@@ -687,11 +590,14 @@ aliases:
         let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
         let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
 
-        assert!(file_info.do_not_back_populate.is_some());
-        let patterns = file_info.do_not_back_populate.unwrap();
-        assert_eq!(patterns.len(), 1);
-        assert!(patterns.contains(&"Only Alias".to_string()));
+        assert!(file_info.do_not_back_populate_regexes.is_some());
+        let regexes = file_info.do_not_back_populate_regexes.unwrap();
+        assert_eq!(regexes.len(), 1);
+
+        let test_line = "Only Alias appears here";
+        assert!(regexes[0].is_match(test_line));
     }
+
     #[test]
     fn test_wikilink_sorting_with_aliases() {
         let temp_dir = TempDir::new().unwrap();

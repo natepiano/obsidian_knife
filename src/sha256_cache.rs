@@ -27,16 +27,7 @@ pub struct CachedImageInfo {
     pub time_stamp: SystemTime,
 }
 
-// #[derive(Debug, Clone, Copy)]
-// pub struct CacheStats {
-//     pub initial_count: usize,
-//     pub files_read: usize,
-//     pub files_added: usize,
-//     pub files_modified: usize,
-//     pub files_deleted: usize,
-//     pub total_files: usize,
-// }
-
+#[derive(Debug)]
 pub struct Sha256Cache {
     cache: HashMap<PathBuf, CachedImageInfo>,
     cache_file_path: PathBuf,

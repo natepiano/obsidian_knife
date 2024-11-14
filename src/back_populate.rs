@@ -13,18 +13,19 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
-use std::path::Path;
-use std::time::Instant;
+use std::path::{Path, PathBuf};
+use crate::timer::Timer;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {
-    file_path: String,
+    found_text: String,
+    full_path: PathBuf,
+    in_markdown_table: bool,
     line_number: usize,
     line_text: String,
-    found_text: String,
-    replacement: String,
     position: usize,
-    in_markdown_table: bool,
+    relative_path: String,
+    replacement: String,
 }
 
 #[derive(Debug)]
@@ -81,7 +82,7 @@ pub fn process_back_populate(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
-    let start = Instant::now();
+    let _timer = Timer::new("process_back_populate");
 
     // Write invalid wikilinks table first
     write_invalid_wikilinks_table(writer, obsidian_repository_info)?;
@@ -121,10 +122,6 @@ pub fn process_back_populate(
         apply_back_populate_changes(config, &unambiguous_matches)?;
     }
 
-    let duration = start.elapsed();
-    let duration_string = &format!("{:.2}", duration.as_millis());
-    println!("back populate took: {}ms", duration_string);
-
     Ok(())
 }
 
@@ -152,13 +149,7 @@ fn find_all_back_populate_matches(
                 }
             }
 
-            match process_file(
-                &markdown_file_info.path,
-                &sorted_wikilinks,
-                config,
-                markdown_file_info,
-                ac,
-            ) {
+            match process_file(&sorted_wikilinks, config, markdown_file_info, ac) {
                 Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
                 _ => None,
             }
@@ -244,7 +235,7 @@ fn identify_ambiguous_matches(
         for m in &unclassified_matches {
             println!(
                 "[WARNING] Unclassified Match: '{}' in file '{}'",
-                m.found_text, m.file_path
+                m.found_text, m.relative_path
             );
         }
 
@@ -308,7 +299,6 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
 }
 
 fn process_file(
-    file_path: &Path,
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
@@ -316,8 +306,7 @@ fn process_file(
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let mut ac_matches = Vec::new();
 
-    let content = fs::read_to_string(file_path)?;
-    let reader = BufReader::new(content.as_bytes());
+    let reader = BufReader::new(markdown_file_info.content.as_bytes());
     let mut state = FileProcessingState::new();
 
     for (line_idx, line) in reader.lines().enumerate() {
@@ -338,7 +327,6 @@ fn process_file(
         let line_ac_matches = process_line(
             line_idx,
             &line,
-            file_path,
             ac,
             sorted_wikilinks,
             config,
@@ -400,7 +388,6 @@ fn collect_exclusion_zones(
 fn process_line(
     line_idx: usize,
     line: &str,
-    file_path: &Path,
     ac: &AhoCorasick,
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
@@ -430,7 +417,13 @@ fn process_line(
         }
 
         // Rest of the validation
-        if should_create_match(line, starts_at, matched_text, file_path, markdown_file_info) {
+        if should_create_match(
+            line,
+            starts_at,
+            matched_text,
+            &markdown_file_info.path,
+            markdown_file_info,
+        ) {
             let mut replacement = if matched_text == wikilink.target {
                 wikilink.target.to_wikilink()
             } else {
@@ -443,14 +436,18 @@ fn process_line(
                 replacement = replacement.replace('|', r"\|");
             }
 
+            let relative_path =
+                format_relative_path(&markdown_file_info.path, config.obsidian_path());
+
             matches.push(BackPopulateMatch {
-                file_path: format_relative_path(file_path, config.obsidian_path()),
+                found_text: matched_text.to_string(),
+                full_path: markdown_file_info.path.clone(),
                 line_number: line_idx + 1,
                 line_text: line.to_string(),
-                found_text: matched_text.to_string(),
-                replacement,
                 position: starts_at,
                 in_markdown_table,
+                relative_path,
+                replacement,
             });
         }
     }
@@ -534,7 +531,7 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 
     // Group matches by file and line
     for match_info in matches {
-        let key = (match_info.file_path.clone(), match_info.line_number);
+        let key = (match_info.relative_path.clone(), match_info.line_number);
 
         // Update or create line info
         let line_info = line_map.entry(key).or_insert(LineInfo {
@@ -546,7 +543,7 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 
         // Track file-level information
         file_info.insert(
-            match_info.file_path.clone(),
+            match_info.relative_path.clone(),
             (match_info.replacement.clone(), match_info.in_markdown_table),
         );
     }
@@ -754,7 +751,8 @@ fn write_back_populate_table(
 
     if is_unambiguous_match {
         // Count unique files across all matches
-        let unique_files: HashSet<String> = matches.iter().map(|m| m.file_path.clone()).collect();
+        let unique_files: HashSet<String> =
+            matches.iter().map(|m| m.relative_path.clone()).collect();
         writer.writeln(
             "",
             &format!(
@@ -788,8 +786,10 @@ fn write_back_populate_table(
         let text_matches = &matches_by_text[&found_text_key];
         let display_text = &display_text_map[&found_text_key];
         let total_occurrences = text_matches.len();
-        let file_paths: HashSet<String> =
-            text_matches.iter().map(|m| m.file_path.clone()).collect();
+        let file_paths: HashSet<String> = text_matches
+            .iter()
+            .map(|m| m.relative_path.clone())
+            .collect();
 
         let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
 
@@ -805,11 +805,11 @@ fn write_back_populate_table(
         // Sort matches by file path and line number
         let mut sorted_matches = text_matches.to_vec();
         sorted_matches.sort_by(|a, b| {
-            let file_a = Path::new(&a.file_path)
+            let file_a = Path::new(&a.relative_path)
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
-            let file_b = Path::new(&b.file_path)
+            let file_b = Path::new(&b.relative_path)
                 .file_stem()
                 .and_then(|s| s.to_str())
                 .unwrap_or("");
@@ -971,16 +971,15 @@ fn apply_back_populate_changes(
         return Ok(());
     }
 
-    let mut matches_by_file: BTreeMap<String, Vec<&BackPopulateMatch>> = BTreeMap::new();
+    let mut matches_by_file: BTreeMap<PathBuf, Vec<&BackPopulateMatch>> = BTreeMap::new();
     for match_info in matches {
         matches_by_file
-            .entry(match_info.file_path.clone())
+            .entry(match_info.full_path.clone())
             .or_default()
             .push(match_info);
     }
 
-    for (file_path, file_matches) in matches_by_file {
-        let full_path = config.obsidian_path().join(&file_path);
+    for (full_path, file_matches) in matches_by_file {
         let content = fs::read_to_string(&full_path)?;
         let mut updated_content = String::new();
 
@@ -1007,7 +1006,7 @@ fn apply_back_populate_changes(
             // Apply matches in reverse order if there are any
             let mut updated_line = line.to_string();
             if !line_matches.is_empty() {
-                updated_line = apply_line_replacements(line, &line_matches, &file_path);
+                updated_line = apply_line_replacements(line, &line_matches, &full_path);
             }
 
             updated_content.push_str(&updated_line);
@@ -1040,7 +1039,7 @@ fn apply_back_populate_changes(
 fn apply_line_replacements(
     line: &str,
     line_matches: &[&BackPopulateMatch],
-    file_path: &str,
+    file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();
 
@@ -1056,7 +1055,7 @@ fn apply_line_replacements(
         // Check for UTF-8 boundary issues
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             eprintln!(
-                "Error: Invalid UTF-8 boundary in file '{}', line {}.\n\
+                "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
                 Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
                 file_path, match_info.line_number, start, end, updated_line, match_info.found_text
             );
@@ -1069,7 +1068,7 @@ fn apply_line_replacements(
         // Validation check after each replacement
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
             eprintln!(
-                "\nWarning: Potential nested pattern detected after replacement in file '{}', line {}.\n\
+                "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
                 Current line:\n{}\n",
                 file_path, match_info.line_number, updated_line
             );
@@ -1273,7 +1272,8 @@ mod tests {
 
         // With do_not_back_populate patterns
         let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
-        let (_, pattern_config, _) = create_test_environment(false, Some(patterns.clone()), None, None);
+        let (_, pattern_config, _) =
+            create_test_environment(false, Some(patterns.clone()), None, None);
         assert_eq!(
             pattern_config.do_not_back_populate(),
             Some(patterns.as_slice())
@@ -1300,16 +1300,8 @@ mod tests {
             let ac = build_aho_corasick(&[wikilink.clone()]);
             let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
 
-            let matches = process_line(
-                0,
-                case.content,
-                &file_path,
-                &ac,
-                &[&wikilink],
-                &config,
-                &markdown_info,
-            )
-            .unwrap();
+            let matches =
+                process_line(0, case.content, &ac, &[&wikilink], &config, &markdown_info).unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -1339,7 +1331,8 @@ mod tests {
                This don't match either\n\
                But this Test Link should match";
 
-        let (_temp_dir, config, repo_info) = create_test_environment(false, None, None, Some(content));
+        let (_temp_dir, config, repo_info) =
+            create_test_environment(false, None, None, Some(content));
 
         // Find matches
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
@@ -1359,7 +1352,8 @@ mod tests {
     #[test]
     fn test_apply_changes() {
         let content = "Here is Test Link\nNo change here\nAnother Test Link";
-        let (temp_dir, config, repo_info) = create_test_environment(true, None, None, Some(content));
+        let (temp_dir, config, repo_info) =
+            create_test_environment(true, None, None, Some(content));
 
         // Find matches
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
@@ -1394,7 +1388,8 @@ mod tests {
             },
         ];
 
-        let (_temp_dir, config, repo_info) = create_test_environment(false, None, Some(wikilinks), Some(content));
+        let (_temp_dir, config, repo_info) =
+            create_test_environment(false, None, Some(wikilinks), Some(content));
 
         let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
 
@@ -1443,7 +1438,7 @@ mod tests {
         // Should find matches in other files
         assert_eq!(matches.len(), 1, "Should find match on other pages");
         assert_eq!(
-            matches[0].file_path,
+            matches[0].relative_path,
             format_relative_path(&other_file_path, config.obsidian_path()),
             "Match should be in 'Other.md'"
         );
@@ -1486,7 +1481,8 @@ mod tests {
             (
                 "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
                 vec![BackPopulateMatch {
-                    file_path: "test.md".into(),
+                    full_path: temp_dir.path().join("test.md"),
+                    relative_path: "test.md".into(),
                     line_number: 4,
                     line_text: "|Test Link|Sample text|".into(),
                     found_text: "Test Link".into(),
@@ -1505,7 +1501,8 @@ mod tests {
             More Test Link text",
                 vec![
                     BackPopulateMatch {
-                        file_path: "test.md".into(),
+                        full_path: temp_dir.path().join("test.md"),
+                        relative_path: "test.md".into(),
                         line_number: 2,
                         line_text: "Regular Test Link here".into(),
                         found_text: "Test Link".into(),
@@ -1514,7 +1511,8 @@ mod tests {
                         in_markdown_table: false,
                     },
                     BackPopulateMatch {
-                        file_path: "test.md".into(),
+                        full_path: temp_dir.path().join("test.md"),
+                        relative_path: "test.md".into(),
                         line_number: 5,
                         line_text: "|Test Link|Sample|".into(),
                         found_text: "Test Link".into(),
@@ -1613,8 +1611,8 @@ mod tests {
             },
         ];
         // Initialize environment with custom wikilinks
-        let (temp_dir, config, repo_info) =
-            create_test_environment(false, None, Some(wikilinks.clone()),None);
+        let (_temp_dir, config, repo_info) =
+            create_test_environment(false, None, Some(wikilinks.clone()), None);
 
         // Compile the wikilinks
         let sorted_wikilinks = &repo_info.wikilinks_sorted;
@@ -1662,16 +1660,8 @@ mod tests {
         // Create references to the compiled wikilinks
         let wikilink_refs: Vec<&Wikilink> = sorted_wikilinks.iter().collect();
         for (line, expected_replacements, description) in test_cases {
-            let matches = process_line(
-                0,
-                line,
-                &temp_dir.path().join("test.md"),
-                &ac,
-                &wikilink_refs,
-                &config,
-                &markdown_info,
-            )
-            .unwrap();
+            let matches =
+                process_line(0, line, &ac, &wikilink_refs, &config, &markdown_info).unwrap();
 
             assert_eq!(
                 matches.len(),
@@ -1867,10 +1857,10 @@ mod tests {
             },
         ];
 
-        // Create test matches
         let matches = vec![
             BackPopulateMatch {
-                file_path: "test1.md".to_string(),
+                full_path: PathBuf::from("test1.md"),
+                relative_path: "test1.md".to_string(),
                 line_number: 1,
                 line_text: "Ed wrote this".to_string(),
                 found_text: "Ed".to_string(),
@@ -1879,7 +1869,8 @@ mod tests {
                 in_markdown_table: false,
             },
             BackPopulateMatch {
-                file_path: "test2.md".to_string(),
+                full_path: PathBuf::from("test2.md"),
+                relative_path: "test2.md".to_string(),
                 line_number: 1,
                 line_text: "Unique wrote this".to_string(),
                 found_text: "Unique".to_string(),
@@ -1919,10 +1910,10 @@ mod tests {
             },
         ];
 
-        // Create test matches
         let matches = vec![
             BackPopulateMatch {
-                file_path: "test1.md".to_string(),
+                full_path: PathBuf::from("test1.md"),
+                relative_path: "test1.md".to_string(),
                 line_number: 1,
                 line_text: "- [[Amazon]]".to_string(),
                 found_text: "Amazon".to_string(),
@@ -1931,7 +1922,8 @@ mod tests {
                 in_markdown_table: false,
             },
             BackPopulateMatch {
-                file_path: "test1.md".to_string(),
+                full_path: PathBuf::from("test1.md"),
+                relative_path: "test1.md".to_string(),
                 line_number: 2,
                 line_text: "- [[amazon]]".to_string(),
                 found_text: "amazon".to_string(),
@@ -1973,7 +1965,8 @@ mod tests {
         ];
 
         let matches = vec![BackPopulateMatch {
-            file_path: "test1.md".to_string(),
+            full_path: PathBuf::from("test1.md"),
+            relative_path: "test1.md".to_string(),
             line_number: 1,
             line_text: "Amazon is huge".to_string(),
             found_text: "Amazon".to_string(),
@@ -2026,7 +2019,8 @@ mod tests {
 
         let matches = vec![
             BackPopulateMatch {
-                file_path: "test1.md".to_string(),
+                full_path: PathBuf::from("test1.md"),
+                relative_path: "test1.md".to_string(),
                 line_number: 1,
                 line_text: "AWS and aws are the same".to_string(),
                 found_text: "AWS".to_string(),
@@ -2035,7 +2029,8 @@ mod tests {
                 in_markdown_table: false,
             },
             BackPopulateMatch {
-                file_path: "test1.md".to_string(),
+                full_path: PathBuf::from("test1.md"),
+                relative_path: "test1.md".to_string(),
                 line_number: 2,
                 line_text: "Amazon is ambiguous".to_string(),
                 found_text: "Amazon".to_string(),
@@ -2061,7 +2056,7 @@ mod tests {
 
     #[test]
     fn test_collect_exclusion_zones_with_invalid_wikilinks() {
-       let temp_dir = TempDir::new().unwrap();
+        let temp_dir = TempDir::new().unwrap();
         let config = ValidatedConfig::new(
             false,
             None,
@@ -2146,7 +2141,6 @@ mod tests {
 
     #[test]
     fn test_exclusion_zones_only_matches_current_line() {
-
         let temp_dir = TempDir::new().unwrap();
         let config = ValidatedConfig::new(
             false,
@@ -2248,7 +2242,7 @@ Nate was here and so was Nate"#;
         // We should find both "Karen", "karen", "Nate", and "Nate" in other.md
         let other_matches: Vec<_> = matches
             .iter()
-            .filter(|m| m.file_path.ends_with("other.md"))
+            .filter(|m| m.relative_path.ends_with("other.md"))
             .collect();
 
         // Assert total matches

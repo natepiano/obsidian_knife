@@ -1,8 +1,12 @@
+use crate::validated_config::ValidatedConfig;
+use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
 use chrono::{DateTime, Local, NaiveDateTime};
+use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::sync::Mutex;
 use std::{fs, io};
 
 pub fn update_file<P: AsRef<Path>>(
@@ -18,6 +22,23 @@ pub fn update_file<P: AsRef<Path>>(
     };
     fs::write(path, updated_content)?;
     Ok(())
+}
+
+pub fn read_contents_from_file(path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let contents = fs::read_to_string(&path).map_err(|e| -> Box<dyn Error + Send + Sync> {
+        if e.kind() == io::ErrorKind::NotFound {
+            Box::new(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("{}{}", ERROR_NOT_FOUND, path.display()),
+            ))
+        } else {
+            Box::new(std::io::Error::new(
+                e.kind(),
+                format!("{}'{}': {}", ERROR_READING, path.display(), e),
+            ))
+        }
+    })?;
+    Ok(contents)
 }
 
 fn update_markdown_content(content: &str, update_fn: impl FnOnce(&str) -> String) -> String {
@@ -110,6 +131,85 @@ pub fn get_file_creation_time(
     let metadata = fs::metadata(path)?;
     let created = metadata.created()?;
     Ok(DateTime::from(created))
+}
+
+// using rayon (.into_par_iter()) and not using walkdir
+// takes this from 12ms down to 4ms
+pub fn collect_repository_files(
+    config: &ValidatedConfig,
+    ignore_folders: &[PathBuf],
+) -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>), Box<dyn Error + Send + Sync>> {
+   // let _timer = Timer::new("collect_repository_files");
+
+    fn is_ignored(path: &Path, ignore_folders: &[PathBuf]) -> bool {
+        ignore_folders
+            .iter()
+            .any(|ignored| path.starts_with(ignored))
+    }
+
+    let md_files = Mutex::new(Vec::new());
+    let img_files = Mutex::new(Vec::new());
+    let other_files = Mutex::new(Vec::new());
+
+    fn visit_dirs(
+        dirs: Vec<PathBuf>,
+        ignore_folders: &[PathBuf],
+        md_files: &Mutex<Vec<PathBuf>>,
+        img_files: &Mutex<Vec<PathBuf>>,
+        other_files: &Mutex<Vec<PathBuf>>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        dirs.into_par_iter().try_for_each(|dir| {
+            if is_ignored(&dir, ignore_folders) {
+                return Ok(());
+            }
+
+            let mut subdirs = Vec::new();
+            for entry in std::fs::read_dir(&dir)? {
+                let entry = entry?;
+                let path = entry.path();
+
+                if path.file_name().and_then(|s| s.to_str()) == Some(".DS_Store") {
+                    continue;
+                }
+
+                if entry.file_type()?.is_dir() {
+                    subdirs.push(path);
+                    continue;
+                }
+
+                match path
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .map(|s| s.to_lowercase())
+                {
+                    Some(ext) if ext == "md" => md_files.lock().unwrap().push(path),
+                    Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => {
+                        img_files.lock().unwrap().push(path)
+                    }
+                    _ => other_files.lock().unwrap().push(path),
+                }
+            }
+
+            if !subdirs.is_empty() {
+                visit_dirs(subdirs, ignore_folders, md_files, img_files, other_files)?;
+            }
+            Ok(())
+        })
+    }
+
+    visit_dirs(
+        vec![config.obsidian_path().to_path_buf()],
+        ignore_folders,
+        &md_files,
+        &img_files,
+        &other_files,
+    )?;
+
+    Ok((
+        md_files.into_inner().unwrap(),
+        img_files.into_inner().unwrap(),
+        other_files.into_inner().unwrap(),
+    ))
 }
 
 #[cfg(test)]

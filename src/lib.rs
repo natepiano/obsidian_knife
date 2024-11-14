@@ -11,6 +11,7 @@ mod regex_utils;
 mod scan;
 mod sha256_cache;
 mod thread_safe_writer;
+mod timer;
 mod validated_config;
 mod wikilink;
 mod wikilink_types;
@@ -18,6 +19,7 @@ mod yaml_frontmatter;
 
 // Re-export types for main
 pub use constants::*;
+pub use timer::*;
 
 use crate::{
     config::Config, thread_safe_writer::ThreadSafeWriter, validated_config::ValidatedConfig,
@@ -40,6 +42,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     write_execution_start(&validated_config, &writer)?;
 
     let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
+
     frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
     cleanup_images::cleanup_images(&validated_config, &obsidian_repository_info, &writer)?;
     cleanup_dates::process_dates(

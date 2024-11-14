@@ -1,7 +1,6 @@
 use ok::*;
 use std::error::Error;
 use std::path::PathBuf;
-use std::time::Instant;
 
 // Custom error type for main specific errors
 #[derive(Debug)]
@@ -22,7 +21,6 @@ impl Error for MainError {}
 // Separate error handling and reporting logic
 fn handle_error(
     e: Box<dyn Error + Send + Sync>,
-    start_time: Instant,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("error occurred");
     println!("error type:");
@@ -32,23 +30,7 @@ fn handle_error(
     if let Some(source) = e.source() {
         println!("error source: {}", source);
     }
-
-    output_duration("error duration:", start_time)?;
-
     Err(e)
-}
-
-fn output_duration(prefix: &str, start_time: Instant) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let duration = start_time.elapsed();
-    let duration_string = &format!("{:.2}", duration.as_millis());
-    println!("{} {} {}", prefix, duration_string, DURATION_MILLISECONDS);
-    Ok(())
-}
-
-// Process successful execution
-fn handle_success(start_time: Instant) -> Result<(), Box<dyn Error + Send + Sync>> {
-    output_duration(PROCESSING_DURATION, start_time)?;
-    Ok(())
 }
 
 // Get config file name with better error handling
@@ -63,12 +45,13 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let start_time = Instant::now();
+    let _timer = Timer::new("total processing time");
+
     let config_path = get_config_file()?;
 
     match process_config(config_path) {
-        Ok(_) => handle_success(start_time),
-        Err(e) => handle_error(e, start_time), // Removed writer parameter
+        Ok(_) => Ok(()),
+        Err(e) => handle_error(e), // Removed writer parameter
     }
 }
 
