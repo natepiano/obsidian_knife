@@ -5,7 +5,6 @@ mod persist_frontmatter_tests;
 
 use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
-use crate::regex_utils::build_case_insensitive_word_finder;
 use crate::wikilink::is_wikilink;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
@@ -16,8 +15,9 @@ use regex::Regex;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+use itertools::Itertools;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum DateValidationStatus {
     Valid,
     Missing,
@@ -26,7 +26,7 @@ pub enum DateValidationStatus {
     FileSystemMismatch,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DateValidation {
     pub frontmatter_date: Option<String>,
     pub file_system_date: DateTime<Local>,
@@ -78,41 +78,20 @@ impl MarkdownFileInfo {
     pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let content = read_contents_from_file(&path)?;
 
-        let metadata = fs::metadata(&path)?;
-
         let (frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
             Ok(fm) => (Some(fm), None),
             Err(error) => (None, Some(error)),
         };
 
-        // Construct DateValidation instances after frontmatter parsing
-        let date_validation_created = DateValidation {
-            frontmatter_date: frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_created().cloned()),
-            file_system_date: metadata
-                .created()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Local::now()),
-            status: DateValidationStatus::Missing,
-        };
-
-        let date_validation_modified = DateValidation {
-            frontmatter_date: frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_modified().cloned()),
-            file_system_date: metadata
-                .modified()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Local::now()),
-            status: DateValidationStatus::Missing,
-        };
+        let (date_validation_created, date_validation_modified) =
+            get_date_validations(&frontmatter, &path)?;
 
         let do_not_back_populate_regexes = frontmatter
             .as_ref()
-            .and_then(|fm| fm.get_do_not_back_populate_regexes());
+            .map(|fm| fm.get_do_not_back_populate_regexes())
+            .flatten();
 
-        let mut info = MarkdownFileInfo {
+        Ok(MarkdownFileInfo {
             content,
             do_not_back_populate_regexes,
             date_validation_created,
@@ -122,35 +101,64 @@ impl MarkdownFileInfo {
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
             path,
-        };
-
-        info.process_dates();
-
-        Ok(info)
+        })
     }
 
     // Helper method to add invalid wikilinks
     pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
         self.invalid_wikilinks.extend(wikilinks);
     }
+}
 
-    // New method for processing dates after deserialization
-    fn process_dates(&mut self) {
-        self.process_date_modified();
-        // Later we'll add process_date_created here too
-    }
-
-    fn process_date_modified(&mut self) {
-        if let Some(fm) = &mut self.frontmatter {
-            let (new_date, needs_persist) =
-                process_date_modified_helper(fm.date_modified().map(|s| s.clone()));
-
-            if needs_persist {
-                fm.update_date_modified(new_date);
-                fm.set_needs_persist(true);
+fn get_date_validation_status(
+    date_opt: Option<&String>,
+    fs_date: &DateTime<Local>
+) -> DateValidationStatus {
+    match date_opt {
+        None => DateValidationStatus::Missing,
+        Some(date_str) => {
+            if !is_wikilink(Some(date_str)) {
+                DateValidationStatus::InvalidWikilink
+            } else {
+                let extracted_date = extract_date(date_str);
+                if !is_valid_date(extracted_date) {
+                    DateValidationStatus::InvalidFormat
+                } else if extracted_date != fs_date.format("%Y-%m-%d").to_string() {
+                    DateValidationStatus::FileSystemMismatch
+                } else {
+                    DateValidationStatus::Valid
+                }
             }
         }
     }
+}
+
+fn get_date_validations(
+    frontmatter: &Option<FrontMatter>,
+    path: &PathBuf,
+) -> Result<(DateValidation, DateValidation), std::io::Error> {
+    let metadata = fs::metadata(path)?;
+
+    let dates = [(
+        frontmatter.as_ref().and_then(|fm| fm.date_created().cloned()),
+        metadata.created().map(|t| t.into()).unwrap_or_else(|_| Local::now()),
+    ), (
+        frontmatter.as_ref().and_then(|fm| fm.date_modified().cloned()),
+        metadata.modified().map(|t| t.into()).unwrap_or_else(|_| Local::now()),
+    )];
+
+    Ok(dates
+        .into_iter()
+        .map(|(frontmatter_date, fs_date)| {
+            let status = get_date_validation_status(frontmatter_date.as_ref(), &fs_date);
+            DateValidation {
+                frontmatter_date,
+                file_system_date: fs_date,
+                status,
+            }
+        })
+        .collect_tuple()
+        .unwrap())
 }
 
 // Extracts the date string from a possible wikilink format
