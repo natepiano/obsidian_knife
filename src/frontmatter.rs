@@ -8,6 +8,7 @@ use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
+use chrono::{DateTime, Datelike, Local};
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -27,7 +28,7 @@ yaml_frontmatter_struct! {
         #[serde(skip)]
         pub needs_persist: bool,
         #[serde(skip)]
-        pub needs_filesystem_update: Option<String>,
+        pub needs_create_date_fix:bool,
     }
 }
 
@@ -48,32 +49,45 @@ impl FrontMatter {
         self.date_created_fix.as_ref()
     }
 
-    pub fn update_date_created(&mut self, value: Option<String>) {
-        self.date_created = value;
+    pub fn update_date_created(&mut self, value: String) {
+        self.date_created = Some(value);
     }
 
-    pub fn update_date_modified(&mut self, value: Option<String>) {
-        self.date_modified = value;
+    pub fn update_date_modified(&mut self, value: String) {
+        self.date_modified = Some(value);
     }
 
-    pub fn update_date_created_fix(&mut self, value: Option<String>) {
-        self.date_created_fix = value;
+    pub fn remove_date_created_fix(&mut self) {
+        // setting it to None will cause it to skip serialization
+        self.date_created_fix = None;
+    }
+
+    pub fn set_date_created(&mut self, date: DateTime<Local>) {
+        self.date_created = Some(format!("[[{}-{:02}-{:02}]]",
+                                         date.year(),
+                                         date.month(),
+                                         date.day()));
+        self.needs_persist = true;
+    }
+
+    pub fn set_date_modified(&mut self, date: DateTime<Local>) {
+        self.date_modified = Some(format!("[[{}-{:02}-{:02}]]",
+                                          date.year(),
+                                          date.month(),
+                                          date.day()));
+        self.needs_persist = true;
     }
 
     pub(crate) fn needs_persist(&self) -> bool {
         self.needs_persist
     }
 
-    pub(crate) fn set_needs_persist(&mut self, value: bool) {
-        self.needs_persist = value;
+    pub(crate) fn needs_create_date_fix(&self) -> bool {
+        self.needs_create_date_fix
     }
 
-    pub(crate) fn needs_filesystem_update(&self) -> Option<&String> {
-        self.needs_filesystem_update.as_ref()
-    }
-
-    pub(crate) fn set_needs_filesystem_update(&mut self, value: Option<String>) {
-        self.needs_filesystem_update = value;
+    pub fn set_needs_create_date_fix(&mut self) {
+        self.needs_create_date_fix = true;
     }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {

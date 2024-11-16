@@ -22,7 +22,7 @@ date_created: "2024-01-01"
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.update_date_created(Some("[[2024-01-02]]".to_string()));
+        fm.update_date_created("[[2024-01-02]]".to_string());
         fm.persist(&file_path)?;
     }
 
@@ -53,7 +53,7 @@ date_created: "2024-01-01"
     file_info.frontmatter = Some(FrontMatter::from_markdown_str(initial_content)?);
 
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.update_date_created(Some("[[2024-01-02]]".to_string()));
+        fm.update_date_created("[[2024-01-02]]".to_string());
         fm.persist(&file_path)?;
     }
 

@@ -447,13 +447,13 @@ fn apply_date_changes(
     // Update the frontmatter directly in MarkdownFileInfo
     if let Some(fm) = &mut file_info.frontmatter {
         if let Some(date_created) = &updates.date_created {
-            fm.update_date_created(Some(date_created.clone()));
+            fm.update_date_created(date_created.clone());
         }
         if let Some(date_modified) = &updates.date_modified {
-            fm.update_date_modified(Some(date_modified.clone()));
+            fm.update_date_modified(date_modified.clone());
         }
         if updates.remove_date_created_fix {
-            fm.update_date_created_fix(None);
+            fm.remove_date_created_fix();
         }
 
         // we know something changed so save it

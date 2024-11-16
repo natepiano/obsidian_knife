@@ -33,7 +33,7 @@ tags:
         .frontmatter
         .as_mut()
         .unwrap()
-        .update_date_modified(Some("[[2023-10-24]]".to_string()));
+        .update_date_modified("[[2023-10-24]]".to_string());
 
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
@@ -110,7 +110,7 @@ boolean_field: true
         .frontmatter
         .as_mut()
         .unwrap()
-        .update_date_modified(Some("[[2024-01-02]]".to_string()));
+        .update_date_modified("[[2024-01-02]]".to_string());
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();
@@ -147,7 +147,7 @@ fn test_preserve_complex_frontmatter_values() {
         date_created_fix: None,
         do_not_back_populate: None,
         needs_persist: false,
-        needs_filesystem_update: None,
+        needs_create_date_fix: false,
         other_fields: {
             let mut map = HashMap::new();
             map.insert(
@@ -183,7 +183,7 @@ fn test_preserve_complex_frontmatter_values() {
         .frontmatter
         .as_mut()
         .unwrap()
-        .update_date_modified(Some("[[2024-01-02]]".to_string()));
+        .update_date_modified("[[2024-01-02]]".to_string());
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();
