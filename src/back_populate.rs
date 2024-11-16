@@ -4,6 +4,7 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::regex_utils::MARKDOWN_REGEX;
 use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::timer::Timer;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::AhoCorasick;
@@ -14,7 +15,6 @@ use std::error::Error;
 use std::fs;
 use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
-use crate::timer::Timer;
 
 #[derive(Debug, Clone)]
 struct BackPopulateMatch {

@@ -19,9 +19,7 @@ impl std::fmt::Display for MainError {
 impl Error for MainError {}
 
 // Separate error handling and reporting logic
-fn handle_error(
-    e: Box<dyn Error + Send + Sync>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
     println!("error occurred");
     println!("error type:");
     println!("{}", std::any::type_name_of_val(&*e));

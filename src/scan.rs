@@ -4,6 +4,7 @@ use crate::{
     wikilink_types::Wikilink,
 };
 
+use crate::timer::Timer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
 use regex::Regex;
@@ -12,7 +13,6 @@ use std::error::Error;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use crate::timer::Timer;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -44,7 +44,6 @@ fn get_image_info_map(
     markdown_files: &[MarkdownFileInfo],
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
-
     let _timer = Timer::new("get_image_info_map");
 
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
@@ -99,7 +98,6 @@ fn get_image_info_map(
 pub fn scan_folders(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
-
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
 
@@ -127,17 +125,18 @@ pub fn scan_folders(
 }
 
 fn compare_wikilinks(a: &Wikilink, b: &Wikilink) -> std::cmp::Ordering {
-    b.display_text.len().cmp(&a.display_text.len())
+    b.display_text
+        .len()
+        .cmp(&a.display_text.len())
         .then(a.display_text.cmp(&b.display_text))
         .then_with(|| match (a.is_alias, b.is_alias) {
             (true, false) => std::cmp::Ordering::Less,
             (false, true) => std::cmp::Ordering::Greater,
-            _ => a.target.cmp(&b.target)
+            _ => a.target.cmp(&b.target),
         })
 }
 
 fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
-
     let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
     wikilinks.sort_unstable_by(compare_wikilinks);
 
@@ -156,7 +155,6 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<(Vec<MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-
     let _timer = Timer::new("scan_markdown_files");
 
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");

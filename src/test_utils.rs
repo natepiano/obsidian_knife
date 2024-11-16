@@ -95,15 +95,10 @@ pub fn assert_result<T, E, F>(
     }
 }
 
-
 // similar to assert_result but in the case where
 // we're not testing something that has a Result<,> format
-pub fn assert_test_case<T, E, F>(
-    actual: T,
-    expected: E,
-    test_name: &str,
-    compare_fn: F,
-) where
+pub fn assert_test_case<T, E, F>(actual: T, expected: E, test_name: &str, compare_fn: F)
+where
     F: FnOnce(&T, &E),
     T: std::fmt::Debug,
     E: std::fmt::Debug,

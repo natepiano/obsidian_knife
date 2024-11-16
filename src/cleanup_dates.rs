@@ -350,13 +350,13 @@ fn process_valid_dates(
             calculate_file_creation_date_approach(fm.date_created(), fm.date_created_fix());
 
         let date_info = DateInfo {
-            created_timestamp: file_info.file_created_time,
+            created_timestamp: file_info.date_validation_created.file_system_date,
             date_created: fm.date_created().cloned(),
             date_created_fix: fm.date_created_fix().cloned(),
             updated_property: determine_updated_property(
                 fm.date_created(),
                 fm.date_created_fix(),
-                file_info.file_created_time,
+                file_info.date_validation_created.file_system_date,
             ),
         };
 
@@ -377,10 +377,10 @@ fn process_valid_dates(
         // Set the file_creation_time based on the final_set_value
         updates.file_creation_time =
             if file_creation_date_approach != SetFileCreationDateWith::NoChange {
-                Some(
-                    file_creation_date_approach
-                        .to_string(file_info.file_created_time, fm.date_created_fix()),
-                )
+                Some(file_creation_date_approach.to_string(
+                    file_info.date_validation_created.file_system_date,
+                    fm.date_created_fix(),
+                ))
             } else {
                 None
             };

@@ -1,31 +1,28 @@
-use crate::frontmatter::{extract_date, is_valid_date, FrontMatter};
+use super::*;
+use crate::frontmatter::FrontMatter;
 use crate::test_utils::assert_test_case;
 use crate::wikilink::is_wikilink;
+use crate::yaml_frontmatter::YamlFrontMatter;
 
-// Helper function to create FrontMatter with default values
 fn create_frontmatter(
-    date_modified: Option<String>,
+    date_modified: &Option<String>,
     needs_persist: bool,
     needs_filesystem_update: Option<String>,
 ) -> FrontMatter {
-    FrontMatter {
-        aliases: None,
-        date_created: None,
-        date_created_fix: None,
-        date_modified,
-        do_not_back_populate: None,
-        needs_persist,
-        needs_filesystem_update,
-        other_fields: Default::default(),
-    }
-}
+    // First create base YAML for deserialization
+    let yaml = match date_modified {
+        Some(date) => format!("---\ndate_modified: \"{}\"\n---\n", date), // Using double quotes like the actual file
+        None => "---\ntitle: test\n---\n".to_string(),
+    };
 
-// Test case struct for persistence flags
-struct PersistenceFlagTestCase {
-    name: &'static str,
-    initial_state: bool,
-    new_state: bool,
-    expected_state: bool,
+    // Deserialize from YAML
+    let mut fm = FrontMatter::from_markdown_str(&yaml).unwrap();
+
+    // Set the skipped fields that aren't part of YAML serialization
+    fm.set_needs_persist(needs_persist);
+    fm.set_needs_filesystem_update(needs_filesystem_update);
+
+    fm
 }
 
 // Test case struct for date modification
@@ -42,7 +39,7 @@ fn test_process_date_modified() {
         DateModTestCase {
             name: "no date_modified - should set today's date",
             initial_date: None,
-            expected_format: true,  // expect wikilink format
+            expected_format: true,
             should_persist: true,
         },
         DateModTestCase {
@@ -60,13 +57,20 @@ fn test_process_date_modified() {
     ];
 
     for case in test_cases {
-        let mut fm = create_frontmatter(case.initial_date, false, None);
+        let mut fm = create_frontmatter(&case.initial_date, false, None);
 
-        fm.process_date_modified();
-
+        // Get the result and update frontmatter
+        let (new_date, needs_persist) = process_date_modified_helper(case.initial_date);
+        if needs_persist {
+            fm.update_date_modified(new_date);
+            fm.set_needs_persist(true);
+        }
         // Check if date is in correct format
         assert_test_case(
-            fm.date_modified.as_ref().map(|d| is_wikilink(Some(d))).unwrap_or(false),
+            fm.date_modified
+                .as_ref()
+                .map(|d| is_wikilink(Some(d)))
+                .unwrap_or(false),
             case.expected_format,
             &format!("{} - date format", case.name),
             |actual, expected| assert_eq!(actual, expected),

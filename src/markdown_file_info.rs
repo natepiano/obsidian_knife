@@ -1,20 +1,72 @@
+#[cfg(test)]
+mod date_fix_tests;
+#[cfg(test)]
+mod persist_frontmatter_tests;
+
 use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
 use crate::regex_utils::build_case_insensitive_word_finder;
+use crate::wikilink::is_wikilink;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
-use chrono::{DateTime, Local};
+use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
+
+use chrono::{DateTime, Local, NaiveDate};
 use regex::Regex;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug)]
+pub enum DateValidationStatus {
+    Valid,
+    Missing,
+    InvalidFormat,
+    InvalidWikilink,
+    FileSystemMismatch,
+}
+
+#[derive(Debug)]
+pub struct DateValidation {
+    pub frontmatter_date: Option<String>,
+    pub file_system_date: DateTime<Local>,
+    pub status: DateValidationStatus,
+}
+
+impl DateValidation {
+    pub fn to_report_string(&self) -> String {
+        match self.status {
+            DateValidationStatus::Valid => "valid".to_string(),
+            DateValidationStatus::Missing => "missing".to_string(),
+            DateValidationStatus::InvalidFormat => format!(
+                "invalid date format: '{}'",
+                self.frontmatter_date
+                    .as_ref()
+                    .unwrap_or(&"none".to_string())
+            ),
+            DateValidationStatus::InvalidWikilink => format!(
+                "missing wikilink: '{}'",
+                self.frontmatter_date
+                    .as_ref()
+                    .unwrap_or(&"none".to_string())
+            ),
+            DateValidationStatus::FileSystemMismatch => format!(
+                "modified date mismatch: frontmatter='{}', filesystem='{}'",
+                self.frontmatter_date
+                    .as_ref()
+                    .unwrap_or(&"none".to_string()),
+                self.file_system_date.format("%Y-%m-%d")
+            ),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub content: String,
+    pub date_validation_created: DateValidation,
+    pub date_validation_modified: DateValidation,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub file_created_time: DateTime<Local>,
-    pub file_modified_time: DateTime<Local>,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub image_links: Vec<String>,
@@ -27,136 +79,110 @@ impl MarkdownFileInfo {
         let content = read_contents_from_file(&path)?;
 
         let metadata = fs::metadata(&path)?;
-        let file_created_time = metadata
-            .created()
-            .map(|t| t.into())
-            .unwrap_or_else(|_| Local::now());
 
-        let file_modified_time = metadata
-            .modified()
-            .map(|t| t.into())
-            .unwrap_or_else(|_| Local::now());
-
-        let (mut frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
+        let (frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
             Ok(fm) => (Some(fm), None),
             Err(error) => (None, Some(error)),
         };
 
-        // Then process dates if deserialization was successful
-        // todo - this is the begining of the migration away from cleanup_dates
-        if let Some(fm) = &mut frontmatter {
-            fm.process_dates();
-        }
+        // Construct DateValidation instances after frontmatter parsing
+        let date_validation_created = DateValidation {
+            frontmatter_date: frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_created().cloned()),
+            file_system_date: metadata
+                .created()
+                .map(|t| t.into())
+                .unwrap_or_else(|_| Local::now()),
+            status: DateValidationStatus::Missing,
+        };
 
-        let do_not_back_populate_regexes = Self::get_do_not_back_populate_regexes(&frontmatter);
+        let date_validation_modified = DateValidation {
+            frontmatter_date: frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_modified().cloned()),
+            file_system_date: metadata
+                .modified()
+                .map(|t| t.into())
+                .unwrap_or_else(|_| Local::now()),
+            status: DateValidationStatus::Missing,
+        };
 
-        Ok(MarkdownFileInfo {
+        let do_not_back_populate_regexes = frontmatter
+            .as_ref()
+            .and_then(|fm| fm.get_do_not_back_populate_regexes());
+
+        let mut info = MarkdownFileInfo {
             content,
             do_not_back_populate_regexes,
-            file_created_time,
-            file_modified_time,
+            date_validation_created,
+            date_validation_modified,
             frontmatter,
             frontmatter_error,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
             path,
-        })
-    }
+        };
 
-    fn get_do_not_back_populate_regexes(frontmatter: &Option<FrontMatter>) -> Option<Vec<Regex>> {
-        if let Some(fm) = &frontmatter {
-            // first get do_not_back_populate explicit value
-            let mut do_not_populate = fm.do_not_back_populate.clone().unwrap_or_default();
+        info.process_dates();
 
-            // if there are aliases, add them to that as we don't need text on the page to link to this same page
-            if let Some(aliases) = fm.aliases() {
-                do_not_populate.extend(aliases.iter().cloned());
-            }
-
-            // if we have values then return them along with their regexes
-            if !do_not_populate.is_empty() {
-                build_case_insensitive_word_finder(&Some(do_not_populate))
-            } else {
-                // we got nothing from valid frontmatter
-                None
-            }
-        } else {
-            // there is no frontmatter
-            None
-        }
+        Ok(info)
     }
 
     // Helper method to add invalid wikilinks
     pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
         self.invalid_wikilinks.extend(wikilinks);
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::yaml_frontmatter::YamlFrontMatter;
-    use std::error::Error;
-    use std::fs;
-    use tempfile::TempDir;
-
-    #[test]
-    fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let temp_dir = TempDir::new()?;
-        let file_path = temp_dir.path().join("test.md");
-
-        // Create initial content
-        let initial_content = r#"---
-date_created: "2024-01-01"
----
-# Test Content"#;
-        fs::write(&file_path, initial_content)?;
-
-        let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
-        file_info.frontmatter = Some(FrontMatter::from_markdown_str(initial_content)?);
-
-        // Update frontmatter directly
-        if let Some(fm) = &mut file_info.frontmatter {
-            fm.update_date_created(Some("[[2024-01-02]]".to_string()));
-            fm.persist(&file_path)?;
-        }
-
-        // Verify frontmatter was updated but content preserved
-        let updated_content = fs::read_to_string(&file_path)?;
-        assert!(updated_content.contains("[[2024-01-02]]"));
-        assert!(updated_content.contains("# Test Content"));
-
-        Ok(())
+    // New method for processing dates after deserialization
+    fn process_dates(&mut self) {
+        self.process_date_modified();
+        // Later we'll add process_date_created here too
     }
 
-    #[test]
-    fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let temp_dir = TempDir::new()?;
-        let file_path = temp_dir.path().join("test.md");
+    fn process_date_modified(&mut self) {
+        if let Some(fm) = &mut self.frontmatter {
+            let (new_date, needs_persist) =
+                process_date_modified_helper(fm.date_modified().map(|s| s.clone()));
 
-        let initial_content = r#"---
-title: Test Doc
-tags:
-- tag1
-- tag2
-date_created: "2024-01-01"
----
-# Content"#;
-        fs::write(&file_path, initial_content)?;
-
-        let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
-        file_info.frontmatter = Some(FrontMatter::from_markdown_str(initial_content)?);
-
-        if let Some(fm) = &mut file_info.frontmatter {
-            fm.update_date_created(Some("[[2024-01-02]]".to_string()));
-            fm.persist(&file_path)?;
+            if needs_persist {
+                fm.update_date_modified(new_date);
+                fm.set_needs_persist(true);
+            }
         }
+    }
+}
 
-        let updated_content = fs::read_to_string(&file_path)?;
-        // Match exact YAML format serde_yaml produces
-        assert!(updated_content.contains("tags:\n- tag1\n- tag2"));
-        assert!(updated_content.contains("[[2024-01-02]]"));
+// Extracts the date string from a possible wikilink format
+fn extract_date(date_str: &str) -> &str {
+    let date_str = date_str.trim();
+    if is_wikilink(Some(date_str)) {
+        date_str
+            .trim_start_matches(OPENING_WIKILINK)
+            .trim_end_matches(CLOSING_WIKILINK)
+            .trim()
+    } else {
+        date_str
+    }
+}
 
-        Ok(())
+// Validates if a string is a valid YYYY-MM-DD date
+fn is_valid_date(date_str: &str) -> bool {
+    NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d").is_ok()
+}
+
+pub fn process_date_modified_helper(date_modified: Option<String>) -> (Option<String>, bool) {
+    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+
+    match date_modified {
+        Some(date_modified) => {
+            if !is_wikilink(Some(&date_modified)) && is_valid_date(&date_modified) {
+                let fix = format!("[[{}]]", date_modified.trim());
+                (Some(fix), true)
+            } else {
+                (Some(date_modified), false)
+            }
+        }
+        None => (Some(today), true),
     }
 }

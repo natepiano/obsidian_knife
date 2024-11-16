@@ -45,9 +45,9 @@ impl DeterministicSearch {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::test_utils::assert_test_case;
     use std::path::PathBuf;
     use tempfile::TempDir;
-    use crate::test_utils::assert_test_case;
 
     struct SearchTestCase {
         name: &'static str,
@@ -86,9 +86,7 @@ mod tests {
                 name: "with limit",
                 max_results: Some(5),
                 file_count: 10,
-                find_matches: Box::new(|_| {
-                    Some(vec!["count".to_string()])
-                }),
+                find_matches: Box::new(|_| Some(vec!["count".to_string()])),
                 expected: vec![vec!["count".to_string()]; 5],
             },
             SearchTestCase {
@@ -110,14 +108,13 @@ mod tests {
                 max_results: None,
                 file_count: 100,
                 find_matches: Box::new(|path| {
-                    Some(vec![path.file_name()
+                    Some(vec![path
+                        .file_name()
                         .unwrap()
                         .to_string_lossy()
                         .to_string()])
                 }),
-                expected: (0..100)
-                    .map(|i| vec![format!("file{}.txt", i)])
-                    .collect(),
+                expected: (0..100).map(|i| vec![format!("file{}.txt", i)]).collect(),
             },
         ];
 
@@ -126,12 +123,9 @@ mod tests {
             let (_temp_dir, files) = setup_test_files(case.file_count);
             let actual = searcher.search_with_info(&files, &case.find_matches);
 
-            assert_test_case(
-                actual,
-                case.expected,
-                case.name,
-                |a, e| assert!(a == e, "Results don't match"),
-            );
+            assert_test_case(actual, case.expected, case.name, |a, e| {
+                assert!(a == e, "Results don't match")
+            });
         }
     }
 

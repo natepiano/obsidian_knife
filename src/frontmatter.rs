@@ -1,14 +1,13 @@
 #[cfg(test)]
-mod date_fix_tests;
-#[cfg(test)]
 mod serde_tests;
 
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::wikilink::{format_wikilink, is_wikilink};
+use crate::regex_utils::build_case_insensitive_word_finder;
+use crate::wikilink::format_wikilink;
 use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use chrono::{Local, NaiveDate};
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -26,9 +25,9 @@ yaml_frontmatter_struct! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub do_not_back_populate: Option<Vec<String>>,
         #[serde(skip)]
-        pub(crate) needs_persist: bool,
+        pub needs_persist: bool,
         #[serde(skip)]
-        pub(crate) needs_filesystem_update: Option<String>,
+        pub needs_filesystem_update: Option<String>,
     }
 }
 
@@ -77,49 +76,23 @@ impl FrontMatter {
         self.needs_filesystem_update = value;
     }
 
-    // New method for processing dates after deserialization
-    pub fn process_dates(&mut self) {
-        self.process_date_modified();
-        // Later we'll add process_date_created here too
-    }
+    pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
+        // first get do_not_back_populate explicit value
+        let mut do_not_populate = self.do_not_back_populate.clone().unwrap_or_default();
 
-    fn process_date_modified(&mut self) {
-        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        // if there are aliases, add them to that as we don't need text on the page to link to this same page
+        if let Some(aliases) = self.aliases() {
+            do_not_populate.extend(aliases.iter().cloned());
+        }
 
-        match self.date_modified() {
-            Some(date_modified) => {
-                if !is_wikilink(Some(date_modified)) && is_valid_date(extract_date(date_modified)) {
-                    let fix = format!("[[{}]]", date_modified.trim());
-                    self.update_date_modified(Some(fix));
-                    self.set_needs_persist(true);
-                }
-            }
-            None => {
-                self.update_date_modified(Some(today));
-                self.set_needs_persist(true);
-            }
+        // if we have values then return them along with their regexes
+        if !do_not_populate.is_empty() {
+            build_case_insensitive_word_finder(&Some(do_not_populate))
+        } else {
+            // we got nothing from valid frontmatter
+            None
         }
     }
-}
-
-// todo - make this private
-// Extracts the date string from a possible wikilink format
-pub fn extract_date(date_str: &str) -> &str {
-    let date_str = date_str.trim();
-    if is_wikilink(Some(date_str)) {
-        date_str
-            .trim_start_matches(OPENING_WIKILINK)
-            .trim_end_matches(CLOSING_WIKILINK)
-            .trim()
-    } else {
-        date_str
-    }
-}
-
-// todo: make this private again
-// Validates if a string is a valid YYYY-MM-DD date
-pub fn is_valid_date(date_str: &str) -> bool {
-    NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d").is_ok()
 }
 
 pub fn report_frontmatter_issues(
