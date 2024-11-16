@@ -1,6 +1,6 @@
 use crate::validated_config::ValidatedConfig;
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
-use chrono::{DateTime, Local, NaiveDateTime};
+use chrono::{Local, NaiveDateTime};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 use std::error::Error;
@@ -123,14 +123,6 @@ pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> i
         .status()?;
 
     Ok(())
-}
-
-pub fn get_file_creation_time(
-    path: &Path,
-) -> Result<DateTime<Local>, Box<dyn Error + Send + Sync>> {
-    let metadata = fs::metadata(path)?;
-    let created = metadata.created()?;
-    Ok(DateTime::from(created))
 }
 
 // using rayon (.into_par_iter()) and not using walkdir

@@ -53,7 +53,6 @@ struct DateValidationResults {
     invalid_entries: Vec<(PathBuf, DateValidationError)>,
     date_created_entries: Vec<(PathBuf, DateInfo, SetFileCreationDateWith)>,
     date_modified_entries: Vec<(PathBuf, String, String)>,
-    property_errors: Vec<(PathBuf, String)>,
 }
 
 impl DateValidationResults {
@@ -62,13 +61,11 @@ impl DateValidationResults {
             invalid_entries: Vec::new(),
             date_created_entries: Vec::new(),
             date_modified_entries: Vec::new(),
-            property_errors: Vec::new(),
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.property_errors.is_empty()
-            && self.invalid_entries.is_empty()
+        self.invalid_entries.is_empty()
             && self.date_created_entries.is_empty()
             && self.date_modified_entries.is_empty()
     }
@@ -80,10 +77,6 @@ impl DateValidationResults {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if self.is_empty() {
             return Ok(());
-        }
-
-        if !self.property_errors.is_empty() {
-            write_property_errors_table(&self.property_errors, writer)?;
         }
 
         if !self.invalid_entries.is_empty() {
@@ -236,7 +229,6 @@ fn collect_date_entries(
     results.invalid_entries.sort_by_filename();
     results.date_created_entries.sort_by_filename();
     results.date_modified_entries.sort_by_filename();
-    results.property_errors.sort_by_filename();
 
     Ok(results)
 }
@@ -249,7 +241,6 @@ fn process_file(
     // Early return if no frontmatter
     if file_info.frontmatter.is_none() {
         // we output frontmatter issues elsewhere
-        // todo - just create the dates here so that we now have a frontmatter
         return Ok(());
     }
 
@@ -359,13 +350,13 @@ fn process_valid_dates(
             calculate_file_creation_date_approach(fm.date_created(), fm.date_created_fix());
 
         let date_info = DateInfo {
-            created_timestamp: file_info.created_time,
+            created_timestamp: file_info.file_created_time,
             date_created: fm.date_created().cloned(),
             date_created_fix: fm.date_created_fix().cloned(),
             updated_property: determine_updated_property(
                 fm.date_created(),
                 fm.date_created_fix(),
-                file_info.created_time,
+                file_info.file_created_time,
             ),
         };
 
@@ -388,7 +379,7 @@ fn process_valid_dates(
             if file_creation_date_approach != SetFileCreationDateWith::NoChange {
                 Some(
                     file_creation_date_approach
-                        .to_string(file_info.created_time, fm.date_created_fix()),
+                        .to_string(file_info.file_created_time, fm.date_created_fix()),
                 )
             } else {
                 None
@@ -715,48 +706,6 @@ fn write_date_modified_table(
     }
 
     writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
-
-    Ok(())
-}
-
-fn format_error_for_table(error: &str) -> String {
-    // Replace newlines and pipes with spaces to keep content in one cell
-    let error = error.replace('\n', " ").replace('|', "\\|");
-
-    // If the error contains YAML content, format it more cleanly
-    if error.contains("Content:") {
-        let parts: Vec<&str> = error.split("Content:").collect();
-        let message = parts[0].trim();
-        let content = parts.get(1).map(|c| c.trim()).unwrap_or("");
-
-        // Format YAML content as inline
-        let formatted_content = content.split_whitespace().collect::<Vec<_>>().join(" ");
-
-        format!("{} — YAML: {}", message, formatted_content)
-    } else {
-        error.to_string()
-    }
-}
-
-// Update the property errors table writing function
-fn write_property_errors_table(
-    entries: &[(PathBuf, String)],
-    writer: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL2, "yaml frontmatter property errors")?;
-    writer.writeln_pluralized(entries.len(), Phrase::PropertyErrors)?;
-
-    let headers = &["file", "error"];
-    let rows: Vec<Vec<String>> = entries
-        .iter()
-        .map(|(path, error)| vec![format_wikilink(path), format_error_for_table(error)])
-        .collect();
-
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[ColumnAlignment::Left, ColumnAlignment::Left]),
-    )?;
 
     Ok(())
 }

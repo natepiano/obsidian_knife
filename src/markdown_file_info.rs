@@ -1,4 +1,4 @@
-use crate::file_utils::{get_file_creation_time, read_contents_from_file};
+use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
 use crate::regex_utils::build_case_insensitive_word_finder;
 use crate::wikilink_types::InvalidWikilink;
@@ -6,13 +6,15 @@ use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
 use chrono::{DateTime, Local};
 use regex::Regex;
 use std::error::Error;
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
-    pub created_time: DateTime<Local>,
     pub content: String,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
+    pub file_created_time: DateTime<Local>,
+    pub file_modified_time: DateTime<Local>,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub image_links: Vec<String>,
@@ -23,19 +25,36 @@ pub struct MarkdownFileInfo {
 impl MarkdownFileInfo {
     pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let content = read_contents_from_file(&path)?;
-        let created_time = get_file_creation_time(&path)?;
 
-        let (frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
+        let metadata = fs::metadata(&path)?;
+        let file_created_time = metadata
+            .created()
+            .map(|t| t.into())
+            .unwrap_or_else(|_| Local::now());
+
+        let file_modified_time = metadata
+            .modified()
+            .map(|t| t.into())
+            .unwrap_or_else(|_| Local::now());
+
+        let (mut frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
             Ok(fm) => (Some(fm), None),
             Err(error) => (None, Some(error)),
         };
 
+        // Then process dates if deserialization was successful
+        // todo - this is the begining of the migration away from cleanup_dates
+        if let Some(fm) = &mut frontmatter {
+            fm.process_dates();
+        }
+
         let do_not_back_populate_regexes = Self::get_do_not_back_populate_regexes(&frontmatter);
 
         Ok(MarkdownFileInfo {
-            created_time,
             content,
             do_not_back_populate_regexes,
+            file_created_time,
+            file_modified_time,
             frontmatter,
             frontmatter_error,
             invalid_wikilinks: Vec::new(),

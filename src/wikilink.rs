@@ -9,7 +9,7 @@ use std::iter::Peekable;
 use std::path::Path;
 use std::str::CharIndices;
 
-pub fn is_wikilink(potential_wikilink: Option<&String>) -> bool {
+pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
         test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
     } else {
