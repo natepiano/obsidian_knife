@@ -59,10 +59,12 @@ impl GroupedImages {
 
 pub fn cleanup_images(
     config: &ValidatedConfig,
-    obsidian_repository_info: &ObsidianRepositoryInfo,
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
+
+    let mut modified_paths = HashSet::new();  // Add HashSet to track modified files
 
     let grouped_images = group_images(&obsidian_repository_info.image_map);
     let missing_references = generate_missing_references(obsidian_repository_info)?;
@@ -96,7 +98,14 @@ pub fn cleanup_images(
         zero_byte_images,
         unreferenced_images,
         &duplicate_groups,
+        &mut modified_paths,  // Pass modified_paths to write_tables
+
     )?;
+
+    if !modified_paths.is_empty() {
+        let paths: Vec<PathBuf> = modified_paths.into_iter().collect();
+        obsidian_repository_info.update_modified_dates(&paths);
+    }
 
     Ok(())
 }
@@ -109,11 +118,12 @@ fn write_tables(
     zero_byte_images: &[ImageGroup],
     unreferenced_images: &[ImageGroup],
     duplicate_groups: &[(&String, &Vec<ImageGroup>)],
+    modified_paths: &mut HashSet<PathBuf>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    write_missing_references_table(config, missing_references, writer)?;
+    write_missing_references_table(config, missing_references, writer, modified_paths)?;
 
     if !tiff_images.is_empty() {
-        write_special_group_table(config, writer, TIFF_IMAGES, tiff_images, Phrase::TiffImages)?;
+        write_special_group_table(config, writer, TIFF_IMAGES, tiff_images, Phrase::TiffImages, modified_paths)?;
     }
 
     if !zero_byte_images.is_empty() {
@@ -123,6 +133,7 @@ fn write_tables(
             ZERO_BYTE_IMAGES,
             zero_byte_images,
             Phrase::ZeroByteImages,
+            modified_paths,
         )?;
     }
 
@@ -133,11 +144,12 @@ fn write_tables(
             UNREFERENCED_IMAGES,
             unreferenced_images,
             Phrase::UnreferencedImages,
+            modified_paths,
         )?;
     }
 
     for (hash, group) in duplicate_groups {
-        write_duplicate_group_table(config, writer, hash, group)?;
+        write_duplicate_group_table(config, writer, hash, group, modified_paths)?;
     }
 
     Ok(())
@@ -209,6 +221,7 @@ fn write_missing_references_table(
     config: &ValidatedConfig,
     missing_references: &[(&PathBuf, String)],
     writer: &ThreadSafeWriter,
+    modified_paths: &mut HashSet<PathBuf>,  // Add modified_paths parameter
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if missing_references.is_empty() {
         return Ok(());
@@ -243,7 +256,7 @@ fn write_missing_references_table(
                 .map(|group| group.path.to_string_lossy().to_string())
                 .collect::<Vec<_>>()
                 .join(", ");
-            let actions = format_references(config, image_groups, None);
+            let actions = format_references(config, image_groups, None, modified_paths);
             vec![markdown_link, image_links, actions]
         })
         .collect();
@@ -300,13 +313,14 @@ fn write_special_group_table(
     group_type: &str,
     groups: &[ImageGroup],
     phrase: Phrase,
+    modified_paths: &mut HashSet<PathBuf>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, group_type)?;
 
     let description = format!("{} {}", groups.len(), pluralize(groups.len(), phrase));
     writer.writeln("", &format!("{}\n", description))?;
 
-    write_group_table(config, writer, groups, false, true)?;
+    write_group_table(config, writer, groups, false, true, modified_paths)?;
     Ok(())
 }
 
@@ -315,6 +329,7 @@ fn write_duplicate_group_table(
     writer: &ThreadSafeWriter,
     group_hash: &str,
     groups: &[ImageGroup],
+    modified_paths: &mut HashSet<PathBuf>,  // Add modified_paths parameter
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, "duplicate images with references")?;
     writer.writeln(LEVEL3, &format!("image file hash: {}", group_hash))?;
@@ -326,7 +341,7 @@ fn write_duplicate_group_table(
         &format!("referenced by {} {}\n", total_references, references_string),
     )?;
 
-    write_group_table(config, writer, groups, true, false)?;
+    write_group_table(config, writer, groups, true, false, modified_paths)?;
     Ok(())
 }
 
@@ -336,6 +351,7 @@ fn write_group_table(
     groups: &[ImageGroup],
     is_ref_group: bool,
     is_special_group: bool,
+    modified_paths: &mut HashSet<PathBuf>,  // Add modified_paths parameter
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates", "Referenced By"];
     let keeper_path = if is_ref_group {
@@ -350,7 +366,7 @@ fn write_group_table(
     );
 
     let duplicates = format_duplicates(config, groups, keeper_path, is_special_group);
-    let references = format_references(config, groups, keeper_path);
+    let references = format_references(config, groups, keeper_path, modified_paths);
 
     let rows = vec![vec![sample, duplicates, references]];
 
@@ -416,6 +432,7 @@ fn format_references(
     config: &ValidatedConfig,
     groups: &[ImageGroup],
     keeper_path: Option<&PathBuf>,
+    modified_paths: &mut HashSet<PathBuf>,  // Add modified_paths parameter
 ) -> String {
     groups
         .iter()
@@ -432,6 +449,9 @@ fn format_references(
                         format_wikilink(Path::new(ref_path), config.obsidian_path(), false)
                     );
                     if config.apply_changes() {
+                        // Add the modified path to our set when we make changes
+                        modified_paths.insert(PathBuf::from(ref_path));
+
                         if let Some(keeper) = keeper_path {
                             if &group.path != keeper {
                                 link.push_str(" - updated");

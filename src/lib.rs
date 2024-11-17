@@ -46,7 +46,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
 
     frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
-    cleanup_images::cleanup_images(&validated_config, &obsidian_repository_info, &writer)?;
+    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
     // cleanup_dates::process_dates(
     //     &validated_config,
     //     &mut obsidian_repository_info.markdown_files,
