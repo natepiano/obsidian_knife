@@ -1,6 +1,7 @@
 use crate::constants::*;
 use crate::file_utils::update_file;
-use crate::scan::{ImageInfo, ObsidianRepositoryInfo};
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::scan::ImageInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use regex::Regex;

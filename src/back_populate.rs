@@ -1,8 +1,8 @@
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::regex_utils::MARKDOWN_REGEX;
-use crate::scan::ObsidianRepositoryInfo;
 use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
 use crate::timer::Timer;
 use crate::validated_config::ValidatedConfig;
@@ -78,7 +78,7 @@ impl FileProcessingState {
 
 pub fn process_back_populate(
     config: &ValidatedConfig,
-    obsidian_repository_info: &ObsidianRepositoryInfo,
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
@@ -113,16 +113,33 @@ pub fn process_back_populate(
 
     // Only process unambiguous matches
     if !unambiguous_matches.is_empty() {
+
         write_back_populate_table(
             writer,
             &unambiguous_matches,
             true,
             obsidian_repository_info.wikilinks_sorted.len(),
         )?;
+
+        update_date_modified(obsidian_repository_info, &unambiguous_matches);
+
         apply_back_populate_changes(config, &unambiguous_matches)?;
     }
 
     Ok(())
+}
+
+fn update_date_modified(obsidian_repository_info: &mut ObsidianRepositoryInfo, unambiguous_matches: &Vec<BackPopulateMatch>) {
+    // Collect distinct paths from unambiguous matches
+    let distinct_paths: Vec<PathBuf> = unambiguous_matches
+        .iter()
+        .map(|m| m.full_path.clone())
+        .collect::<HashSet<_>>()
+        .into_iter()
+        .collect();
+
+    // Update modified dates for all files that would be changed
+    obsidian_repository_info.update_modified_dates(&distinct_paths);
 }
 
 fn find_all_back_populate_matches(
@@ -631,8 +648,8 @@ fn write_invalid_wikilinks_table(
     let invalid_wikilinks = obsidian_repository_info
         .markdown_files
         .iter()
-        .flat_map(|file_info| {
-            file_info
+        .flat_map(|markdown_file_info| {
+            markdown_file_info
                 .invalid_wikilinks
                 .iter()
                 .filter(|wikilink| {
@@ -641,7 +658,7 @@ fn write_invalid_wikilinks_table(
                         InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag
                     )
                 })
-                .map(move |wikilink| (&file_info.path, wikilink))
+                .map(move |wikilink| (&markdown_file_info.path, wikilink))
         })
         .collect::<Vec<_>>()
         .into_iter()

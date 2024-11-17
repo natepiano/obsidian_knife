@@ -1,5 +1,5 @@
 mod back_populate;
-mod cleanup_dates;
+// mod cleanup_dates;
 mod cleanup_images;
 mod config;
 mod constants;
@@ -7,6 +7,7 @@ mod deterministic_file_search;
 mod file_utils;
 mod frontmatter;
 mod markdown_file_info;
+mod obsidian_repository_info;
 mod regex_utils;
 mod scan;
 mod sha256_cache;
@@ -21,6 +22,7 @@ mod yaml_frontmatter;
 pub use constants::*;
 pub use timer::*;
 
+use crate::markdown_file_info::write_date_validation_table;
 use crate::{
     config::Config, thread_safe_writer::ThreadSafeWriter, validated_config::ValidatedConfig,
 };
@@ -45,12 +47,15 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
     cleanup_images::cleanup_images(&validated_config, &obsidian_repository_info, &writer)?;
-    cleanup_dates::process_dates(
-        &validated_config,
-        &mut obsidian_repository_info.markdown_files,
-        &writer,
-    )?;
-    back_populate::process_back_populate(&validated_config, &obsidian_repository_info, &writer)?;
+    // cleanup_dates::process_dates(
+    //     &validated_config,
+    //     &mut obsidian_repository_info.markdown_files,
+    //     &writer,
+    // )?;
+
+    back_populate::process_back_populate(&validated_config, &mut obsidian_repository_info, &writer)?;
+
+    write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
 
     config.reset_apply_changes()?;
 

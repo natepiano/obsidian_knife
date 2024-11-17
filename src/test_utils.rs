@@ -1,7 +1,9 @@
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use chrono::{Local, TimeZone};
+use tempfile::TempDir;
 
 /// Creates test files in the specified directory from a slice of (filename, content) tuples.
 ///
@@ -113,4 +115,32 @@ where
             test_name, expected, actual
         );
     }
+}
+
+pub fn create_test_date_create_fix_markdown_file(
+    temp_dir: &TempDir,
+    date_created_fix: Option<&str>,
+    filename: &str,  // Add filename parameter
+) -> PathBuf {
+    let file_path = temp_dir.path().join(filename);
+    let mut file = File::create(&file_path).unwrap();
+
+    // Write frontmatter with valid dates
+    writeln!(file, "---").unwrap();
+    writeln!(file, "date_created: \"[[2024-01-15]]\"").unwrap();
+    writeln!(file, "date_modified: \"[[2024-01-15]]\"").unwrap();
+    if let Some(date) = date_created_fix {
+        writeln!(file, "date_created_fix: \"{}\"", date).unwrap();
+    }
+    writeln!(file, "title: test").unwrap();
+    writeln!(file, "---").unwrap();
+    writeln!(file, "Test content").unwrap();
+
+    // Set file timestamps to match frontmatter dates
+    let test_time = filetime::FileTime::from_system_time(
+        Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap().into(),
+    );
+    filetime::set_file_times(&file_path, test_time, test_time).unwrap();
+
+    file_path
 }

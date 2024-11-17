@@ -1,10 +1,9 @@
 use crate::{
     constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
-    sha256_cache::Sha256Cache, validated_config::ValidatedConfig, wikilink::collect_file_wikilinks,
-    wikilink_types::Wikilink,
+    obsidian_repository_info::ObsidianRepositoryInfo, sha256_cache::Sha256Cache, timer::Timer,
+    validated_config::ValidatedConfig, wikilink::collect_file_wikilinks, wikilink_types::Wikilink,
 };
 
-use crate::timer::Timer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
 use regex::Regex;
@@ -18,15 +17,6 @@ use std::sync::{Arc, Mutex};
 pub struct ImageInfo {
     pub hash: String,
     pub(crate) references: Vec<String>,
-}
-
-#[derive(Default)]
-pub struct ObsidianRepositoryInfo {
-    pub markdown_files: Vec<MarkdownFileInfo>,
-    pub image_map: HashMap<PathBuf, ImageInfo>,
-    pub other_files: Vec<PathBuf>,
-    pub wikilinks_ac: Option<AhoCorasick>,
-    pub wikilinks_sorted: Vec<Wikilink>,
 }
 
 pub fn scan_obsidian_folder(

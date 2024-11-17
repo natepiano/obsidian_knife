@@ -5,10 +5,10 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::regex_utils::build_case_insensitive_word_finder;
 use crate::wikilink::format_wikilink;
 use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
+use chrono::{DateTime, Datelike, Local};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use chrono::{DateTime, Datelike, Local};
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -27,8 +27,6 @@ yaml_frontmatter_struct! {
         pub do_not_back_populate: Option<Vec<String>>,
         #[serde(skip)]
         pub needs_persist: bool,
-        #[serde(skip)]
-        pub needs_create_date_fix:bool,
     }
 }
 
@@ -63,31 +61,27 @@ impl FrontMatter {
     }
 
     pub fn set_date_created(&mut self, date: DateTime<Local>) {
-        self.date_created = Some(format!("[[{}-{:02}-{:02}]]",
-                                         date.year(),
-                                         date.month(),
-                                         date.day()));
+        self.date_created = Some(format!(
+            "[[{}-{:02}-{:02}]]",
+            date.year(),
+            date.month(),
+            date.day()
+        ));
         self.needs_persist = true;
     }
 
     pub fn set_date_modified(&mut self, date: DateTime<Local>) {
-        self.date_modified = Some(format!("[[{}-{:02}-{:02}]]",
-                                          date.year(),
-                                          date.month(),
-                                          date.day()));
+        self.date_modified = Some(format!(
+            "[[{}-{:02}-{:02}]]",
+            date.year(),
+            date.month(),
+            date.day()
+        ));
         self.needs_persist = true;
     }
 
     pub(crate) fn needs_persist(&self) -> bool {
         self.needs_persist
-    }
-
-    pub(crate) fn needs_create_date_fix(&self) -> bool {
-        self.needs_create_date_fix
-    }
-
-    pub fn set_needs_create_date_fix(&mut self) {
-        self.needs_create_date_fix = true;
     }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {

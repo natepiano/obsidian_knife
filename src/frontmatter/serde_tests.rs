@@ -147,7 +147,6 @@ fn test_preserve_complex_frontmatter_values() {
         date_created_fix: None,
         do_not_back_populate: None,
         needs_persist: false,
-        needs_create_date_fix: false,
         other_fields: {
             let mut map = HashMap::new();
             map.insert(

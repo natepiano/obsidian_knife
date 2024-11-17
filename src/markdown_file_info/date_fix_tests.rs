@@ -1,10 +1,10 @@
-use std::{fs::File, io::Write};
-use chrono::TimeZone;
-use tempfile::TempDir;
 use super::*;
 use crate::frontmatter::FrontMatter;
-use crate::test_utils::assert_test_case;
+use crate::test_utils::{assert_test_case, create_test_date_create_fix_markdown_file};
 use crate::yaml_frontmatter::YamlFrontMatter;
+use chrono::TimeZone;
+use std::{fs::File, io::Write};
+use tempfile::TempDir;
 
 fn create_frontmatter(
     date_modified: &Option<String>,
@@ -138,72 +138,6 @@ fn test_process_frontmatter_date_validation() {
     }
 }
 
-
-// Test case specifically for report string formatting
-struct ReportStringTestCase {
-    name: &'static str,
-    frontmatter_date: Option<String>,
-    file_system_date: DateTime<Local>,
-    expected_status: DateValidationStatus,
-    expected_report: &'static str,
-}
-
-#[test]
-fn test_date_validation_report_strings() {
-    let test_cases = vec![
-        ReportStringTestCase {
-            name: "missing date",
-            frontmatter_date: None,
-            file_system_date: Local::now(),
-            expected_status: DateValidationStatus::Missing,
-            expected_report: "missing",
-        },
-        ReportStringTestCase {
-            name: "invalid format",
-            frontmatter_date: Some("[[2024-13-45]]".to_string()),
-            file_system_date: Local::now(),
-            expected_status: DateValidationStatus::InvalidFormat,
-            expected_report: "invalid date format: '[[2024-13-45]]'",
-        },
-        ReportStringTestCase {
-            name: "missing wikilink",
-            frontmatter_date: Some("2024-01-15".to_string()),
-            file_system_date: Local::now(),
-            expected_status: DateValidationStatus::InvalidWikilink,
-            expected_report: "missing wikilink: '2024-01-15'",
-        },
-        ReportStringTestCase {
-            name: "filesystem mismatch",
-            frontmatter_date: Some("[[2024-01-15]]".to_string()),
-            file_system_date: Local.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            expected_status: DateValidationStatus::FileSystemMismatch,
-            expected_report: "modified date mismatch: frontmatter='[[2024-01-15]]', filesystem='2024-01-16'",
-        },
-        ReportStringTestCase {
-            name: "valid date",
-            frontmatter_date: Some("[[2024-01-15]]".to_string()),
-            file_system_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_status: DateValidationStatus::Valid,
-            expected_report: "valid",
-        },
-    ];
-
-    for case in test_cases {
-        let validation = DateValidation {
-            frontmatter_date: case.frontmatter_date,
-            file_system_date: case.file_system_date,
-            status: case.expected_status,
-        };
-
-        assert_test_case(
-            validation.to_report_string(),
-            case.expected_report.to_string(),
-            case.name,
-            |actual, expected| assert_eq!(actual, expected),
-        );
-    }
-}
-
 struct DateFixTestCase {
     name: &'static str,
     // Initial state
@@ -214,8 +148,8 @@ struct DateFixTestCase {
 
     // Expected outcomes
     should_persist: bool,
-    expected_modified_date: Option<String>,  // The expected frontmatter date after processing
-    expected_created_date: Option<String>,   // The expected frontmatter date after processing
+    expected_modified_date: Option<String>, // The expected frontmatter date after processing
+    expected_created_date: Option<String>,  // The expected frontmatter date after processing
 }
 
 #[test]
@@ -232,7 +166,17 @@ fn test_process_date_validations() {
             should_persist: true,
         },
         DateFixTestCase {
-            name: "filesystem mismatch should update modified date only",
+            name: "filesystem mismatch should update created date",
+            date_modified: Some("[[2024-01-15]]".to_string()),
+            date_created: Some("[[2024-01-14]]".to_string()),
+            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            expected_modified_date: Some("[[2024-01-15]]".to_string()),
+            expected_created_date: Some("[[2024-01-15]]".to_string()),
+            should_persist: true,
+        },
+        DateFixTestCase {
+            name: "filesystem mismatch should update modified date",
             date_modified: Some("[[2024-01-14]]".to_string()),
             date_created: Some("[[2024-01-15]]".to_string()),
             file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
@@ -252,24 +196,34 @@ fn test_process_date_validations() {
             should_persist: false,
         },
         DateFixTestCase {
-            name: "invalid format should not change",
+            name: "filesystem mismatch should update both dates when both differ",
+            date_modified: Some("[[2024-01-14]]".to_string()),
+            date_created: Some("[[2024-01-13]]".to_string()),
+            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            expected_modified_date: Some("[[2024-01-15]]".to_string()),
+            expected_created_date: Some("[[2024-01-15]]".to_string()),
+            should_persist: true,
+        },
+        DateFixTestCase {
+            name: "invalid format should change", // changed from "invalid format should not change"
             date_modified: Some("[[2024-13-45]]".to_string()),
             date_created: Some("[[2024-13-45]]".to_string()),
             file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_modified_date: Some("[[2024-13-45]]".to_string()),
-            expected_created_date: Some("[[2024-13-45]]".to_string()),
-            should_persist: false,
+            expected_modified_date: Some("[[2024-01-15]]".to_string()), // changed
+            expected_created_date: Some("[[2024-01-15]]".to_string()),  // changed
+            should_persist: true,                                       // changed from false
         },
         DateFixTestCase {
-            name: "invalid wikilink should not change",
+            name: "invalid wikilink should change", // changed from "invalid wikilink should not change"
             date_modified: Some("2024-01-15".to_string()),
             date_created: Some("2024-01-15".to_string()),
             file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_modified_date: Some("2024-01-15".to_string()),
-            expected_created_date: Some("2024-01-15".to_string()),
-            should_persist: false,
+            expected_modified_date: Some("[[2024-01-15]]".to_string()), // changed
+            expected_created_date: Some("[[2024-01-15]]".to_string()),  // changed
+            should_persist: true,                                       // changed from false
         },
     ];
 
@@ -281,13 +235,19 @@ fn test_process_date_validations() {
         let created_validation = DateValidation {
             frontmatter_date: case.date_created.clone(), // Add clone here
             file_system_date: case.file_system_create_date,
-            status: get_date_validation_status(case.date_created.as_ref(), &case.file_system_create_date),
+            status: get_date_validation_status(
+                case.date_created.as_ref(),
+                &case.file_system_create_date,
+            ),
         };
 
         let modified_validation = DateValidation {
             frontmatter_date: case.date_modified.clone(), // Add clone here
             file_system_date: case.file_system_mod_date,
-            status: get_date_validation_status(case.date_modified.as_ref(), &case.file_system_mod_date),
+            status: get_date_validation_status(
+                case.date_modified.as_ref(),
+                &case.file_system_mod_date,
+            ),
         };
 
         // Process validations
@@ -295,21 +255,28 @@ fn test_process_date_validations() {
 
         // Verify frontmatter dates
         assert_test_case(
-            frontmatter.as_ref().and_then(|fm| fm.date_modified().cloned()),
+            frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_modified().cloned()),
             case.expected_modified_date,
             &format!("{} - modified date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         assert_test_case(
-            frontmatter.as_ref().and_then(|fm| fm.date_created().cloned()),
+            frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_created().cloned()),
             case.expected_created_date,
             &format!("{} - created date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         assert_test_case(
-            frontmatter.as_ref().map(|fm| fm.needs_persist()).unwrap_or(false),
+            frontmatter
+                .as_ref()
+                .map(|fm| fm.needs_persist())
+                .unwrap_or(false),
             case.should_persist,
             &format!("{} - needs persist flag", case.name),
             |actual, expected| assert_eq!(actual, expected),
@@ -320,24 +287,8 @@ fn test_process_date_validations() {
 struct DateCreatedFixTestCase {
     name: &'static str,
     date_created_fix: Option<String>,
-    expected_needs_fix: bool,
+    expect_persist: bool,
     expected_parsed_date: Option<DateTime<Local>>,
-}
-
-fn create_test_file(temp_dir: &TempDir, date_created_fix: Option<&str>) -> PathBuf {
-    let file_path = temp_dir.path().join("test.md");
-    let mut file = File::create(&file_path).unwrap();
-
-    // Write frontmatter
-    writeln!(file, "---").unwrap();
-    if let Some(date) = date_created_fix {
-        writeln!(file, "date_created_fix: \"{}\"", date).unwrap();
-    }
-    writeln!(file, "title: test").unwrap();
-    writeln!(file, "---").unwrap();
-    writeln!(file, "Test content").unwrap();
-
-    file_path
 }
 
 #[test]
@@ -346,48 +297,45 @@ fn test_date_created_fix_integration() {
         DateCreatedFixTestCase {
             name: "missing date_created_fix",
             date_created_fix: None,
-            expected_needs_fix: false,
+            expect_persist: false,
             expected_parsed_date: None,
         },
         DateCreatedFixTestCase {
             name: "valid date without wikilink",
             date_created_fix: Some("2024-01-15".to_string()),
-            expected_needs_fix: true,
-            expected_parsed_date: Some(
-                Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()
-            ),
+            expect_persist: true,
+            expected_parsed_date: Some(Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
         },
         DateCreatedFixTestCase {
             name: "valid date with wikilink",
             date_created_fix: Some("[[2024-01-15]]".to_string()),
-            expected_needs_fix: true,
-            expected_parsed_date: Some(
-                Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()
-            ),
+            expect_persist: true,
+            expected_parsed_date: Some(Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
         },
         DateCreatedFixTestCase {
             name: "invalid date format",
             date_created_fix: Some("2024-13-45".to_string()),
-            expected_needs_fix: false,
+            expect_persist: false,
             expected_parsed_date: None,
         },
         DateCreatedFixTestCase {
             name: "invalid date with wikilink",
             date_created_fix: Some("[[2024-13-45]]".to_string()),
-            expected_needs_fix: false,
+            expect_persist: false,
             expected_parsed_date: None,
         },
         DateCreatedFixTestCase {
             name: "malformed wikilink",
             date_created_fix: Some("[2024-01-15]".to_string()),
-            expected_needs_fix: false,
+            expect_persist: false,
             expected_parsed_date: None,
         },
     ];
 
     for case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let file_path = create_test_file(&temp_dir, case.date_created_fix.as_deref());
+        let file_path =
+            create_test_date_create_fix_markdown_file(&temp_dir, case.date_created_fix.as_deref(), "test1.md");
 
         // Create MarkdownFileInfo from the test file
         let markdown_info = MarkdownFileInfo::new(file_path).unwrap();
@@ -401,20 +349,20 @@ fn test_date_created_fix_integration() {
         );
 
         assert_test_case(
-            markdown_info.date_created_fix.parsed_date,
-            case.expected_parsed_date,
-            &format!("{} - parsed date", case.name),
+            markdown_info.frontmatter.unwrap().needs_persist(),
+            case.expect_persist,
+            &format!("{} - expect persist", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
-        // Verify the frontmatter needs_create_date_fix state
-        if let Some(frontmatter) = markdown_info.frontmatter {
-            assert_test_case(
-                frontmatter.needs_create_date_fix(),
-                case.expected_needs_fix,
-                &format!("{} - needs create date fix", case.name),
-                |actual, expected| assert_eq!(actual, expected),
-            );
-        }
+        assert_test_case(
+            markdown_info
+                .date_created_fix
+                .fix_date
+                .map(|dt| dt.date_naive()),
+            case.expected_parsed_date.map(|dt| dt.date_naive()),
+            &format!("{} - parsed date", case.name),
+            |actual, expected| assert_eq!(actual, expected),
+        );
     }
 }
