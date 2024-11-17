@@ -53,7 +53,11 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     //     &writer,
     // )?;
 
-    back_populate::process_back_populate(&validated_config, &mut obsidian_repository_info, &writer)?;
+    back_populate::process_back_populate(
+        &validated_config,
+        &mut obsidian_repository_info,
+        &writer,
+    )?;
 
     write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
 

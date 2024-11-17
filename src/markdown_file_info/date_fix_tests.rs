@@ -1,6 +1,6 @@
 use super::*;
 use crate::frontmatter::FrontMatter;
-use crate::test_utils::{assert_test_case, create_test_date_create_fix_markdown_file};
+use crate::test_utils::{assert_test_case, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use chrono::TimeZone;
 use std::{fs::File, io::Write};
@@ -334,8 +334,15 @@ fn test_date_created_fix_integration() {
 
     for case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let file_path =
-            create_test_date_create_fix_markdown_file(&temp_dir, case.date_created_fix.as_deref(), "test1.md");
+        let test_date = Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+        let file_path = TestFileBuilder::new()
+            .with_frontmatter_dates(
+                Some("[[2024-01-15]]".to_string()),
+                Some("[[2024-01-15]]".to_string()),
+            )
+            .with_fs_dates(test_date, test_date)
+            .with_date_created_fix(case.date_created_fix.clone())
+            .create(&temp_dir, "test1.md");
 
         // Create MarkdownFileInfo from the test file
         let markdown_info = MarkdownFileInfo::new(file_path).unwrap();
