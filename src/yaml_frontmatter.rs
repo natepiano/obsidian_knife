@@ -194,7 +194,7 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
     }
 }
 
-fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
+pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
     if !content.starts_with("---\n") {
         return Err(YamlFrontMatterError::Missing); // No YAML section found
     }

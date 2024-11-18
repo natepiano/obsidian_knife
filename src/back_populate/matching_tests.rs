@@ -19,7 +19,7 @@ fn test_find_matches_with_existing_wikilinks() {
     assert_eq!(matches.len(), 4, "Mismatch in number of matches");
 
     // Verify that the matches are at the expected positions
-    let expected_lines = vec![4, 5, 5, 8];
+    let expected_lines = vec![1, 2, 2, 5];
     let actual_lines: Vec<usize> = matches.iter().map(|m| m.line_number).collect();
     assert_eq!(
         actual_lines, expected_lines,

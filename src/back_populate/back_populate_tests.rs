@@ -51,7 +51,6 @@ pub(crate) fn create_test_environment(
                 .unwrap_or("Initial test content")
                 .to_string(),
         )
-        .with_title("test".to_string())
         .create(&temp_dir, "test.md");
 
     let markdown_info = MarkdownFileInfo::new(file_path).unwrap();

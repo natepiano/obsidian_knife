@@ -7,7 +7,7 @@ use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
 use crate::wikilink::is_wikilink;
 use crate::wikilink_types::InvalidWikilink;
-use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
+use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
 use crate::{CLOSING_WIKILINK, LEVEL1, OPENING_WIKILINK};
 
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
@@ -150,11 +150,21 @@ pub struct MarkdownFileInfo {
 
 impl MarkdownFileInfo {
     pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let content = read_contents_from_file(&path)?;
+        let full_content = read_contents_from_file(&path)?;
 
-        let (mut frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
-            Ok(fm) => (Some(fm), None),
-            Err(error) => (None, Some(error)),
+        // let (mut frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
+        //     Ok(fm) => (Some(fm), None),
+        //     Err(error) => (None, Some(error)),
+        // };
+        let (mut frontmatter, content, frontmatter_error) = match find_yaml_section(&full_content) {
+            Ok(Some((yaml_section, after_yaml))) => {
+                match FrontMatter::from_yaml_str(yaml_section) {
+                    Ok(fm) => (Some(fm), after_yaml.to_string(), None),
+                    Err(e) => (None, after_yaml.to_string(), Some(e)),
+                }
+            }
+            Ok(None) => (None, full_content, Some(YamlFrontMatterError::Missing)),
+            Err(e) => (None, full_content, Some(e)),
         };
 
         let (date_validation_created, date_validation_modified) =
@@ -195,6 +205,19 @@ impl MarkdownFileInfo {
             image_links: Vec::new(),
             path,
         })
+    }
+
+    // Add a method to reconstruct the full markdown content
+    pub fn to_full_content(&self) -> String {
+        if let Some(ref fm) = self.frontmatter {
+            if let Ok(yaml) = fm.to_yaml_str() {
+                format!("---\n{}\n---\n{}", yaml.trim(), self.content.trim())
+            } else {
+                self.content.clone()
+            }
+        } else {
+            self.content.clone()
+        }
     }
 
     // Helper method to add invalid wikilinks
