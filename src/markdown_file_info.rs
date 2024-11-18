@@ -220,6 +220,12 @@ impl MarkdownFileInfo {
         }
     }
 
+    // Remove needs_persist from frontmatter handling
+    pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        fs::write(&self.path, self.to_full_content())?;
+        Ok(())
+    }
+
     // Helper method to add invalid wikilinks
     pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
         self.invalid_wikilinks.extend(wikilinks);

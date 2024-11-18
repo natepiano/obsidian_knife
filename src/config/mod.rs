@@ -1,3 +1,6 @@
+#[cfg(test)]
+mod config_tests;
+
 mod config;
 mod validated_config;
 

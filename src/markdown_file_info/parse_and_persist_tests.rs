@@ -1,7 +1,5 @@
 use super::*;
-use crate::frontmatter::FrontMatter;
 use crate::test_utils::{parse_datetime, TestFileBuilder};
-use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
 use std::fs;
 use tempfile::TempDir;
@@ -14,17 +12,14 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
         .create(&temp_dir, "test.md");
 
     let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
-    file_info.frontmatter = Some(FrontMatter::from_markdown_str(&fs::read_to_string(
-        &file_path,
-    )?)?);
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
         let created_date = parse_datetime("2024-01-02 00:00:00");
         fm.set_date_created(created_date);
-        assert!(fm.needs_persist());
-        fm.persist(&file_path)?;
     }
+
+    file_info.persist()?;
 
     // Verify frontmatter was updated but content preserved
     let updated_content = fs::read_to_string(&file_path)?;
@@ -47,17 +42,14 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
         .create(&temp_dir, "test.md");
 
     let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
-    file_info.frontmatter = Some(FrontMatter::from_markdown_str(&fs::read_to_string(
-        &file_path,
-    )?)?);
 
     if let Some(fm) = &mut file_info.frontmatter {
         fm.set_date_created(parse_datetime("2024-01-02 00:00:00"));
-        fm.persist(&file_path)?;
     }
 
+    file_info.persist()?;
+
     let updated_content = fs::read_to_string(&file_path)?;
-    // Match exact YAML format serde_yaml produces
     assert!(updated_content.contains("tags:\n- tag1\n- tag2"));
     assert!(updated_content.contains("[[2024-01-02]]"));
 
@@ -65,7 +57,7 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
 }
 
 #[test]
-fn test_content_separation() {
+fn test_parse_content_separation() {
     let temp_dir = TempDir::new().unwrap();
 
     // Test 1: File with frontmatter and content

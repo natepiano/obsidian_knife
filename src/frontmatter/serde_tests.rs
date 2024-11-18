@@ -37,7 +37,7 @@ tags:
         .unwrap()
         .set_date_created(parse_datetime("2023-10-23"));
 
-    file_info.frontmatter.unwrap().persist(&file_path).unwrap();
+    file_info.persist().unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();
     let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
@@ -110,7 +110,7 @@ boolean_field: true"#
     fm.set_date_created(parse_datetime("2024-01-01"));
     fm.set_date_modified(parse_datetime("2024-01-02"));
 
-    file_info.frontmatter.unwrap().persist(&file_path).unwrap();
+    file_info.persist().unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();
     let updated_fm = FrontMatter::from_markdown_str(&updated_content).unwrap();
