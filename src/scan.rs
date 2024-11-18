@@ -3,10 +3,13 @@ mod scan_tests;
 
 use crate::{
     constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
-    obsidian_repository_info::ObsidianRepositoryInfo, sha256_cache::Sha256Cache, timer::Timer,
-    validated_config::ValidatedConfig, wikilink::collect_file_wikilinks, wikilink_types::Wikilink,
+    obsidian_repository_info::ObsidianRepositoryInfo, wikilink::collect_file_wikilinks,
+    wikilink_types::Wikilink,
 };
 
+use crate::config::ValidatedConfig;
+use crate::utils::Sha256Cache;
+use crate::utils::Timer;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
 use regex::Regex;

@@ -1,3 +1,6 @@
+#[cfg(test)]
+pub(crate) mod test_utils;
+
 mod back_populate;
 // mod cleanup_dates;
 mod cleanup_images;
@@ -8,30 +11,22 @@ mod file_utils;
 mod frontmatter;
 mod markdown_file_info;
 mod obsidian_repository_info;
-mod regex_utils;
 mod scan;
-mod sha256_cache;
-mod thread_safe_writer;
-mod timer;
-mod validated_config;
+mod utils;
 mod wikilink;
 mod wikilink_types;
 mod yaml_frontmatter;
 
 // Re-export types for main
 pub use constants::*;
-pub use timer::*;
+pub use utils::Timer;
 
 use crate::markdown_file_info::write_date_validation_table;
-use crate::{
-    config::Config, thread_safe_writer::ThreadSafeWriter, validated_config::ValidatedConfig,
-};
+use crate::{config::Config, config::ValidatedConfig};
 use chrono::Local;
 use std::error::Error;
 use std::path::PathBuf;
-
-#[cfg(test)]
-pub(crate) mod test_utils;
+use utils::ThreadSafeWriter;
 
 // lib was separated from main so it could be incorporated into integration tests
 // such as config_tests.rs - but that's not happening so...

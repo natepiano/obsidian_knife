@@ -1,6 +1,8 @@
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::test_utils::parse_datetime;
 use crate::yaml_frontmatter::YamlFrontMatter;
+use chrono::{DateTime, Local};
 use serde_yaml::{Mapping, Number, Value};
 use std::collections::HashMap;
 use std::fs;
@@ -33,7 +35,7 @@ tags:
         .frontmatter
         .as_mut()
         .unwrap()
-        .update_date_modified("[[2023-10-24]]".to_string());
+        .set_date_modified(parse_datetime("2023-10-24 00:00:00"));
 
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
@@ -110,7 +112,8 @@ boolean_field: true
         .frontmatter
         .as_mut()
         .unwrap()
-        .update_date_modified("[[2024-01-02]]".to_string());
+        .set_date_modified(parse_datetime("2024-01-02 00:00:00"));
+
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();
@@ -178,11 +181,12 @@ fn test_preserve_complex_frontmatter_values() {
     // Update the frontmatter
     let mut file_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
     file_info.frontmatter = Some(initial_frontmatter);
-    file_info
-        .frontmatter
-        .as_mut()
-        .unwrap()
-        .update_date_modified("[[2024-01-02]]".to_string());
+    file_info.frontmatter.as_mut().unwrap().set_date_modified(
+        DateTime::parse_from_str("2024-01-02 00:00:00 +0000", "%Y-%m-%d %H:%M:%S %z")
+            .unwrap()
+            .with_timezone(&Local),
+    );
+
     file_info.frontmatter.unwrap().persist(&file_path).unwrap();
 
     let updated_content = fs::read_to_string(&file_path).unwrap();

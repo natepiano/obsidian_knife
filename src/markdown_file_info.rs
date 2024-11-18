@@ -10,7 +10,7 @@ use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
 use crate::{CLOSING_WIKILINK, LEVEL1, OPENING_WIKILINK};
 
-use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
+use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
 use itertools::Itertools;
 use regex::Regex;

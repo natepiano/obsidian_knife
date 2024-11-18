@@ -2,9 +2,9 @@
 mod serde_tests;
 
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::regex_utils::build_case_insensitive_word_finder;
+use crate::utils::build_case_insensitive_word_finder;
 use crate::wikilink::format_wikilink;
-use crate::{constants::*, yaml_frontmatter_struct, ThreadSafeWriter};
+use crate::{constants::*, utils::ThreadSafeWriter, yaml_frontmatter_struct};
 use chrono::{DateTime, Datelike, Local};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
@@ -45,14 +45,6 @@ impl FrontMatter {
 
     pub fn date_created_fix(&self) -> Option<&String> {
         self.date_created_fix.as_ref()
-    }
-
-    pub fn update_date_created(&mut self, value: String) {
-        self.date_created = Some(value);
-    }
-
-    pub fn update_date_modified(&mut self, value: String) {
-        self.date_modified = Some(value);
     }
 
     pub fn remove_date_created_fix(&mut self) {

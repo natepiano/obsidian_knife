@@ -115,7 +115,10 @@ fn test_handle_file_operation_wikilink_error() {
 fn test_remove_reference_with_path() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
-        .with_content("# Test\n![[conf/media/test.jpg]]\nSome text\n![Image](conf/media/test.jpg)\nMore text".to_string())
+        .with_content(
+            "# Test\n![[conf/media/test.jpg]]\nSome text\n![Image](conf/media/test.jpg)\nMore text"
+                .to_string(),
+        )
         .create(&temp_dir, "test_file.md");
 
     let image_path = temp_dir.path().join("conf").join("media").join("test.jpg");
@@ -140,7 +143,10 @@ fn test_remove_reference_with_path() {
 fn test_update_reference_with_path() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
-        .with_content("# Test\n![[conf/media/old.jpg]]\nSome text\n![Image](conf/media/old.jpg)\nMore text".to_string())
+        .with_content(
+            "# Test\n![[conf/media/old.jpg]]\nSome text\n![Image](conf/media/old.jpg)\nMore text"
+                .to_string(),
+        )
         .create(&temp_dir, "test_file.md");
 
     let old_path = temp_dir.path().join("conf").join("media").join("old.jpg");
@@ -376,11 +382,14 @@ Some content here."#
 fn test_update_reference_with_special_characters() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
-        .with_content(r#"# Test
+        .with_content(
+            r#"# Test
 ![Alt](test-with-dashes.jpg)
 ![[test with spaces.jpg]]
 ![Alt](test_with_underscores.jpg)
-![[test.with.dots.jpg]]"#.to_string())
+![[test.with.dots.jpg]]"#
+                .to_string(),
+        )
         .create(&temp_dir, "test_file.md");
 
     let old_files = vec![
@@ -406,11 +415,14 @@ fn test_update_reference_with_special_characters() {
 fn test_nested_directories() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
-        .with_content(r#"# Test
+        .with_content(
+            r#"# Test
 ![Alt](deeply/nested/path/test.jpg)
 ![[another/path/test.jpg]]
 ![Alt](../relative/path/test.jpg)
-![[./current/path/test.jpg]]"#.to_string())
+![[./current/path/test.jpg]]"#
+                .to_string(),
+        )
         .create(&temp_dir, "test_file.md");
 
     // Create nested directory structure
@@ -432,12 +444,15 @@ fn test_nested_directories() {
 fn test_image_reference_with_metadata() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
-        .with_content(r#"# Test
+        .with_content(
+            r#"# Test
 Standard link: ![Alt|size=200](test.jpg)
 Wiki with size: ![[test.jpg|200]]
 Wiki with caption: ![[test.jpg|This is a caption]]
 Multiple params: ![[test.jpg|200|caption text]]
-Some text"#.to_string())
+Some text"#
+                .to_string(),
+        )
         .create(&temp_dir, "test_file.md");
 
     let image_path = temp_dir.path().join("test.jpg");

@@ -1,4 +1,4 @@
-use crate::regex_utils::MARKDOWN_REGEX;
+use crate::utils::MARKDOWN_REGEX;
 
 #[test]
 fn test_markdown_regex_matches() {

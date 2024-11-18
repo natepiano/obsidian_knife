@@ -15,14 +15,14 @@ mod matching_tests;
 #[cfg(test)]
 mod table_handling_tests;
 
+use crate::config::ValidatedConfig;
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::regex_utils::MARKDOWN_REGEX;
-use crate::thread_safe_writer::{ColumnAlignment, ThreadSafeWriter};
-use crate::timer::Timer;
-use crate::validated_config::ValidatedConfig;
+use crate::utils::Timer;
+use crate::utils::MARKDOWN_REGEX;
+use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;

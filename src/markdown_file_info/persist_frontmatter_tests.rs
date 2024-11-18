@@ -1,6 +1,6 @@
 use super::*;
 use crate::frontmatter::FrontMatter;
-use crate::test_utils::TestFileBuilder;
+use crate::test_utils::{parse_datetime, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
 use std::fs;
@@ -20,13 +20,19 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.update_date_created("[[2024-01-02]]".to_string());
+        let created_date = parse_datetime("2024-01-02 00:00:00");
+        fm.set_date_created(created_date);
+        assert!(fm.needs_persist());
         fm.persist(&file_path)?;
     }
 
     // Verify frontmatter was updated but content preserved
     let updated_content = fs::read_to_string(&file_path)?;
-    assert!(updated_content.contains("[[2024-01-02]]"));
+    assert!(
+        updated_content.contains("[[2024-01-02]]"),
+        "Content '{}' does not contain expected date string",
+        updated_content
+    );
     assert!(updated_content.contains("Test content"));
 
     Ok(())
@@ -46,7 +52,7 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
     )?)?);
 
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.update_date_created("[[2024-01-02]]".to_string());
+        fm.set_date_created(parse_datetime("2024-01-02 00:00:00"));
         fm.persist(&file_path)?;
     }
 

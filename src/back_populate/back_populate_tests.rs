@@ -1,7 +1,7 @@
 use crate::back_populate::{apply_back_populate_changes, find_all_back_populate_matches};
+use crate::config::ValidatedConfig;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::Wikilink;
 
 use crate::test_utils::TestFileBuilder;

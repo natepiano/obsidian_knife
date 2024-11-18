@@ -1,8 +1,8 @@
 use super::*;
 
+use crate::config::ValidatedConfig;
 use crate::scan::{scan_folders, scan_markdown_file};
 use crate::test_utils::TestFileBuilder;
-use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::InvalidWikilinkReason;
 
 use regex::Regex;

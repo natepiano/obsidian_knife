@@ -8,7 +8,7 @@ mod markdown_link_tests;
 mod wikilink_creation_tests;
 
 use crate::constants::*;
-use crate::regex_utils::*;
+use crate::utils::{EMAIL_REGEX, TAG_REGEX};
 use crate::wikilink_types::{
     ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks,
     ParsedInvalidWikilink, Wikilink, WikilinkParseResult,

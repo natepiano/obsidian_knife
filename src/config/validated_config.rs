@@ -1,4 +1,4 @@
-use crate::regex_utils::build_case_insensitive_word_finder;
+use crate::utils::build_case_insensitive_word_finder;
 use regex::Regex;
 use std::path::{Path, PathBuf};
 

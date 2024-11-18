@@ -1,4 +1,4 @@
-use crate::validated_config::ValidatedConfig;
+use crate::config::ValidatedConfig;
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
 use chrono::{Local, NaiveDateTime};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
@@ -112,6 +112,8 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     path.to_path_buf()
 }
 
+// #todo either re-use or remove
+#[allow(dead_code)]
 pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> io::Result<()> {
     // Format the date with hh:mm:ss included
     let formatted_date = creation_date.format("%m/%d/%Y %H:%M:%S").to_string();
