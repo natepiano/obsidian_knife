@@ -1,10 +1,13 @@
 use crate::back_populate::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::back_populate::{identify_ambiguous_matches, process_line, BackPopulateMatch};
+use crate::back_populate::{
+    find_all_back_populate_matches, identify_ambiguous_matches, process_line, BackPopulateMatch,
+};
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::scan::scan_folders;
+use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
-use std::path::PathBuf;
 
 // Helper struct for test cases
 struct TestCase {
@@ -25,9 +28,9 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
             },
             // careful - these must match the order returned by process_line
             expected_matches: vec![
-                ("Test Link", "[[Test Link]]"),
-                ("TEST LINK", "[[Test Link|TEST LINK]]"),
                 ("test link", "[[Test Link|test link]]"),
+                ("TEST LINK", "[[Test Link|TEST LINK]]"),
+                ("Test Link", "[[Test Link]]"),
             ],
             description: "Basic case-insensitive matching",
         },
@@ -59,8 +62,8 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
                 is_alias: false,
             },
             expected_matches: vec![
+                ("Test Link", "[[Test Link]]"),
                 ("test link", "[[Test Link|test link]]"),
-                ("Test Link", "[[Test Link]]"), // Exact match
             ],
             description: "Case handling in tables",
         },
@@ -98,53 +101,59 @@ pub(crate) fn verify_match(
 
 #[test]
 fn test_case_insensitive_targets() {
-    // Create test wikilinks with case variations
-    let wikilinks = vec![
-        Wikilink {
-            display_text: "Amazon".to_string(),
-            target: "Amazon".to_string(),
-            is_alias: false,
-        },
-        Wikilink {
-            display_text: "amazon".to_string(),
-            target: "amazon".to_string(),
-            is_alias: false,
-        },
-    ];
+    // Create test environment
+    let (temp_dir, config, _) = create_test_environment(false, None, Some(vec![]), None);
 
-    let matches = vec![
-        BackPopulateMatch {
-            full_path: PathBuf::from("test1.md"),
-            relative_path: "test1.md".to_string(),
-            line_number: 1,
-            line_text: "- [[Amazon]]".to_string(),
-            found_text: "Amazon".to_string(),
-            replacement: "[[Amazon]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-        BackPopulateMatch {
-            full_path: PathBuf::from("test1.md"),
-            relative_path: "test1.md".to_string(),
-            line_number: 2,
-            line_text: "- [[amazon]]".to_string(),
-            found_text: "amazon".to_string(),
-            replacement: "[[amazon]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-    ];
+    // Create test files with case variations using TestFileBuilder
+    TestFileBuilder::new()
+        .with_content("# Sample\nAmazon") // Changed to not use "Test" in content
+        .with_title("Sample".to_string()) // Changed from "Test"
+        .create(&temp_dir, "Amazon.md");
 
-    let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+    TestFileBuilder::new()
+        .with_content("# Sample Document\nAmazon is huge\namazon is also huge") // Changed from "Test Document"
+        .create(&temp_dir, "test1.md");
+
+    // Scan folders to populate repo_info
+    let mut repo_info = scan_folders(&config).unwrap();
+
+    // Process files to find matches
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Find our test file
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+
+    // Verify we found both case variations initially
+    assert_eq!(
+        test_file.matches.len(),
+        2,
+        "Should have matches for both case variations"
+    );
+
+    // Get ambiguous matches
+    let ambiguous_matches = identify_ambiguous_matches(&mut repo_info);
 
     // Should treat case variations of the same target as the same file
     assert_eq!(
-        ambiguous.len(),
+        ambiguous_matches.len(),
         0,
         "Case variations of the same target should not be ambiguous"
     );
+
+    // Find our test file again after ambiguous matching
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+
+    // All matches should remain in the markdown file as unambiguous
     assert_eq!(
-        unambiguous.len(),
+        test_file.matches.len(),
         2,
         "Both matches should be considered unambiguous"
     );
@@ -162,6 +171,7 @@ fn test_case_sensitivity_behavior() {
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;
         let ac = build_aho_corasick(&[wikilink.clone()]);
+
         let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
 
         let matches = process_line(
@@ -184,11 +194,6 @@ fn test_case_sensitivity_behavior() {
         for ((expected_text, expected_base_replacement), actual_match) in
             case.expected_matches.iter().zip(matches.iter())
         {
-            println!("actual_match: {:?} expected text {:?} expected base replacement {:?} description {:?}", actual_match,
-                     expected_text,
-                     expected_base_replacement,
-                     case.description,);
-
             verify_match(
                 actual_match,
                 expected_text,

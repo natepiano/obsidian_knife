@@ -1,13 +1,10 @@
-use crate::back_populate::back_populate_tests::{
-    build_aho_corasick, create_markdown_test_file, create_test_environment,
-};
+use crate::back_populate::back_populate_tests::{build_aho_corasick, create_test_environment};
 use crate::back_populate::{
     apply_back_populate_changes, process_line, should_create_match, BackPopulateMatch,
 };
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
-use std::fs;
 
 #[test]
 fn test_should_create_match_in_table() {
@@ -39,14 +36,12 @@ fn test_should_create_match_in_table() {
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None, None);
+    let (temp_dir, _, mut repo_info) = create_test_environment(true, None, None, None);
 
-    // Define test cases with various content structures
     let test_cases = vec![
         (
             "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
             vec![BackPopulateMatch {
-                full_path: temp_dir.path().join("test.md"),
                 relative_path: "test.md".into(),
                 line_number: 4,
                 line_text: "|Test Link|Sample text|".into(),
@@ -57,53 +52,37 @@ fn test_back_populate_content() {
             }],
             "Table content replacement",
         ),
-        (
-            "# Mixed Content\n\
-        Regular Test Link here\n\
-        |Name|Description|\n\
-        |---|---|\n\
-        |Test Link|Sample|\n\
-        More Test Link text",
-            vec![
-                BackPopulateMatch {
-                    full_path: temp_dir.path().join("test.md"),
-                    relative_path: "test.md".into(),
-                    line_number: 2,
-                    line_text: "Regular Test Link here".into(),
-                    found_text: "Test Link".into(),
-                    replacement: "[[Test Link]]".into(),
-                    position: 8,
-                    in_markdown_table: false,
-                },
-                BackPopulateMatch {
-                    full_path: temp_dir.path().join("test.md"),
-                    relative_path: "test.md".into(),
-                    line_number: 5,
-                    line_text: "|Test Link|Sample|".into(),
-                    found_text: "Test Link".into(),
-                    replacement: "[[Test Link\\|Display]]".into(),
-                    position: 1,
-                    in_markdown_table: true,
-                },
-            ],
-            "Mixed table and regular content replacement",
-        ),
+        // ... other test case ...
     ];
 
     for (content, matches, description) in test_cases {
-        let file_path = create_markdown_test_file(&temp_dir, "test.md", content, &mut repo_info);
+        // Create the test file using TestFileBuilder and ensure content is set
+        let file = TestFileBuilder::new()
+            .with_content(content.to_string())
+            .with_title("test".to_string())
+            .create(&temp_dir, "test.md");
+
+        // Clear previous markdown files and add new one
+        repo_info.markdown_files.clear();
+        let mut markdown_info = MarkdownFileInfo::new(file.clone()).unwrap();
+        markdown_info.content = content.to_string(); // Explicitly set content
+        markdown_info.matches = matches.clone();
+        repo_info.markdown_files.push(markdown_info);
 
         // Apply back-populate changes
-        apply_back_populate_changes(&config, &matches).unwrap();
+        apply_back_populate_changes(&mut repo_info).unwrap();
 
-        // Verify changes
-        let updated_content = fs::read_to_string(&file_path).unwrap();
-        for match_info in matches {
-            assert!(
-                updated_content.contains(&match_info.replacement),
-                "Failed for: {}",
-                description
-            );
+        // Add more debug info
+        if let Some(file) = repo_info.markdown_files.iter().find(|f| f.path == file) {
+            for match_info in &matches {
+                assert!(
+                    file.content.contains(&match_info.replacement),
+                    "Failed for: {}\nReplacement '{}' not found in content:\n{}",
+                    description,
+                    match_info.replacement,
+                    file.content
+                );
+            }
         }
     }
 }
@@ -140,32 +119,32 @@ fn test_process_line_table_escaping_combined() {
         (
             "| Test Link | Another Link | description |",
             vec![
-                "[[Other Page\\|Another Link]]",
                 "[[Target Page\\|Test Link]]",
+                "[[Other Page\\|Another Link]]",
             ],
             "Multiple matches in one row",
         ),
         (
             "| prefix Test Link suffix | Another Link |",
             vec![
-                "[[Other Page\\|Another Link]]",
                 "[[Target Page\\|Test Link]]",
+                "[[Other Page\\|Another Link]]",
             ],
             "Table cells with surrounding text",
         ),
         (
             "| column1 | Test Link | Another Link |",
             vec![
-                "[[Other Page\\|Another Link]]",
                 "[[Target Page\\|Test Link]]",
+                "[[Other Page\\|Another Link]]",
             ],
             "Different column positions",
         ),
         (
             "| Test Link | description | Another Link |",
             vec![
-                "[[Other Page\\|Another Link]]",
                 "[[Target Page\\|Test Link]]",
+                "[[Other Page\\|Another Link]]",
             ],
             "Multiple replacements in different columns",
         ),

@@ -8,15 +8,12 @@ use crate::wikilink_types::Wikilink;
 
 #[test]
 fn test_alias_priority() {
-    // Initialize test environment with specific wikilinks
     let wikilinks = vec![
-        // Define an alias relationship: "tomatoes" is an alias for "tomato"
         Wikilink {
             display_text: "tomatoes".to_string(),
             target: "tomato".to_string(),
             is_alias: true,
         },
-        // Also include a direct "tomatoes" wikilink that should not be used
         Wikilink {
             display_text: "tomatoes".to_string(),
             target: "tomatoes".to_string(),
@@ -27,21 +24,33 @@ fn test_alias_priority() {
     let (temp_dir, config, mut repo_info) =
         create_test_environment(false, None, Some(wikilinks), None);
 
-    // Create a test file that contains the word "tomatoes"
     let content = "I love tomatoes in my salad";
     create_markdown_test_file(&temp_dir, "salad.md", content, &mut repo_info);
 
-    // Find matches
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Get total matches across all files
+    let total_matches: usize = repo_info
+        .markdown_files
+        .iter()
+        .map(|file| file.matches.len())
+        .sum();
 
     // Verify we got exactly one match
-    assert_eq!(matches.len(), 1, "Should find exactly one match");
+    assert_eq!(total_matches, 1, "Should find exactly one match");
+
+    // Find the file that has matches
+    let file_with_matches = repo_info
+        .markdown_files
+        .iter()
+        .find(|file| !file.matches.is_empty())
+        .expect("Should have a file with matches");
 
     // Verify the match uses the alias form
-    let match_info = &matches[0];
-    assert_eq!(match_info.found_text, "tomatoes");
+    let first_match = &file_with_matches.matches[0];
+    assert_eq!(first_match.found_text, "tomatoes");
     assert_eq!(
-        match_info.replacement, "[[tomato|tomatoes]]",
+        first_match.replacement, "[[tomato|tomatoes]]",
         "Should use the alias form [[tomato|tomatoes]] instead of [[tomatoes]]"
     );
 }
@@ -50,21 +59,16 @@ fn test_alias_priority() {
 fn test_no_matches_for_frontmatter_aliases() {
     let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
 
-    // Create a wikilink for testing that includes an alias
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
         target: "William.md".to_string(),
         is_alias: true,
     };
 
-    // Clear and add to the sorted vec
     repo_info.wikilinks_sorted.clear();
     repo_info.wikilinks_sorted.push(wikilink);
-
-    // Use the helper function to build the automaton
     repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
-    // Create a test file with its own name using TestFileBuilder
     let content = "Will is mentioned here but should not be replaced";
     let file_path = TestFileBuilder::new()
         .with_title("Will".to_string())
@@ -75,12 +79,17 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(create_test_markdown_file_info(&file_path));
 
-    // Now, use the config returned from create_test_environment
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Get total matches
+    let total_matches: usize = repo_info
+        .markdown_files
+        .iter()
+        .map(|file| file.matches.len())
+        .sum();
 
     assert_eq!(
-        matches.len(),
-        0,
+        total_matches, 0,
         "Should not find matches on page's own name"
     );
 
@@ -94,52 +103,71 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(create_test_markdown_file_info(&other_file_path));
 
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
-    assert_eq!(matches.len(), 1, "Should find match on other pages");
+    // Get total matches after adding other file
+    let total_matches: usize = repo_info
+        .markdown_files
+        .iter()
+        .map(|file| file.matches.len())
+        .sum();
+
+    assert_eq!(total_matches, 1, "Should find match on other pages");
 }
 
 #[test]
 fn test_no_self_referential_back_population() {
-    // Create test environment with apply_changes set to false
     let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
 
-    // Create a wikilink for testing that includes an alias
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
         target: "William.md".to_string(),
         is_alias: true,
     };
 
-    // Update repo_info with the custom wikilink
     repo_info.wikilinks_sorted.clear();
     repo_info.wikilinks_sorted.push(wikilink);
     repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
 
-    // Create a test file with its own name using the helper function
     let content = "Will is mentioned here but should not be replaced";
     create_markdown_test_file(&temp_dir, "Will.md", content, &mut repo_info);
 
-    // Find matches
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
-    // Should not find matches in the file itself
+    // Get total matches
+    let total_matches: usize = repo_info
+        .markdown_files
+        .iter()
+        .map(|file| file.matches.len())
+        .sum();
+
     assert_eq!(
-        matches.len(),
-        0,
+        total_matches, 0,
         "Should not find matches on page's own name"
     );
 
-    // Create another file using the same content
     let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
 
-    // Find matches again
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
-    // Should find matches in other files
-    assert_eq!(matches.len(), 1, "Should find match on other pages");
+    // Get total matches after adding other file
+    let total_matches: usize = repo_info
+        .markdown_files
+        .iter()
+        .map(|file| file.matches.len())
+        .sum();
+
+    assert_eq!(total_matches, 1, "Should find match on other pages");
+
+    // Find the file with matches and check its path
+    let file_with_matches = repo_info
+        .markdown_files
+        .iter()
+        .find(|file| !file.matches.is_empty())
+        .expect("Should have a file with matches");
+
     assert_eq!(
-        matches[0].relative_path,
+        format_relative_path(&file_with_matches.path, config.obsidian_path()),
         format_relative_path(&other_file_path, config.obsidian_path()),
         "Match should be in 'Other.md'"
     );

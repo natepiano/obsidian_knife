@@ -13,8 +13,11 @@ fn test_find_matches_with_existing_wikilinks() {
     let (_temp_dir, config, mut repo_info) =
         create_test_environment(false, None, None, Some(content));
 
-    // Find matches
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    // Find matches - this now stores them in repo_info.markdown_files
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Get all matches from the first (and only) file
+    let matches = &repo_info.markdown_files[0].matches;
 
     // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
     assert_eq!(matches.len(), 4, "Mismatch in number of matches");
@@ -47,7 +50,11 @@ fn test_overlapping_wikilink_matches() {
     let (_temp_dir, config, mut repo_info) =
         create_test_environment(false, None, Some(wikilinks), Some(content));
 
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    // Find matches - this now stores them in repo_info.markdown_files
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Get matches from the first (and only) file
+    let matches = &repo_info.markdown_files[0].matches;
 
     assert_eq!(matches.len(), 1, "Expected exactly one match");
     assert_eq!(matches[0].position, 28, "Expected match at position 28");

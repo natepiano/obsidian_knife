@@ -2,15 +2,16 @@ use crate::back_populate::back_populate_tests::create_test_environment;
 use crate::back_populate::{
     find_all_back_populate_matches, identify_ambiguous_matches, BackPopulateMatch,
 };
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::scan_folders;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
-use std::path::PathBuf;
 
 #[test]
 fn test_identify_ambiguous_matches() {
-    // Create test wikilinks
-    let wikilinks = vec![
+    let (temp_dir, _, mut repo_info) = create_test_environment(false, None, Some(vec![]), None);
+
+    repo_info.wikilinks_sorted = vec![
         Wikilink {
             display_text: "Ed".to_string(),
             target: "Ed Barnes".to_string(),
@@ -28,30 +29,40 @@ fn test_identify_ambiguous_matches() {
         },
     ];
 
-    let matches = vec![
-        BackPopulateMatch {
-            full_path: PathBuf::from("test1.md"),
-            relative_path: "test1.md".to_string(),
-            line_number: 1,
-            line_text: "Ed wrote this".to_string(),
-            found_text: "Ed".to_string(),
-            replacement: "[[Ed Barnes|Ed]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-        BackPopulateMatch {
-            full_path: PathBuf::from("test2.md"),
-            relative_path: "test2.md".to_string(),
-            line_number: 1,
-            line_text: "Unique wrote this".to_string(),
-            found_text: "Unique".to_string(),
-            replacement: "[[Unique Target]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-    ];
+    TestFileBuilder::new()
+        .with_content("Ed wrote this")
+        .create(&temp_dir, "test1.md");
 
-    let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+    TestFileBuilder::new()
+        .with_content("Unique wrote this")
+        .create(&temp_dir, "test2.md");
+
+    // Create test markdown files with matches
+    let mut test_file = MarkdownFileInfo::new(temp_dir.path().join("test1.md")).unwrap();
+    test_file.matches = vec![BackPopulateMatch {
+        relative_path: "test1.md".to_string(),
+        line_number: 1,
+        line_text: "Ed wrote this".to_string(),
+        found_text: "Ed".to_string(),
+        replacement: "[[Ed Barnes|Ed]]".to_string(),
+        position: 0,
+        in_markdown_table: false,
+    }];
+
+    let mut test_file2 = MarkdownFileInfo::new(temp_dir.path().join("test2.md")).unwrap();
+    test_file2.matches = vec![BackPopulateMatch {
+        relative_path: "test2.md".to_string(),
+        line_number: 1,
+        line_text: "Unique wrote this".to_string(),
+        found_text: "Unique".to_string(),
+        replacement: "[[Unique Target]]".to_string(),
+        position: 0,
+        in_markdown_table: false,
+    }];
+
+    repo_info.markdown_files = vec![test_file, test_file2];
+
+    let ambiguous = identify_ambiguous_matches(&mut repo_info);
 
     // Check ambiguous matches
     assert_eq!(ambiguous.len(), 1, "Should have one ambiguous match group");
@@ -60,114 +71,171 @@ fn test_identify_ambiguous_matches() {
     assert!(ambiguous[0].targets.contains(&"Ed Barnes".to_string()));
     assert!(ambiguous[0].targets.contains(&"Ed Stanfield".to_string()));
 
-    // Check unambiguous matches
-    assert_eq!(unambiguous.len(), 1, "Should have one unambiguous match");
-    assert_eq!(unambiguous[0].found_text, "Unique");
+    // Check that unambiguous match remains in markdown_files
+    assert_eq!(
+        repo_info.markdown_files[1].matches.len(),
+        1,
+        "Should have one unambiguous match"
+    );
+    assert_eq!(repo_info.markdown_files[1].matches[0].found_text, "Unique");
 }
 
 #[test]
 fn test_truly_ambiguous_targets() {
-    // Create test wikilinks with actually different targets
-    let wikilinks = vec![
-        Wikilink {
-            display_text: "Amazon".to_string(),
-            target: "Amazon (company)".to_string(),
-            is_alias: true,
-        },
-        Wikilink {
-            display_text: "Amazon".to_string(),
-            target: "Amazon (river)".to_string(),
-            is_alias: true,
-        },
-    ];
+    let (temp_dir, config, _) = create_test_environment(false, None, Some(vec![]), None);
 
-    let matches = vec![BackPopulateMatch {
-        full_path: PathBuf::from("test1.md"),
-        relative_path: "test1.md".to_string(),
-        line_number: 1,
-        line_text: "Amazon is huge".to_string(),
-        found_text: "Amazon".to_string(),
-        replacement: "[[Amazon (company)|Amazon]]".to_string(),
-        position: 0,
-        in_markdown_table: false,
-    }];
+    // Create the test files using TestFileBuilder
+    TestFileBuilder::new()
+        .with_content("Amazon is huge")
+        .create(&temp_dir, "test1.md");
 
-    let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+    TestFileBuilder::new()
+        .with_content("# Amazon (company)")
+        .with_title("amazon (company)".to_string())
+        .with_aliases(vec!["Amazon".to_string()])
+        .create(&temp_dir, "Amazon (company).md");
+
+    TestFileBuilder::new()
+        .with_content("# Amazon (river)")
+        .with_title("amazon (river)".to_string())
+        .with_aliases(vec!["Amazon".to_string()])
+        .create(&temp_dir, "Amazon (river).md");
+
+    // Let scan_folders find all the files and process them
+    let mut repo_info = scan_folders(&config).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Find test1.md in the repository
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+
+    // Verify initial match exists
+    assert_eq!(test_file.matches.len(), 1, "Should have one initial match");
+
+    let ambiguous = identify_ambiguous_matches(&mut repo_info);
 
     assert_eq!(
         ambiguous.len(),
         1,
         "Different targets should be identified as ambiguous"
     );
-    assert_eq!(
-        unambiguous.len(),
-        0,
-        "No matches should be considered unambiguous"
-    );
     assert_eq!(ambiguous[0].targets.len(), 2);
+
+    // Verify the match was moved to ambiguous matches
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+    assert!(
+        test_file.matches.is_empty(),
+        "All matches should be moved to ambiguous"
+    );
 }
 
 #[test]
 fn test_mixed_case_and_truly_ambiguous() {
-    let wikilinks = vec![
-        // Case variations of one target
-        Wikilink {
-            display_text: "AWS".to_string(),
-            target: "AWS".to_string(),
-            is_alias: false,
-        },
-        Wikilink {
-            display_text: "aws".to_string(),
-            target: "aws".to_string(),
-            is_alias: false,
-        },
-        // Truly different targets
-        Wikilink {
-            display_text: "Amazon".to_string(),
-            target: "Amazon (company)".to_string(),
-            is_alias: true,
-        },
-        Wikilink {
-            display_text: "Amazon".to_string(),
-            target: "Amazon (river)".to_string(),
-            is_alias: true,
-        },
-    ];
+    let (temp_dir, config, _) = create_test_environment(false, None, Some(vec![]), None);
 
-    let matches = vec![
-        BackPopulateMatch {
-            full_path: PathBuf::from("test1.md"),
-            relative_path: "test1.md".to_string(),
-            line_number: 1,
-            line_text: "AWS and aws are the same".to_string(),
-            found_text: "AWS".to_string(),
-            replacement: "[[AWS]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-        BackPopulateMatch {
-            full_path: PathBuf::from("test1.md"),
-            relative_path: "test1.md".to_string(),
-            line_number: 2,
-            line_text: "Amazon is ambiguous".to_string(),
-            found_text: "Amazon".to_string(),
-            replacement: "[[Amazon (company)|Amazon]]".to_string(),
-            position: 0,
-            in_markdown_table: false,
-        },
-    ];
+    // Create test files for case variations
+    TestFileBuilder::new()
+        .with_content("# AWS")
+        .with_title("aws".to_string())
+        .create(&temp_dir, "AWS.md");
 
-    let (ambiguous, unambiguous) = identify_ambiguous_matches(&matches, &wikilinks);
+    TestFileBuilder::new()
+        .with_content("# aws")
+        .with_title("aws".to_string())
+        .create(&temp_dir, "aws.md");
+
+    // Create test files for truly ambiguous targets
+    TestFileBuilder::new()
+        .with_content("# Amazon (company)")
+        .with_title("amazon (company)".to_string())
+        .with_aliases(vec!["Amazon".to_string()])
+        .create(&temp_dir, "Amazon (company).md");
+
+    TestFileBuilder::new()
+        .with_content("# Amazon (river)")
+        .with_title("amazon (river)".to_string())
+        .with_aliases(vec!["Amazon".to_string()])
+        .create(&temp_dir, "Amazon (river).md");
+
+    // Create the test file with both types of matches
+    TestFileBuilder::new()
+        .with_content(
+            r#"AWS and aws are the same
+Amazon is ambiguous"#,
+        )
+        .create(&temp_dir, "test1.md");
+
+    // Let scan_folders find all the files and process them
+    let mut repo_info = scan_folders(&config).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+
+    // Find test1.md in the repository
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+
+    // We should initially have three matches (both cases of AWS and Amazon)
+    assert_eq!(
+        test_file.matches.len(),
+        3,
+        "Should have both AWS cases and Amazon matches initially"
+    );
+
+    // Verify we found both cases of AWS and Amazon
+    let aws_matches: Vec<_> = test_file
+        .matches
+        .iter()
+        .filter(|m| m.found_text.to_lowercase() == "aws")
+        .collect();
+    assert_eq!(aws_matches.len(), 2, "Should have both cases of AWS");
+
+    let amazon_matches: Vec<_> = test_file
+        .matches
+        .iter()
+        .filter(|m| m.found_text == "Amazon")
+        .collect();
+    assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
+
+    let ambiguous = identify_ambiguous_matches(&mut repo_info);
 
     assert_eq!(
         ambiguous.len(),
         1,
         "Should only identify truly different targets as ambiguous"
     );
+
+    // Find test1.md again after ambiguous matches were processed
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
+
     assert_eq!(
-        unambiguous.len(),
-        1,
-        "Case variations should be identified as unambiguous"
+        test_file.matches.len(),
+        2,
+        "Both AWS case variations should remain as unambiguous"
+    );
+
+    // Verify the remaining matches are both AWS-related
+    let aws_matches: Vec<_> = test_file
+        .matches
+        .iter()
+        .filter(|m| m.found_text.to_lowercase() == "aws")
+        .collect();
+    assert_eq!(
+        aws_matches.len(),
+        2,
+        "Should have both AWS case variations remaining"
     );
 }
 
@@ -182,13 +250,7 @@ fn test_mixed_case_and_truly_ambiguous() {
 // so in this case we are creating a more realistic test that has a mix of ambiguous and unambiguous
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
-    // Create initial environment with empty wikilinks list
-    let (temp_dir, config, _) = create_test_environment(
-        false,
-        None,
-        Some(vec![]), // Empty initial wikilinks
-        None,
-    );
+    let (temp_dir, config, _) = create_test_environment(false, None, Some(vec![]), None);
 
     // Create the files using TestFileBuilder
     TestFileBuilder::new()
@@ -198,7 +260,7 @@ Karen is here
 karen is here too
 Nate was here and so was Nate"#
                 .to_string(),
-        ) // Changed from "Test Page" to "Reference Page"
+        )
         .with_title("reference page".to_string())
         .create(&temp_dir, "other.md");
 
@@ -222,56 +284,74 @@ Nate was here and so was Nate"#
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
-    // Filter matches for other.md
-    let other_matches: Vec<_> = matches
+    // Find other.md in the repository
+    let other_file = repo_info
+        .markdown_files
         .iter()
-        .filter(|m| m.relative_path == "other.md")
+        .find(|f| f.path.ends_with("other.md"))
+        .expect("Should find other.md");
+
+    // Count matches by case-insensitive comparison
+    let karen_matches: Vec<_> = other_file
+        .matches
+        .iter()
+        .filter(|m| m.found_text.to_lowercase() == "karen")
         .collect();
+    assert_eq!(karen_matches.len(), 2, "Should have both cases of Karen");
 
-    // Assert total matches
-    assert_eq!(
-        other_matches.len(),
-        4,
-        "Should match 'Karen', 'karen', and both 'Nate' instances"
+    // Verify we have both cases
+    assert!(
+        karen_matches.iter().any(|m| m.found_text == "Karen"),
+        "Should find uppercase Karen"
+    );
+    assert!(
+        karen_matches.iter().any(|m| m.found_text == "karen"),
+        "Should find lowercase karen"
     );
 
-    // Verify unambiguous matches
-    let karen_match = other_matches
-        .iter()
-        .find(|m| m.found_text == "Karen")
-        .expect("Should find uppercase Karen");
-    assert_eq!(
-        karen_match.replacement, "[[Karen McCoy|Karen]]",
-        "Should replace uppercase Karen correctly"
-    );
-
-    let karen_lower_match = other_matches
-        .iter()
-        .find(|m| m.found_text == "karen")
-        .expect("Should find lowercase karen");
-    assert_eq!(
-        karen_lower_match.replacement, "[[Karen McCoy|karen]]",
-        "Should replace lowercase karen correctly"
-    );
+    // Get ambiguous matches
+    let ambiguous_matches = identify_ambiguous_matches(&mut repo_info);
 
     // Verify ambiguous matches
-    let nate_matches: Vec<_> = other_matches
+    let nate_matches = ambiguous_matches
         .iter()
-        .filter(|m| m.found_text == "Nate")
-        .collect();
+        .find(|am| am.display_text == "nate")
+        .expect("Should find Nate as ambiguous");
+
     assert_eq!(
-        nate_matches.len(),
+        nate_matches.matches.len(),
         2,
         "Should find both 'Nate' instances as ambiguous"
     );
 
-    for m in &nate_matches {
-        assert!(
-            m.replacement.contains("[[Nate McCoy|Nate]]")
-                || m.replacement.contains("[[Nathan Dye|Nate]]"),
-            "Replacement should map to one of the ambiguous targets"
-        );
-    }
+    assert_eq!(
+        nate_matches.targets.len(),
+        2,
+        "Should have two possible targets for Nate"
+    );
+    assert!(
+        nate_matches.targets.contains(&"Nate McCoy".to_string())
+            && nate_matches.targets.contains(&"Nathan Dye".to_string()),
+        "Should have both Nate targets"
+    );
+
+    // Verify Karen matches remain unambiguous after processing ambiguous matches
+    let other_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("other.md"))
+        .expect("Should find other.md");
+
+    let karen_matches: Vec<_> = other_file
+        .matches
+        .iter()
+        .filter(|m| m.found_text.to_lowercase() == "karen")
+        .collect();
+    assert_eq!(
+        karen_matches.len(),
+        2,
+        "Both Karen case variations should remain as unambiguous"
+    );
 }

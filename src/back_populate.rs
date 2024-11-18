@@ -18,31 +18,19 @@ mod table_handling_tests;
 use crate::config::ValidatedConfig;
 use crate::constants::*;
 use crate::deterministic_file_search::DeterministicSearch;
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::utils::Timer;
 use crate::utils::MARKDOWN_REGEX;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::AhoCorasick;
+use chrono::Utc;
 use itertools::Itertools;
 use lazy_static::lazy_static;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fs;
 use std::path::{Path, PathBuf};
-
-#[derive(Debug, Clone)]
-struct BackPopulateMatch {
-    found_text: String,
-    full_path: PathBuf,
-    in_markdown_table: bool,
-    line_number: usize,
-    line_text: String,
-    position: usize,
-    relative_path: String,
-    replacement: String,
-}
 
 #[derive(Debug)]
 struct AmbiguousMatch {
@@ -103,7 +91,9 @@ pub fn process_back_populate(
     // Write invalid wikilinks table first
     write_invalid_wikilinks_table(writer, obsidian_repository_info)?;
 
-    let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
+    // let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
+    find_all_back_populate_matches(config, obsidian_repository_info)?;
+
     if let Some(filter) = config.back_populate_file_filter() {
         writer.writeln(
             "",
@@ -116,18 +106,26 @@ pub fn process_back_populate(
         )?;
     }
 
-    if matches.is_empty() {
+    let has_matches = obsidian_repository_info
+        .markdown_files
+        .iter()
+        .any(|file| !file.matches.is_empty());
+
+    if !has_matches {
         return Ok(());
     }
 
-    // Split matches into ambiguous and unambiguous
-    let (ambiguous_matches, unambiguous_matches) =
-        identify_ambiguous_matches(&matches, &obsidian_repository_info.wikilinks_sorted);
+    let ambiguous_matches = identify_ambiguous_matches(obsidian_repository_info);
 
     // Write ambiguous matches first if any exist
     write_ambiguous_matches(writer, &ambiguous_matches)?;
 
-    // Only process unambiguous matches
+    let unambiguous_matches: Vec<BackPopulateMatch> = obsidian_repository_info
+        .markdown_files
+        .iter()
+        .flat_map(|file| file.matches.clone())
+        .collect();
+
     if !unambiguous_matches.is_empty() {
         write_back_populate_table(
             writer,
@@ -136,34 +134,16 @@ pub fn process_back_populate(
             obsidian_repository_info.wikilinks_sorted.len(),
         )?;
 
-        update_date_modified(obsidian_repository_info, &unambiguous_matches);
-
-        //  apply_back_populate_changes(config, &unambiguous_matches)?;
+        apply_back_populate_changes(obsidian_repository_info)?;
     }
 
     Ok(())
 }
 
-fn update_date_modified(
-    obsidian_repository_info: &mut ObsidianRepositoryInfo,
-    unambiguous_matches: &Vec<BackPopulateMatch>,
-) {
-    // Collect distinct paths from unambiguous matches
-    let distinct_paths: Vec<PathBuf> = unambiguous_matches
-        .iter()
-        .map(|m| m.full_path.clone())
-        .collect::<HashSet<_>>()
-        .into_iter()
-        .collect();
-
-    // Update modified dates for all files that would be changed
-    obsidian_repository_info.update_modified_dates(&distinct_paths);
-}
-
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
     obsidian_repository_info: &mut ObsidianRepositoryInfo,
-) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
     let ac = obsidian_repository_info
@@ -173,7 +153,8 @@ fn find_all_back_populate_matches(
     let sorted_wikilinks: Vec<&Wikilink> =
         obsidian_repository_info.wikilinks_sorted.iter().collect();
 
-    let matches = searcher.search_with_info(
+    // CHANGED: No need to collect results, just process each file
+    searcher.search_with_info(
         &mut obsidian_repository_info.markdown_files,
         |markdown_file_info: &mut MarkdownFileInfo| {
             if !cfg!(test) {
@@ -184,27 +165,25 @@ fn find_all_back_populate_matches(
                 }
             }
 
+            // CHANGED: process_file now returns () instead of matches
             match process_file(&sorted_wikilinks, config, markdown_file_info, ac) {
-                Ok(file_matches) if !file_matches.is_empty() => Some(file_matches),
+                Ok(()) if !markdown_file_info.matches.is_empty() => Some(()),
                 _ => None,
             }
         },
     );
 
-    Ok(matches.into_iter().flatten().collect())
+    Ok(())
 }
 
 fn identify_ambiguous_matches(
-    matches: &[BackPopulateMatch],
-    wikilinks: &[Wikilink],
-) -> (Vec<AmbiguousMatch>, Vec<BackPopulateMatch>) {
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
+) -> Vec<AmbiguousMatch> {
     // Create a case-insensitive map of targets to their canonical forms
     let mut target_map: HashMap<String, String> = HashMap::new();
-    for wikilink in wikilinks {
+    // CHANGED: Now iterating over wikilinks_sorted directly from obsidian_repository_info
+    for wikilink in &obsidian_repository_info.wikilinks_sorted {
         let lower_target = wikilink.target.to_lowercase();
-        // If this is the first time we've seen this target (case-insensitive),
-        // or if this version is an exact match for the lowercase version,
-        // use this as the canonical form
         if !target_map.contains_key(&lower_target)
             || wikilink.target.to_lowercase() == wikilink.target
         {
@@ -214,91 +193,66 @@ fn identify_ambiguous_matches(
 
     // Create a map of lowercased display_text to normalized targets
     let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
-    for wikilink in wikilinks {
-        let lower_display_text = wikilink.display_text.to_lowercase(); // Lowercase display_text
+    // CHANGED: Now iterating over wikilinks_sorted directly from obsidian_repository_info
+    for wikilink in &obsidian_repository_info.wikilinks_sorted {
+        let lower_display_text = wikilink.display_text.to_lowercase();
         let lower_target = wikilink.target.to_lowercase();
-        // Use the canonical form of the target from our target_map
         if let Some(canonical_target) = target_map.get(&lower_target) {
             display_text_map
-                .entry(lower_display_text.clone()) // Use lowercased display_text as key
+                .entry(lower_display_text.clone())
                 .or_default()
                 .insert(canonical_target.clone());
         }
     }
 
-    // Group matches by their lowercased found_text
-    let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
-    for match_info in matches {
-        let lower_found_text = match_info.found_text.to_lowercase(); // Lowercase found_text
-
-        matches_by_text
-            .entry(lower_found_text) // Use lowercased found_text as key
-            .or_default()
-            .push(match_info.clone());
-    }
-
-    // Identify truly ambiguous matches and separate them
+    // NEW: Vector to store all ambiguous matches we find
     let mut ambiguous_matches = Vec::new();
-    let mut unambiguous_matches = Vec::new();
-    let mut unclassified_matches = Vec::new();
 
-    for (found_text_lower, text_matches) in matches_by_text {
-        if let Some(targets) = display_text_map.get(&found_text_lower) {
-            if targets.len() > 1 {
-                // Only log ambiguous matches when there are multiple targets
+    // CHANGED: Instead of grouping matches, we'll process each file's matches
+    for markdown_file in &mut obsidian_repository_info.markdown_files {
+        // NEW: Create a map to group matches by their lowercased found_text within this file
+        let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
-                ambiguous_matches.push(AmbiguousMatch {
-                    display_text: found_text_lower.clone(), // Use lowercased found_text
-                    targets: targets.iter().cloned().collect(),
-                    matches: text_matches.clone(),
-                });
+        // NEW: Drain matches from the file into our temporary map
+        let file_matches = std::mem::take(&mut markdown_file.matches);
+        for match_info in file_matches {
+            let lower_found_text = match_info.found_text.to_lowercase();
+            matches_by_text
+                .entry(lower_found_text)
+                .or_default()
+                .push(match_info);
+        }
+
+        // Process each group of matches
+        for (found_text_lower, text_matches) in matches_by_text {
+            if let Some(targets) = display_text_map.get(&found_text_lower) {
+                if targets.len() > 1 {
+                    // This is an ambiguous match - add to ambiguous_matches
+                    ambiguous_matches.push(AmbiguousMatch {
+                        display_text: found_text_lower.clone(),
+                        targets: targets.iter().cloned().collect(),
+                        matches: text_matches.clone(),
+                    });
+                } else {
+                    // CHANGED: Unambiguous matches go back into the markdown_file
+                    markdown_file.matches.extend(text_matches);
+                }
             } else {
-                unambiguous_matches.extend(text_matches.clone());
+                // NEW: Handle unclassified matches (log warning and treat as unambiguous)
+                println!(
+                    "[WARNING] Found unclassified matches for '{}' in file '{}'",
+                    found_text_lower,
+                    markdown_file.path.display()
+                );
+                markdown_file.matches.extend(text_matches);
             }
-        } else {
-            // Collect unclassified matches
-            unclassified_matches.extend(text_matches.clone());
         }
     }
-
-    // Log unclassified matches
-    if !unclassified_matches.is_empty() {
-        println!(
-            "[WARNING] Found {} unclassified matches.",
-            unclassified_matches.len()
-        );
-        for m in &unclassified_matches {
-            println!(
-                "[WARNING] Unclassified Match: '{}' in file '{}'",
-                m.found_text, m.relative_path
-            );
-        }
-
-        // Optionally, treat them as unambiguous - don't
-        // let it fail if we have something unclassified
-        // unambiguous_matches.extend(unclassified_matches);
-    }
-
-    // Calculate the total number of classified matches
-    let total_classified = ambiguous_matches
-        .iter()
-        .map(|m| m.matches.len())
-        .sum::<usize>()
-        + unambiguous_matches.len();
-
-    // Assert that the total matches classified equals the total matches passed in
-    assert_eq!(
-        total_classified,
-        matches.len(),
-        "Mismatch in match classification: total_classified={}, matches.len()={}",
-        total_classified,
-        matches.len()
-    );
 
     // Sort ambiguous matches by display text for consistent output
     ambiguous_matches.sort_by(|a, b| a.display_text.cmp(&b.display_text));
 
-    (ambiguous_matches, unambiguous_matches)
+    ambiguous_matches
 }
 
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
@@ -333,78 +287,30 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     start_is_boundary && end_is_boundary
 }
 
-// fn process_file(
-//     sorted_wikilinks: &[&Wikilink],
-//     config: &ValidatedConfig,
-//     markdown_file_info: &MarkdownFileInfo,
-//     ac: &AhoCorasick,
-// ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-//     let mut ac_matches = Vec::new();
-//
-//     let reader = BufReader::new(markdown_file_info.content.as_bytes());
-//     let mut state = FileProcessingState::new();
-//
-//     for (line_idx, line) in reader.lines().enumerate() {
-//         let line = line?;
-//
-//         // Skip empty or whitespace-only lines early
-//         if line.trim().is_empty() {
-//             continue;
-//         }
-//
-//         // Update state and skip if needed
-//         state.update_for_line(&line);
-//         if state.should_skip_line() {
-//             continue;
-//         }
-//
-//         // Get AC matches (existing functionality)
-//         let line_ac_matches = process_line(
-//             line_idx,
-//             &line,
-//             ac,
-//             sorted_wikilinks,
-//             config,
-//             markdown_file_info,
-//         )?;
-//
-//         ac_matches.extend(line_ac_matches);
-//     }
-//
-//     Ok(ac_matches)
-// }
 fn process_file(
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &mut MarkdownFileInfo,
     ac: &AhoCorasick,
-) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    let mut all_matches = Vec::new();
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let content = markdown_file_info.content.clone();
     let mut state = FileProcessingState::new();
-    let mut updated_content = String::new();
 
     for (line_idx, line) in content.lines().enumerate() {
-        let mut line_text = line.to_string();
-
         // Skip empty/whitespace lines early
-        if line_text.trim().is_empty() {
-            updated_content.push_str(&line_text);
-            updated_content.push('\n');
+        if line.trim().is_empty() {
             continue;
         }
 
         // Update state and skip if needed
-        state.update_for_line(&line_text);
+        state.update_for_line(&line);
         if state.should_skip_line() {
-            updated_content.push_str(&line_text);
-            updated_content.push('\n');
             continue;
         }
 
         // Process the line and collect matches
         let matches = process_line(
-            &mut line_text,
+            line,
             line_idx,
             ac,
             sorted_wikilinks,
@@ -412,17 +318,11 @@ fn process_file(
             markdown_file_info,
         )?;
 
-        all_matches.extend(matches);
-        updated_content.push_str(&line_text);
-        updated_content.push('\n');
+        // Store matches instead of accumulating for return
+        markdown_file_info.matches.extend(matches);
     }
 
-    // Update the content if we found matches
-    if !all_matches.is_empty() {
-        markdown_file_info.content = updated_content;
-    }
-
-    Ok(all_matches)
+    Ok(())
 }
 
 fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
@@ -471,77 +371,8 @@ fn collect_exclusion_zones(
     exclusion_zones
 }
 
-// fn process_line(
-//     line_idx: usize,
-//     line: &str,
-//     ac: &AhoCorasick,
-//     sorted_wikilinks: &[&Wikilink],
-//     config: &ValidatedConfig,
-//     markdown_file_info: &MarkdownFileInfo,
-// ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-//     let mut matches = Vec::new();
-//
-//     let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
-//
-//     for mat in ac.find_iter(line) {
-//         // use the ac pattern - which returns the index that matches
-//         // the index of how the ac was built from sorted_wikilinks in the first place
-//         // so now we can extract the specific wikilink we need
-//         let wikilink = sorted_wikilinks[mat.pattern()];
-//         let starts_at = mat.start();
-//         let ends_at = mat.end();
-//
-//         // Skip if in exclusion zone
-//         if range_overlaps(&exclusion_zones, starts_at, ends_at) {
-//             continue;
-//         }
-//
-//         let matched_text = &line[starts_at..ends_at];
-//
-//         if !is_word_boundary(line, starts_at, ends_at) {
-//             continue;
-//         }
-//
-//         // Rest of the validation
-//         if should_create_match(
-//             line,
-//             starts_at,
-//             matched_text,
-//             &markdown_file_info.path,
-//             markdown_file_info,
-//         ) {
-//             let mut replacement = if matched_text == wikilink.target {
-//                 wikilink.target.to_wikilink()
-//             } else {
-//                 // Use aliased format for case differences or actual aliases
-//                 wikilink.target.to_aliased_wikilink(matched_text)
-//             };
-//
-//             let in_markdown_table = is_in_markdown_table(line, matched_text);
-//             if in_markdown_table {
-//                 replacement = replacement.replace('|', r"\|");
-//             }
-//
-//             let relative_path =
-//                 format_relative_path(&markdown_file_info.path, config.obsidian_path());
-//
-//             matches.push(BackPopulateMatch {
-//                 found_text: matched_text.to_string(),
-//                 full_path: markdown_file_info.path.clone(),
-//                 line_number: line_idx + 1,
-//                 line_text: line.to_string(),
-//                 position: starts_at,
-//                 in_markdown_table,
-//                 relative_path,
-//                 replacement,
-//             });
-//         }
-//     }
-//
-//     Ok(matches)
-// }
 fn process_line(
-    line_text: &mut String,
+    line: &str,
     line_idx: usize,
     ac: &AhoCorasick,
     sorted_wikilinks: &[&Wikilink],
@@ -549,11 +380,10 @@ fn process_line(
     markdown_file_info: &MarkdownFileInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let mut matches = Vec::new();
-    let exclusion_zones = collect_exclusion_zones(line_text, config, markdown_file_info);
-    let original_line = line_text.clone();
+    let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
 
-    // Collect all valid matches first
-    for mat in ac.find_iter(&original_line) {
+    // Collect all valid matches
+    for mat in ac.find_iter(line) {
         let wikilink = sorted_wikilinks[mat.pattern()];
         let starts_at = mat.start();
         let ends_at = mat.end();
@@ -562,13 +392,13 @@ fn process_line(
             continue;
         }
 
-        let matched_text = &original_line[starts_at..ends_at];
-        if !is_word_boundary(&original_line, starts_at, ends_at) {
+        let matched_text = &line[starts_at..ends_at];
+        if !is_word_boundary(line, starts_at, ends_at) {
             continue;
         }
 
         if should_create_match(
-            &original_line,
+            line,
             starts_at,
             matched_text,
             &markdown_file_info.path,
@@ -580,7 +410,7 @@ fn process_line(
                 wikilink.target.to_aliased_wikilink(matched_text)
             };
 
-            let in_markdown_table = is_in_markdown_table(&original_line, matched_text);
+            let in_markdown_table = is_in_markdown_table(line, matched_text);
             if in_markdown_table {
                 replacement = replacement.replace('|', r"\|");
             }
@@ -590,70 +420,14 @@ fn process_line(
 
             matches.push(BackPopulateMatch {
                 found_text: matched_text.to_string(),
-                full_path: markdown_file_info.path.clone(),
                 line_number: line_idx + 1,
-                line_text: original_line.clone(),
+                line_text: line.to_string(),
                 position: starts_at,
                 in_markdown_table,
                 relative_path,
                 replacement,
             });
         }
-    }
-
-    // Sort matches in reverse order by position and apply changes
-    matches.sort_by_key(|m| std::cmp::Reverse(m.position));
-
-    // Apply changes only if we have matches
-    if !matches.is_empty() {
-        let mut updated_line = original_line.clone();
-
-        // Apply replacements in sorted (reverse) order
-        for match_info in &matches {
-            let start = match_info.position;
-            let end = start + match_info.found_text.len();
-
-            // Check for UTF-8 boundary issues
-            if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
-                eprintln!(
-                    "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
-                   Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
-                    markdown_file_info.path,
-                    match_info.line_number,
-                    start,
-                    end,
-                    updated_line,
-                    match_info.found_text
-                );
-                panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
-            }
-
-            // Perform the replacement
-            updated_line.replace_range(start..end, &match_info.replacement);
-
-            // Validation check after each replacement
-            if updated_line.contains("[[[") || updated_line.contains("]]]") {
-                eprintln!(
-                    "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
-                   Current line:\n{}\n",
-                    markdown_file_info.path, match_info.line_number, updated_line
-                );
-            }
-        }
-
-        // Final validation check
-        if updated_line.matches("[[").count() != updated_line.matches("]]").count() {
-            eprintln!(
-                "Unmatched brackets detected in file '{}', line {}.\nContent: {}",
-                markdown_file_info.path.display(),
-                line_idx + 1,
-                updated_line.escape_debug()
-            );
-            panic!("Unmatched brackets detected. Please check the content.");
-        }
-
-        // Only update the line if all validations pass
-        *line_text = updated_line;
     }
 
     Ok(matches)
@@ -1168,33 +942,24 @@ fn escape_brackets(text: &str) -> String {
 }
 
 fn apply_back_populate_changes(
-    config: &ValidatedConfig,
-    matches: &[BackPopulateMatch],
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if !config.apply_changes() {
-        return Ok(());
-    }
+    // Only process files that have matches
+    for markdown_file in &mut obsidian_repository_info.markdown_files {
+        if markdown_file.matches.is_empty() {
+            continue;
+        }
 
-    let mut matches_by_file: BTreeMap<PathBuf, Vec<&BackPopulateMatch>> = BTreeMap::new();
-    for match_info in matches {
-        matches_by_file
-            .entry(match_info.full_path.clone())
-            .or_default()
-            .push(match_info);
-    }
-
-    for (full_path, file_matches) in matches_by_file {
-        let content = fs::read_to_string(&full_path)?;
-        let mut updated_content = String::new();
-
-        // Sort and group matches by line number
-        let mut sorted_matches = file_matches;
+        // Sort matches by line number and position (reverse position for same line)
+        let mut sorted_matches = markdown_file.matches.clone();
         sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
+
+        let mut updated_content = String::new();
         let mut current_line_num = 1;
 
-        // Process line-by-line with line numbers and match positions checked
-        for (line_index, line) in content.lines().enumerate() {
-            if current_line_num != line_index + 1 {
+        // Process line by line
+        for (line_idx, line) in markdown_file.content.lines().enumerate() {
+            if current_line_num != line_idx + 1 {
                 updated_content.push_str(line);
                 updated_content.push('\n');
                 continue;
@@ -1204,13 +969,12 @@ fn apply_back_populate_changes(
             let line_matches: Vec<&BackPopulateMatch> = sorted_matches
                 .iter()
                 .filter(|m| m.line_number == current_line_num)
-                .cloned()
                 .collect();
 
             // Apply matches in reverse order if there are any
             let mut updated_line = line.to_string();
             if !line_matches.is_empty() {
-                updated_line = apply_line_replacements(line, &line_matches, &full_path);
+                updated_line = apply_line_replacements(line, &line_matches, &markdown_file.path);
             }
 
             updated_content.push_str(&updated_line);
@@ -1225,16 +989,20 @@ fn apply_back_populate_changes(
         {
             eprintln!(
                 "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
-                full_path.display(),
-                updated_content.escape_debug() // use escape_debug for detailed inspection
+                markdown_file.path.display(),
+                updated_content.escape_debug()
             );
             panic!(
                 "Unintended nesting or malformed brackets detected in file '{}'. Please check the content above for any hidden or misplaced patterns.",
-                full_path.display(),
+                markdown_file.path.display(),
             );
         }
 
-        fs::write(full_path, updated_content.trim_end())?;
+        // Update the content and mark file as modified
+        markdown_file.content = updated_content.trim_end().to_string();
+        if let Some(ref mut frontmatter) = markdown_file.frontmatter {
+            frontmatter.set_date_modified(Utc::now());
+        }
     }
 
     Ok(())

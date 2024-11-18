@@ -134,6 +134,17 @@ impl DateCreatedFixValidation {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BackPopulateMatch {
+    pub found_text: String,
+    pub in_markdown_table: bool,
+    pub line_number: usize,
+    pub line_text: String,
+    pub position: usize,
+    pub relative_path: String,
+    pub replacement: String,
+}
+
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub content: String,
@@ -145,6 +156,7 @@ pub struct MarkdownFileInfo {
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
+    pub matches: Vec<BackPopulateMatch>,
     pub path: PathBuf,
 }
 
@@ -199,6 +211,7 @@ impl MarkdownFileInfo {
             frontmatter_error,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
+            matches: Vec::new(),
             path,
         })
     }

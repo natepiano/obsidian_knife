@@ -7,7 +7,6 @@ use crate::wikilink_types::Wikilink;
 use crate::test_utils::TestFileBuilder;
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
-use std::fs;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -95,23 +94,19 @@ pub(crate) fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFil
 
 #[test]
 fn test_apply_changes() {
-    let content = "Here is Test Link\nNo change here\nAnother Test Link";
-    let (temp_dir, config, mut repo_info) =
-        create_test_environment(true, None, None, Some(content));
+    let initial_content = "This is Test Link in a sentence.";
+    let (_temp_dir, config, mut repo_info) =
+        create_test_environment(true, None, None, Some(initial_content));
 
-    // Find matches
-    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    // First find the matches
+    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
-    // Apply changes
-    apply_back_populate_changes(&config, &matches).unwrap();
+    // Apply the changes
+    apply_back_populate_changes(&mut repo_info).unwrap();
 
-    // Verify changes
-    let updated_content = fs::read_to_string(temp_dir.path().join("test.md")).unwrap();
-    assert!(updated_content.contains("[[Test Link]]"));
-    assert!(updated_content.contains("No change here"));
+    // Verify changes by checking MarkdownFileInfo content
     assert_eq!(
-        updated_content.matches("[[Test Link]]").count(),
-        2,
-        "Should have replaced both instances"
+        repo_info.markdown_files[0].content,
+        "This is [[Test Link]] in a sentence."
     );
 }
