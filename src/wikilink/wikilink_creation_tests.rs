@@ -75,8 +75,6 @@ fn assert_valid_wikilink(
 fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) {
     let result = parse_full_wikilink(input);
 
-    // println!("{:?}", result);
-
     match result {
         Some(WikilinkParseResult::Invalid(invalid)) => {
             assert_eq!(

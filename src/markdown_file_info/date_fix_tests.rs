@@ -3,7 +3,6 @@ use crate::frontmatter::FrontMatter;
 use crate::test_utils::{assert_test_case, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use chrono::TimeZone;
-use std::{fs::File, io::Write};
 use tempfile::TempDir;
 
 fn create_frontmatter(
@@ -95,30 +94,15 @@ fn test_process_frontmatter_date_validation() {
 
     for case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test.md");
+        let file_path = TestFileBuilder::new()
+            .with_frontmatter_dates(case.date_created.clone(), case.date_modified.clone())
+            .with_fs_dates(case.file_system_create_date, case.file_system_mod_date)
+            .create(&temp_dir, "test.md");
 
-        // Create test file with frontmatter
+        // we're creating an in memory FrontMatter that matches what we wrote out to the file
         let fm = create_frontmatter(&case.date_modified, &case.date_created);
 
-        // Create test file with frontmatter content
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "---").unwrap();
-        if let Some(date) = fm.date_modified() {
-            writeln!(file, "date_modified: \"{}\"", date).unwrap();
-        }
-        if let Some(date) = fm.date_created() {
-            writeln!(file, "date_created: \"{}\"", date).unwrap();
-        }
-        writeln!(file, "---").unwrap();
-        writeln!(file, "Test content").unwrap();
-
-        // Set file timestamps to match test case
-        // Set file timestamps to the respective dates
-        let create_time = filetime::FileTime::from_system_time(case.file_system_create_date.into());
-        let mod_time = filetime::FileTime::from_system_time(case.file_system_mod_date.into());
-        filetime::set_file_times(&file_path, create_time, mod_time).unwrap();
-
-        // Mock filesystem dates using the provided test case dates
+        // get_date_validations will make sure they all match up as per the test cases
         let (created_validation, modified_validation) =
             get_date_validations(&Some(fm), &file_path).unwrap();
 

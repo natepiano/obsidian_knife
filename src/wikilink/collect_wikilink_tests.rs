@@ -1,5 +1,6 @@
 use super::*;
 use tempfile::TempDir;
+use crate::test_utils::TestFileBuilder;
 
 fn assert_contains_wikilink(
     wikilinks: &[Wikilink],
@@ -23,8 +24,10 @@ fn test_collect_file_wikilinks_with_aliases() {
     let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
 
     let temp_dir = TempDir::new().unwrap();
-    let file_path = temp_dir.path().join("test file.md");
-    std::fs::write(&file_path, content).unwrap();
+    let file_path = TestFileBuilder::new()
+        .with_content(content.to_string())
+        .with_aliases(aliases.as_ref().unwrap_or(&Vec::new()).clone())
+        .create(&temp_dir, "test file.md");
 
     let extracted = collect_file_wikilinks(content, &aliases, &file_path).unwrap();
 
@@ -46,8 +49,9 @@ fn test_collect_file_wikilinks_with_aliases() {
 fn test_collect_file_wikilinks_with_invalid() {
     let content = "Some [[good link]] and [[bad|link|extra]] here\n[[unmatched";
     let temp_dir = TempDir::new().unwrap();
-    let file_path = temp_dir.path().join("test.md");
-    std::fs::write(&file_path, content).unwrap();
+    let file_path = TestFileBuilder::new()
+        .with_content(content.to_string())
+        .create(&temp_dir, "test.md");
 
     let extracted = collect_file_wikilinks(content, &None, &file_path).unwrap();
 
@@ -92,8 +96,10 @@ fn test_collect_file_wikilinks_with_invalid() {
 fn test_collect_wikilinks_with_empty() {
     let content = "Test [[]] here\nAnd [[|]] there";
     let temp_dir = TempDir::new().unwrap();
-    let file_path = temp_dir.path().join("test.md");
-    std::fs::write(&file_path, content).unwrap();
+
+    let file_path = TestFileBuilder::new()
+        .with_content(content.to_string())
+        .create(&temp_dir, "test.md");
 
     let extracted = collect_file_wikilinks(content, &None, &file_path).unwrap();
 
