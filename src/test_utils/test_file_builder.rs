@@ -17,6 +17,12 @@ impl From<String> for Content {
     }
 }
 
+impl From<&str> for Content {
+    fn from(s: &str) -> Self {
+        Content::Text(s.to_string())
+    }
+}
+
 impl From<Vec<u8>> for Content {
     fn from(v: Vec<u8>) -> Self {
         Content::Binary(v)

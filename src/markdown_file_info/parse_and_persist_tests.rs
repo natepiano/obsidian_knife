@@ -63,3 +63,35 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
 
     Ok(())
 }
+
+#[test]
+fn test_content_separation() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test 1: File with frontmatter and content
+    let file_with_fm = TestFileBuilder::new()
+        .with_title("Test".to_string())
+        .with_content("This is the actual content")
+        .create(&temp_dir, "with_fm.md");
+
+    let mfi = MarkdownFileInfo::new(file_with_fm).unwrap();
+    assert_eq!(mfi.content.trim(), "This is the actual content");
+
+    // Test 2: File with no frontmatter
+    let file_no_fm = TestFileBuilder::new()
+        .with_content("Pure content\nNo frontmatter")
+        .create(&temp_dir, "no_fm.md");
+
+    let mfi = MarkdownFileInfo::new(file_no_fm).unwrap();
+    assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
+
+    // Test 3: File with --- separators in content
+    let content = "First line\n---\nMiddle section\n---\nLast section";
+    let file_with_separators = TestFileBuilder::new()
+        .with_title("Test".to_string())
+        .with_content(content)
+        .create(&temp_dir, "with_separators.md");
+
+    let mfi = MarkdownFileInfo::new(file_with_separators).unwrap();
+    assert_eq!(mfi.content.trim(), content);
+}

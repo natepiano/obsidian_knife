@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod date_fix_tests;
 #[cfg(test)]
-mod persist_frontmatter_tests;
+mod parse_and_persist_tests;
 
 use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
