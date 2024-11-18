@@ -42,7 +42,6 @@ fn get_image_info_map(
     markdown_files: &[MarkdownFileInfo],
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
-
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
     // Create set of valid paths once
     let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
@@ -100,7 +99,6 @@ fn get_image_info_map(
             Some((image_path.clone(), ImageInfo { hash, references }))
         })
         .collect();
-
 
     // Final cache operations
     if let Ok(cache) = Arc::try_unwrap(cache).unwrap().into_inner() {

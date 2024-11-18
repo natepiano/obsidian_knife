@@ -5,11 +5,11 @@ use crate::scan::{scan_folders, scan_markdown_file};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::InvalidWikilinkReason;
 
+use crate::utils::CachedImageInfo;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tempfile::TempDir;
-use crate::utils::CachedImageInfo;
 
 #[test]
 fn test_scan_markdown_file_with_invalid_wikilinks() {
@@ -194,7 +194,7 @@ fn test_scan_markdown_file_with_do_not_back_populate() {
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
     let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
-    println!("fm: {:?}", file_info.content);
+    // println!("fm: {:?}", file_info.content);
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();
@@ -449,7 +449,7 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.md");
 
         TestFileBuilder::new()
-            .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0])  // Simple PNG header
+            .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0]) // Simple PNG header
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
@@ -474,7 +474,8 @@ fn test_cache_file_cleanup() {
 
         // Verify cache was cleaned up
         let cache_content = std::fs::read_to_string(&cache_path).unwrap();
-        let cache: HashMap<PathBuf, CachedImageInfo> = serde_json::from_str(&cache_content).unwrap();
+        let cache: HashMap<PathBuf, CachedImageInfo> =
+            serde_json::from_str(&cache_content).unwrap();
         assert!(cache.is_empty(), "Cache should be empty after cleanup");
 
         // temp_dir will be dropped here

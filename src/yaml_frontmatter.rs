@@ -1,9 +1,6 @@
 use serde::{de::DeserializeOwned, Serialize};
 use serde_yaml::Value;
 use std::error::Error;
-use std::fs;
-use std::path::Path;
-
 /// this macro allows us to persist any extra fields not specifically implemented in
 /// a struct you want to deserialize into the yaml frontmatter of a markdown file
 ///
@@ -181,16 +178,6 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
                 Ok(format!("---\n{}\n---\n{}", yaml_str, content))
             }
         }
-    }
-
-    fn persist(&self, path: &Path) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let content = fs::read_to_string(path)?;
-        let updated_content = self
-            .update_in_markdown_str(&content)
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)?;
-        fs::write(path, updated_content)?;
-
-        Ok(())
     }
 }
 

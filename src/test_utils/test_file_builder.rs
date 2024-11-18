@@ -8,7 +8,7 @@ use tempfile::TempDir;
 #[derive(Clone)]
 pub enum Content {
     Text(String),
-    Binary(Vec<u8>)
+    Binary(Vec<u8>),
 }
 
 impl From<String> for Content {

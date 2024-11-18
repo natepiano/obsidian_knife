@@ -62,6 +62,10 @@ impl FrontMatter {
         self.needs_persist = true;
     }
 
+    // we invoke set_modified_date on any changes to MarkdownFileInfo
+    // so that we then will persist it with an updated date_modified to match the file
+    // date_modified date and this is also the sentinel for doing the persist operation at the
+    // end of processing
     pub fn set_date_modified(&mut self, date: DateTime<Utc>) {
         self.date_modified = Some(format!(
             "[[{}-{:02}-{:02}]]",

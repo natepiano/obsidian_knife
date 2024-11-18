@@ -1,13 +1,12 @@
-use std::fs;
-use std::fs::File;
-use std::path::PathBuf;
-use tempfile::TempDir;
 use crate::config::Config;
-use crate::ERROR_NOT_FOUND;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::ERROR_NOT_FOUND;
+use std::fs;
+use std::path::PathBuf;
+use tempfile::TempDir;
 
 fn create_test_environment() -> (TempDir, PathBuf) {
     let temp_dir = TempDir::new().unwrap();
@@ -85,8 +84,14 @@ output_folder: output"#;
 
     assert_eq!(new_config.apply_changes, Some(false));
     assert_eq!(new_config.back_populate_file_count, Some(5));
-    assert_eq!(new_config.back_populate_file_filter, Some("*test*".to_string()));
-    assert_eq!(new_config.do_not_back_populate, Some(vec!["*.png".to_string()]));
+    assert_eq!(
+        new_config.back_populate_file_filter,
+        Some("*test*".to_string())
+    );
+    assert_eq!(
+        new_config.do_not_back_populate,
+        Some(vec!["*.png".to_string()])
+    );
     assert_eq!(new_config.ignore_folders, Some(vec![PathBuf::from(".git")]));
     assert_eq!(new_config.output_folder, Some("output".to_string()));
     assert_eq!(new_config.obsidian_path, "/test/path".to_string());
@@ -118,10 +123,11 @@ fn test_config_file_not_found() {
     let result = MarkdownFileInfo::new(nonexistent_path.clone());
 
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains(&format!("{}{}", ERROR_NOT_FOUND, nonexistent_path.display())));
+    assert!(result.unwrap_err().to_string().contains(&format!(
+        "{}{}",
+        ERROR_NOT_FOUND,
+        nonexistent_path.display()
+    )));
 }
 
 #[test]

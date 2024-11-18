@@ -21,20 +21,19 @@ mod yaml_frontmatter;
 pub use constants::*;
 pub use utils::Timer;
 
+use crate::file_utils::expand_tilde;
+use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::{write_date_validation_table, MarkdownFileInfo};
+use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{config::Config, config::ValidatedConfig};
 use chrono::Utc;
 use std::error::Error;
 use std::path::PathBuf;
 use utils::ThreadSafeWriter;
-use crate::file_utils::expand_tilde;
-use crate::frontmatter::FrontMatter;
-use crate::yaml_frontmatter::YamlFrontMatter;
 
 // lib was separated from main so it could be incorporated into integration tests
 // such as config_tests.rs - but that's not happening so...
 pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
-
     let expanded_path = expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFileInfo::new(expanded_path)?;

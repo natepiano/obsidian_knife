@@ -1,12 +1,12 @@
 use crate::config::validated_config::ValidatedConfig;
 use crate::constants::*;
 use crate::file_utils::expand_tilde;
+use crate::frontmatter::FrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter_struct;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
-use crate::frontmatter::FrontMatter;
 
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -29,11 +29,11 @@ yaml_frontmatter_struct! {
 }
 
 impl Config {
-
-    pub fn from_frontmatter(frontmatter: FrontMatter) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub fn from_frontmatter(
+        frontmatter: FrontMatter,
+    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let yaml_str = frontmatter.to_yaml_str()?;
-        Config::from_yaml_str(&yaml_str)
-            .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+        Config::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     /// Validates the `Config` and returns a `ValidatedConfig`.
