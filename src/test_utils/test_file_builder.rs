@@ -5,9 +5,27 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use tempfile::TempDir;
 
+#[derive(Clone)]
+pub enum Content {
+    Text(String),
+    Binary(Vec<u8>)
+}
+
+impl From<String> for Content {
+    fn from(s: String) -> Self {
+        Content::Text(s)
+    }
+}
+
+impl From<Vec<u8>> for Content {
+    fn from(v: Vec<u8>) -> Self {
+        Content::Binary(v)
+    }
+}
+
 pub struct TestFileBuilder {
     aliases: Option<Vec<String>>,
-    content: String,
+    content: Content,
     custom_frontmatter: Option<String>,
     date_created_fix: Option<String>,
     frontmatter_created: Option<String>,
@@ -23,7 +41,7 @@ impl TestFileBuilder {
         let now = Utc::now();
         Self {
             aliases: None,
-            content: String::from("Test content"),
+            content: Content::Text("Test content".to_string()),
             custom_frontmatter: None,
             date_created_fix: None,
             frontmatter_created: None,
@@ -76,8 +94,9 @@ impl TestFileBuilder {
         self
     }
 
-    pub fn with_content(mut self, content: String) -> Self {
-        self.content = content;
+    // Modified to accept anything that can convert into Content
+    pub fn with_content<T: Into<Content>>(mut self, content: T) -> Self {
+        self.content = content.into();
         self
     }
 
@@ -120,12 +139,15 @@ impl TestFileBuilder {
                 writeln!(file, "title: {}", title).unwrap();
             }
             if let Some(custom) = self.custom_frontmatter {
-                writeln!(file, "{}", custom).unwrap();  // Note: using write! not writeln! to preserve formatting
+                writeln!(file, "{}", custom).unwrap(); // Note: using write! not writeln! to preserve formatting
             }
             writeln!(file, "---").unwrap();
         }
 
-        writeln!(file, "{}", self.content).unwrap();
+        match self.content {
+            Content::Text(text) => writeln!(file, "{}", text).unwrap(),
+            Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
+        };
 
         let created_system = SystemTime::UNIX_EPOCH
             + std::time::Duration::from_secs(self.fs_created.timestamp() as u64);

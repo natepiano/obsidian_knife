@@ -203,17 +203,17 @@ fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
 }
 
 fn generate_missing_references(
-    collected_files: &ObsidianRepositoryInfo,
+    obsidian_repository_info: &ObsidianRepositoryInfo,
 ) -> Result<Vec<(&PathBuf, String)>, Box<dyn Error + Send + Sync>> {
     let mut missing_references = Vec::new();
-    let image_filenames: HashSet<String> = collected_files
+    let image_filenames: HashSet<String> = obsidian_repository_info
         .image_map
         .keys()
         .filter_map(|path| path.file_name())
         .map(|name| name.to_string_lossy().to_lowercase())
         .collect();
 
-    for file_info in &collected_files.markdown_files {
+    for file_info in &obsidian_repository_info.markdown_files {
         for image_link in &file_info.image_links {
             if let Some(extracted_filename) = extract_local_image_filename(image_link) {
                 if !image_exists_in_set(&extracted_filename, &image_filenames) {

@@ -12,10 +12,14 @@ fn test_update_frontmatter_fields() {
     let custom_frontmatter = r#"custom_field: custom value
 tags:
 - tag1
-- tag2"#.to_string();
+- tag2"#
+        .to_string();
 
     let file_path = TestFileBuilder::new()
-        .with_frontmatter_dates(Some("2024-10-23".to_string()), Some("2024-10-24".to_string()))
+        .with_frontmatter_dates(
+            Some("2024-10-23".to_string()),
+            Some("2024-10-24".to_string()),
+        )
         .with_custom_frontmatter(custom_frontmatter)
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
@@ -87,20 +91,21 @@ nested:
   key1: value1
   key2: value2
 array_field: [1, 2, 3]
-boolean_field: true"#.to_string();
+boolean_field: true"#
+        .to_string();
 
     let file_path = TestFileBuilder::new()
-        .with_frontmatter_dates(Some("2024-01-01".to_string()), Some("2024-01-01".to_string()))
+        .with_frontmatter_dates(
+            Some("2024-01-01".to_string()),
+            Some("2024-01-01".to_string()),
+        )
         .with_custom_frontmatter(custom_frontmatter)
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
     // Update frontmatter
     let mut file_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
-    let fm =     file_info
-        .frontmatter
-        .as_mut()
-        .unwrap();
+    let fm = file_info.frontmatter.as_mut().unwrap();
 
     fm.set_date_created(parse_datetime("2024-01-01"));
     fm.set_date_modified(parse_datetime("2024-01-02"));

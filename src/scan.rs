@@ -1,17 +1,18 @@
 #[cfg(test)]
-mod scan_tests;
-#[cfg(test)]
 mod process_content_tests;
+#[cfg(test)]
+mod scan_tests;
 
 use crate::{
     constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
-    obsidian_repository_info::ObsidianRepositoryInfo,
-    wikilink_types::Wikilink,
+    obsidian_repository_info::ObsidianRepositoryInfo, wikilink_types::Wikilink,
 };
 
 use crate::config::ValidatedConfig;
 use crate::utils::Sha256Cache;
 use crate::utils::Timer;
+use crate::wikilink::{create_filename_wikilink, extract_wikilinks};
+use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink};
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
 use regex::Regex;
@@ -19,8 +20,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use crate::wikilink::{create_filename_wikilink, extract_wikilinks};
-use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink};
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -43,13 +42,20 @@ fn get_image_info_map(
     markdown_files: &[MarkdownFileInfo],
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
-    let _timer = Timer::new("get_image_info_map");
 
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
-    let cache = Arc::new(Mutex::new(Sha256Cache::new(cache_file_path.clone())?.0));
+    // Create set of valid paths once
+    let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
 
-    // Pre-process markdown references
-    let markdown_refs: HashMap<String, Vec<String>> = markdown_files
+    // let cache = Arc::new(Mutex::new(Sha256Cache::new(cache_file_path.clone())?.0));
+    let cache = Arc::new(Mutex::new({
+        let mut cache_instance = Sha256Cache::new(cache_file_path.clone())?.0;
+        cache_instance.mark_deletions(&valid_paths);
+        cache_instance
+    }));
+
+    // // Pre-process markdown references
+    let markdown_refs: HashMap<String, HashSet<String>> = markdown_files
         .par_iter()
         .filter(|file_info| !file_info.image_links.is_empty())
         .map(|file_info| {
@@ -57,9 +63,14 @@ fn get_image_info_map(
             let images: HashSet<_> = file_info
                 .image_links
                 .iter()
-                .map(|link| link.to_string())
+                .filter_map(|link| {
+                    Path::new(link)
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .map(|s| s.to_string())
+                })
                 .collect();
-            (path, images.into_iter().collect())
+            (path, images)
         })
         .collect();
 
@@ -70,10 +81,11 @@ fn get_image_info_map(
             let hash = cache.lock().ok()?.get_or_update(image_path).ok()?.0;
 
             let image_name = image_path.file_name()?.to_str()?;
+
             let references: Vec<String> = markdown_refs
                 .iter()
-                .filter_map(|(path, links)| {
-                    if links.iter().any(|link| link.contains(image_name)) {
+                .filter_map(|(path, image_names)| {
+                    if image_names.contains(image_name) {
                         Some(path.clone())
                     } else {
                         None
@@ -85,10 +97,12 @@ fn get_image_info_map(
         })
         .collect();
 
+
     // Final cache operations
-    if let Ok(mut cache) = Arc::try_unwrap(cache).unwrap().into_inner() {
-        cache.remove_non_existent_entries();
-        cache.save()?;
+    if let Ok(cache) = Arc::try_unwrap(cache).unwrap().into_inner() {
+        if cache.has_changes() {
+            cache.save()?;
+        }
     }
 
     Ok(image_info_map)

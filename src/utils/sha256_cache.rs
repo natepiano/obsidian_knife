@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs::{self, File};
 use std::io::{BufReader, Read};
@@ -33,8 +33,8 @@ pub struct Sha256Cache {
     cache_file_path: PathBuf,
     //initial_count: usize,
     files_read: usize,
-    files_added: usize,
-    files_modified: usize,
+    pub(crate) files_added: usize,
+    pub(crate) files_modified: usize,
     files_deleted: usize,
 }
 
@@ -107,11 +107,29 @@ impl Sha256Cache {
         Ok((new_hash, status))
     }
 
-    pub fn remove_non_existent_entries(&mut self) {
-        let initial_count = self.cache.len();
-        self.cache.retain(|path, _| path.exists());
-        let removed = initial_count - self.cache.len();
-        self.files_deleted = removed;
+    // pub fn remove_non_existent_entries(&mut self) {
+    //     let initial_count = self.cache.len();
+    //     self.cache.retain(|path, _| path.exists());
+    //     let removed = initial_count - self.cache.len();
+    //     self.files_deleted = removed;
+    // }
+    pub fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
+        // Create vector of paths that exist in cache but not in valid_paths
+        let to_remove: Vec<_> = self
+            .cache
+            .keys() // Iterate over all paths in cache
+            .filter(|path| !valid_paths.contains(path.as_path())) // Keep only paths NOT in valid_paths
+            .cloned() // Clone the PathBufs we want to remove
+            .collect(); // Collect into Vec
+
+        self.files_deleted = to_remove.len();
+        for path in to_remove {
+            self.cache.remove(&path);
+        }
+    }
+
+    pub fn has_changes(&self) -> bool {
+        self.files_added > 0 || self.files_modified > 0 || self.files_deleted > 0
     }
 
     pub fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {

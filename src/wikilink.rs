@@ -8,8 +8,8 @@ mod wikilink_creation_tests;
 use crate::constants::*;
 use crate::utils::{EMAIL_REGEX, TAG_REGEX};
 use crate::wikilink_types::{
-    InvalidWikilinkReason, ParsedExtractedWikilinks,
-    ParsedInvalidWikilink, Wikilink, WikilinkParseResult,
+    InvalidWikilinkReason, ParsedExtractedWikilinks, ParsedInvalidWikilink, Wikilink,
+    WikilinkParseResult,
 };
 use std::iter::Peekable;
 use std::path::Path;

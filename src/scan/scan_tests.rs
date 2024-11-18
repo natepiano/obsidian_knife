@@ -9,17 +9,21 @@ use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
 use tempfile::TempDir;
+use crate::utils::CachedImageInfo;
 
 #[test]
 fn test_scan_markdown_file_with_invalid_wikilinks() {
     let temp_dir = TempDir::new().unwrap();
 
     let file_path = TestFileBuilder::new()
-        .with_content(r#"# Test File
+        .with_content(
+            r#"# Test File
 [[Valid Link]]
 [[invalid|link|extra]]
 [[unmatched
-[[]]"#.to_string())
+[[]]"#
+                .to_string(),
+        )
         .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
@@ -63,10 +67,13 @@ fn test_scan_markdown_file_wikilink_collection() {
 
     let file_path = TestFileBuilder::new()
         .with_aliases(vec!["Alias One".to_string(), "Second Alias".to_string()])
-        .with_content(r#"# Test Note
+        .with_content(
+            r#"# Test Note
 
 Here's a [[Simple Link]] and [[Target Page|Display Text]].
-Also linking to [[Alias One]] which is defined in frontmatter."#.to_string())
+Also linking to [[Alias One]] which is defined in frontmatter."#
+                .to_string(),
+        )
         .create(&temp_dir, "test_note.md");
 
     // Test patterns
@@ -174,14 +181,16 @@ fn test_parallel_image_reference_collection() {
 #[test]
 fn test_scan_markdown_file_with_do_not_back_populate() {
     let temp_dir = TempDir::new().unwrap();
-    let file_path =
-        TestFileBuilder::new()
-            .with_content("# Test Content".to_string())
-            .with_custom_frontmatter(r#"do_not_back_populate:
+    let file_path = TestFileBuilder::new()
+        .with_content("# Test Content".to_string())
+        .with_custom_frontmatter(
+            r#"do_not_back_populate:
 - "test phrase"
 - "another phrase"
-"#.to_string())
-            .create(&temp_dir, "test.md");
+"#
+            .to_string(),
+        )
+        .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
     let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
@@ -201,9 +210,12 @@ fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
         .with_aliases(vec!["First Alias".to_string(), "Second Alias".to_string()])
-        .with_custom_frontmatter(r#"do_not_back_populate:
+        .with_custom_frontmatter(
+            r#"do_not_back_populate:
 - "exclude this"
-"#.to_string())
+"#
+            .to_string(),
+        )
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
@@ -385,6 +397,45 @@ fn test_wikilink_sorting_with_aliases() {
     }
 }
 
+// #[test]
+// fn test_cache_file_cleanup() {
+//     // Create scope to ensure TempDir is dropped
+//     {
+//         let temp_dir = TempDir::new().unwrap();
+//         let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
+//
+//         // Create a test file using TestFileBuilder
+//         TestFileBuilder::new()
+//             .with_content("# Test".to_string())
+//             .create(&temp_dir, "test.md");
+//
+//         // Create config that will create cache in temp dir
+//         let config = ValidatedConfig::new(
+//             false,
+//             None,
+//             None,
+//             None,
+//             None,
+//             temp_dir.path().to_path_buf(),
+//             temp_dir.path().join("output"),
+//         );
+//
+//         // This will create the cache file
+//         let _ = scan_folders(&config).unwrap();
+//
+//         // Verify cache was created
+//         assert!(cache_path.exists(), "Cache file should exist");
+//
+//         // temp_dir will be dropped here
+//     }
+//
+//     // Try to create a new temp dir with the same path (this would fail if the old one wasn't cleaned up)
+//     let new_temp = TempDir::new().unwrap();
+//     assert!(
+//         new_temp.path().exists(),
+//         "Should be able to create new temp dir"
+//     );
+// }
 #[test]
 fn test_cache_file_cleanup() {
     // Create scope to ensure TempDir is dropped
@@ -392,10 +443,14 @@ fn test_cache_file_cleanup() {
         let temp_dir = TempDir::new().unwrap();
         let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
 
-        // Create a test file using TestFileBuilder
+        // Create a test file and image using TestFileBuilder
         TestFileBuilder::new()
-            .with_content("# Test".to_string())
+            .with_content("# Test\n![test](test.png)".to_string())
             .create(&temp_dir, "test.md");
+
+        TestFileBuilder::new()
+            .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0])  // Simple PNG header
+            .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
         let config = ValidatedConfig::new(
@@ -408,16 +463,24 @@ fn test_cache_file_cleanup() {
             temp_dir.path().join("output"),
         );
 
-        // This will create the cache file
+        // First scan - creates cache with the image
         let _ = scan_folders(&config).unwrap();
 
-        // Verify cache was created
-        assert!(cache_path.exists(), "Cache file should exist");
+        // Delete the image file
+        std::fs::remove_file(temp_dir.path().join("test.png")).unwrap();
+
+        // Second scan - should detect the deleted image
+        let _ = scan_folders(&config).unwrap();
+
+        // Verify cache was cleaned up
+        let cache_content = std::fs::read_to_string(&cache_path).unwrap();
+        let cache: HashMap<PathBuf, CachedImageInfo> = serde_json::from_str(&cache_content).unwrap();
+        assert!(cache.is_empty(), "Cache should be empty after cleanup");
 
         // temp_dir will be dropped here
     }
 
-    // Try to create a new temp dir with the same path (this would fail if the old one wasn't cleaned up)
+    // Try to create a new temp dir with the same path
     let new_temp = TempDir::new().unwrap();
     assert!(
         new_temp.path().exists(),
