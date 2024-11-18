@@ -2,7 +2,7 @@ use super::*;
 use crate::cleanup_images::{handle_file_operation, FileOperation};
 use crate::test_utils::TestFileBuilder;
 
-use chrono::Local;
+use chrono::Utc;
 use std::fs::File;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -24,7 +24,7 @@ fn test_remove_reference() {
 
     let result = fs::read_to_string(&file_path).unwrap();
 
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text",
         today
@@ -57,7 +57,7 @@ fn test_single_invocation() {
 
     let result = fs::read_to_string(&file_path).unwrap();
 
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
 
     assert_eq!(result, expected_content);
@@ -130,7 +130,7 @@ fn test_remove_reference_with_path() {
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\nSome text\nMore text",
         today
@@ -159,7 +159,7 @@ fn test_update_reference_with_path() {
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\n![[conf/media/new.jpg]]\nSome text\n![Image](conf/media/new.jpg)\nMore text",
         today
@@ -191,7 +191,7 @@ More text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
 
     assert_eq!(result, expected_content);
@@ -220,7 +220,7 @@ More text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
 
     assert_eq!(result, expected_content);
@@ -247,7 +247,7 @@ More text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
 
     assert_eq!(result, expected_content);
@@ -276,7 +276,7 @@ More text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\nLabel 1: text\nLabel 2: more text\nMore text",
         today
@@ -306,7 +306,7 @@ More text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\nBefore after\nText before and after\nMore text",
         today
@@ -367,7 +367,7 @@ Some content here."#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     let expected_content = format!(
         "---\ndate_modified: \"{}\"\n---\n# Test\nSome content here.",
         today
@@ -464,7 +464,7 @@ Some text"#
     .unwrap();
 
     let result = fs::read_to_string(&file_path).unwrap();
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
     // Our cleanup function is designed to remove empty lines and simplify to just the text
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nSome text", today);
     assert_eq!(result, expected_content);

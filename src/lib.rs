@@ -23,7 +23,7 @@ pub use utils::Timer;
 
 use crate::markdown_file_info::write_date_validation_table;
 use crate::{config::Config, config::ValidatedConfig};
-use chrono::Local;
+use chrono::Utc;
 use std::error::Error;
 use std::path::PathBuf;
 use utils::ThreadSafeWriter;
@@ -65,7 +65,7 @@ pub fn write_execution_start(
     validated_config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let timestamp = Local::now().format(FORMAT_TIME_STAMP);
+    let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
     let properties = format!(
         "{}{}\n{}{}\n",
         YAML_TIMESTAMP,

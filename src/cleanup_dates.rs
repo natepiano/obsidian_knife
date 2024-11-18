@@ -23,7 +23,7 @@ struct DateUpdates {
 #[derive(Debug)]
 enum DateUpdateAction {
     UpdateDateCreated {
-        file_creation_time: Option<DateTime<Local>>,
+        file_creation_time: Option<DateTime<Utc>>,
     },
     UpdateDateModified,
     NoAction,
@@ -97,7 +97,7 @@ impl DateValidationResults {
 
 #[derive(Clone, Debug)]
 struct DateInfo {
-    created_timestamp: DateTime<Local>,
+    created_timestamp: DateTime<Utc>,
     date_created: Option<String>,
     date_created_fix: Option<String>,
     updated_property: DateCreatedPropertyUpdate,
@@ -153,7 +153,7 @@ enum SetFileCreationDateWith {
 
 // Implement a function to convert the enum into the corresponding string value
 impl SetFileCreationDateWith {
-    fn to_string(&self, timestamp: DateTime<Local>, date_created_fix: Option<&String>) -> String {
+    fn to_string(&self, timestamp: DateTime<Utc>, date_created_fix: Option<&String>) -> String {
         match self {
             SetFileCreationDateWith::FileCreationTime => {
                 // Use the file creation timestamp without wikilinks
@@ -399,7 +399,7 @@ fn process_valid_dates(
     }
 
     // Handle date_modified updates
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
 
     match fm.date_modified() {
         Some(date_modified) => {
@@ -473,7 +473,7 @@ fn apply_date_changes(
 fn determine_updated_property(
     date_created: Option<&String>,
     date_created_fix: Option<&String>,
-    created_time: DateTime<Local>,
+    created_time: DateTime<Utc>,
 ) -> DateCreatedPropertyUpdate {
     match (date_created, date_created_fix) {
         // date_created_fix takes precedence

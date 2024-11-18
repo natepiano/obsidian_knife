@@ -35,8 +35,8 @@ struct DateValidationTestCase {
     name: &'static str,
     date_modified: Option<String>,
     date_created: Option<String>,
-    file_system_mod_date: DateTime<Local>,
-    file_system_create_date: DateTime<Local>,
+    file_system_mod_date: DateTime<Utc>,
+    file_system_create_date: DateTime<Utc>,
     expected_modified_status: DateValidationStatus,
     expected_created_status: DateValidationStatus,
 }
@@ -50,8 +50,8 @@ fn test_process_frontmatter_date_validation() {
             name: "both dates valid and matching filesystem",
             date_modified: Some("[[2024-01-15]]".to_string()),
             date_created: Some("[[2024-01-15]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_status: DateValidationStatus::Valid,
             expected_created_status: DateValidationStatus::Valid,
         },
@@ -59,8 +59,8 @@ fn test_process_frontmatter_date_validation() {
             name: "missing wikilink brackets",
             date_modified: Some("2024-01-15".to_string()),
             date_created: Some("2024-01-15".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_status: DateValidationStatus::InvalidWikilink,
             expected_created_status: DateValidationStatus::InvalidWikilink,
         },
@@ -68,8 +68,8 @@ fn test_process_frontmatter_date_validation() {
             name: "filesystem mismatch",
             date_modified: Some("[[2024-01-15]]".to_string()),
             date_created: Some("[[2024-01-15]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
             expected_modified_status: DateValidationStatus::FileSystemMismatch,
             expected_created_status: DateValidationStatus::FileSystemMismatch,
         },
@@ -77,8 +77,8 @@ fn test_process_frontmatter_date_validation() {
             name: "invalid date format",
             date_modified: Some("[[2024-13-45]]".to_string()),
             date_created: Some("[[2024-13-45]]".to_string()),
-            file_system_mod_date: Local::now(),
-            file_system_create_date: Local::now(),
+            file_system_mod_date: Utc::now(),
+            file_system_create_date: Utc::now(),
             expected_modified_status: DateValidationStatus::InvalidFormat,
             expected_created_status: DateValidationStatus::InvalidFormat,
         },
@@ -86,8 +86,8 @@ fn test_process_frontmatter_date_validation() {
             name: "missing dates",
             date_modified: None,
             date_created: None,
-            file_system_mod_date: Local::now(),
-            file_system_create_date: Local::now(),
+            file_system_mod_date: Utc::now(),
+            file_system_create_date: Utc::now(),
             expected_modified_status: DateValidationStatus::Missing,
             expected_created_status: DateValidationStatus::Missing,
         },
@@ -143,8 +143,8 @@ struct DateFixTestCase {
     // Initial state
     date_modified: Option<String>,
     date_created: Option<String>,
-    file_system_mod_date: DateTime<Local>,
-    file_system_create_date: DateTime<Local>,
+    file_system_mod_date: DateTime<Utc>,
+    file_system_create_date: DateTime<Utc>,
 
     // Expected outcomes
     should_persist: bool,
@@ -159,8 +159,8 @@ fn test_process_date_validations() {
             name: "missing dates should be updated",
             date_modified: None,
             date_created: None,
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
             should_persist: true,
@@ -169,8 +169,8 @@ fn test_process_date_validations() {
             name: "filesystem mismatch should update created date",
             date_modified: Some("[[2024-01-15]]".to_string()),
             date_created: Some("[[2024-01-14]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
             should_persist: true,
@@ -179,8 +179,8 @@ fn test_process_date_validations() {
             name: "filesystem mismatch should update modified date",
             date_modified: Some("[[2024-01-14]]".to_string()),
             date_created: Some("[[2024-01-15]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
             should_persist: true,
@@ -189,8 +189,8 @@ fn test_process_date_validations() {
             name: "valid dates should not change",
             date_modified: Some("[[2024-01-15]]".to_string()),
             date_created: Some("[[2024-01-15]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
             should_persist: false,
@@ -199,8 +199,8 @@ fn test_process_date_validations() {
             name: "filesystem mismatch should update both dates when both differ",
             date_modified: Some("[[2024-01-14]]".to_string()),
             date_created: Some("[[2024-01-13]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
             should_persist: true,
@@ -209,8 +209,8 @@ fn test_process_date_validations() {
             name: "invalid format should change", // changed from "invalid format should not change"
             date_modified: Some("[[2024-13-45]]".to_string()),
             date_created: Some("[[2024-13-45]]".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()), // changed
             expected_created_date: Some("[[2024-01-15]]".to_string()),  // changed
             should_persist: true,                                       // changed from false
@@ -219,8 +219,8 @@ fn test_process_date_validations() {
             name: "invalid wikilink should change", // changed from "invalid wikilink should not change"
             date_modified: Some("2024-01-15".to_string()),
             date_created: Some("2024-01-15".to_string()),
-            file_system_mod_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             expected_modified_date: Some("[[2024-01-15]]".to_string()), // changed
             expected_created_date: Some("[[2024-01-15]]".to_string()),  // changed
             should_persist: true,                                       // changed from false
@@ -288,7 +288,7 @@ struct DateCreatedFixTestCase {
     name: &'static str,
     date_created_fix: Option<String>,
     expect_persist: bool,
-    expected_parsed_date: Option<DateTime<Local>>,
+    expected_parsed_date: Option<DateTime<Utc>>,
 }
 
 #[test]
@@ -304,13 +304,13 @@ fn test_date_created_fix_integration() {
             name: "valid date without wikilink",
             date_created_fix: Some("2024-01-15".to_string()),
             expect_persist: true,
-            expected_parsed_date: Some(Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
+            expected_parsed_date: Some(Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
         },
         DateCreatedFixTestCase {
             name: "valid date with wikilink",
             date_created_fix: Some("[[2024-01-15]]".to_string()),
             expect_persist: true,
-            expected_parsed_date: Some(Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
+            expected_parsed_date: Some(Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap()),
         },
         DateCreatedFixTestCase {
             name: "invalid date format",
@@ -334,7 +334,7 @@ fn test_date_created_fix_integration() {
 
     for case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let test_date = Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+        let test_date = Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
         let file_path = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some("[[2024-01-15]]".to_string()),

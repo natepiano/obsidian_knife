@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Utc};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -9,8 +9,8 @@ pub struct TestFileBuilder {
     frontmatter_created: Option<String>,
     frontmatter_modified: Option<String>,
     date_created_fix: Option<String>,
-    fs_created: DateTime<Local>,
-    fs_modified: DateTime<Local>,
+    fs_created: DateTime<Utc>,
+    fs_modified: DateTime<Utc>,
     tags: Option<Vec<String>>,
     aliases: Option<Vec<String>>,
     title: Option<String>, // Changed to Option
@@ -19,7 +19,7 @@ pub struct TestFileBuilder {
 
 impl TestFileBuilder {
     pub fn new() -> Self {
-        let now = Local::now();
+        let now = Utc::now();
         Self {
             frontmatter_created: None,
             frontmatter_modified: None,
@@ -48,7 +48,7 @@ impl TestFileBuilder {
         self
     }
 
-    pub fn with_fs_dates(mut self, created: DateTime<Local>, modified: DateTime<Local>) -> Self {
+    pub fn with_fs_dates(mut self, created: DateTime<Utc>, modified: DateTime<Utc>) -> Self {
         self.fs_created = created;
         self.fs_modified = modified;
         self

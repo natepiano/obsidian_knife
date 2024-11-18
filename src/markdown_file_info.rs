@@ -11,7 +11,7 @@ use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
 use crate::{CLOSING_WIKILINK, LEVEL1, OPENING_WIKILINK};
 
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
-use chrono::{DateTime, Local, NaiveDate, TimeZone};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
@@ -30,7 +30,7 @@ pub enum DateValidationStatus {
 #[derive(Debug, PartialEq)]
 pub struct DateValidation {
     pub frontmatter_date: Option<String>,
-    pub file_system_date: DateTime<Local>,
+    pub file_system_date: DateTime<Utc>,
     pub status: DateValidationStatus,
 }
 
@@ -81,7 +81,7 @@ fn format_invalid_date(prefix: &str, date_string: &Option<String>) -> String {
 #[derive(Debug)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,
-    pub fix_date: Option<DateTime<Local>>,
+    pub fix_date: Option<DateTime<Utc>>,
 }
 
 impl DateCreatedFixValidation {
@@ -105,7 +105,7 @@ impl DateCreatedFixValidation {
 impl DateCreatedFixValidation {
     fn from_frontmatter(
         frontmatter: &Option<FrontMatter>,
-        file_created_date: DateTime<Local>,
+        file_created_date: DateTime<Utc>,
     ) -> Self {
         let date_string = frontmatter
             .as_ref()
@@ -123,7 +123,7 @@ impl DateCreatedFixValidation {
                 .map(|naive_date| {
                     let time = file_created_date.time();
                     let naive_datetime = naive_date.and_time(time);
-                    Local.from_local_datetime(&naive_datetime).unwrap()
+                    Utc.from_local_datetime(&naive_datetime).unwrap()
                 })
         });
 
@@ -205,7 +205,7 @@ impl MarkdownFileInfo {
 
 fn get_date_validation_status(
     date_opt: Option<&String>,
-    fs_date: &DateTime<Local>,
+    fs_date: &DateTime<Utc>,
 ) -> DateValidationStatus {
     match date_opt {
         None => DateValidationStatus::Missing,
@@ -240,7 +240,7 @@ fn get_date_validations(
             metadata
                 .created()
                 .map(|t| t.into())
-                .unwrap_or_else(|_| Local::now()),
+                .unwrap_or_else(|_| Utc::now()),
         ),
         (
             frontmatter
@@ -249,7 +249,7 @@ fn get_date_validations(
             metadata
                 .modified()
                 .map(|t| t.into())
-                .unwrap_or_else(|_| Local::now()),
+                .unwrap_or_else(|_| Utc::now()),
         ),
     ];
 

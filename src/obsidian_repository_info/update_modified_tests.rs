@@ -1,13 +1,13 @@
 use super::*;
 use crate::test_utils::TestFileBuilder;
-use chrono::{Datelike, Local, TimeZone};
+use chrono::{Datelike, TimeZone, Utc};
 use tempfile::TempDir;
 
 #[test]
 fn test_update_modified_dates_changes_frontmatter() {
     let temp_dir = TempDir::new().unwrap();
 
-    let base_date = Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+    let base_date = Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
@@ -27,7 +27,7 @@ fn test_update_modified_dates_changes_frontmatter() {
     let frontmatter = repo_info.markdown_files[0].frontmatter.as_ref().unwrap();
 
     // Get today's date for comparison
-    let today = Local::now();
+    let today = Utc::now();
     let expected_date = format!(
         "[[{}-{:02}-{:02}]]",
         today.year(),
@@ -53,7 +53,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let temp_dir = TempDir::new().unwrap();
 
     // Set January 15th, 2024 as the base date
-    let base_date = Local.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+    let base_date = Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
 
     // Create two files
     let file_path1 = TestFileBuilder::new()
@@ -86,7 +86,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let file2 = &repo_info.markdown_files[1];
 
     // Get today's date for comparison
-    let today = Local::now();
+    let today = Utc::now();
     let expected_date = format!(
         "[[{}-{:02}-{:02}]]",
         today.year(),

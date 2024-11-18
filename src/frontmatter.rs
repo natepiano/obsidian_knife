@@ -5,7 +5,7 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::utils::build_case_insensitive_word_finder;
 use crate::wikilink::format_wikilink;
 use crate::{constants::*, utils::ThreadSafeWriter, yaml_frontmatter_struct};
-use chrono::{DateTime, Datelike, Local};
+use chrono::{DateTime, Datelike, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
@@ -52,7 +52,7 @@ impl FrontMatter {
         self.date_created_fix = None;
     }
 
-    pub fn set_date_created(&mut self, date: DateTime<Local>) {
+    pub fn set_date_created(&mut self, date: DateTime<Utc>) {
         self.date_created = Some(format!(
             "[[{}-{:02}-{:02}]]",
             date.year(),
@@ -62,7 +62,7 @@ impl FrontMatter {
         self.needs_persist = true;
     }
 
-    pub fn set_date_modified(&mut self, date: DateTime<Local>) {
+    pub fn set_date_modified(&mut self, date: DateTime<Utc>) {
         self.date_modified = Some(format!(
             "[[{}-{:02}-{:02}]]",
             date.year(),

@@ -1,6 +1,6 @@
 use crate::config::ValidatedConfig;
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
-use chrono::{Local, NaiveDateTime};
+use chrono::{NaiveDateTime, Utc};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use regex::Regex;
 use std::error::Error;
@@ -45,7 +45,7 @@ fn update_markdown_content(content: &str, update_fn: impl FnOnce(&str) -> String
     let frontmatter_regex = Regex::new(r"(?s)^---\n(.*?)\n---").unwrap();
     let date_modified_regex = Regex::new(r"(?m)^date_modified:\s*(.*)$").unwrap();
 
-    let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+    let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
 
     let updated_content = if let Some(captures) = frontmatter_regex.captures(content) {
         let frontmatter = captures.get(1).unwrap().as_str();
@@ -209,7 +209,6 @@ pub fn collect_repository_files(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Local;
     use std::fs::File;
     use std::io::Write;
     use tempfile::TempDir;
@@ -239,7 +238,7 @@ mod tests {
 
     #[test]
     fn test_update_markdown_content() {
-        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
 
         // Test case 1: Existing frontmatter with date_modified
         let content1 = "---\ntitle: Test\ndate_modified: \"[[2023-01-01]]\"\n---\nContent";
@@ -286,7 +285,7 @@ mod tests {
         update_file(file_path, |s| s.replace("Content", "Updated Content")).unwrap();
 
         let updated_content = fs::read_to_string(temp_dir.path().join("test.md")).unwrap();
-        let today = Local::now().format("[[%Y-%m-%d]]").to_string();
+        let today = Utc::now().format("[[%Y-%m-%d]]").to_string();
         assert!(updated_content.contains(&format!("date_modified: \"{}\"", today)));
         assert!(updated_content.contains("Updated Content"));
     }

@@ -7,7 +7,7 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::ImageInfo;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;
-use chrono::Local;
+use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::PathBuf;
@@ -32,7 +32,7 @@ impl ObsidianRepositoryInfo {
     }
 
     pub fn update_modified_dates(&mut self, paths: &[PathBuf]) {
-        let today = Local::now();
+        let today = Utc::now();
         let paths_set: HashSet<_> = paths.iter().collect();
 
         self.markdown_files

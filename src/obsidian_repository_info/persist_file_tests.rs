@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_utils::TestFileBuilder;
-use chrono::{DateTime, Local, NaiveDate};
+use chrono::{DateTime, Local, NaiveDate, Utc};
 use filetime::FileTime;
 use std::error::Error;
 use std::fs;
@@ -12,8 +12,8 @@ struct PersistenceTestCase {
     // Input state
     initial_frontmatter_created: Option<String>,
     initial_frontmatter_modified: Option<String>,
-    initial_fs_created: DateTime<Local>,
-    initial_fs_modified: DateTime<Local>,
+    initial_fs_created: DateTime<Utc>,
+    initial_fs_modified: DateTime<Utc>,
 
     // Expected outcomes
     expected_frontmatter_created: Option<String>,
@@ -128,7 +128,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 fn create_test_cases() -> Vec<PersistenceTestCase> {
-    let now = Local::now();
+    let now = Utc::now();
     let yesterday = now - chrono::Duration::days(1);
     let last_week = now - chrono::Duration::days(7);
     let last_month = now - chrono::Duration::days(30);
@@ -138,8 +138,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             name: "no changes needed",
             initial_frontmatter_created: Some("2024-01-01".to_string()),
             initial_frontmatter_modified: Some("2024-01-02".to_string()),
-            initial_fs_created: Local::now(), // we'll set this to match frontmatter in setup
-            initial_fs_modified: Local::now(), // we'll set this to match frontmatter in setup
+            initial_fs_created: Utc::now(), // we'll set this to match frontmatter in setup
+            initial_fs_modified: Utc::now(), // we'll set this to match frontmatter in setup
             expected_frontmatter_created: Some("2024-01-01".to_string()),
             expected_frontmatter_modified: Some("2024-01-02".to_string()),
             expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
