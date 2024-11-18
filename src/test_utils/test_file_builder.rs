@@ -6,31 +6,38 @@ use std::time::SystemTime;
 use tempfile::TempDir;
 
 pub struct TestFileBuilder {
+    aliases: Option<Vec<String>>,
+    content: String,
+    custom_frontmatter: Option<String>,
+    date_created_fix: Option<String>,
     frontmatter_created: Option<String>,
     frontmatter_modified: Option<String>,
-    date_created_fix: Option<String>,
     fs_created: DateTime<Utc>,
     fs_modified: DateTime<Utc>,
     tags: Option<Vec<String>>,
-    aliases: Option<Vec<String>>,
-    title: Option<String>, // Changed to Option
-    content: String,
+    title: Option<String>,
 }
 
 impl TestFileBuilder {
     pub fn new() -> Self {
         let now = Utc::now();
         Self {
+            aliases: None,
+            content: String::from("Test content"),
+            custom_frontmatter: None,
+            date_created_fix: None,
             frontmatter_created: None,
             frontmatter_modified: None,
-            date_created_fix: None,
             fs_created: now,
             fs_modified: now,
             tags: None,
-            aliases: None, // Initialize new field
             title: None,
-            content: String::from("Test content"), // Initialize new field
         }
+    }
+
+    pub fn with_custom_frontmatter(mut self, content: String) -> Self {
+        self.custom_frontmatter = Some(content);
+        self
     }
 
     pub fn with_frontmatter_dates(
@@ -110,6 +117,9 @@ impl TestFileBuilder {
             }
             if let Some(title) = self.title {
                 writeln!(file, "title: {}", title).unwrap();
+            }
+            if let Some(custom) = self.custom_frontmatter {
+                writeln!(file, "{}", custom).unwrap();  // Note: using write! not writeln! to preserve formatting
             }
             writeln!(file, "---").unwrap();
         }
