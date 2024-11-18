@@ -23,10 +23,11 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
                 target: "Test Link".to_string(),
                 is_alias: false,
             },
+            // careful - these must match the order returned by process_line
             expected_matches: vec![
-                ("test link", "[[Test Link|test link]]"),
+                ("Test Link", "[[Test Link]]"),
                 ("TEST LINK", "[[Test Link|TEST LINK]]"),
-                ("Test Link", "[[Test Link]]"), // Exact match
+                ("test link", "[[Test Link|test link]]"),
             ],
             description: "Basic case-insensitive matching",
         },
@@ -58,8 +59,8 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
                 is_alias: false,
             },
             expected_matches: vec![
-                ("Test Link", "[[Test Link]]"), // Exact match
                 ("test link", "[[Test Link|test link]]"),
+                ("Test Link", "[[Test Link]]"), // Exact match
             ],
             description: "Case handling in tables",
         },
@@ -163,8 +164,15 @@ fn test_case_sensitivity_behavior() {
         let ac = build_aho_corasick(&[wikilink.clone()]);
         let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
 
-        let matches =
-            process_line(0, case.content, &ac, &[&wikilink], &config, &markdown_info).unwrap();
+        let matches = process_line(
+            &mut case.content.to_string(),
+            0,
+            &ac,
+            &[&wikilink],
+            &config,
+            &markdown_info,
+        )
+        .unwrap();
 
         assert_eq!(
             matches.len(),
@@ -176,6 +184,11 @@ fn test_case_sensitivity_behavior() {
         for ((expected_text, expected_base_replacement), actual_match) in
             case.expected_matches.iter().zip(matches.iter())
         {
+            println!("actual_match: {:?} expected text {:?} expected base replacement {:?} description {:?}", actual_match,
+                     expected_text,
+                     expected_base_replacement,
+                     case.description,);
+
             verify_match(
                 actual_match,
                 expected_text,

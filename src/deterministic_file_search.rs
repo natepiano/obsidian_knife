@@ -11,22 +11,22 @@ impl DeterministicSearch {
 
     /// Searches through the provided files using the given search function.
     /// Logs progress every `log_every` files processed.
-    pub fn search_with_info<F, T, I>(&self, files: &[I], search_fn: F) -> Vec<T>
+    pub fn search_with_info<F, T, I>(&self, files: &mut [I], search_fn: F) -> Vec<T>
     where
-        F: Fn(&I) -> Option<T> + Send + Sync,
+        F: Fn(&mut I) -> Option<T> + Send + Sync,
         T: Send,
         I: Send + Sync,
     {
         let target_count = self.max_results.unwrap_or(usize::MAX);
         let mut results = Vec::new();
 
-        for chunk in files.chunks(100) {
+        for chunk in files.chunks_mut(100) {
             if results.len() >= target_count {
                 break;
             }
 
             let chunk_results: Vec<_> = chunk
-                .par_iter()
+                .par_iter_mut()
                 .filter_map(|info| search_fn(info))
                 .collect();
 
@@ -53,7 +53,7 @@ mod tests {
         name: &'static str,
         max_results: Option<usize>,
         file_count: usize,
-        find_matches: Box<dyn Fn(&PathBuf) -> Option<Vec<String>> + Send + Sync>,
+        find_matches: Box<dyn Fn(&mut PathBuf) -> Option<Vec<String>> + Send + Sync>,
         expected: Vec<Vec<String>>,
     }
 
@@ -120,8 +120,8 @@ mod tests {
 
         for case in test_cases {
             let searcher = DeterministicSearch::new(case.max_results);
-            let (_temp_dir, files) = setup_test_files(case.file_count);
-            let actual = searcher.search_with_info(&files, &case.find_matches);
+            let (_temp_dir, mut files) = setup_test_files(case.file_count);
+            let actual = searcher.search_with_info(&mut files, &case.find_matches);
 
             assert_test_case(actual, case.expected, case.name, |a, e| {
                 assert!(a == e, "Results don't match")
@@ -132,15 +132,15 @@ mod tests {
     #[test]
     fn test_deterministic_results() {
         let searcher = DeterministicSearch::new(None);
-        let files = vec![
+        let mut files = vec![
             PathBuf::from("file1.md"),
             PathBuf::from("file2.md"),
             PathBuf::from("file3.md"),
         ];
-        let find_matches = |path: &PathBuf| Some(vec![path.to_string_lossy().to_string()]);
+        let find_matches = |path: &mut PathBuf| Some(vec![path.to_string_lossy().to_string()]);
 
-        let results1 = searcher.search_with_info(&files, find_matches);
-        let results2 = searcher.search_with_info(&files, find_matches);
+        let results1 = searcher.search_with_info(&mut files, find_matches);
+        let results2 = searcher.search_with_info(&mut files, find_matches);
 
         assert_test_case(
             results1.iter().collect::<Vec<_>>(),

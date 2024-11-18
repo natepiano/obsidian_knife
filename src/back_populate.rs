@@ -30,7 +30,6 @@ use lazy_static::lazy_static;
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::error::Error;
 use std::fs;
-use std::io::{BufRead, BufReader};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -139,7 +138,7 @@ pub fn process_back_populate(
 
         update_date_modified(obsidian_repository_info, &unambiguous_matches);
 
-        apply_back_populate_changes(config, &unambiguous_matches)?;
+        //  apply_back_populate_changes(config, &unambiguous_matches)?;
     }
 
     Ok(())
@@ -163,7 +162,7 @@ fn update_date_modified(
 
 fn find_all_back_populate_matches(
     config: &ValidatedConfig,
-    obsidian_repository_info: &ObsidianRepositoryInfo,
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let searcher = DeterministicSearch::new(config.back_populate_file_count());
 
@@ -175,8 +174,8 @@ fn find_all_back_populate_matches(
         obsidian_repository_info.wikilinks_sorted.iter().collect();
 
     let matches = searcher.search_with_info(
-        &obsidian_repository_info.markdown_files,
-        |markdown_file_info| {
+        &mut obsidian_repository_info.markdown_files,
+        |markdown_file_info: &mut MarkdownFileInfo| {
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
                     if !markdown_file_info.path.ends_with(filter) {
@@ -334,45 +333,96 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     start_is_boundary && end_is_boundary
 }
 
+// fn process_file(
+//     sorted_wikilinks: &[&Wikilink],
+//     config: &ValidatedConfig,
+//     markdown_file_info: &MarkdownFileInfo,
+//     ac: &AhoCorasick,
+// ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+//     let mut ac_matches = Vec::new();
+//
+//     let reader = BufReader::new(markdown_file_info.content.as_bytes());
+//     let mut state = FileProcessingState::new();
+//
+//     for (line_idx, line) in reader.lines().enumerate() {
+//         let line = line?;
+//
+//         // Skip empty or whitespace-only lines early
+//         if line.trim().is_empty() {
+//             continue;
+//         }
+//
+//         // Update state and skip if needed
+//         state.update_for_line(&line);
+//         if state.should_skip_line() {
+//             continue;
+//         }
+//
+//         // Get AC matches (existing functionality)
+//         let line_ac_matches = process_line(
+//             line_idx,
+//             &line,
+//             ac,
+//             sorted_wikilinks,
+//             config,
+//             markdown_file_info,
+//         )?;
+//
+//         ac_matches.extend(line_ac_matches);
+//     }
+//
+//     Ok(ac_matches)
+// }
 fn process_file(
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
-    markdown_file_info: &MarkdownFileInfo,
+    markdown_file_info: &mut MarkdownFileInfo,
     ac: &AhoCorasick,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
-    let mut ac_matches = Vec::new();
-
-    let reader = BufReader::new(markdown_file_info.content.as_bytes());
+    let mut all_matches = Vec::new();
+    let content = markdown_file_info.content.clone();
     let mut state = FileProcessingState::new();
+    let mut updated_content = String::new();
 
-    for (line_idx, line) in reader.lines().enumerate() {
-        let line = line?;
+    for (line_idx, line) in content.lines().enumerate() {
+        let mut line_text = line.to_string();
 
-        // Skip empty or whitespace-only lines early
-        if line.trim().is_empty() {
+        // Skip empty/whitespace lines early
+        if line_text.trim().is_empty() {
+            updated_content.push_str(&line_text);
+            updated_content.push('\n');
             continue;
         }
 
         // Update state and skip if needed
-        state.update_for_line(&line);
+        state.update_for_line(&line_text);
         if state.should_skip_line() {
+            updated_content.push_str(&line_text);
+            updated_content.push('\n');
             continue;
         }
 
-        // Get AC matches (existing functionality)
-        let line_ac_matches = process_line(
+        // Process the line and collect matches
+        let matches = process_line(
+            &mut line_text,
             line_idx,
-            &line,
             ac,
             sorted_wikilinks,
             config,
             markdown_file_info,
         )?;
 
-        ac_matches.extend(line_ac_matches);
+        all_matches.extend(matches);
+        updated_content.push_str(&line_text);
+        updated_content.push('\n');
     }
 
-    Ok(ac_matches)
+    // Update the content if we found matches
+    if !all_matches.is_empty() {
+        markdown_file_info.content = updated_content;
+    }
+
+    Ok(all_matches)
 }
 
 fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
@@ -421,40 +471,104 @@ fn collect_exclusion_zones(
     exclusion_zones
 }
 
+// fn process_line(
+//     line_idx: usize,
+//     line: &str,
+//     ac: &AhoCorasick,
+//     sorted_wikilinks: &[&Wikilink],
+//     config: &ValidatedConfig,
+//     markdown_file_info: &MarkdownFileInfo,
+// ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+//     let mut matches = Vec::new();
+//
+//     let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
+//
+//     for mat in ac.find_iter(line) {
+//         // use the ac pattern - which returns the index that matches
+//         // the index of how the ac was built from sorted_wikilinks in the first place
+//         // so now we can extract the specific wikilink we need
+//         let wikilink = sorted_wikilinks[mat.pattern()];
+//         let starts_at = mat.start();
+//         let ends_at = mat.end();
+//
+//         // Skip if in exclusion zone
+//         if range_overlaps(&exclusion_zones, starts_at, ends_at) {
+//             continue;
+//         }
+//
+//         let matched_text = &line[starts_at..ends_at];
+//
+//         if !is_word_boundary(line, starts_at, ends_at) {
+//             continue;
+//         }
+//
+//         // Rest of the validation
+//         if should_create_match(
+//             line,
+//             starts_at,
+//             matched_text,
+//             &markdown_file_info.path,
+//             markdown_file_info,
+//         ) {
+//             let mut replacement = if matched_text == wikilink.target {
+//                 wikilink.target.to_wikilink()
+//             } else {
+//                 // Use aliased format for case differences or actual aliases
+//                 wikilink.target.to_aliased_wikilink(matched_text)
+//             };
+//
+//             let in_markdown_table = is_in_markdown_table(line, matched_text);
+//             if in_markdown_table {
+//                 replacement = replacement.replace('|', r"\|");
+//             }
+//
+//             let relative_path =
+//                 format_relative_path(&markdown_file_info.path, config.obsidian_path());
+//
+//             matches.push(BackPopulateMatch {
+//                 found_text: matched_text.to_string(),
+//                 full_path: markdown_file_info.path.clone(),
+//                 line_number: line_idx + 1,
+//                 line_text: line.to_string(),
+//                 position: starts_at,
+//                 in_markdown_table,
+//                 relative_path,
+//                 replacement,
+//             });
+//         }
+//     }
+//
+//     Ok(matches)
+// }
 fn process_line(
+    line_text: &mut String,
     line_idx: usize,
-    line: &str,
     ac: &AhoCorasick,
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
 ) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
     let mut matches = Vec::new();
+    let exclusion_zones = collect_exclusion_zones(line_text, config, markdown_file_info);
+    let original_line = line_text.clone();
 
-    let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
-
-    for mat in ac.find_iter(line) {
-        // use the ac pattern - which returns the index that matches
-        // the index of how the ac was built from sorted_wikilinks in the first place
-        // so now we can extract the specific wikilink we need
+    // Collect all valid matches first
+    for mat in ac.find_iter(&original_line) {
         let wikilink = sorted_wikilinks[mat.pattern()];
         let starts_at = mat.start();
         let ends_at = mat.end();
 
-        // Skip if in exclusion zone
         if range_overlaps(&exclusion_zones, starts_at, ends_at) {
             continue;
         }
 
-        let matched_text = &line[starts_at..ends_at];
-
-        if !is_word_boundary(line, starts_at, ends_at) {
+        let matched_text = &original_line[starts_at..ends_at];
+        if !is_word_boundary(&original_line, starts_at, ends_at) {
             continue;
         }
 
-        // Rest of the validation
         if should_create_match(
-            line,
+            &original_line,
             starts_at,
             matched_text,
             &markdown_file_info.path,
@@ -463,11 +577,10 @@ fn process_line(
             let mut replacement = if matched_text == wikilink.target {
                 wikilink.target.to_wikilink()
             } else {
-                // Use aliased format for case differences or actual aliases
                 wikilink.target.to_aliased_wikilink(matched_text)
             };
 
-            let in_markdown_table = is_in_markdown_table(line, matched_text);
+            let in_markdown_table = is_in_markdown_table(&original_line, matched_text);
             if in_markdown_table {
                 replacement = replacement.replace('|', r"\|");
             }
@@ -479,13 +592,68 @@ fn process_line(
                 found_text: matched_text.to_string(),
                 full_path: markdown_file_info.path.clone(),
                 line_number: line_idx + 1,
-                line_text: line.to_string(),
+                line_text: original_line.clone(),
                 position: starts_at,
                 in_markdown_table,
                 relative_path,
                 replacement,
             });
         }
+    }
+
+    // Sort matches in reverse order by position and apply changes
+    matches.sort_by_key(|m| std::cmp::Reverse(m.position));
+
+    // Apply changes only if we have matches
+    if !matches.is_empty() {
+        let mut updated_line = original_line.clone();
+
+        // Apply replacements in sorted (reverse) order
+        for match_info in &matches {
+            let start = match_info.position;
+            let end = start + match_info.found_text.len();
+
+            // Check for UTF-8 boundary issues
+            if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
+                eprintln!(
+                    "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
+                   Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
+                    markdown_file_info.path,
+                    match_info.line_number,
+                    start,
+                    end,
+                    updated_line,
+                    match_info.found_text
+                );
+                panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
+            }
+
+            // Perform the replacement
+            updated_line.replace_range(start..end, &match_info.replacement);
+
+            // Validation check after each replacement
+            if updated_line.contains("[[[") || updated_line.contains("]]]") {
+                eprintln!(
+                    "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
+                   Current line:\n{}\n",
+                    markdown_file_info.path, match_info.line_number, updated_line
+                );
+            }
+        }
+
+        // Final validation check
+        if updated_line.matches("[[").count() != updated_line.matches("]]").count() {
+            eprintln!(
+                "Unmatched brackets detected in file '{}', line {}.\nContent: {}",
+                markdown_file_info.path.display(),
+                line_idx + 1,
+                updated_line.escape_debug()
+            );
+            panic!("Unmatched brackets detected. Please check the content.");
+        }
+
+        // Only update the line if all validations pass
+        *line_text = updated_line;
     }
 
     Ok(matches)

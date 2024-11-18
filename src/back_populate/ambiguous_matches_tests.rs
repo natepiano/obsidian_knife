@@ -221,8 +221,8 @@ Nate was here and so was Nate"#
         .create(&temp_dir, "Nathan Dye.md");
 
     // Let scan_folders find all the files and process them
-    let repo_info = scan_folders(&config).unwrap();
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let mut repo_info = scan_folders(&config).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     // Filter matches for other.md
     let other_matches: Vec<_> = matches

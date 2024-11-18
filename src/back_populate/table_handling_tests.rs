@@ -113,14 +113,14 @@ fn test_process_line_table_escaping_combined() {
     // Define multiple wikilinks
     let wikilinks = vec![
         Wikilink {
-            display_text: "Test Link".to_string(),
-            target: "Target Page".to_string(),
-            is_alias: true,
-        },
-        Wikilink {
             display_text: "Another Link".to_string(),
             target: "Other Page".to_string(),
             is_alias: false,
+        },
+        Wikilink {
+            display_text: "Test Link".to_string(),
+            target: "Target Page".to_string(),
+            is_alias: true,
         },
     ];
 
@@ -140,32 +140,32 @@ fn test_process_line_table_escaping_combined() {
         (
             "| Test Link | Another Link | description |",
             vec![
-                "[[Target Page\\|Test Link]]",
                 "[[Other Page\\|Another Link]]",
+                "[[Target Page\\|Test Link]]",
             ],
             "Multiple matches in one row",
         ),
         (
             "| prefix Test Link suffix | Another Link |",
             vec![
-                "[[Target Page\\|Test Link]]",
                 "[[Other Page\\|Another Link]]",
+                "[[Target Page\\|Test Link]]",
             ],
             "Table cells with surrounding text",
         ),
         (
             "| column1 | Test Link | Another Link |",
             vec![
-                "[[Target Page\\|Test Link]]",
                 "[[Other Page\\|Another Link]]",
+                "[[Target Page\\|Test Link]]",
             ],
             "Different column positions",
         ),
         (
             "| Test Link | description | Another Link |",
             vec![
-                "[[Target Page\\|Test Link]]",
                 "[[Other Page\\|Another Link]]",
+                "[[Target Page\\|Test Link]]",
             ],
             "Multiple replacements in different columns",
         ),
@@ -180,7 +180,15 @@ fn test_process_line_table_escaping_combined() {
             .with_content(line.to_string())
             .create(&temp_dir, "test.md");
 
-        let matches = process_line(0, line, &ac, &wikilink_refs, &config, &markdown_info).unwrap();
+        let matches = process_line(
+            &mut line.to_string(),
+            0,
+            &ac,
+            &wikilink_refs,
+            &config,
+            &markdown_info,
+        )
+        .unwrap();
 
         assert_eq!(
             matches.len(),

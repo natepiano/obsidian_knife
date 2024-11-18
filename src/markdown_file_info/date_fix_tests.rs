@@ -22,7 +22,7 @@ fn create_frontmatter(
     if yaml_parts.len() == 1 {
         yaml_parts.push("title: test".to_string());
     }
-  //  yaml_parts.push("---\n".to_string());
+    //  yaml_parts.push("---\n".to_string());
 
     let yaml = yaml_parts.join("\n");
 

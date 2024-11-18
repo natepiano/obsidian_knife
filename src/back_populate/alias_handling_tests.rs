@@ -32,7 +32,7 @@ fn test_alias_priority() {
     create_markdown_test_file(&temp_dir, "salad.md", content, &mut repo_info);
 
     // Find matches
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     // Verify we got exactly one match
     assert_eq!(matches.len(), 1, "Should find exactly one match");
@@ -76,7 +76,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .push(create_test_markdown_file_info(&file_path));
 
     // Now, use the config returned from create_test_environment
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     assert_eq!(
         matches.len(),
@@ -94,7 +94,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(create_test_markdown_file_info(&other_file_path));
 
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     assert_eq!(matches.len(), 1, "Should find match on other pages");
 }
@@ -121,7 +121,7 @@ fn test_no_self_referential_back_population() {
     create_markdown_test_file(&temp_dir, "Will.md", content, &mut repo_info);
 
     // Find matches
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     // Should not find matches in the file itself
     assert_eq!(
@@ -134,7 +134,7 @@ fn test_no_self_referential_back_population() {
     let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
 
     // Find matches again
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     // Should find matches in other files
     assert_eq!(matches.len(), 1, "Should find match on other pages");

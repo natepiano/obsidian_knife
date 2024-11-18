@@ -96,10 +96,11 @@ pub(crate) fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFil
 #[test]
 fn test_apply_changes() {
     let content = "Here is Test Link\nNo change here\nAnother Test Link";
-    let (temp_dir, config, repo_info) = create_test_environment(true, None, None, Some(content));
+    let (temp_dir, config, mut repo_info) =
+        create_test_environment(true, None, None, Some(content));
 
     // Find matches
-    let matches = find_all_back_populate_matches(&config, &repo_info).unwrap();
+    let matches = find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
     // Apply changes
     apply_back_populate_changes(&config, &matches).unwrap();
