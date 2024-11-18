@@ -1,9 +1,11 @@
 #[cfg(test)]
 mod scan_tests;
+#[cfg(test)]
+mod process_content_tests;
 
 use crate::{
     constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
-    obsidian_repository_info::ObsidianRepositoryInfo, wikilink::collect_file_wikilinks,
+    obsidian_repository_info::ObsidianRepositoryInfo,
     wikilink_types::Wikilink,
 };
 
@@ -15,9 +17,10 @@ use rayon::prelude::*;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::io::{BufRead, BufReader};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use crate::wikilink::{create_filename_wikilink, extract_wikilinks};
+use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink};
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -196,41 +199,76 @@ fn scan_markdown_file(
 ) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
     let mut markdown_file_info = MarkdownFileInfo::new(file_path.clone())?;
 
-    // extract_do_not_back_populate(&mut markdown_file_info);
-
     let aliases = markdown_file_info
         .frontmatter
         .as_ref()
         .and_then(|fm| fm.aliases().cloned());
 
-    // collect_file_wikilinks constructs a set of wikilinks from the content (&content),
-    // the aliases (&aliases) in the frontmatter and the name of the file itself (file_path)
-    let extracted_wikilinks =
-        collect_file_wikilinks(&markdown_file_info.content, &aliases, file_path)?;
+    // Process content in a single pass
+    let (extracted_wikilinks, image_links) = process_content(
+        &markdown_file_info.content,
+        &aliases,
+        file_path,
+        image_regex,
+    )?;
 
-    // Store invalid wikilinks in markdown_file_info
+    // Store results in markdown_file_info
     markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);
-
-    collect_image_references(image_regex, &mut markdown_file_info)?;
+    markdown_file_info.image_links = image_links;
 
     Ok((markdown_file_info, extracted_wikilinks.valid))
 }
 
-fn collect_image_references(
+fn process_content(
+    content: &str,
+    aliases: &Option<Vec<String>>,
+    file_path: &Path,
     image_regex: &Arc<Regex>,
-    markdown_file_info: &mut MarkdownFileInfo,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let reader = BufReader::new(markdown_file_info.content.as_bytes());
+) -> Result<(ExtractedWikilinks, Vec<String>), Box<dyn Error + Send + Sync>> {
+    let mut result = ExtractedWikilinks::default();
+    let mut image_links = Vec::new();
 
-    for line_result in reader.lines() {
-        let line = line_result?;
-        for capture in image_regex.captures_iter(&line) {
+    // Add filename-based wikilink
+    let filename = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+
+    let filename_wikilink = create_filename_wikilink(filename);
+    result.valid.push(filename_wikilink.clone());
+
+    // Add aliases if present
+    if let Some(alias_list) = aliases {
+        for alias in alias_list {
+            let wikilink = Wikilink {
+                display_text: alias.clone(),
+                target: filename_wikilink.target.clone(),
+                is_alias: true,
+            };
+            result.valid.push(wikilink);
+        }
+    }
+
+    // Process content line by line for both wikilinks and images
+    for (line_idx, line) in content.lines().enumerate() {
+        // Process wikilinks
+        let extracted = extract_wikilinks(line);
+        result.valid.extend(extracted.valid);
+
+        let invalid_with_lines: Vec<InvalidWikilink> = extracted
+            .invalid
+            .into_iter()
+            .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
+            .collect();
+        result.invalid.extend(invalid_with_lines);
+
+        // Process image references in the same pass
+        for capture in image_regex.captures_iter(line) {
             if let Some(reference) = capture.get(0) {
-                let reference_string = reference.as_str().to_string();
-                markdown_file_info.image_links.push(reference_string);
+                image_links.push(reference.as_str().to_string());
             }
         }
     }
 
-    Ok(())
+    Ok((result, image_links))
 }

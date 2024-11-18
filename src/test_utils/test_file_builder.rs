@@ -90,7 +90,8 @@ impl TestFileBuilder {
             || self.date_created_fix.is_some()
             || self.tags.is_some()
             || self.aliases.is_some()
-            || self.title.is_some();
+            || self.title.is_some()
+            || self.custom_frontmatter.is_some();
 
         if has_frontmatter {
             writeln!(file, "---").unwrap();

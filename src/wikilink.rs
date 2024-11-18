@@ -1,6 +1,4 @@
 #[cfg(test)]
-mod collect_wikilink_tests;
-#[cfg(test)]
 mod extract_wikilink_tests;
 #[cfg(test)]
 mod markdown_link_tests;
@@ -10,10 +8,9 @@ mod wikilink_creation_tests;
 use crate::constants::*;
 use crate::utils::{EMAIL_REGEX, TAG_REGEX};
 use crate::wikilink_types::{
-    ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks,
+    InvalidWikilinkReason, ParsedExtractedWikilinks,
     ParsedInvalidWikilink, Wikilink, WikilinkParseResult,
 };
-use std::error::Error;
 use std::iter::Peekable;
 use std::path::Path;
 use std::str::CharIndices;
@@ -43,53 +40,7 @@ pub fn format_wikilink(path: &Path) -> String {
         .unwrap_or_else(|| "[[]]".to_string())
 }
 
-pub fn collect_file_wikilinks(
-    content: &str,
-    aliases: &Option<Vec<String>>,
-    file_path: &Path,
-) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
-    let mut result = ExtractedWikilinks::default();
-
-    // Add filename-based wikilink
-    let filename = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or_default();
-
-    let filename_wikilink = create_filename_wikilink(filename);
-    result.valid.push(filename_wikilink.clone());
-
-    // Add aliases if present
-    if let Some(alias_list) = aliases {
-        for alias in alias_list {
-            let wikilink = Wikilink {
-                display_text: alias.clone(),
-                target: filename_wikilink.target.clone(),
-                is_alias: true,
-            };
-            result.valid.push(wikilink);
-        }
-    }
-
-    // Process content line by line and collect both valid and invalid wikilinks
-    for (line_idx, line) in content.lines().enumerate() {
-        let extracted = extract_wikilinks(line);
-        result.valid.extend(extracted.valid);
-
-        // Convert ParsedInvalidWikilink to InvalidWikilink with line information
-        let invalid_with_lines: Vec<InvalidWikilink> = extracted
-            .invalid
-            .into_iter()
-            .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
-            .collect();
-
-        result.invalid.extend(invalid_with_lines);
-    }
-
-    Ok(result)
-}
-
-fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
+pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut result = ParsedExtractedWikilinks::default();
 
     parse_special_patterns(line, &mut result);
