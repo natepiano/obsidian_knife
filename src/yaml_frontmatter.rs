@@ -150,35 +150,6 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
             ))
         }
     }
-
-    /// Creates an instance from markdown content containing YAML frontmatter
-    fn from_markdown_str(content: &str) -> Result<Self, YamlFrontMatterError> {
-        let yaml = Self::extract_yaml_section(content)?;
-        Self::from_yaml_str(&yaml)
-    }
-
-    fn extract_yaml_section(content: &str) -> Result<String, YamlFrontMatterError> {
-        match find_yaml_section(content)? {
-            Some((yaml_section, _)) => Ok(yaml_section.to_string()),
-            None => Err(YamlFrontMatterError::Missing),
-        }
-    }
-
-    fn update_in_markdown_str(&self, content: &str) -> Result<String, YamlFrontMatterError> {
-        let yaml_str = self.to_yaml_str()?;
-        let yaml_str = yaml_str.trim_start_matches("---").trim();
-
-        match find_yaml_section(content)? {
-            Some((_, after_yaml)) => {
-                // Replace the existing YAML frontmatter
-                Ok(format!("---\n{}\n---\n{}", yaml_str, after_yaml))
-            }
-            None => {
-                // No frontmatter found; add new YAML at the beginning
-                Ok(format!("---\n{}\n---\n{}", yaml_str, content))
-            }
-        }
-    }
 }
 
 pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
@@ -248,13 +219,10 @@ mod tests {
         let test_cases = vec![
             YamlTestCase {
                 name: "valid frontmatter",
-                input: r#"---
-title: test doc
+                input: r#"title: test doc
 tags:
   - tag1
-  - tag2
----
-content"#,
+  - tag2"#,
                 expected: Ok(TestFrontMatter {
                     title: "test doc".to_string(),
                     tags: vec!["tag1".to_string(), "tag2".to_string()],
@@ -262,26 +230,9 @@ content"#,
                 }),
             },
             YamlTestCase {
-                name: "missing frontmatter",
-                input: "no frontmatter here",
-                expected: Err(YamlFrontMatterError::Missing),
-            },
-            YamlTestCase {
-                name: "unclosed frontmatter",
-                input: r#"---
-title: test doc
-tags:
-  - tag1"#,
-                expected: Err(YamlFrontMatterError::Invalid(
-                    "missing closing frontmatter delimiter (---)".to_string(),
-                )),
-            },
-            YamlTestCase {
                 name: "invalid yaml structure",
-                input: r#"---
-title: "unclosed string
-tags: [not, valid, yaml
----"#,
+                input: r#"title: "unclosed string
+tags: [not, valid, yaml"#,
                 expected: Err(YamlFrontMatterError::Parse(
                     "found unexpected end of stream".to_string(),
                 )),
@@ -290,7 +241,7 @@ tags: [not, valid, yaml
 
         for test_case in &test_cases {
             assert_result(
-                TestFrontMatter::from_markdown_str(test_case.input),
+                TestFrontMatter::from_yaml_str(test_case.input),
                 test_case.expected.clone(),
                 test_case.name,
                 |actual, expected| assert_eq!(actual, expected, "Failed test: {}", test_case.name),
@@ -338,129 +289,6 @@ tags: [not, valid, yaml
                     result
                 );
             }
-        }
-    }
-
-    #[test]
-    fn test_extract_yaml_section() {
-        struct ExtractionTestCase {
-            name: &'static str,
-            input: &'static str,
-            expected: Result<String, YamlFrontMatterError>,
-        }
-
-        let test_cases = vec![
-            ExtractionTestCase {
-                name: "valid yaml section",
-                input: "---\ntitle: test\n---\ncontent",
-                expected: Ok("title: test".to_string()),
-            },
-            ExtractionTestCase {
-                name: "missing opening delimiter",
-                input: "title: test\n---\ncontent",
-                expected: Err(YamlFrontMatterError::Missing),
-            },
-            ExtractionTestCase {
-                name: "missing closing delimiter",
-                input: "---\ntitle: test\ncontent",
-                expected: Err(YamlFrontMatterError::Invalid(
-                    "missing closing frontmatter delimiter (---)".to_string(),
-                )),
-            },
-            ExtractionTestCase {
-                name: "empty yaml section",
-                input: "---\n---\ncontent",
-                expected: Err(YamlFrontMatterError::Empty), // Updated to expect `Empty` error
-            },
-        ];
-
-        for test_case in &test_cases {
-            assert_result(
-                TestFrontMatter::extract_yaml_section(test_case.input),
-                test_case.expected.to_owned(),
-                test_case.name,
-                |actual, expected| {
-                    assert_eq!(
-                        actual.trim(),
-                        expected.trim(),
-                        "Failed test: {}",
-                        test_case.name
-                    )
-                },
-            );
-        }
-    }
-
-    #[test]
-    fn test_update_in_markdown_str() {
-        struct YamlUpdateTestCase {
-            description: &'static str,
-            input: &'static str,
-            frontmatter: TestFrontMatter,
-            expected: Result<String, YamlFrontMatterError>,
-        }
-
-        let test_cases = vec![
-            YamlUpdateTestCase {
-                description: "Basic YAML update",
-                input: "---\ntags:\n- tag1\ntitle: new\n---\ncontent",
-                frontmatter: TestFrontMatter {
-                    title: "new".to_string(),
-                    tags: vec!["tag1".to_string()],
-                    other_fields: Default::default(),
-                },
-                expected: Ok("---\ntags:\n- tag1\ntitle: new\n---\ncontent".to_string()),
-            },
-            YamlUpdateTestCase {
-                description: "Complex frontmatter update",
-                input: "---\ntitle: old\ntags:\n  - tag1\n---\ncontent",
-                frontmatter: TestFrontMatter {
-                    title: "new".to_string(),
-                    tags: vec!["tag1".to_string(), "tag2".to_string()],
-                    other_fields: Default::default(),
-                },
-                expected: Ok("---\ntags:\n- tag1\n- tag2\ntitle: new\n---\ncontent".to_string()),
-            },
-            YamlUpdateTestCase {
-                description: "Invalid frontmatter - no closing delimiter",
-                input: "---\ntitle: old\ncontent",
-                frontmatter: TestFrontMatter {
-                    title: "new".to_string(),
-                    tags: vec![],
-                    other_fields: Default::default(),
-                },
-                expected: Err(YamlFrontMatterError::Invalid("".to_string())), // Error variant only
-            },
-            YamlUpdateTestCase {
-                description: "Preserve spacing",
-                input: "---\ntitle: old\n---\n\nContent with\n\nmultiple lines",
-                frontmatter: TestFrontMatter {
-                    title: "new".to_string(),
-                    tags: vec![],
-                    other_fields: Default::default(),
-                },
-                expected: Ok(
-                    "---\ntags: []\ntitle: new\n---\n\nContent with\n\nmultiple lines".to_string(),
-                ),
-            },
-        ];
-
-        for test_case in &test_cases {
-            assert_result(
-                test_case
-                    .frontmatter
-                    .update_in_markdown_str(test_case.input),
-                test_case.expected.clone(),
-                test_case.description,
-                |actual, expected| {
-                    assert_eq!(
-                        actual.trim(),
-                        expected.trim(),
-                        "Failed test: {}",
-                        test_case.description
-                    )
-                },
-            );
         }
     }
 

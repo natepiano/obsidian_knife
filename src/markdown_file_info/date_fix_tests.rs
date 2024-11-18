@@ -9,7 +9,7 @@ fn create_frontmatter(
     date_modified: &Option<String>,
     date_created: &Option<String>,
 ) -> FrontMatter {
-    let mut yaml_parts = vec!["---".to_string()];
+    let mut yaml_parts = vec![];
 
     if let Some(modified) = date_modified {
         let modified_str = format!("date_modified: \"{}\"", modified);
@@ -22,11 +22,11 @@ fn create_frontmatter(
     if yaml_parts.len() == 1 {
         yaml_parts.push("title: test".to_string());
     }
-    yaml_parts.push("---\n".to_string());
+  //  yaml_parts.push("---\n".to_string());
 
     let yaml = yaml_parts.join("\n");
 
-    FrontMatter::from_markdown_str(&yaml).unwrap()
+    FrontMatter::from_yaml_str(&yaml).unwrap()
 }
 
 // Main test case struct for validating dates

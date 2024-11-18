@@ -1,6 +1,3 @@
-#[cfg(test)]
-mod serde_tests;
-
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::utils::build_case_insensitive_word_finder;
 use crate::wikilink::format_wikilink;

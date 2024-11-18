@@ -152,10 +152,6 @@ impl MarkdownFileInfo {
     pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let full_content = read_contents_from_file(&path)?;
 
-        // let (mut frontmatter, frontmatter_error) = match FrontMatter::from_markdown_str(&content) {
-        //     Ok(fm) => (Some(fm), None),
-        //     Err(error) => (None, Some(error)),
-        // };
         let (mut frontmatter, content, frontmatter_error) = match find_yaml_section(&full_content) {
             Ok(Some((yaml_section, after_yaml))) => {
                 match FrontMatter::from_yaml_str(yaml_section) {
