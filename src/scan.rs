@@ -54,7 +54,6 @@ fn get_image_info_map(
         cache_instance
     }));
 
-    // // Pre-process markdown references
     let markdown_refs: HashMap<String, HashSet<String>> = markdown_files
         .par_iter()
         .filter(|file_info| !file_info.image_links.is_empty())
@@ -63,11 +62,16 @@ fn get_image_info_map(
             let images: HashSet<_> = file_info
                 .image_links
                 .iter()
-                .filter_map(|link| {
-                    Path::new(link)
-                        .file_name()
-                        .and_then(|n| n.to_str())
-                        .map(|s| s.to_string())
+                .map(|link| {
+                    // Remove ![[]] and any pipe and content after it
+                    let clean_name = link
+                        .trim_start_matches("![[")
+                        .trim_end_matches("]]")
+                        .split('|')
+                        .next()
+                        .unwrap_or("")
+                        .to_string();
+                    clean_name
                 })
                 .collect();
             (path, images)
