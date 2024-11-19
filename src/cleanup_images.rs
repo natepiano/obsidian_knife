@@ -106,7 +106,7 @@ pub fn cleanup_images(
 
     if !modified_paths.is_empty() {
         let paths: Vec<PathBuf> = modified_paths.into_iter().collect();
-        obsidian_repository_info.update_modified_dates(&paths);
+        obsidian_repository_info.update_modified_dates_for_cleanup_images(&paths);
     }
 
     Ok(())

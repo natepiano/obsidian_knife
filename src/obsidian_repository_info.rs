@@ -32,7 +32,7 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
-    pub fn update_modified_dates(&mut self, paths: &[PathBuf]) {
+    pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
         let paths_set: HashSet<_> = paths.iter().collect();
 
         self.markdown_files
