@@ -17,9 +17,9 @@ mod table_handling_tests;
 
 use crate::config::ValidatedConfig;
 use crate::constants::*;
-use crate::deterministic_file_search::DeterministicSearch;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::utils::DeterministicSearch;
 use crate::utils::Timer;
 use crate::utils::MARKDOWN_REGEX;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};

@@ -6,7 +6,6 @@ mod back_populate;
 mod cleanup_images;
 mod config;
 mod constants;
-mod deterministic_file_search;
 mod frontmatter;
 mod markdown_file_info;
 mod obsidian_repository_info;
