@@ -171,7 +171,6 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 fn scan_markdown_files(
     markdown_files: &[PathBuf],
 ) -> Result<(Vec<MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let _timer = Timer::new("scan_markdown_files");
 
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
