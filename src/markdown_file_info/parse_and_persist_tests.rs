@@ -147,9 +147,6 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
     let created_date = parse_datetime("2024-01-05 10:00:00");
     let modified_date = parse_datetime("2024-01-06 15:30:00");
 
-    println!("Expected created timestamp: {}", created_date.timestamp());
-    println!("Expected modified timestamp: {}", modified_date.timestamp());
-
     // Use with_matching_dates to set both frontmatter and file system dates
     let file_path = TestFileBuilder::new()
         .with_matching_dates(created_date) // Set both FS and frontmatter dates to created_date
@@ -170,10 +167,7 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
     let metadata_after = fs::metadata(&file_path)?;
     let created_time_after = FileTime::from_creation_time(&metadata_after).unwrap();
     let modified_time_after = FileTime::from_last_modification_time(&metadata_after);
-    dbg!(
-        created_time_after.unix_seconds(),
-        modified_time_after.unix_seconds()
-    );
+
 
     assert_eq!(created_time_after.unix_seconds(), created_date.timestamp());
     assert_eq!(
@@ -185,7 +179,7 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
 }
 
 #[test]
-fn test_persist_missing_raw_date_modified() {
+fn test_disallow_persist_if_date_modified_not_set() {
     let temp_dir = TempDir::new().unwrap();
 
     // Use with_matching_dates to set consistent creation and modification dates
@@ -201,16 +195,21 @@ fn test_persist_missing_raw_date_modified() {
         fm.raw_date_modified = None;
     }
 
-    // Verify that a panic occurs when persist is called
-    let result = std::panic::catch_unwind(|| {
-        file_info.persist().unwrap();
-    });
+    // Attempt to persist and expect an error
+    let result = file_info.persist();
 
-    // Assert that the operation panicked
     assert!(
         result.is_err(),
-        "Expected a panic, but the operation completed successfully"
+        "Expected an error, but persist completed successfully"
     );
+
+    if let Err(err) = result {
+        assert_eq!(
+            err.to_string(),
+            "raw_date_modified must be set for persist",
+            "Unexpected error message"
+        );
+    }
 }
 
 #[test]

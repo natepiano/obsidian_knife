@@ -17,7 +17,6 @@ use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
 use std::path::PathBuf;
-use std::time::{Duration, SystemTime};
 use std::{fs, io};
 
 #[derive(Debug, PartialEq)]
@@ -236,9 +235,9 @@ impl MarkdownFileInfo {
         fs::write(&self.path, self.to_full_content())?;
 
         let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
-        let modified_date = frontmatter
-            .raw_date_modified
-            .expect("raw_date_modified must be set for persist");
+        let modified_date = frontmatter.raw_date_modified.ok_or_else(|| {
+            "raw_date_modified must be set for persist".to_string()
+        })?;
 
         if let Some(created_date) = frontmatter.raw_date_created {
             filetime::set_file_times(

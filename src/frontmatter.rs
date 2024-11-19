@@ -5,7 +5,6 @@ use crate::{constants::*, utils::ThreadSafeWriter, yaml_frontmatter_struct};
 use chrono::{DateTime, Datelike, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::backtrace::Backtrace;
 use std::error::Error;
 
 // when we set date_created_fix to None it won't serialize - cool
