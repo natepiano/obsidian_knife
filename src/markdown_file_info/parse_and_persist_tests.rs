@@ -168,7 +168,6 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
     let created_time_after = FileTime::from_creation_time(&metadata_after).unwrap();
     let modified_time_after = FileTime::from_last_modification_time(&metadata_after);
 
-
     assert_eq!(created_time_after.unix_seconds(), created_date.timestamp());
     assert_eq!(
         modified_time_after.unix_seconds(),

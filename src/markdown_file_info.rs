@@ -3,8 +3,8 @@ mod date_fix_tests;
 #[cfg(test)]
 mod parse_and_persist_tests;
 
-use crate::file_utils::read_contents_from_file;
 use crate::frontmatter::FrontMatter;
+use crate::utils::read_contents_from_file;
 use crate::wikilink::is_wikilink;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
@@ -235,9 +235,9 @@ impl MarkdownFileInfo {
         fs::write(&self.path, self.to_full_content())?;
 
         let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
-        let modified_date = frontmatter.raw_date_modified.ok_or_else(|| {
-            "raw_date_modified must be set for persist".to_string()
-        })?;
+        let modified_date = frontmatter
+            .raw_date_modified
+            .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
 
         if let Some(created_date) = frontmatter.raw_date_created {
             filetime::set_file_times(

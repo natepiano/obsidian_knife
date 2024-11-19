@@ -1,7 +1,7 @@
 use crate::config::validated_config::ValidatedConfig;
 use crate::constants::*;
-use crate::file_utils::expand_tilde;
 use crate::frontmatter::FrontMatter;
+use crate::utils::expand_tilde;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter_struct;
 use serde::{Deserialize, Serialize};

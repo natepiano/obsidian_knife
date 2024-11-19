@@ -4,11 +4,12 @@ mod process_content_tests;
 mod scan_tests;
 
 use crate::{
-    constants::*, file_utils::collect_repository_files, markdown_file_info::MarkdownFileInfo,
+    constants::*, markdown_file_info::MarkdownFileInfo,
     obsidian_repository_info::ObsidianRepositoryInfo, wikilink_types::Wikilink,
 };
 
 use crate::config::ValidatedConfig;
+use crate::utils::collect_repository_files;
 use crate::utils::Sha256Cache;
 use crate::utils::Timer;
 use crate::wikilink::{create_filename_wikilink, extract_wikilinks};

@@ -7,7 +7,6 @@ mod cleanup_images;
 mod config;
 mod constants;
 mod deterministic_file_search;
-mod file_utils;
 mod frontmatter;
 mod markdown_file_info;
 mod obsidian_repository_info;
@@ -21,7 +20,6 @@ mod yaml_frontmatter;
 pub use constants::*;
 pub use utils::Timer;
 
-use crate::file_utils::expand_tilde;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::{write_date_validation_table, MarkdownFileInfo};
 use crate::yaml_frontmatter::YamlFrontMatter;
@@ -29,6 +27,7 @@ use crate::{config::Config, config::ValidatedConfig};
 use chrono::Utc;
 use std::error::Error;
 use std::path::PathBuf;
+use utils::expand_tilde;
 use utils::ThreadSafeWriter;
 
 // lib was separated from main so it could be incorporated into integration tests

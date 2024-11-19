@@ -3,9 +3,9 @@ mod cleanup_image_tests;
 
 use crate::config::ValidatedConfig;
 use crate::constants::*;
-use crate::file_utils::update_file;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::scan::ImageInfo;
+use crate::utils::update_file;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
