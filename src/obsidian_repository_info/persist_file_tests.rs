@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_utils::TestFileBuilder;
-use chrono::{DateTime, Local, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use std::error::Error;
 use std::fs;
@@ -179,7 +179,6 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 fn create_test_cases() -> Vec<PersistenceTestCase> {
     let now = Utc::now();
     let last_week = now - chrono::Duration::days(7);
-    let last_month = now - chrono::Duration::days(30);
 
     vec![
         PersistenceTestCase {
