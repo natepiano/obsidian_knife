@@ -7,7 +7,6 @@ use crate::wikilink_types::Wikilink;
 use crate::test_utils::{parse_datetime, TestFileBuilder};
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
-use chrono::format::parse;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;

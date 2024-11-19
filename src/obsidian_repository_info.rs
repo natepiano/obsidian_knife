@@ -3,7 +3,7 @@ mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::ImageInfo;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;
