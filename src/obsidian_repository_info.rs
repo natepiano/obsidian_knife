@@ -7,7 +7,6 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::ImageInfo;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;
-use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::PathBuf;
@@ -22,7 +21,7 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-    pub fn persist_modified_files(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         // for file in self.markdown_files.iter_mut().filter(|f| f.needs_persist()) {
         //     // Update frontmatter and filesystem dates
         //     // Use original time for created
@@ -32,13 +31,12 @@ impl ObsidianRepositoryInfo {
     }
 
     pub fn update_modified_dates(&mut self, paths: &[PathBuf]) {
-        let today = Utc::now();
         let paths_set: HashSet<_> = paths.iter().collect();
 
         self.markdown_files
             .iter_mut()
             .filter(|file_info| paths_set.contains(&file_info.path))
             .filter_map(|file_info| file_info.frontmatter.as_mut())
-            .for_each(|frontmatter| frontmatter.set_date_modified(today));
+            .for_each(|frontmatter| frontmatter.set_date_modified_now());
     }
 }

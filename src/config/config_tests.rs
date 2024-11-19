@@ -74,8 +74,14 @@ output_folder: output"#;
     // Test apply_changes update
     config.apply_changes = Some(false);
     let config_yaml = config.to_yaml_str().unwrap();
+
     let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml).unwrap();
     markdown_file.frontmatter = Some(updated_frontmatter);
+    markdown_file
+        .frontmatter
+        .as_mut()
+        .unwrap()
+        .set_date_modified_now();
     markdown_file.persist().unwrap();
 
     // Verify all fields after update

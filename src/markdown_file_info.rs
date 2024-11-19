@@ -12,10 +12,12 @@ use crate::{CLOSING_WIKILINK, LEVEL1, OPENING_WIKILINK};
 
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use filetime::FileTime;
 use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
 use std::path::PathBuf;
+use std::time::{Duration, SystemTime};
 use std::{fs, io};
 
 #[derive(Debug, PartialEq)]
@@ -229,9 +231,25 @@ impl MarkdownFileInfo {
         }
     }
 
-    // Remove needs_persist from frontmatter handling
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Write the updated content to the file
         fs::write(&self.path, self.to_full_content())?;
+
+        let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
+        let modified_date = frontmatter
+            .raw_date_modified
+            .expect("raw_date_modified must be set for persist");
+
+        if let Some(created_date) = frontmatter.raw_date_created {
+            filetime::set_file_times(
+                &self.path,
+                FileTime::from_system_time(created_date.into()),
+                FileTime::from_system_time(modified_date.into()),
+            )?;
+        } else {
+            filetime::set_file_mtime(&self.path, FileTime::from_system_time(modified_date.into()))?;
+        }
+
         Ok(())
     }
 
@@ -267,7 +285,7 @@ fn get_date_validation_status(
 fn get_date_validations(
     frontmatter: &Option<FrontMatter>,
     path: &PathBuf,
-) -> Result<(DateValidation, DateValidation), std::io::Error> {
+) -> Result<(DateValidation, DateValidation), io::Error> {
     let metadata = fs::metadata(path)?;
 
     let dates = [
@@ -323,36 +341,52 @@ fn is_valid_date(date_str: &str) -> bool {
     NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d").is_ok()
 }
 
+// fn process_date_validations(
+//     frontmatter: &mut Option<FrontMatter>,
+//     date_validation_created: &DateValidation,
+//     date_validation_modified: &DateValidation,
+// ) {
+//     if let Some(ref mut frontmatter) = frontmatter {
+//         // Process created date
+//         match date_validation_created.status {
+//             DateValidationStatus::Missing
+//             | DateValidationStatus::FileSystemMismatch
+//             | DateValidationStatus::InvalidWikilink
+//             | DateValidationStatus::InvalidFormat => {
+//                 frontmatter.set_date_created(date_validation_created.file_system_date);
+//             }
+//             _ => {} // All other cases: do nothing
+//         }
+//
+//         // Process modified date
+//         match date_validation_modified.status {
+//             DateValidationStatus::Missing
+//             | DateValidationStatus::FileSystemMismatch
+//             | DateValidationStatus::InvalidWikilink
+//             | DateValidationStatus::InvalidFormat => {
+//                 frontmatter.set_date_modified(date_validation_modified.file_system_date);
+//             }
+//             _ => {} // All other cases: do nothing
+//         }
+//     }
+// }
 fn process_date_validations(
     frontmatter: &mut Option<FrontMatter>,
-    date_validation_created: &DateValidation,
-    date_validation_modified: &DateValidation,
+    created_validation: &DateValidation,
+    modified_validation: &DateValidation,
 ) {
-    if let Some(ref mut frontmatter) = frontmatter {
-        // Process created date
-        match date_validation_created.status {
-            DateValidationStatus::Missing
-            | DateValidationStatus::FileSystemMismatch
-            | DateValidationStatus::InvalidWikilink
-            | DateValidationStatus::InvalidFormat => {
-                frontmatter.set_date_created(date_validation_created.file_system_date);
-            }
-            _ => {} // All other cases: do nothing
+    if let Some(ref mut fm) = frontmatter {
+        // Update created date if missing, invalid, or mismatched
+        if created_validation.status != DateValidationStatus::Valid {
+            fm.set_date_created(created_validation.file_system_date);
         }
 
-        // Process modified date
-        match date_validation_modified.status {
-            DateValidationStatus::Missing
-            | DateValidationStatus::FileSystemMismatch
-            | DateValidationStatus::InvalidWikilink
-            | DateValidationStatus::InvalidFormat => {
-                frontmatter.set_date_modified(date_validation_modified.file_system_date);
-            }
-            _ => {} // All other cases: do nothing
+        // Update modified date if missing, invalid, or mismatched
+        if modified_validation.status != DateValidationStatus::Valid {
+            fm.set_date_modified(modified_validation.file_system_date);
         }
     }
 }
-
 pub fn write_date_validation_table(
     writer: &ThreadSafeWriter,
     files: &[MarkdownFileInfo],

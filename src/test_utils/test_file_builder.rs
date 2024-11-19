@@ -85,6 +85,14 @@ impl TestFileBuilder {
         self
     }
 
+    pub fn with_matching_dates(mut self, datetime: DateTime<Utc>) -> Self {
+        self.frontmatter_created = Some(datetime.format("%Y-%m-%d").to_string());
+        self.frontmatter_modified = Some(datetime.format("%Y-%m-%d").to_string());
+        self.fs_created = datetime;
+        self.fs_modified = datetime;
+        self
+    }
+
     pub fn with_tags(mut self, tags: Vec<String>) -> Self {
         self.tags = Some(tags);
         self

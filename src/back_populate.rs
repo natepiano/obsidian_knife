@@ -25,7 +25,6 @@ use crate::utils::MARKDOWN_REGEX;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use aho_corasick::AhoCorasick;
-use chrono::Utc;
 use itertools::Itertools;
 use lazy_static::lazy_static;
 use std::collections::{HashMap, HashSet};
@@ -1001,7 +1000,7 @@ fn apply_back_populate_changes(
         // Update the content and mark file as modified
         markdown_file.content = updated_content.trim_end().to_string();
         if let Some(ref mut frontmatter) = markdown_file.frontmatter {
-            frontmatter.set_date_modified(Utc::now());
+            frontmatter.set_date_modified_now();
         }
     }
 

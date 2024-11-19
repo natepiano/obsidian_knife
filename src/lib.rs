@@ -67,12 +67,20 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
 
-    // config.reset_apply_changes()?;
     if config.apply_changes == Some(true) {
+        // this whole thing is a bit of a code smell
+        // converting from frontmatter to config
+        // making sure to update modified date so we can re-use markdown_file persist
+        // which in this case doesn't actually matter but does matter for frontmatter...
         config.apply_changes = Some(false);
         let config_yaml = config.to_yaml_str()?;
         let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
         markdown_file.frontmatter = Some(updated_frontmatter);
+        markdown_file
+            .frontmatter
+            .as_mut()
+            .unwrap()
+            .set_date_modified_now();
         markdown_file.persist()?;
     }
 

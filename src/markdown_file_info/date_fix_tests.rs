@@ -150,13 +150,13 @@ fn test_process_date_validations() {
             should_persist: true,
         },
         DateFixTestCase {
-            name: "filesystem mismatch should update created date",
-            date_modified: Some("[[2024-01-15]]".to_string()),
-            date_created: Some("[[2024-01-14]]".to_string()),
-            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_modified_date: Some("[[2024-01-15]]".to_string()),
-            expected_created_date: Some("[[2024-01-15]]".to_string()),
+            name: "filesystem mismatch should update both dates",
+            date_modified: Some("[[2024-01-14]]".to_string()), // Original frontmatter modified date
+            date_created: Some("[[2024-01-13]]".to_string()),  // Original frontmatter created date
+            file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(), // FS modified date
+            file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(), // FS created date
+            expected_modified_date: Some("[[2024-01-15]]".to_string()), // Expected updated modified date
+            expected_created_date: Some("[[2024-01-15]]".to_string()), // Expected updated created date
             should_persist: true,
         },
         DateFixTestCase {

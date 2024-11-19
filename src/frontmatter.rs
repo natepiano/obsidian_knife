@@ -5,6 +5,7 @@ use crate::{constants::*, utils::ThreadSafeWriter, yaml_frontmatter_struct};
 use chrono::{DateTime, Datelike, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use std::backtrace::Backtrace;
 use std::error::Error;
 
 // when we set date_created_fix to None it won't serialize - cool
@@ -24,6 +25,10 @@ yaml_frontmatter_struct! {
         pub do_not_back_populate: Option<Vec<String>>,
         #[serde(skip)]
         pub needs_persist: bool,
+        #[serde(skip)]
+        pub raw_date_created: Option<DateTime<Utc>>,
+        #[serde(skip)]
+        pub raw_date_modified: Option<DateTime<Utc>>,
     }
 }
 
@@ -49,13 +54,23 @@ impl FrontMatter {
         self.date_created_fix = None;
     }
 
+    // the raw values are what we will update the actual filesystem with
+    // if we're changing the create date it's possible no change will be happening otherwise
+    // in this case we still need to update the modify date so make sure we set it if it's
+    // not already set
     pub fn set_date_created(&mut self, date: DateTime<Utc>) {
+        self.raw_date_created = Some(date);
         self.date_created = Some(format!(
             "[[{}-{:02}-{:02}]]",
             date.year(),
             date.month(),
             date.day()
         ));
+
+        if self.raw_date_modified.is_none() {
+            self.set_date_modified_now();
+        }
+
         self.needs_persist = true;
     }
 
@@ -63,7 +78,14 @@ impl FrontMatter {
     // so that we then will persist it with an updated date_modified to match the file
     // date_modified date and this is also the sentinel for doing the persist operation at the
     // end of processing
+    pub fn set_date_modified_now(&mut self) {
+        let now = Utc::now();
+        self.set_date_modified(now);
+    }
+
+    // we use this when set_date_modified is missing
     pub fn set_date_modified(&mut self, date: DateTime<Utc>) {
+        self.raw_date_modified = Some(date); // Store raw value
         self.date_modified = Some(format!(
             "[[{}-{:02}-{:02}]]",
             date.year(),
