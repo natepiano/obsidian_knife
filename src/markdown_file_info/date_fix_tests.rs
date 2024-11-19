@@ -36,8 +36,8 @@ struct DateValidationTestCase {
     date_created: Option<String>,
     file_system_mod_date: DateTime<Utc>,
     file_system_create_date: DateTime<Utc>,
-    expected_modified_status: DateValidationStatus,
-    expected_created_status: DateValidationStatus,
+    expected_modified_issue: Option<DateValidationIssue>,
+    expected_created_issue: Option<DateValidationIssue>,
 }
 
 #[test]
@@ -51,8 +51,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: Some("[[2024-01-15]]".to_string()),
             file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_modified_status: DateValidationStatus::Valid,
-            expected_created_status: DateValidationStatus::Valid,
+            expected_modified_issue: None,
+            expected_created_issue: None,
         },
         DateValidationTestCase {
             name: "missing wikilink brackets",
@@ -60,8 +60,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: Some("2024-01-15".to_string()),
             file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
             file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap(),
-            expected_modified_status: DateValidationStatus::InvalidWikilink,
-            expected_created_status: DateValidationStatus::InvalidWikilink,
+            expected_modified_issue: Some(DateValidationIssue::InvalidWikilink),
+            expected_created_issue: Some(DateValidationIssue::InvalidWikilink),
         },
         DateValidationTestCase {
             name: "filesystem mismatch",
@@ -69,8 +69,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: Some("[[2024-01-15]]".to_string()),
             file_system_mod_date: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
             file_system_create_date: Utc.with_ymd_and_hms(2024, 1, 16, 0, 0, 0).unwrap(),
-            expected_modified_status: DateValidationStatus::FileSystemMismatch,
-            expected_created_status: DateValidationStatus::FileSystemMismatch,
+            expected_modified_issue: Some(DateValidationIssue::FileSystemMismatch),
+            expected_created_issue: Some(DateValidationIssue::FileSystemMismatch),
         },
         DateValidationTestCase {
             name: "invalid date format",
@@ -78,8 +78,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: Some("[[2024-13-45]]".to_string()),
             file_system_mod_date: Utc::now(),
             file_system_create_date: Utc::now(),
-            expected_modified_status: DateValidationStatus::InvalidFormat,
-            expected_created_status: DateValidationStatus::InvalidFormat,
+            expected_modified_issue: Some(DateValidationIssue::InvalidFormat),
+            expected_created_issue: Some(DateValidationIssue::InvalidFormat),
         },
         DateValidationTestCase {
             name: "missing dates",
@@ -87,8 +87,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: None,
             file_system_mod_date: Utc::now(),
             file_system_create_date: Utc::now(),
-            expected_modified_status: DateValidationStatus::Missing,
-            expected_created_status: DateValidationStatus::Missing,
+            expected_modified_issue: Some(DateValidationIssue::Missing),
+            expected_created_issue: Some(DateValidationIssue::Missing),
         },
     ];
 
@@ -107,15 +107,15 @@ fn test_process_frontmatter_date_validation() {
             get_date_validations(&Some(fm), &file_path).unwrap();
 
         assert_test_case(
-            created_validation.status,
-            case.expected_created_status,
+            created_validation.issue,
+            case.expected_created_issue,
             &format!("{} - created date validation", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         assert_test_case(
-            modified_validation.status,
-            case.expected_modified_status,
+            modified_validation.issue,
+            case.expected_modified_issue,
             &format!("{} - modified date validation", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -219,7 +219,7 @@ fn test_process_date_validations() {
         let created_validation = DateValidation {
             frontmatter_date: case.date_created.clone(), // Add clone here
             file_system_date: case.file_system_create_date,
-            status: get_date_validation_status(
+            issue: get_date_validation_issue(
                 case.date_created.as_ref(),
                 &case.file_system_create_date,
             ),
@@ -228,7 +228,7 @@ fn test_process_date_validations() {
         let modified_validation = DateValidation {
             frontmatter_date: case.date_modified.clone(), // Add clone here
             file_system_date: case.file_system_mod_date,
-            status: get_date_validation_status(
+            issue: get_date_validation_issue(
                 case.date_modified.as_ref(),
                 &case.file_system_mod_date,
             ),

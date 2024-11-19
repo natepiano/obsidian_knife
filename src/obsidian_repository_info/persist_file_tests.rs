@@ -25,9 +25,13 @@ struct PersistenceTestCase {
 
 fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) -> PathBuf {
     // Format dates in wikilink format if they exist
-    let created = case.initial_frontmatter_created.as_ref()
+    let created = case
+        .initial_frontmatter_created
+        .as_ref()
         .map(|d| format!("[[{}]]", d));
-    let modified = case.initial_frontmatter_modified.as_ref()
+    let modified = case
+        .initial_frontmatter_modified
+        .as_ref()
         .map(|d| format!("[[{}]]", d));
 
     let file_path = TestFileBuilder::new()
@@ -47,47 +51,7 @@ fn verify_dates(
     info: &MarkdownFileInfo,
     case: &PersistenceTestCase,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("\nTest case: {}", case.name);
-
-    // Add initial file system dates
-    let metadata = fs::metadata(&info.path)?;
-    let fs_created = FileTime::from_last_access_time(&metadata);
-    let fs_modified = FileTime::from_last_modification_time(&metadata);
-
-    println!("\nInitial File System Dates:");
-    println!("  fs_created: {:?}", DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_created.unix_seconds() as u64)
-    ));
-    println!("  fs_modified: {:?}", DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_modified.unix_seconds() as u64)
-    ));
-
-    println!("\nTest Case Expected Values:");
-    println!("  initial_frontmatter_created: {:?}", case.initial_frontmatter_created);
-    println!("  initial_frontmatter_modified: {:?}", case.initial_frontmatter_modified);
-    println!("  initial_fs_created: {:?}", case.initial_fs_created);
-    println!("  initial_fs_modified: {:?}", case.initial_fs_modified);
-
-    // Verify frontmatter dates
     if let Some(frontmatter) = &info.frontmatter {
-
-        println!("Frontmatter state:");
-        println!("  needs_persist: {}", frontmatter.needs_persist());
-        println!("  date_created: {:?}", frontmatter.date_created());
-        println!("  date_modified: {:?}", frontmatter.date_modified());
-        println!("  raw_date_created: {:?}", frontmatter.raw_date_created);
-        println!("  raw_date_modified: {:?}", frontmatter.raw_date_modified);
-
-        println!("\nValidation states:");
-        println!("  date_validation_created status: {:?}", info.date_validation_created.status);
-        println!("  date_validation_modified status: {:?}", info.date_validation_modified.status);
-
-        println!("\nExpected values:");
-        println!("  should_persist: {}", case.should_persist);
-        println!("  expected_frontmatter_created: {:?}", case.expected_frontmatter_created);
-        println!("  expected_frontmatter_modified: {:?}", case.expected_frontmatter_modified);
-
-
         assert_eq!(
             frontmatter.needs_persist(),
             case.should_persist,
@@ -96,18 +60,22 @@ fn verify_dates(
         );
 
         assert_eq!(
-            frontmatter
-                .date_created()
-                .map(|d| d.trim_matches('"').trim_matches('[').trim_matches(']').to_string()),
+            frontmatter.date_created().map(|d| d
+                .trim_matches('"')
+                .trim_matches('[')
+                .trim_matches(']')
+                .to_string()),
             case.expected_frontmatter_created,
             "Frontmatter created date mismatch for case: {}",
             case.name
         );
 
         assert_eq!(
-            frontmatter
-                .date_modified()
-                .map(|d| d.trim_matches('"').trim_matches('[').trim_matches(']').to_string()),
+            frontmatter.date_modified().map(|d| d
+                .trim_matches('"')
+                .trim_matches('[')
+                .trim_matches(']')
+                .to_string()),
             case.expected_frontmatter_modified,
             "Frontmatter modified date mismatch for case: {}",
             case.name
@@ -128,24 +96,24 @@ fn verify_dates(
 
     // Convert to UTC for comparison
     let fs_created_date = DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_created.unix_seconds() as u64)
-    ).date_naive();
+        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_created.unix_seconds() as u64),
+    )
+    .date_naive();
 
     let fs_modified_date = DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_modified.unix_seconds() as u64)
-    ).date_naive();
+        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_modified.unix_seconds() as u64),
+    )
+    .date_naive();
 
     // Compare dates
     assert_eq!(
-        fs_created_date,
-        case.expected_fs_created_date,
+        fs_created_date, case.expected_fs_created_date,
         "Filesystem created date mismatch for case: {}",
         case.name
     );
 
     assert_eq!(
-        fs_modified_date,
-        case.expected_fs_modified_date,
+        fs_modified_date, case.expected_fs_modified_date,
         "Filesystem modified date mismatch for case: {}",
         case.name
     );
@@ -213,9 +181,9 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             initial_fs_created: last_week,
             initial_fs_modified: last_week,
             expected_frontmatter_created: Some(last_week.format("%Y-%m-%d").to_string()),
-            expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()),  // Changed from now to last_week
+            expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()), // Changed from now to last_week
             expected_fs_created_date: last_week.date_naive(),
-            expected_fs_modified_date: last_week.date_naive(),  // Changed from now to last_week
+            expected_fs_modified_date: last_week.date_naive(), // Changed from now to last_week
             should_persist: true,
         },
     ]

@@ -19,9 +19,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::{fs, io};
 
-#[derive(Debug, PartialEq)]
-pub enum DateValidationStatus {
-    Valid,
+#[derive(Debug, Clone, PartialEq)]
+pub enum DateValidationIssue {
     Missing,
     InvalidFormat,
     InvalidWikilink,
@@ -32,37 +31,32 @@ pub enum DateValidationStatus {
 pub struct DateValidation {
     pub frontmatter_date: Option<String>,
     pub file_system_date: DateTime<Utc>,
-    pub status: DateValidationStatus,
+    pub issue: Option<DateValidationIssue>,
 }
 
 impl DateValidation {
     pub fn to_issue_string(&self) -> String {
-        match self.status {
-            DateValidationStatus::Valid => "valid".to_string(),
-            DateValidationStatus::Missing => "missing".to_string(),
-            DateValidationStatus::InvalidFormat => {
-                format_invalid_date("invalid format", &self.frontmatter_date)
-            }
-            DateValidationStatus::InvalidWikilink => {
-                format_invalid_date("invalid wikilink", &self.frontmatter_date)
-            }
-            DateValidationStatus::FileSystemMismatch => {
-                format_invalid_date("mismatch", &self.frontmatter_date)
-            }
+        match &self.issue {
+            None => "valid".to_string(),
+            Some(issue) => match issue {
+                DateValidationIssue::Missing => "missing".to_string(),
+                DateValidationIssue::InvalidFormat => {
+                    format_invalid_date("invalid format", &self.frontmatter_date)
+                }
+                DateValidationIssue::InvalidWikilink => {
+                    format_invalid_date("invalid wikilink", &self.frontmatter_date)
+                }
+                DateValidationIssue::FileSystemMismatch => {
+                    format_invalid_date("mismatch", &self.frontmatter_date)
+                }
+            },
         }
     }
 
     pub fn to_action_string(&self) -> Option<String> {
-        match self.status {
-            DateValidationStatus::Valid => None,
-            DateValidationStatus::Missing
-            | DateValidationStatus::FileSystemMismatch
-            | DateValidationStatus::InvalidFormat
-            | DateValidationStatus::InvalidWikilink => Some(format!(
-                "\"\\[[{}]]\"",
-                self.file_system_date.format("%Y-%m-%d")
-            )),
-        }
+        self.issue
+            .as_ref()
+            .map(|_| format!("\"\\[[{}]]\"", self.file_system_date.format("%Y-%m-%d")))
     }
 }
 
@@ -258,23 +252,23 @@ impl MarkdownFileInfo {
     }
 }
 
-fn get_date_validation_status(
+fn get_date_validation_issue(
     date_opt: Option<&String>,
     fs_date: &DateTime<Utc>,
-) -> DateValidationStatus {
+) -> Option<DateValidationIssue> {
     match date_opt {
-        None => DateValidationStatus::Missing,
+        None => Some(DateValidationIssue::Missing),
         Some(date_str) => {
             if !is_wikilink(Some(date_str)) {
-                DateValidationStatus::InvalidWikilink
+                Some(DateValidationIssue::InvalidWikilink)
             } else {
                 let extracted_date = extract_date(date_str);
                 if !is_valid_date(extracted_date) {
-                    DateValidationStatus::InvalidFormat
+                    Some(DateValidationIssue::InvalidFormat)
                 } else if extracted_date != fs_date.format("%Y-%m-%d").to_string() {
-                    DateValidationStatus::FileSystemMismatch
+                    Some(DateValidationIssue::FileSystemMismatch)
                 } else {
-                    DateValidationStatus::Valid
+                    None
                 }
             }
         }
@@ -311,11 +305,11 @@ fn get_date_validations(
     Ok(dates
         .into_iter()
         .map(|(frontmatter_date, fs_date)| {
-            let status = get_date_validation_status(frontmatter_date.as_ref(), &fs_date);
+            let issue = get_date_validation_issue(frontmatter_date.as_ref(), &fs_date);
             DateValidation {
                 frontmatter_date,
                 file_system_date: fs_date,
-                status,
+                issue,
             }
         })
         .collect_tuple()
@@ -340,52 +334,24 @@ fn is_valid_date(date_str: &str) -> bool {
     NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d").is_ok()
 }
 
-// fn process_date_validations(
-//     frontmatter: &mut Option<FrontMatter>,
-//     date_validation_created: &DateValidation,
-//     date_validation_modified: &DateValidation,
-// ) {
-//     if let Some(ref mut frontmatter) = frontmatter {
-//         // Process created date
-//         match date_validation_created.status {
-//             DateValidationStatus::Missing
-//             | DateValidationStatus::FileSystemMismatch
-//             | DateValidationStatus::InvalidWikilink
-//             | DateValidationStatus::InvalidFormat => {
-//                 frontmatter.set_date_created(date_validation_created.file_system_date);
-//             }
-//             _ => {} // All other cases: do nothing
-//         }
-//
-//         // Process modified date
-//         match date_validation_modified.status {
-//             DateValidationStatus::Missing
-//             | DateValidationStatus::FileSystemMismatch
-//             | DateValidationStatus::InvalidWikilink
-//             | DateValidationStatus::InvalidFormat => {
-//                 frontmatter.set_date_modified(date_validation_modified.file_system_date);
-//             }
-//             _ => {} // All other cases: do nothing
-//         }
-//     }
-// }
 fn process_date_validations(
     frontmatter: &mut Option<FrontMatter>,
     created_validation: &DateValidation,
     modified_validation: &DateValidation,
 ) {
     if let Some(ref mut fm) = frontmatter {
-        // Update created date if missing, invalid, or mismatched
-        if created_validation.status != DateValidationStatus::Valid {
+        // Update created date if there's an issue
+        if created_validation.issue.is_some() {
             fm.set_date_created(created_validation.file_system_date);
         }
 
-        // Update modified date if missing, invalid, or mismatched
-        if modified_validation.status != DateValidationStatus::Valid {
+        // Update modified date if there's an issue
+        if modified_validation.issue.is_some() {
             fm.set_date_modified(modified_validation.file_system_date);
         }
     }
 }
+
 pub fn write_date_validation_table(
     writer: &ThreadSafeWriter,
     files: &[MarkdownFileInfo],
@@ -393,8 +359,8 @@ pub fn write_date_validation_table(
     let mut rows: Vec<Vec<String>> = Vec::new();
 
     for file in files {
-        if file.date_validation_created.status != DateValidationStatus::Valid
-            || file.date_validation_modified.status != DateValidationStatus::Valid
+        if file.date_validation_created.issue.is_some()
+            || file.date_validation_modified.issue.is_some()
             || file.date_created_fix.date_string.is_some()
         {
             let file_name = file
