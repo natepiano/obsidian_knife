@@ -22,11 +22,13 @@ pub struct ObsidianRepositoryInfo {
 
 impl ObsidianRepositoryInfo {
     pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // for file in self.markdown_files.iter_mut().filter(|f| f.needs_persist()) {
-        //     // Update frontmatter and filesystem dates
-        //     // Use original time for created
-        //     // Use current time for modified
-        // }
+        for file_info in &self.markdown_files {
+            if let Some(frontmatter) = &file_info.frontmatter {
+                if frontmatter.needs_persist() {
+                    file_info.persist()?;
+                }
+            }
+        }
         Ok(())
     }
 
