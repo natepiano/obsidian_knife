@@ -17,7 +17,7 @@ mod table_handling_tests;
 
 use crate::config::ValidatedConfig;
 use crate::constants::*;
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::utils::DeterministicSearch;
 use crate::utils::Timer;
@@ -999,9 +999,7 @@ fn apply_back_populate_changes(
 
         // Update the content and mark file as modified
         markdown_file.content = updated_content.trim_end().to_string();
-        if let Some(ref mut frontmatter) = markdown_file.frontmatter {
-            frontmatter.set_date_modified_now();
-        }
+        markdown_file.mark_as_back_populated();
     }
 
     Ok(())

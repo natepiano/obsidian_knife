@@ -3,7 +3,7 @@ mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
 use crate::scan::ImageInfo;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;
@@ -38,7 +38,8 @@ impl ObsidianRepositoryInfo {
         self.markdown_files
             .iter_mut()
             .filter(|file_info| paths_set.contains(&file_info.path))
-            .filter_map(|file_info| file_info.frontmatter.as_mut())
-            .for_each(|frontmatter| frontmatter.set_date_modified_now());
+            .for_each(|file_info| {
+                file_info.record_image_references_change();
+            });
     }
 }

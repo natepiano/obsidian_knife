@@ -4,9 +4,10 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink_types::Wikilink;
 
-use crate::test_utils::TestFileBuilder;
+use crate::test_utils::{parse_datetime, TestFileBuilder};
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
+use chrono::format::parse;
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
@@ -45,6 +46,7 @@ pub(crate) fn create_test_environment(
 
     // Create test file using TestFileBuilder but WITHOUT frontmatter
     let file_path = TestFileBuilder::new()
+        .with_matching_dates(parse_datetime("2024-01-02 00:00:00"))
         .with_content(
             initial_content
                 .unwrap_or("Initial test content")

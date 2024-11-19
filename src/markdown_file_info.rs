@@ -19,6 +19,22 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::{fs, io};
 
+#[derive(Debug, Clone)]
+pub enum PersistReason {
+    DateCreatedUpdated {
+        reason: DateValidationIssue,
+    },
+    DateModifiedUpdated {
+        reason: DateValidationIssue,
+    },
+    DateCreatedFixApplied {
+        original_date: String,
+        requested_fix: String,
+    },
+    BackPopulated,
+    ImageReferencesModified,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DateValidationIssue {
     Missing,
@@ -153,6 +169,7 @@ pub struct MarkdownFileInfo {
     pub invalid_wikilinks: Vec<InvalidWikilink>,
     pub matches: Vec<BackPopulateMatch>,
     pub path: PathBuf,
+    pub persist_reasons: Vec<PersistReason>,
 }
 
 impl MarkdownFileInfo {
@@ -173,7 +190,7 @@ impl MarkdownFileInfo {
         let (date_validation_created, date_validation_modified) =
             get_date_validations(&frontmatter, &path)?;
 
-        process_date_validations(
+        let mut persist_reasons = process_date_validations(
             &mut frontmatter,
             &date_validation_created,
             &date_validation_modified,
@@ -188,6 +205,14 @@ impl MarkdownFileInfo {
             if let Some(fix_date) = date_created_fix.fix_date {
                 fm.set_date_created(fix_date);
                 fm.remove_date_created_fix();
+                persist_reasons.push(PersistReason::DateCreatedFixApplied {
+                    original_date: date_created_fix
+                        .date_string
+                        .as_ref()
+                        .map(String::clone)
+                        .unwrap_or_default(),
+                    requested_fix: fix_date.format("%Y-%m-%d").to_string(),
+                });
             }
         }
 
@@ -208,6 +233,7 @@ impl MarkdownFileInfo {
             image_links: Vec::new(),
             matches: Vec::new(),
             path,
+            persist_reasons,
         })
     }
 
@@ -249,6 +275,25 @@ impl MarkdownFileInfo {
     // Helper method to add invalid wikilinks
     pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
         self.invalid_wikilinks.extend(wikilinks);
+    }
+
+    pub fn mark_as_back_populated(&mut self) {
+        let fm = self
+            .frontmatter
+            .as_mut()
+            .expect("Attempted to mark file as back populated without frontmatter");
+        fm.set_date_modified_now();
+        self.persist_reasons.push(PersistReason::BackPopulated);
+    }
+
+    pub fn record_image_references_change(&mut self) {
+        let fm = self
+            .frontmatter
+            .as_mut()
+            .expect("Attempted to record image references change on a file without frontmatter");
+        fm.set_date_modified_now();
+        self.persist_reasons
+            .push(PersistReason::ImageReferencesModified);
     }
 }
 
@@ -338,18 +383,28 @@ fn process_date_validations(
     frontmatter: &mut Option<FrontMatter>,
     created_validation: &DateValidation,
     modified_validation: &DateValidation,
-) {
+) -> Vec<PersistReason> {
+    let mut reasons = Vec::new();
+
     if let Some(ref mut fm) = frontmatter {
         // Update created date if there's an issue
-        if created_validation.issue.is_some() {
+        if let Some(ref issue) = created_validation.issue {
             fm.set_date_created(created_validation.file_system_date);
+            reasons.push(PersistReason::DateCreatedUpdated {
+                reason: issue.clone(),
+            });
         }
 
         // Update modified date if there's an issue
-        if modified_validation.issue.is_some() {
+        if let Some(ref issue) = modified_validation.issue {
             fm.set_date_modified(modified_validation.file_system_date);
+            reasons.push(PersistReason::DateModifiedUpdated {
+                reason: issue.clone(),
+            });
         }
     }
+
+    reasons
 }
 
 pub fn write_date_validation_table(
