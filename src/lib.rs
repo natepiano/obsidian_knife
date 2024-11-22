@@ -8,6 +8,7 @@ mod config;
 mod constants;
 mod frontmatter;
 mod markdown_file_info;
+mod markdown_files;
 mod obsidian_repository_info;
 mod scan;
 mod utils;
@@ -20,7 +21,7 @@ pub use constants::*;
 pub use utils::Timer;
 
 use crate::frontmatter::FrontMatter;
-use crate::markdown_file_info::{write_date_validation_table, MarkdownFileInfo};
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{config::Config, config::ValidatedConfig};
 use chrono::Utc;
@@ -48,7 +49,8 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
 
-    frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
+   // frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
+    obsidian_repository_info.markdown_files.report_frontmatter_issues(&writer)?;
     cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
     // cleanup_dates::process_dates(
@@ -63,7 +65,8 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         &writer,
     )?;
 
-    write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
+   // write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
+    obsidian_repository_info.markdown_files.write_date_validation_table(&writer)?;
 
     if config.apply_changes == Some(true) {
         // this whole thing is a bit of a code smell

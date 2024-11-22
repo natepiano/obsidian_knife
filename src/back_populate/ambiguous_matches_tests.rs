@@ -60,7 +60,8 @@ fn test_identify_ambiguous_matches() {
         in_markdown_table: false,
     }];
 
-    repo_info.markdown_files = vec![test_file, test_file2];
+    repo_info.markdown_files.push(test_file2);
+    repo_info.markdown_files.push(test_file);
 
     let ambiguous = identify_ambiguous_matches(&mut repo_info);
 

@@ -208,7 +208,7 @@ fn identify_ambiguous_matches(
     let mut ambiguous_matches = Vec::new();
 
     // CHANGED: Instead of grouping matches, we'll process each file's matches
-    for markdown_file in &mut obsidian_repository_info.markdown_files {
+    for markdown_file in &mut obsidian_repository_info.markdown_files.iter_mut() {
         // NEW: Create a map to group matches by their lowercased found_text within this file
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
@@ -944,7 +944,7 @@ fn apply_back_populate_changes(
     obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Only process files that have matches
-    for markdown_file in &mut obsidian_repository_info.markdown_files {
+    for markdown_file in &mut obsidian_repository_info.markdown_files.iter_mut() {
         if markdown_file.matches.is_empty() {
             continue;
         }

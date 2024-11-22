@@ -213,7 +213,7 @@ fn generate_missing_references(
         .map(|name| name.to_string_lossy().to_lowercase())
         .collect();
 
-    for file_info in &obsidian_repository_info.markdown_files {
+    for file_info in obsidian_repository_info.markdown_files.iter() {
         for image_link in &file_info.image_links {
             if let Some(extracted_filename) = extract_local_image_filename(image_link) {
                 if !image_exists_in_set(&extracted_filename, &image_filenames) {

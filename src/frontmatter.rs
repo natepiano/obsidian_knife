@@ -1,11 +1,8 @@
-use crate::markdown_file_info::MarkdownFileInfo;
 use crate::utils::build_case_insensitive_word_finder;
-use crate::wikilink::format_wikilink;
-use crate::{constants::*, utils::ThreadSafeWriter, yaml_frontmatter_struct};
+use crate::yaml_frontmatter_struct;
 use chrono::{DateTime, Datelike, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use std::error::Error;
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -115,36 +112,4 @@ impl FrontMatter {
             None
         }
     }
-}
-
-pub fn report_frontmatter_issues(
-    markdown_files: &[MarkdownFileInfo],
-    writer: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let files_with_errors: Vec<_> = markdown_files
-        .iter()
-        .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
-        .collect();
-
-    writer.writeln(LEVEL1, "frontmatter")?;
-
-    if files_with_errors.is_empty() {
-        return Ok(());
-    }
-
-    writer.writeln(
-        "",
-        &format!(
-            "found {} files with frontmatter parsing errors",
-            files_with_errors.len()
-        ),
-    )?;
-
-    for (path, err) in files_with_errors {
-        writer.writeln(LEVEL3, &format!("in file {}", format_wikilink(path)))?;
-        writer.writeln("", &format!("{}", err))?;
-        writer.writeln("", "")?;
-    }
-
-    Ok(())
 }

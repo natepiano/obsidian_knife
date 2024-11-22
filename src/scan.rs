@@ -21,6 +21,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use crate::markdown_files::MarkdownFiles;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -40,7 +41,7 @@ pub fn scan_obsidian_folder(
 
 fn get_image_info_map(
     config: &ValidatedConfig,
-    markdown_files: &[MarkdownFileInfo],
+    markdown_files: &MarkdownFiles,
     image_files: &[PathBuf],
 ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
     let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
@@ -117,14 +118,14 @@ pub fn scan_folders(
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
 
-    let (markdown_files, image_files, other_files) =
+    let (markdown_paths, image_files, other_files) =
         collect_repository_files(config, ignore_folders)?;
 
     obsidian_repository_info.other_files = other_files;
 
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
-    let (markdown_info, all_wikilinks) = scan_markdown_files(&markdown_files)?;
-    obsidian_repository_info.markdown_files = markdown_info;
+    let (markdown_files, all_wikilinks) = scan_markdown_files(&markdown_paths)?;
+    obsidian_repository_info.markdown_files = markdown_files;
 
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
     obsidian_repository_info.wikilinks_sorted = sorted;
@@ -169,8 +170,8 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 }
 
 fn scan_markdown_files(
-    markdown_files: &[PathBuf],
-) -> Result<(Vec<MarkdownFileInfo>, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
+    markdown_paths: &[PathBuf],
+) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
@@ -178,13 +179,13 @@ fn scan_markdown_files(
     ))?);
 
     // Use Arc<Mutex<...>> for safe shared collection
-    let markdown_info = Arc::new(Mutex::new(Vec::new()));
+    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
-    markdown_files.par_iter().try_for_each(|file_path| {
+    markdown_paths.par_iter().try_for_each(|file_path| {
         match scan_markdown_file(file_path, &image_regex) {
             Ok((file_info, wikilinks)) => {
-                markdown_info.lock().unwrap().push(file_info);
+                markdown_files.lock().unwrap().push(file_info);
                 all_wikilinks.lock().unwrap().extend(wikilinks);
                 Ok(())
             }
@@ -196,7 +197,7 @@ fn scan_markdown_files(
     })?;
 
     // Extract data from Arc<Mutex<...>>
-    let markdown_info = Arc::try_unwrap(markdown_info)
+    let markdown_info = Arc::try_unwrap(markdown_files)
         .unwrap()
         .into_inner()
         .unwrap();

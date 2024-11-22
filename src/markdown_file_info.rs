@@ -10,9 +10,8 @@ use crate::utils::read_contents_from_file;
 use crate::wikilink::is_wikilink;
 use crate::wikilink_types::InvalidWikilink;
 use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
-use crate::{CLOSING_WIKILINK, LEVEL1, OPENING_WIKILINK};
+use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
 
-use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use itertools::Itertools;
@@ -188,8 +187,6 @@ impl MarkdownFileInfo {
             Ok(None) => (None, full_content, Some(YamlFrontMatterError::Missing)),
             Err(e) => (None, full_content, Some(e)),
         };
-
-        println!("frontmatter: {:?} error {:?}", frontmatter, frontmatter_error);
 
         let (date_validation_created, date_validation_modified) =
             get_date_validations(&frontmatter, &path)?;
@@ -409,104 +406,4 @@ fn process_date_validations(
     }
 
     reasons
-}
-
-pub fn write_date_validation_table(
-    writer: &ThreadSafeWriter,
-    files: &[MarkdownFileInfo],
-) -> io::Result<()> {
-    let mut rows: Vec<Vec<String>> = Vec::new();
-
-    for file in files {
-        if file.date_validation_created.issue.is_some()
-            || file.date_validation_modified.issue.is_some()
-            || file.date_created_fix.date_string.is_some()
-        {
-            let file_name = file
-                .path
-                .file_name()
-                .and_then(|f| f.to_str())
-                .map(|s| s.trim_end_matches(".md"))
-                .unwrap_or_default();
-
-            let wikilink = format!("[[{}]]", file_name);
-            let created_status = file.date_validation_created.to_issue_string();
-            let modified_status = file.date_validation_modified.to_issue_string();
-            let fix_status = file.date_created_fix.to_issue_string();
-
-            // Simplified persistence status
-            let persistence_status = match &file.frontmatter {
-                Some(fm) => {
-                    if fm.needs_persist() {
-                        "yes".to_string()
-                    } else {
-                        "no".to_string()
-                    }
-                }
-                None => "no frontmatter".to_string(),
-            };
-
-            // Collect actions...
-            let mut actions = Vec::new();
-            if let Some(action) = file.date_validation_created.to_action_string() {
-                actions.push(format!("date_created: {}", action));
-            }
-            if let Some(action) = file.date_validation_modified.to_action_string() {
-                actions.push(format!("date_modified: {}", action));
-            }
-            if let Some(action) = file.date_created_fix.to_action_string() {
-                actions.push(format!("date_created_fix: {}", action));
-            }
-
-            let action_column = actions.join("<br>");
-
-            rows.push(vec![
-                wikilink,
-                created_status,
-                modified_status,
-                fix_status,
-                persistence_status,
-                action_column,
-            ]);
-        }
-    }
-
-    if !rows.is_empty() {
-        rows.sort_by(|a, b| a[0].to_lowercase().cmp(&b[0].to_lowercase()));
-
-        writer.writeln(LEVEL1, "date info from markdown file info")?;
-        writer.writeln("", "if date is valid, do nothing")?;
-        writer.writeln(
-            "",
-            "if date is missing, invalid format, or invalid wikilink, pull the date from the file",
-        )?;
-        writer.writeln("", "")?;
-
-        let headers = &[
-            "file",
-            "date_created",
-            "date_modified",
-            "date_created_fix",
-            "persist",
-            "actions",
-        ];
-
-        let alignments = &[
-            ColumnAlignment::Left,
-            ColumnAlignment::Center,
-            ColumnAlignment::Center,
-            ColumnAlignment::Center,
-            ColumnAlignment::Center,
-            ColumnAlignment::Left,
-        ];
-
-        for (i, chunk) in rows.chunks(500).enumerate() {
-            if i > 0 {
-                writer.writeln("", "")?;
-            }
-            writer.write_markdown_table(headers, chunk, Some(alignments))?;
-        }
-    }
-
-    Ok(())
 }
