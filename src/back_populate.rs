@@ -17,7 +17,7 @@ mod table_handling_tests;
 
 use crate::config::ValidatedConfig;
 use crate::constants::*;
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::utils::DeterministicSearch;
 use crate::utils::Timer;

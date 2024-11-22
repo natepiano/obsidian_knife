@@ -2,6 +2,8 @@
 mod date_fix_tests;
 #[cfg(test)]
 mod parse_and_persist_tests;
+#[cfg(test)]
+mod persist_reason_tests;
 
 use crate::frontmatter::FrontMatter;
 use crate::utils::read_contents_from_file;
@@ -19,7 +21,7 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::{fs, io};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
     DateCreatedUpdated {
         reason: DateValidationIssue,
@@ -186,6 +188,8 @@ impl MarkdownFileInfo {
             Ok(None) => (None, full_content, Some(YamlFrontMatterError::Missing)),
             Err(e) => (None, full_content, Some(e)),
         };
+
+        println!("frontmatter: {:?} error {:?}", frontmatter, frontmatter_error);
 
         let (date_validation_created, date_validation_modified) =
             get_date_validations(&frontmatter, &path)?;
