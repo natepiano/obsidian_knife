@@ -1,9 +1,8 @@
 use crate::back_populate::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
-    create_test_markdown_file_info,
 };
 use crate::back_populate::{find_all_back_populate_matches, format_relative_path};
-use crate::test_utils::TestFileBuilder;
+use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink_types::Wikilink;
 
 #[test]
@@ -77,7 +76,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
     repo_info
         .markdown_files
-        .push(create_test_markdown_file_info(&file_path));
+        .push(get_test_markdown_file_info(file_path));
 
     find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 
@@ -101,7 +100,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
     repo_info
         .markdown_files
-        .push(create_test_markdown_file_info(&other_file_path));
+        .push(get_test_markdown_file_info(other_file_path));
 
     find_all_back_populate_matches(&config, &mut repo_info).unwrap();
 

@@ -4,8 +4,7 @@ use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink_types::Wikilink;
 
-use crate::test_utils::{parse_datetime, TestFileBuilder};
-use crate::DEFAULT_TIMEZONE;
+use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use std::fs::File;
@@ -84,15 +83,11 @@ pub fn create_markdown_test_file(
     let mut file = File::create(&file_path).unwrap();
     write!(file, "{}", content).unwrap();
 
-    let markdown_file_info = create_test_markdown_file_info(&file_path);
+    let markdown_file_info = get_test_markdown_file_info(file_path.clone());
 
     repo_info.markdown_files.push(markdown_file_info);
 
     file_path
-}
-
-pub(crate) fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFileInfo {
-    MarkdownFileInfo::new(file_path.clone(), DEFAULT_TIMEZONE).unwrap()
 }
 
 #[test]
