@@ -21,4 +21,6 @@ jobs:
     - name: Run tests
       run: cargo test --verbose
     - name: Run diagnosis
-      run: cargo test test_filesystem_timestamp_debug -- --nocapture
+      run: |
+          cargo test test_filesystem_timestamp_debug --verbose -- --nocapture
+          find /tmp -name "timestamp_debug.txt" -type f -exec cat {} \;

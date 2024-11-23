@@ -413,7 +413,11 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
 
 #[test]
 fn test_filesystem_timestamp_debug() -> Result<(), Box<dyn Error + Send + Sync>> {
+    use std::io::Write;
+
     let temp_dir = TempDir::new()?;
+    let debug_file_path = temp_dir.path().join("timestamp_debug.txt");
+    let mut debug_file = fs::File::create(&debug_file_path)?;
 
     // Create a file with known UTC timestamps
     let test_date = Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap();
@@ -438,34 +442,33 @@ fn test_filesystem_timestamp_debug() -> Result<(), Box<dyn Error + Send + Sync>>
         DateTime::<Utc>::from(system_time)
     };
 
-    // Raw filesystem values
-    println!("\nRaw Filesystem Values:");
-    println!("Created FileTime unix_seconds: {:?}", FileTime::from_creation_time(&metadata).map(|ft| ft.unix_seconds()));
-    println!("Modified FileTime unix_seconds: {}", FileTime::from_last_modification_time(&metadata).unix_seconds());
-    println!("Created FileTime nanoseconds: {:?}", FileTime::from_creation_time(&metadata).map(|ft| ft.nanoseconds()));
-    println!("Modified FileTime nanoseconds: {}", FileTime::from_last_modification_time(&metadata).nanoseconds());
+    writeln!(debug_file, "\nRaw Filesystem Values:")?;
+    writeln!(debug_file, "Created FileTime unix_seconds: {:?}", FileTime::from_creation_time(&metadata).map(|ft| ft.unix_seconds()))?;
+    writeln!(debug_file, "Modified FileTime unix_seconds: {}", FileTime::from_last_modification_time(&metadata).unix_seconds())?;
+    writeln!(debug_file, "Created FileTime nanoseconds: {:?}", FileTime::from_creation_time(&metadata).map(|ft| ft.nanoseconds()))?;
+    writeln!(debug_file, "Modified FileTime nanoseconds: {}", FileTime::from_last_modification_time(&metadata).nanoseconds())?;
 
-    // Converted to DateTime<Utc>
-    println!("\nConverted to DateTime<Utc>:");
-    println!("Created DateTime: {:?}", created_time);
-    println!("Modified DateTime: {}", modified_time);
-    println!("Original test_date: {}", test_date);
+    writeln!(debug_file, "\nConverted to DateTime<Utc>:")?;
+    writeln!(debug_file, "Created DateTime: {:?}", created_time)?;
+    writeln!(debug_file, "Modified DateTime: {}", modified_time)?;
+    writeln!(debug_file, "Original test_date: {}", test_date)?;
 
-    // Direct metadata access
-    println!("\nDirect metadata access:");
-    println!("Raw metadata created: {:?}", metadata.created());
-    println!("Raw metadata modified: {:?}", metadata.modified());
+    writeln!(debug_file, "\nDirect metadata access:")?;
+    writeln!(debug_file, "Raw metadata created: {:?}", metadata.created())?;
+    writeln!(debug_file, "Raw metadata modified: {:?}", metadata.modified())?;
 
-    // Check if timestamps are preserved
     let time_diff = if let Some(created) = created_time {
         (created - test_date).num_seconds()
     } else {
         999999 // some distinctive number for "not available"
     };
 
-    println!("\nTimestamp comparison:");
-    println!("Difference between set and retrieved creation time (seconds): {}", time_diff);
-    println!("Difference between set and retrieved modification time (seconds): {}", (modified_time - test_date).num_seconds());
+    writeln!(debug_file, "\nTimestamp comparison:")?;
+    writeln!(debug_file, "Difference between set and retrieved creation time (seconds): {}", time_diff)?;
+    writeln!(debug_file, "Difference between set and retrieved modification time (seconds): {}", (modified_time - test_date).num_seconds())?;
+
+    // Print the path so we can find it in the GitHub Actions logs
+    println!("Debug file written to: {}", debug_file_path.display());
 
     Ok(())
 }
