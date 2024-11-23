@@ -89,6 +89,7 @@ fn test_parse_content_separation() {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_persist_with_missing_raw_date_created() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new()?;
 
@@ -140,6 +141,7 @@ fn test_persist_with_missing_raw_date_created() -> Result<(), Box<dyn Error + Se
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new()?;
 

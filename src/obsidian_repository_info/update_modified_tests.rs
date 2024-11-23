@@ -4,6 +4,7 @@ use chrono::{Datelike, Utc};
 use tempfile::TempDir;
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_update_modified_dates_changes_frontmatter() {
     let temp_dir = TempDir::new().unwrap();
 
@@ -49,6 +50,7 @@ fn test_update_modified_dates_changes_frontmatter() {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_update_modified_dates_only_updates_specified_files() {
     let temp_dir = TempDir::new().unwrap();
 

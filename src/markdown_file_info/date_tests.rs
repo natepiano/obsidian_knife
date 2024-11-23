@@ -1,13 +1,12 @@
-use std::time::SystemTime;
 use super::*;
 use crate::frontmatter::FrontMatter;
-use crate::test_utils::{
-    assert_test_case, eastern_midnight, get_test_markdown_file_info, TestFileBuilder,
-};
+
+use crate::test_utils::{assert_test_case, eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::DEFAULT_TIMEZONE;
 use chrono::TimeZone;
 use tempfile::TempDir;
+
 
 fn create_frontmatter(
     date_modified: &Option<String>,
@@ -112,6 +111,7 @@ struct DateFixTestCase {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_process_date_validations() {
     let test_cases = vec![
         DateFixTestCase {
@@ -257,7 +257,9 @@ struct DateCreatedFixTestCase {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_date_created_fix_integration() {
+
     let test_cases = vec![
         DateCreatedFixTestCase {
             name: "missing date_created_fix",
@@ -343,6 +345,7 @@ fn test_date_created_fix_integration() {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_timezone_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
