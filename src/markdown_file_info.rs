@@ -28,10 +28,7 @@ pub enum PersistReason {
     DateModifiedUpdated {
         reason: DateValidationIssue,
     },
-    DateCreatedFixApplied {
-        original_date: String,
-        requested_fix: String,
-    },
+    DateCreatedFixApplied,
     BackPopulated,
     ImageReferencesModified,
 }
@@ -42,6 +39,25 @@ pub enum DateValidationIssue {
     InvalidFormat,
     InvalidWikilink,
     FileSystemMismatch,
+}
+
+impl PersistReason {
+    pub fn to_string(&self) -> String {
+        match self {
+            PersistReason::DateCreatedUpdated { reason } |
+            PersistReason::DateModifiedUpdated { reason } => {
+                // Let DateValidation handle the formatting consistently
+                DateValidation {
+                    frontmatter_date: None,
+                    file_system_date: Utc::now(), // Not used in to_issue_string
+                    issue: Some(reason.clone())
+                }.to_issue_string()
+            }
+            PersistReason::DateCreatedFixApplied => "date created fix applied".to_string(),
+            PersistReason::BackPopulated => "back populated".to_string(),
+            PersistReason::ImageReferencesModified => "image references modified".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -206,14 +222,7 @@ impl MarkdownFileInfo {
             if let Some(fix_date) = date_created_fix.fix_date {
                 fm.set_date_created(fix_date);
                 fm.remove_date_created_fix();
-                persist_reasons.push(PersistReason::DateCreatedFixApplied {
-                    original_date: date_created_fix
-                        .date_string
-                        .as_ref()
-                        .map(String::clone)
-                        .unwrap_or_default(),
-                    requested_fix: fix_date.format("%Y-%m-%d").to_string(),
-                });
+                persist_reasons.push(PersistReason::DateCreatedFixApplied);
             }
         }
 

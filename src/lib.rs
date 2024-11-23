@@ -67,6 +67,8 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
    // write_date_validation_table(&writer, &obsidian_repository_info.markdown_files)?;
     obsidian_repository_info.markdown_files.write_date_validation_table(&writer)?;
+    obsidian_repository_info.markdown_files.write_persist_reasons_table(&writer)?;
+
 
     if config.apply_changes == Some(true) {
         // this whole thing is a bit of a code smell

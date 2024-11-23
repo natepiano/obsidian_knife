@@ -22,16 +22,6 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-    // pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-    //     for file_info in &self.markdown_files {
-    //         if let Some(frontmatter) = &file_info.frontmatter {
-    //             if frontmatter.needs_persist() {
-    //                 file_info.persist()?;
-    //             }
-    //         }
-    //     }
-    //     Ok(())
-    // }
 
     pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.markdown_files.persist_all()
@@ -40,15 +30,4 @@ impl ObsidianRepositoryInfo {
     pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
         self.markdown_files.update_modified_dates_for_cleanup_images(paths);
     }
-
-    // pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
-    //     let paths_set: HashSet<_> = paths.iter().collect();
-    //
-    //     self.markdown_files
-    //         .iter_mut()
-    //         .filter(|file_info| paths_set.contains(&file_info.path))
-    //         .for_each(|file_info| {
-    //             file_info.record_image_references_change();
-    //         });
-    // }
 }

@@ -1,5 +1,3 @@
-// In obsidian_repository_info.rs
-
 use std::collections::HashSet;
 use std::error::Error;
 use std::io;
@@ -210,6 +208,52 @@ impl MarkdownFiles {
             writer.writeln(LEVEL3, &format!("in file {}", format_wikilink(path)))?;
             writer.writeln("", &format!("{}", err))?;
             writer.writeln("", "")?;
+        }
+
+        Ok(())
+    }
+
+    pub fn write_persist_reasons_table(&self, writer: &ThreadSafeWriter) -> io::Result<()> {
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        for file in &self.files {
+            if !file.persist_reasons.is_empty() {
+                let file_name = file
+                    .path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.trim_end_matches(".md"))
+                    .unwrap_or_default();
+
+                let wikilink = format!("[[{}]]", file_name);
+
+                // Combine all persist reasons into a single cell with line breaks
+                let reasons = file.persist_reasons
+                    .iter()
+                    .map(|reason| reason.to_string())
+                    .collect::<Vec<_>>()
+                    .join("<br>");
+
+                rows.push(vec![wikilink, reasons]);
+            }
+        }
+
+        if !rows.is_empty() {
+            rows.sort_by(|a, b| a[0].to_lowercase().cmp(&b[0].to_lowercase()));
+
+            writer.writeln(LEVEL1, "persist reasons")?;
+            writer.writeln("", "")?;
+
+            let headers = &["file", "reasons"];
+            let alignments = &[ColumnAlignment::Left, ColumnAlignment::Left];
+
+            // Split into chunks of 500 rows like the date validation table
+            for (i, chunk) in rows.chunks(500).enumerate() {
+                if i > 0 {
+                    writer.writeln("", "")?;
+                }
+                writer.write_markdown_table(headers, chunk, Some(alignments))?;
+            }
         }
 
         Ok(())

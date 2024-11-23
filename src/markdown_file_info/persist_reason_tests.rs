@@ -57,10 +57,7 @@ fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + S
 
     let file_info = MarkdownFileInfo::new(file_path)?;
 
-    assert!(file_info.persist_reasons.contains(&PersistReason::DateCreatedFixApplied {
-        original_date: "2024-01-01".to_string(),
-        requested_fix: "2024-01-01".to_string(),
-    }));
+    assert!(file_info.persist_reasons.contains(&PersistReason::DateCreatedFixApplied));
 
     Ok(())
 }
