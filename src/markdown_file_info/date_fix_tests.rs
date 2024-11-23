@@ -78,8 +78,8 @@ fn test_process_frontmatter_date_validation() {
             date_created: Some("[[2024-13-45]]".to_string()),
             file_system_mod_date: Utc::now(),
             file_system_create_date: Utc::now(),
-            expected_modified_issue: Some(DateValidationIssue::InvalidFormat),
-            expected_created_issue: Some(DateValidationIssue::InvalidFormat),
+            expected_modified_issue: Some(DateValidationIssue::InvalidDateFormat),
+            expected_created_issue: Some(DateValidationIssue::InvalidDateFormat),
         },
         DateValidationTestCase {
             name: "missing dates",

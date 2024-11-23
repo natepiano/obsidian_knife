@@ -4,7 +4,6 @@ mod persist_file_tests;
 mod update_modified_tests;
 
 use crate::markdown_files::MarkdownFiles;
-use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::ImageInfo;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;

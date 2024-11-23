@@ -1,6 +1,6 @@
 use crate::back_populate::back_populate_tests::create_test_environment;
 use crate::back_populate::{
-    find_all_back_populate_matches, identify_ambiguous_matches, BackPopulateMatch,
+    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, BackPopulateMatch,
 };
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::scan_folders;
@@ -63,7 +63,7 @@ fn test_identify_ambiguous_matches() {
     repo_info.markdown_files.push(test_file2);
     repo_info.markdown_files.push(test_file);
 
-    let ambiguous = identify_ambiguous_matches(&mut repo_info);
+    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
 
     // Check ambiguous matches
     assert_eq!(ambiguous.len(), 1, "Should have one ambiguous match group");
@@ -116,7 +116,7 @@ fn test_truly_ambiguous_targets() {
     // Verify initial match exists
     assert_eq!(test_file.matches.len(), 1, "Should have one initial match");
 
-    let ambiguous = identify_ambiguous_matches(&mut repo_info);
+    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
 
     assert_eq!(
         ambiguous.len(),
@@ -206,7 +206,7 @@ Amazon is ambiguous"#,
         .collect();
     assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
 
-    let ambiguous = identify_ambiguous_matches(&mut repo_info);
+    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
 
     assert_eq!(
         ambiguous.len(),
@@ -313,7 +313,7 @@ Nate was here and so was Nate"#
     );
 
     // Get ambiguous matches
-    let ambiguous_matches = identify_ambiguous_matches(&mut repo_info);
+    let ambiguous_matches = identify_and_remove_ambiguous_matches(&mut repo_info);
 
     // Verify ambiguous matches
     let nate_matches = ambiguous_matches

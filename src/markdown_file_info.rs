@@ -33,29 +33,34 @@ pub enum PersistReason {
     ImageReferencesModified,
 }
 
+impl PersistReason {
+    pub fn to_string(&self) -> String {
+        match self {
+            PersistReason::DateCreatedUpdated { .. } => "date_created updated".to_string(),
+            PersistReason::DateModifiedUpdated { .. } => "date_modified updated".to_string(),
+            PersistReason::DateCreatedFixApplied => "date_created_fix applied".to_string(),
+            PersistReason::BackPopulated => "back populated".to_string(),
+            PersistReason::ImageReferencesModified => "image references updated".to_string(),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum DateValidationIssue {
     Missing,
-    InvalidFormat,
+    InvalidDateFormat,
     InvalidWikilink,
     FileSystemMismatch,
 }
 
-impl PersistReason {
+impl DateValidationIssue {
     pub fn to_string(&self) -> String {
         match self {
-            PersistReason::DateCreatedUpdated { reason } |
-            PersistReason::DateModifiedUpdated { reason } => {
-                // Let DateValidation handle the formatting consistently
-                DateValidation {
-                    frontmatter_date: None,
-                    file_system_date: Utc::now(), // Not used in to_issue_string
-                    issue: Some(reason.clone())
-                }.to_issue_string()
-            }
-            PersistReason::DateCreatedFixApplied => "date created fix applied".to_string(),
-            PersistReason::BackPopulated => "back populated".to_string(),
-            PersistReason::ImageReferencesModified => "image references modified".to_string(),
+            DateValidationIssue::Missing  => "missing".to_string(),
+            DateValidationIssue::InvalidDateFormat => "invalid date format".to_string(),
+            DateValidationIssue::InvalidWikilink => "invalid wikilink".to_string(),
+            DateValidationIssue::FileSystemMismatch => "doesn't match file system".to_string(),
+
         }
     }
 }
@@ -66,68 +71,11 @@ pub struct DateValidation {
     pub file_system_date: DateTime<Utc>,
     pub issue: Option<DateValidationIssue>,
 }
-
-impl DateValidation {
-    pub fn to_issue_string(&self) -> String {
-        match &self.issue {
-            None => "valid".to_string(),
-            Some(issue) => match issue {
-                DateValidationIssue::Missing => "missing".to_string(),
-                DateValidationIssue::InvalidFormat => {
-                    format_invalid_date("invalid format", &self.frontmatter_date)
-                }
-                DateValidationIssue::InvalidWikilink => {
-                    format_invalid_date("invalid wikilink", &self.frontmatter_date)
-                }
-                DateValidationIssue::FileSystemMismatch => {
-                    format_invalid_date("mismatch", &self.frontmatter_date)
-                }
-            },
-        }
-    }
-
-    pub fn to_action_string(&self) -> Option<String> {
-        self.issue
-            .as_ref()
-            .map(|_| format!("\"\\[[{}]]\"", self.file_system_date.format("%Y-%m-%d")))
-    }
-}
-
-fn format_invalid_date(prefix: &str, date_string: &Option<String>) -> String {
-    let escaped_date = date_string
-        .as_ref()
-        .map(|date_str| date_str.replace("\"", "\\\"").replace("[", "\\["))
-        .unwrap_or_default();
-
-    format!(
-        "{}<br><span style=\"color:red\">{}</span>",
-        prefix, escaped_date
-    )
-}
-
 // In markdown_file_info.rs
 #[derive(Debug)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,
     pub fix_date: Option<DateTime<Utc>>,
-}
-
-impl DateCreatedFixValidation {
-    pub fn to_issue_string(&self) -> String {
-        match (&self.date_string, &self.fix_date) {
-            (None, _) => "".to_string(),
-            (Some(_), None) => format_invalid_date("invalid fix", &self.date_string),
-            (Some(_), Some(_)) => "valid fix".to_string(),
-        }
-    }
-
-    pub fn to_action_string(&self) -> Option<String> {
-        match (&self.date_string, &self.fix_date) {
-            (None, _) => None,
-            (Some(_), None) => Some("won't fix".to_string()),
-            (Some(_), Some(date)) => Some(format!("\"\\[[{}]]\"", date.format("%Y-%m-%d"))),
-        }
-    }
 }
 
 impl DateCreatedFixValidation {
@@ -319,7 +267,7 @@ fn get_date_validation_issue(
             } else {
                 let extracted_date = extract_date(date_str);
                 if !is_valid_date(extracted_date) {
-                    Some(DateValidationIssue::InvalidFormat)
+                    Some(DateValidationIssue::InvalidDateFormat)
                 } else if extracted_date != fs_date.format("%Y-%m-%d").to_string() {
                     Some(DateValidationIssue::FileSystemMismatch)
                 } else {

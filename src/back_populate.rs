@@ -114,7 +114,7 @@ pub fn process_back_populate(
         return Ok(());
     }
 
-    let ambiguous_matches = identify_ambiguous_matches(obsidian_repository_info);
+    let ambiguous_matches = identify_and_remove_ambiguous_matches(obsidian_repository_info);
 
     // Write ambiguous matches first if any exist
     write_ambiguous_matches(writer, &ambiguous_matches)?;
@@ -175,7 +175,7 @@ fn find_all_back_populate_matches(
     Ok(())
 }
 
-fn identify_ambiguous_matches(
+fn identify_and_remove_ambiguous_matches(
     obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Vec<AmbiguousMatch> {
     // Create a case-insensitive map of targets to their canonical forms

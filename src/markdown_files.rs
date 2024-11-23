@@ -5,7 +5,7 @@ use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::PathBuf;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use crate::{LEVEL1, LEVEL3};
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink::format_wikilink;
 
@@ -89,101 +89,6 @@ impl MarkdownFiles {
             });
     }
 
-    pub fn write_date_validation_table(&self, writer: &ThreadSafeWriter) -> io::Result<()> {
-        let mut rows: Vec<Vec<String>> = Vec::new();
-
-        for file in &self.files {
-            if file.date_validation_created.issue.is_some()
-                || file.date_validation_modified.issue.is_some()
-                || file.date_created_fix.date_string.is_some()
-            {
-                let file_name = file
-                    .path
-                    .file_name()
-                    .and_then(|f| f.to_str())
-                    .map(|s| s.trim_end_matches(".md"))
-                    .unwrap_or_default();
-
-                let wikilink = format!("[[{}]]", file_name);
-                let created_status = file.date_validation_created.to_issue_string();
-                let modified_status = file.date_validation_modified.to_issue_string();
-                let fix_status = file.date_created_fix.to_issue_string();
-
-                let persistence_status = match &file.frontmatter {
-                    Some(fm) => {
-                        if fm.needs_persist() {
-                            "yes".to_string()
-                        } else {
-                            "no".to_string()
-                        }
-                    }
-                    None => "no frontmatter".to_string(),
-                };
-
-                let mut actions = Vec::new();
-                if let Some(action) = file.date_validation_created.to_action_string() {
-                    actions.push(format!("date_created: {}", action));
-                }
-                if let Some(action) = file.date_validation_modified.to_action_string() {
-                    actions.push(format!("date_modified: {}", action));
-                }
-                if let Some(action) = file.date_created_fix.to_action_string() {
-                    actions.push(format!("date_created_fix: {}", action));
-                }
-
-                let action_column = actions.join("<br>");
-
-                rows.push(vec![
-                    wikilink,
-                    created_status,
-                    modified_status,
-                    fix_status,
-                    persistence_status,
-                    action_column,
-                ]);
-            }
-        }
-
-        if !rows.is_empty() {
-            rows.sort_by(|a, b| a[0].to_lowercase().cmp(&b[0].to_lowercase()));
-
-            writer.writeln(LEVEL1, "date info from markdown file info")?;
-            writer.writeln("", "if date is valid, do nothing")?;
-            writer.writeln(
-                "",
-                "if date is missing, invalid format, or invalid wikilink, pull the date from the file",
-            )?;
-            writer.writeln("", "")?;
-
-            let headers = &[
-                "file",
-                "date_created",
-                "date_modified",
-                "date_created_fix",
-                "persist",
-                "actions",
-            ];
-
-            let alignments = &[
-                ColumnAlignment::Left,
-                ColumnAlignment::Center,
-                ColumnAlignment::Center,
-                ColumnAlignment::Center,
-                ColumnAlignment::Center,
-                ColumnAlignment::Left,
-            ];
-
-            for (i, chunk) in rows.chunks(500).enumerate() {
-                if i > 0 {
-                    writer.writeln("", "")?;
-                }
-                writer.write_markdown_table(headers, chunk, Some(alignments))?;
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn report_frontmatter_issues(&self, writer: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
         let files_with_errors: Vec<_> = self.files
             .iter()
@@ -227,27 +132,76 @@ impl MarkdownFiles {
 
                 let wikilink = format!("[[{}]]", file_name);
 
-                // Combine all persist reasons into a single cell with line breaks
-                let reasons = file.persist_reasons
-                    .iter()
-                    .map(|reason| reason.to_string())
-                    .collect::<Vec<_>>()
-                    .join("<br>");
+                // Count instances of BackPopulated and ImageReferencesModified
+                let back_populate_count = file.matches.len();
 
-                rows.push(vec![wikilink, reasons]);
+                let image_refs_count = file.persist_reasons.iter()
+                    .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
+                    .count();
+
+                // Generate rows for each persist reason
+                for reason in &file.persist_reasons {
+                    let (before, after, reason_info) = match reason {
+                        PersistReason::DateCreatedUpdated { reason } => (
+                            file.date_validation_created.frontmatter_date.clone().unwrap_or_default(),
+                            format!("[[{}]]", file.date_validation_created.file_system_date.format("%Y-%m-%d")),
+                            reason.to_string()
+                        ),
+                        PersistReason::DateModifiedUpdated { reason } => (
+                            file.date_validation_modified.frontmatter_date.clone().unwrap_or_default(),
+                            format!("[[{}]]", file.date_validation_modified.file_system_date.format("%Y-%m-%d")),
+                            reason.to_string()
+                        ),
+                        PersistReason::DateCreatedFixApplied => (
+                            file.date_created_fix.date_string.clone().unwrap_or_default(),
+                            file.date_created_fix.fix_date.map(|d| format!("[[{}]]", d.format("%Y-%m-%d"))).unwrap_or_default(),
+                            String::new()
+                        ),
+                        PersistReason::BackPopulated => (
+                            String::new(),
+                            String::new(),
+                            format!("{} instances", back_populate_count)
+                        ),
+                        PersistReason::ImageReferencesModified => (
+                            String::new(),
+                            String::new(),
+                            format!("{} instances", image_refs_count)
+                        ),
+                    };
+
+                    rows.push(vec![
+                        wikilink.clone(),
+                        reason.to_string(),
+                        reason_info,
+                        before,
+                        after,
+                    ]);
+                }
             }
         }
 
         if !rows.is_empty() {
-            rows.sort_by(|a, b| a[0].to_lowercase().cmp(&b[0].to_lowercase()));
+            rows.sort_by(|a, b| {
+                let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
+                if file_cmp == std::cmp::Ordering::Equal {
+                    a[1].cmp(&b[1])
+                } else {
+                    file_cmp
+                }
+            });
 
-            writer.writeln(LEVEL1, "persist reasons")?;
+            writer.writeln(LEVEL1, "files to be updated")?;
             writer.writeln("", "")?;
 
-            let headers = &["file", "reasons"];
-            let alignments = &[ColumnAlignment::Left, ColumnAlignment::Left];
+            let headers = &["file", "persist reason", "info","before", "after"];
+            let alignments = &[
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+            ];
 
-            // Split into chunks of 500 rows like the date validation table
             for (i, chunk) in rows.chunks(500).enumerate() {
                 if i > 0 {
                     writer.writeln("", "")?;

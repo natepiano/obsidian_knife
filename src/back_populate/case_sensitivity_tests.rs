@@ -2,7 +2,7 @@ use crate::back_populate::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
 use crate::back_populate::{
-    find_all_back_populate_matches, identify_ambiguous_matches, process_line, BackPopulateMatch,
+    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, process_line, BackPopulateMatch,
 };
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::scan_folders;
@@ -135,7 +135,7 @@ fn test_case_insensitive_targets() {
     );
 
     // Get ambiguous matches
-    let ambiguous_matches = identify_ambiguous_matches(&mut repo_info);
+    let ambiguous_matches = identify_and_remove_ambiguous_matches(&mut repo_info);
 
     // Should treat case variations of the same target as the same file
     assert_eq!(

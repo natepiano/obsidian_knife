@@ -32,10 +32,10 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
     let file_info = MarkdownFileInfo::new(file_path)?;
 
     assert!(file_info.persist_reasons.contains(&PersistReason::DateCreatedUpdated {
-        reason: DateValidationIssue::InvalidFormat
+        reason: DateValidationIssue::InvalidDateFormat
     }));
     assert!(file_info.persist_reasons.contains(&PersistReason::DateModifiedUpdated {
-        reason: DateValidationIssue::InvalidFormat
+        reason: DateValidationIssue::InvalidDateFormat
     }));
 
     Ok(())
