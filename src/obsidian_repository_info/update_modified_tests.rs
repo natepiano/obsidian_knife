@@ -1,13 +1,13 @@
 use super::*;
-use crate::test_utils::TestFileBuilder;
-use chrono::{Datelike, TimeZone, Utc};
+use crate::test_utils::{eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
+use chrono::{Datelike, Utc};
 use tempfile::TempDir;
 
 #[test]
 fn test_update_modified_dates_changes_frontmatter() {
     let temp_dir = TempDir::new().unwrap();
 
-    let base_date = Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+    let base_date = eastern_midnight(2024, 1, 15);
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
@@ -18,7 +18,7 @@ fn test_update_modified_dates_changes_frontmatter() {
         .create(&temp_dir, "test1.md");
 
     let mut repo_info = ObsidianRepositoryInfo::default();
-    let markdown_file = MarkdownFileInfo::new(file_path.clone()).unwrap();
+    let markdown_file = get_test_markdown_file_info(file_path.clone());
     repo_info.markdown_files.push(markdown_file);
 
     // Update the modified dates
@@ -53,7 +53,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let temp_dir = TempDir::new().unwrap();
 
     // Set January 15th, 2024 as the base date
-    let base_date = Utc.with_ymd_and_hms(2024, 1, 15, 0, 0, 0).unwrap();
+    let base_date = eastern_midnight(2024, 1, 15);
 
     // Create two files
     let file_path1 = TestFileBuilder::new()
@@ -74,10 +74,10 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let mut repo_info = ObsidianRepositoryInfo::default();
     repo_info
         .markdown_files
-        .push(MarkdownFileInfo::new(file_path1.clone()).unwrap());
+        .push(get_test_markdown_file_info(file_path1.clone()));
     repo_info
         .markdown_files
-        .push(MarkdownFileInfo::new(file_path2.clone()).unwrap());
+        .push(get_test_markdown_file_info(file_path2.clone()));
 
     // Only update the first file
     repo_info.update_modified_dates_for_cleanup_images(&[file_path1]);

@@ -2,7 +2,8 @@ use crate::back_populate::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
 use crate::back_populate::{
-    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, process_line, BackPopulateMatch,
+    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, process_line,
+    BackPopulateMatch,
 };
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::scan::scan_folders;
@@ -172,7 +173,8 @@ fn test_case_sensitivity_behavior() {
         let wikilink = case.wikilink;
         let ac = build_aho_corasick(&[wikilink.clone()]);
 
-        let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
+        let markdown_info =
+            MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
         let matches = process_line(
             &mut case.content.to_string(),

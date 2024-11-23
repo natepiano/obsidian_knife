@@ -5,6 +5,7 @@ use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink_types::Wikilink;
 
 use crate::test_utils::{parse_datetime, TestFileBuilder};
+use crate::DEFAULT_TIMEZONE;
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use std::fs::File;
@@ -38,6 +39,7 @@ pub(crate) fn create_test_environment(
         do_not_back_populate,
         None,
         temp_dir.path().to_path_buf(),
+        None,
         temp_dir.path().join("output"),
     );
 
@@ -53,7 +55,7 @@ pub(crate) fn create_test_environment(
         )
         .create(&temp_dir, "test.md");
 
-    let markdown_info = MarkdownFileInfo::new(file_path).unwrap();
+    let markdown_info = MarkdownFileInfo::new(file_path, config.operational_timezone()).unwrap();
     repo_info.markdown_files.push(markdown_info);
 
     // Set up wikilinks
@@ -90,7 +92,7 @@ pub fn create_markdown_test_file(
 }
 
 pub(crate) fn create_test_markdown_file_info(file_path: &PathBuf) -> MarkdownFileInfo {
-    MarkdownFileInfo::new(file_path.clone()).unwrap()
+    MarkdownFileInfo::new(file_path.clone(), DEFAULT_TIMEZONE).unwrap()
 }
 
 #[test]

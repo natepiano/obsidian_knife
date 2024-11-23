@@ -21,12 +21,12 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-
     pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.markdown_files.persist_all()
     }
 
     pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
-        self.markdown_files.update_modified_dates_for_cleanup_images(paths);
+        self.markdown_files
+            .update_modified_dates_for_cleanup_images(paths);
     }
 }

@@ -15,6 +15,7 @@ pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
 
 // config stuff
 pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
+pub const DEFAULT_TIMEZONE: &str = "America/New_York";
 pub const ERROR_NOT_FOUND: &str = "file not found: ";
 pub const ERROR_READING: &str = "error reading config file ";
 pub const ERROR_BACK_POPULATE_FILE_FILTER: &str = "back_populate_filter_filter cannot be empty";

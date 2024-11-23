@@ -1,4 +1,5 @@
 use crate::utils::build_case_insensitive_word_finder;
+use crate::DEFAULT_TIMEZONE;
 use regex::Regex;
 use std::path::{Path, PathBuf};
 
@@ -11,6 +12,7 @@ pub struct ValidatedConfig {
     do_not_back_populate_regexes: Option<Vec<Regex>>,
     ignore_folders: Option<Vec<PathBuf>>, // Changed from String to PathBuf
     obsidian_path: PathBuf,
+    operational_timezone: String,
     output_folder: PathBuf,
 }
 
@@ -22,6 +24,7 @@ impl ValidatedConfig {
         do_not_back_populate: Option<Vec<String>>,
         ignore_folders: Option<Vec<PathBuf>>,
         obsidian_path: PathBuf,
+        operational_timezone: Option<String>,
         output_folder: PathBuf,
     ) -> Self {
         // Build regexes if we have patterns to exclude
@@ -36,6 +39,8 @@ impl ValidatedConfig {
             do_not_back_populate_regexes,
             ignore_folders,
             obsidian_path,
+            operational_timezone: operational_timezone
+                .unwrap_or_else(|| DEFAULT_TIMEZONE.to_string()),
             output_folder,
         }
     }
@@ -83,6 +88,10 @@ impl ValidatedConfig {
         &self.obsidian_path
     }
 
+    pub fn operational_timezone(&self) -> &str {
+        &self.operational_timezone
+    }
+
     pub fn output_folder(&self) -> &Path {
         &self.output_folder
     }
@@ -103,6 +112,7 @@ mod tests {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 
@@ -119,6 +129,7 @@ mod tests {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 
@@ -135,6 +146,7 @@ mod tests {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 
@@ -151,6 +163,7 @@ mod tests {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 
@@ -167,6 +180,7 @@ mod tests {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 

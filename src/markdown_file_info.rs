@@ -1,5 +1,5 @@
 #[cfg(test)]
-mod date_fix_tests;
+mod date_tests;
 #[cfg(test)]
 mod parse_and_persist_tests;
 #[cfg(test)]
@@ -22,12 +22,8 @@ use std::{fs, io};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
-    DateCreatedUpdated {
-        reason: DateValidationIssue,
-    },
-    DateModifiedUpdated {
-        reason: DateValidationIssue,
-    },
+    DateCreatedUpdated { reason: DateValidationIssue },
+    DateModifiedUpdated { reason: DateValidationIssue },
     DateCreatedFixApplied,
     BackPopulated,
     ImageReferencesModified,
@@ -56,11 +52,10 @@ pub enum DateValidationIssue {
 impl DateValidationIssue {
     pub fn to_string(&self) -> String {
         match self {
-            DateValidationIssue::Missing  => "missing".to_string(),
+            DateValidationIssue::Missing => "missing".to_string(),
             DateValidationIssue::InvalidDateFormat => "invalid date format".to_string(),
             DateValidationIssue::InvalidWikilink => "invalid wikilink".to_string(),
             DateValidationIssue::FileSystemMismatch => "doesn't match file system".to_string(),
-
         }
     }
 }
@@ -70,6 +65,7 @@ pub struct DateValidation {
     pub frontmatter_date: Option<String>,
     pub file_system_date: DateTime<Utc>,
     pub issue: Option<DateValidationIssue>,
+    pub operational_timezone: String,
 }
 // In markdown_file_info.rs
 #[derive(Debug)]
@@ -138,7 +134,7 @@ pub struct MarkdownFileInfo {
 }
 
 impl MarkdownFileInfo {
-    pub fn new(path: PathBuf) -> Result<Self, Box<dyn Error + Send + Sync>> {
+    pub fn new(path: PathBuf, timezone: &str) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let full_content = read_contents_from_file(&path)?;
 
         let (mut frontmatter, content, frontmatter_error) = match find_yaml_section(&full_content) {
@@ -153,7 +149,7 @@ impl MarkdownFileInfo {
         };
 
         let (date_validation_created, date_validation_modified) =
-            get_date_validations(&frontmatter, &path)?;
+            get_date_validations(&frontmatter, &path, timezone)?;
 
         let mut persist_reasons = process_date_validations(
             &mut frontmatter,
@@ -258,6 +254,7 @@ impl MarkdownFileInfo {
 fn get_date_validation_issue(
     date_opt: Option<&String>,
     fs_date: &DateTime<Utc>,
+    timezone: &str,
 ) -> Option<DateValidationIssue> {
     match date_opt {
         None => Some(DateValidationIssue::Missing),
@@ -268,19 +265,90 @@ fn get_date_validation_issue(
                 let extracted_date = extract_date(date_str);
                 if !is_valid_date(extracted_date) {
                     Some(DateValidationIssue::InvalidDateFormat)
-                } else if extracted_date != fs_date.format("%Y-%m-%d").to_string() {
-                    Some(DateValidationIssue::FileSystemMismatch)
                 } else {
-                    None
+                    // Parse the frontmatter date string into a NaiveDate
+                    match NaiveDate::parse_from_str(extracted_date.trim(), "%Y-%m-%d") {
+                        Ok(frontmatter_date) => {
+                            // Parse timezone string into a Tz
+                            match timezone.parse::<chrono_tz::Tz>() {
+                                Ok(tz) => {
+                                    // Convert UTC fs_date to operational timezone
+                                    let fs_date_local = fs_date.with_timezone(&tz);
+                                    let fs_date_ymd = fs_date_local.format("%Y-%m-%d").to_string();
+
+                                    if frontmatter_date.format("%Y-%m-%d").to_string()
+                                        != fs_date_ymd
+                                    {
+                                        Some(DateValidationIssue::FileSystemMismatch)
+                                    } else {
+                                        None
+                                    }
+                                }
+                                Err(_) => Some(DateValidationIssue::InvalidDateFormat),
+                            }
+                        }
+                        Err(_) => Some(DateValidationIssue::InvalidDateFormat),
+                    }
                 }
             }
         }
     }
 }
 
+// fn get_date_validation_issue(
+//     date_opt: Option<&String>,
+//     fs_date: &DateTime<Utc>,
+// ) -> Option<DateValidationIssue> {
+//     match date_opt {
+//         None => Some(DateValidationIssue::Missing),
+//         Some(date_str) => {
+//             if !is_wikilink(Some(date_str)) {
+//                 Some(DateValidationIssue::InvalidWikilink)
+//             } else {
+//                 let extracted_date = extract_date(date_str);
+//                 if !is_valid_date(extracted_date) {
+//                     Some(DateValidationIssue::InvalidDateFormat)
+//                 } else {
+//                     // Convert UTC filesystem date to local date string for comparison
+//                     let local_fs_date = utc_datetime_to_local_date_string(fs_date);
+//                     if extracted_date != local_fs_date {
+//                         Some(DateValidationIssue::FileSystemMismatch)
+//                     } else {
+//                         None
+//                     }
+//                 }
+//             }
+//         }
+//     }
+// }
+
+// fn get_date_validation_issue(
+//     date_opt: Option<&String>,
+//     fs_date: &DateTime<Utc>,
+// ) -> Option<DateValidationIssue> {
+//     match date_opt {
+//         None => Some(DateValidationIssue::Missing),
+//         Some(date_str) => {
+//             if !is_wikilink(Some(date_str)) {
+//                 Some(DateValidationIssue::InvalidWikilink)
+//             } else {
+//                 let extracted_date = extract_date(date_str);
+//                 if !is_valid_date(extracted_date) {
+//                     Some(DateValidationIssue::InvalidDateFormat)
+//                 } else if extracted_date != fs_date.format("%Y-%m-%d").to_string() {
+//                     Some(DateValidationIssue::FileSystemMismatch)
+//                 } else {
+//                     None
+//                 }
+//             }
+//         }
+//     }
+// }
+
 fn get_date_validations(
     frontmatter: &Option<FrontMatter>,
     path: &PathBuf,
+    timezone: &str,
 ) -> Result<(DateValidation, DateValidation), io::Error> {
     let metadata = fs::metadata(path)?;
 
@@ -308,11 +376,12 @@ fn get_date_validations(
     Ok(dates
         .into_iter()
         .map(|(frontmatter_date, fs_date)| {
-            let issue = get_date_validation_issue(frontmatter_date.as_ref(), &fs_date);
+            let issue = get_date_validation_issue(frontmatter_date.as_ref(), &fs_date, timezone);
             DateValidation {
                 frontmatter_date,
                 file_system_date: fs_date,
                 issue,
+                operational_timezone: timezone.to_string(),
             }
         })
         .collect_tuple()

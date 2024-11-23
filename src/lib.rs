@@ -35,7 +35,7 @@ use utils::ThreadSafeWriter;
 pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     let expanded_path = expand_tilde(config_path);
 
-    let mut markdown_file = MarkdownFileInfo::new(expanded_path)?;
+    let mut markdown_file = MarkdownFileInfo::new(expanded_path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
         Config::from_frontmatter(frontmatter.clone())?
     } else {
@@ -49,8 +49,10 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
 
-   // frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
-    obsidian_repository_info.markdown_files.report_frontmatter_issues(&writer)?;
+    // frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
+    obsidian_repository_info
+        .markdown_files
+        .report_frontmatter_issues(&writer)?;
     cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
     // cleanup_dates::process_dates(
@@ -65,7 +67,9 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         &writer,
     )?;
 
-    obsidian_repository_info.markdown_files.write_persist_reasons_table(&writer)?;
+    obsidian_repository_info
+        .markdown_files
+        .write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
         // this whole thing is a bit of a code smell

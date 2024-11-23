@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_utils::{parse_datetime, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
 use std::error::Error;
 use std::fs;
 use tempfile::TempDir;
@@ -11,7 +11,7 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_frontmatter_dates(Some("2024-01-01".to_string()), None)
         .create(&temp_dir, "test.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
@@ -41,7 +41,7 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
         .with_tags(vec!["tag1".to_string(), "tag2".to_string()])
         .create(&temp_dir, "test.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
         fm.set_date_created(parse_datetime("2024-01-02 00:00:00"));
@@ -66,7 +66,7 @@ fn test_parse_content_separation() {
         .with_content("This is the actual content")
         .create(&temp_dir, "with_fm.md");
 
-    let mfi = MarkdownFileInfo::new(file_with_fm).unwrap();
+    let mfi = get_test_markdown_file_info(file_with_fm);
     assert_eq!(mfi.content.trim(), "This is the actual content");
 
     // Test 2: File with no frontmatter
@@ -74,7 +74,7 @@ fn test_parse_content_separation() {
         .with_content("Pure content\nNo frontmatter")
         .create(&temp_dir, "no_fm.md");
 
-    let mfi = MarkdownFileInfo::new(file_no_fm).unwrap();
+    let mfi = get_test_markdown_file_info(file_no_fm);
     assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
 
     // Test 3: File with --- separators in content
@@ -84,7 +84,7 @@ fn test_parse_content_separation() {
         .with_content(content)
         .create(&temp_dir, "with_separators.md");
 
-    let mfi = MarkdownFileInfo::new(file_with_separators).unwrap();
+    let mfi = get_test_markdown_file_info(file_with_separators);
     assert_eq!(mfi.content.trim(), content);
 }
 
@@ -101,7 +101,7 @@ fn test_persist_with_missing_raw_date_created() -> Result<(), Box<dyn Error + Se
         .with_fs_dates(fs_created, fs_modified)
         .create(&temp_dir, "test_missing_created.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     // Assert initial frontmatter matches FS dates
     assert_eq!(
@@ -152,7 +152,7 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
         .with_matching_dates(created_date) // Set both FS and frontmatter dates to created_date
         .create(&temp_dir, "test_with_both_dates.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
         // Update the frontmatter to match the intended created and modified dates
@@ -187,7 +187,7 @@ fn test_disallow_persist_if_date_modified_not_set() {
         .with_matching_dates(matching_date)
         .create(&temp_dir, "test_invalid_state.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path).unwrap();
+    let mut file_info = get_test_markdown_file_info(file_path);
 
     // Simulate the absence of `raw_date_modified` by explicitly removing it
     if let Some(fm) = &mut file_info.frontmatter {
@@ -230,7 +230,7 @@ fn test_persist_no_changes_when_dates_are_valid() -> Result<(), Box<dyn Error + 
         FileTime::from_system_time(modified_time.into()),
     )?;
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
         fm.set_date_created(created_time);
@@ -272,7 +272,7 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
         )
         .create(&temp_dir, "test_content_preservation.md");
 
-    let mut file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut file_info = get_test_markdown_file_info(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
         fm.set_date_created(parse_datetime("2024-01-03 10:00:00"));

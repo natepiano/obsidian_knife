@@ -3,7 +3,7 @@ use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::ERROR_NOT_FOUND;
+use crate::{DEFAULT_TIMEZONE, ERROR_NOT_FOUND};
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -59,7 +59,7 @@ output_folder: output"#;
         .with_custom_frontmatter(yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let mut markdown_file = MarkdownFileInfo::new(config_path.clone()).unwrap();
+    let mut markdown_file = MarkdownFileInfo::new(config_path.clone(), DEFAULT_TIMEZONE).unwrap();
     let mut config = Config::from_frontmatter(markdown_file.frontmatter.clone().unwrap()).unwrap();
 
     // Validate initial values
@@ -85,7 +85,7 @@ output_folder: output"#;
     markdown_file.persist().unwrap();
 
     // Verify all fields after update
-    let new_markdown_file = MarkdownFileInfo::new(config_path.clone()).unwrap();
+    let new_markdown_file = MarkdownFileInfo::new(config_path.clone(), DEFAULT_TIMEZONE).unwrap();
     let new_config = Config::from_frontmatter(new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.apply_changes, Some(false));
@@ -116,7 +116,7 @@ cleanup_image_files: true"#;
         .with_custom_frontmatter(yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let markdown_file = MarkdownFileInfo::new(config_path).unwrap();
+    let markdown_file = MarkdownFileInfo::new(config_path, DEFAULT_TIMEZONE).unwrap();
     let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(config.obsidian_path, "~/Documents/brain");
@@ -126,7 +126,7 @@ cleanup_image_files: true"#;
 #[test]
 fn test_config_file_not_found() {
     let nonexistent_path = PathBuf::from("nonexistent/config.md");
-    let result = MarkdownFileInfo::new(nonexistent_path.clone());
+    let result = MarkdownFileInfo::new(nonexistent_path.clone(), DEFAULT_TIMEZONE);
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains(&format!(
@@ -148,7 +148,7 @@ invalid: yaml: content:
         .with_content(invalid_yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let markdown_file = MarkdownFileInfo::new(config_path).unwrap();
+    let markdown_file = MarkdownFileInfo::new(config_path, DEFAULT_TIMEZONE).unwrap();
     let result = Config::from_frontmatter(markdown_file.frontmatter.unwrap_or_default());
 
     assert!(result.is_err());
@@ -246,10 +246,64 @@ obsidian_path: {}"#,
 fn test_process_config_with_valid_setup() {
     let (_temp_dir, config_path) = create_test_environment();
 
-    let markdown_file = MarkdownFileInfo::new(config_path).unwrap();
+    let markdown_file = MarkdownFileInfo::new(config_path, DEFAULT_TIMEZONE).unwrap();
     let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
 
     let validated_config = config.validate().unwrap();
     assert!(!validated_config.apply_changes());
     assert!(validated_config.obsidian_path().exists());
+}
+
+#[test]
+fn test_timezone_validation() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test valid timezone
+    let yaml = format!(
+        r#"
+obsidian_path: {}
+operational_timezone: "America/Los_Angeles""#,
+        temp_dir.path().display()
+    );
+
+    let config: Config = serde_yaml::from_str(&yaml).unwrap();
+    let result = config.validate();
+    assert!(result.is_ok());
+    assert_eq!(
+        result.unwrap().operational_timezone(),
+        "America/Los_Angeles"
+    );
+
+    // Test invalid timezone
+    let yaml = format!(
+        r#"
+obsidian_path: {}
+operational_timezone: "Invalid/Timezone""#,
+        temp_dir.path().display()
+    );
+
+    let config: Config = serde_yaml::from_str(&yaml).unwrap();
+    let result = config.validate();
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("Invalid timezone: Invalid/Timezone"));
+}
+
+#[test]
+fn test_default_timezone() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Test default timezone when none specified
+    let yaml = format!(
+        r#"
+obsidian_path: {}"#,
+        temp_dir.path().display()
+    );
+
+    let config: Config = serde_yaml::from_str(&yaml).unwrap();
+    let result = config.validate();
+    assert!(result.is_ok());
+    assert_eq!(result.unwrap().operational_timezone(), "America/New_York");
 }

@@ -9,7 +9,8 @@ use crate::wikilink_types::Wikilink;
 
 #[test]
 fn test_identify_ambiguous_matches() {
-    let (temp_dir, _, mut repo_info) = create_test_environment(false, None, Some(vec![]), None);
+    let (temp_dir, config, mut repo_info) =
+        create_test_environment(false, None, Some(vec![]), None);
 
     repo_info.wikilinks_sorted = vec![
         Wikilink {
@@ -38,7 +39,11 @@ fn test_identify_ambiguous_matches() {
         .create(&temp_dir, "test2.md");
 
     // Create test markdown files with matches
-    let mut test_file = MarkdownFileInfo::new(temp_dir.path().join("test1.md")).unwrap();
+    let mut test_file = MarkdownFileInfo::new(
+        temp_dir.path().join("test1.md"),
+        config.operational_timezone(),
+    )
+    .unwrap();
     test_file.matches = vec![BackPopulateMatch {
         relative_path: "test1.md".to_string(),
         line_number: 1,
@@ -49,7 +54,11 @@ fn test_identify_ambiguous_matches() {
         in_markdown_table: false,
     }];
 
-    let mut test_file2 = MarkdownFileInfo::new(temp_dir.path().join("test2.md")).unwrap();
+    let mut test_file2 = MarkdownFileInfo::new(
+        temp_dir.path().join("test2.md"),
+        config.operational_timezone(),
+    )
+    .unwrap();
     test_file2.matches = vec![BackPopulateMatch {
         relative_path: "test2.md".to_string(),
         line_number: 1,

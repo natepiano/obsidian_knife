@@ -2,7 +2,7 @@ use super::*;
 
 use crate::config::ValidatedConfig;
 use crate::scan::{scan_folders, scan_markdown_file};
-use crate::test_utils::TestFileBuilder;
+use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink_types::InvalidWikilinkReason;
 
 use crate::utils::CachedImageInfo;
@@ -27,7 +27,8 @@ fn test_scan_markdown_file_with_invalid_wikilinks() {
         .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
-    let (file_info, valid_wikilinks) = scan_markdown_file(&file_path, &image_regex).unwrap();
+    let (file_info, valid_wikilinks) =
+        scan_markdown_file(&file_path, &image_regex, DEFAULT_TIMEZONE).unwrap();
 
     // Check valid wikilinks
     assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
@@ -80,7 +81,8 @@ Also linking to [[Alias One]] which is defined in frontmatter."#
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
 
     // Scan the markdown file
-    let (_file_info, wikilinks) = scan_markdown_file(&file_path, &image_regex).unwrap();
+    let (_file_info, wikilinks) =
+        scan_markdown_file(&file_path, &image_regex, DEFAULT_TIMEZONE).unwrap();
 
     // Collect unique target-display pairs
     let wikilink_pairs: HashSet<(String, String)> = wikilinks
@@ -136,7 +138,7 @@ fn test_parallel_image_reference_collection() {
         let file_path = TestFileBuilder::new()
             .with_content(content.clone())
             .create(&temp_dir, &filename);
-        let mut info = MarkdownFileInfo::new(file_path.clone()).unwrap();
+        let mut info = get_test_markdown_file_info(file_path.clone());
         info.image_links = content.split('\n').map(|s| s.to_string()).collect();
         markdown_files.insert(file_path, info);
     }
@@ -193,7 +195,7 @@ fn test_scan_markdown_file_with_do_not_back_populate() {
         .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
-    let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+    let (file_info, _) = scan_markdown_file(&file_path, &image_regex, DEFAULT_TIMEZONE).unwrap();
     // println!("fm: {:?}", file_info.content);
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
@@ -220,7 +222,7 @@ fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
         .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
-    let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+    let (file_info, _) = scan_markdown_file(&file_path, &image_regex, DEFAULT_TIMEZONE).unwrap();
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();
@@ -241,7 +243,7 @@ fn test_scan_markdown_file_aliases_only() {
         .create(&temp_dir, "test.md");
 
     let image_regex = Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap());
-    let (file_info, _) = scan_markdown_file(&file_path, &image_regex).unwrap();
+    let (file_info, _) = scan_markdown_file(&file_path, &image_regex, DEFAULT_TIMEZONE).unwrap();
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();
@@ -275,6 +277,7 @@ fn test_scan_folders_wikilink_collection() {
         None,
         None,
         temp_dir.path().to_path_buf(),
+        None,
         temp_dir.path().join("output"),
     );
 
@@ -290,6 +293,7 @@ fn test_scan_folders_wikilink_collection() {
             let (_, file_wikilinks) = scan_markdown_file(
                 &file_info.path,
                 &Arc::new(Regex::new(r"!\[\[([^]]+)]]").unwrap()),
+                DEFAULT_TIMEZONE,
             )
             .unwrap();
             file_wikilinks.into_iter().map(|w| w.display_text)
@@ -355,6 +359,7 @@ fn test_wikilink_sorting_with_aliases() {
         None,
         None,
         temp_dir.path().to_path_buf(),
+        None,
         temp_dir.path().join("output"),
     );
 
@@ -460,6 +465,7 @@ fn test_cache_file_cleanup() {
             None,
             None,
             temp_dir.path().to_path_buf(),
+            None,
             temp_dir.path().join("output"),
         );
 

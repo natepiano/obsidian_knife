@@ -360,24 +360,43 @@ fn write_group_table(
     groups: &[ImageGroup],
     is_ref_group: bool,
     is_special_group: bool,
-    modified_paths: &mut HashSet<PathBuf>, // Add modified_paths parameter
+    modified_paths: &mut HashSet<PathBuf>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates", "Referenced By"];
-    let keeper_path = if is_ref_group {
-        Some(&groups[0].path)
+
+    // For special groups like unreferenced images, first group by hash
+    let mut hash_groups: HashMap<String, Vec<ImageGroup>> = HashMap::new();
+    if is_special_group {
+        for group in groups {
+            hash_groups
+                .entry(group.info.hash.clone())
+                .or_default()
+                .push(group.clone());
+        }
     } else {
-        None
-    };
+        // For regular groups (duplicates), keep as single group
+        hash_groups.insert("single".to_string(), groups.to_vec());
+    }
 
-    let sample = format!(
-        "![[{}\\|400]]",
-        groups[0].path.file_name().unwrap().to_string_lossy()
-    );
+    // Create rows for each hash group
+    let mut rows = Vec::new();
+    for group_vec in hash_groups.values() {
+        let keeper_path = if is_ref_group {
+            Some(&group_vec[0].path)
+        } else {
+            None
+        };
 
-    let duplicates = format_duplicates(config, groups, keeper_path, is_special_group);
-    let references = format_references(config, groups, keeper_path, modified_paths);
+        let sample = format!(
+            "![[{}\\|400]]",
+            group_vec[0].path.file_name().unwrap().to_string_lossy()
+        );
 
-    let rows = vec![vec![sample, duplicates, references]];
+        let duplicates = format_duplicates(config, group_vec, keeper_path, is_special_group);
+        let references = format_references(config, group_vec, keeper_path, modified_paths);
+
+        rows.push(vec![sample, duplicates, references]);
+    }
 
     writer.write_markdown_table(
         headers,
@@ -392,6 +411,45 @@ fn write_group_table(
     writer.writeln("", "")?; // Add an empty line between tables
     Ok(())
 }
+
+// fn write_group_table(
+//     config: &ValidatedConfig,
+//     writer: &ThreadSafeWriter,
+//     groups: &[ImageGroup],
+//     is_ref_group: bool,
+//     is_special_group: bool,
+//     modified_paths: &mut HashSet<PathBuf>, // Add modified_paths parameter
+// ) -> Result<(), Box<dyn Error + Send + Sync>> {
+//     let headers = &["Sample", "Duplicates", "Referenced By"];
+//     let keeper_path = if is_ref_group {
+//         Some(&groups[0].path)
+//     } else {
+//         None
+//     };
+//
+//     let sample = format!(
+//         "![[{}\\|400]]",
+//         groups[0].path.file_name().unwrap().to_string_lossy()
+//     );
+//
+//     let duplicates = format_duplicates(config, groups, keeper_path, is_special_group);
+//     let references = format_references(config, groups, keeper_path, modified_paths);
+//
+//     let rows = vec![vec![sample, duplicates, references]];
+//
+//     writer.write_markdown_table(
+//         headers,
+//         &rows,
+//         Some(&[
+//             ColumnAlignment::Left,
+//             ColumnAlignment::Left,
+//             ColumnAlignment::Left,
+//         ]),
+//     )?;
+//
+//     writer.writeln("", "")?; // Add an empty line between tables
+//     Ok(())
+// }
 
 fn format_duplicates(
     config: &ValidatedConfig,

@@ -9,10 +9,11 @@ use crate::wikilink_types::Wikilink;
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, _, _) = create_test_environment(false, None, None, None);
+    let (temp_dir, config, _) = create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
-    let markdown_info = MarkdownFileInfo::new(file_path.clone()).unwrap();
+    let markdown_info =
+        MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
     // Test simple table cell match
     assert!(should_create_match(
@@ -36,24 +37,21 @@ fn test_should_create_match_in_table() {
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, _, mut repo_info) = create_test_environment(true, None, None, None);
+    let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None, None);
 
-    let test_cases = vec![
-        (
-            "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
-            vec![BackPopulateMatch {
-                relative_path: "test.md".into(),
-                line_number: 4,
-                line_text: "|Test Link|Sample text|".into(),
-                found_text: "Test Link".into(),
-                replacement: "[[Test Link\\|Another Name]]".into(),
-                position: 1,
-                in_markdown_table: true,
-            }],
-            "Table content replacement",
-        ),
-        // ... other test case ...
-    ];
+    let test_cases = vec![(
+        "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
+        vec![BackPopulateMatch {
+            relative_path: "test.md".into(),
+            line_number: 4,
+            line_text: "|Test Link|Sample text|".into(),
+            found_text: "Test Link".into(),
+            replacement: "[[Test Link\\|Another Name]]".into(),
+            position: 1,
+            in_markdown_table: true,
+        }],
+        "Table content replacement",
+    )];
 
     for (content, matches, description) in test_cases {
         // Create the test file using TestFileBuilder and ensure content is set
@@ -64,7 +62,8 @@ fn test_back_populate_content() {
 
         // Clear previous markdown files and add new one
         repo_info.markdown_files.clear();
-        let mut markdown_info = MarkdownFileInfo::new(file.clone()).unwrap();
+        let mut markdown_info =
+            MarkdownFileInfo::new(file.clone(), config.operational_timezone()).unwrap();
         markdown_info.content = content.to_string(); // Explicitly set content
         markdown_info.matches = matches.clone();
         repo_info.markdown_files.push(markdown_info);

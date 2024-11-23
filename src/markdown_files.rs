@@ -1,17 +1,17 @@
+use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
+use crate::utils::{ColumnAlignment, ThreadSafeWriter};
+use crate::wikilink::format_wikilink;
+use crate::{LEVEL1, LEVEL3};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::HashSet;
 use std::error::Error;
 use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::PathBuf;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use crate::{LEVEL1, LEVEL3};
-use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
-use crate::utils::{ColumnAlignment, ThreadSafeWriter};
-use crate::wikilink::format_wikilink;
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
-    files: Vec<MarkdownFileInfo> // Changed from Arc<Mutex<>>
+    files: Vec<MarkdownFileInfo>, // Changed from Arc<Mutex<>>
 }
 
 impl Deref for MarkdownFiles {
@@ -45,12 +45,11 @@ impl IndexMut<usize> for MarkdownFiles {
 
 impl MarkdownFiles {
     pub fn new() -> Self {
-        Self {
-            files: Vec::new()
-        }
+        Self { files: Vec::new() }
     }
 
-    pub fn push(&mut self, file: MarkdownFileInfo) { // Note: now takes &mut self
+    pub fn push(&mut self, file: MarkdownFileInfo) {
+        // Note: now takes &mut self
         self.files.push(file);
     }
 
@@ -65,7 +64,6 @@ impl MarkdownFiles {
     pub fn par_iter(&self) -> impl ParallelIterator<Item = &MarkdownFileInfo> {
         self.files.par_iter()
     }
-
 
     pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         for file_info in &self.files {
@@ -89,8 +87,12 @@ impl MarkdownFiles {
             });
     }
 
-    pub fn report_frontmatter_issues(&self, writer: &ThreadSafeWriter) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let files_with_errors: Vec<_> = self.files
+    pub fn report_frontmatter_issues(
+        &self,
+        writer: &ThreadSafeWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let files_with_errors: Vec<_> = self
+            .files
             .iter()
             .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
             .collect();
@@ -135,7 +137,9 @@ impl MarkdownFiles {
                 // Count instances of BackPopulated and ImageReferencesModified
                 let back_populate_count = file.matches.len();
 
-                let image_refs_count = file.persist_reasons.iter()
+                let image_refs_count = file
+                    .persist_reasons
+                    .iter()
                     .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
                     .count();
 
@@ -143,29 +147,51 @@ impl MarkdownFiles {
                 for reason in &file.persist_reasons {
                     let (before, after, reason_info) = match reason {
                         PersistReason::DateCreatedUpdated { reason } => (
-                            file.date_validation_created.frontmatter_date.clone().unwrap_or_default(),
-                            format!("[[{}]]", file.date_validation_created.file_system_date.format("%Y-%m-%d")),
-                            reason.to_string()
+                            file.date_validation_created
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_created
+                                    .file_system_date
+                                    .format("%Y-%m-%d")
+                            ),
+                            reason.to_string(),
                         ),
                         PersistReason::DateModifiedUpdated { reason } => (
-                            file.date_validation_modified.frontmatter_date.clone().unwrap_or_default(),
-                            format!("[[{}]]", file.date_validation_modified.file_system_date.format("%Y-%m-%d")),
-                            reason.to_string()
+                            file.date_validation_modified
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_modified
+                                    .file_system_date
+                                    .format("%Y-%m-%d")
+                            ),
+                            reason.to_string(),
                         ),
                         PersistReason::DateCreatedFixApplied => (
-                            file.date_created_fix.date_string.clone().unwrap_or_default(),
-                            file.date_created_fix.fix_date.map(|d| format!("[[{}]]", d.format("%Y-%m-%d"))).unwrap_or_default(),
-                            String::new()
+                            file.date_created_fix
+                                .date_string
+                                .clone()
+                                .unwrap_or_default(),
+                            file.date_created_fix
+                                .fix_date
+                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
+                                .unwrap_or_default(),
+                            String::new(),
                         ),
                         PersistReason::BackPopulated => (
                             String::new(),
                             String::new(),
-                            format!("{} instances", back_populate_count)
+                            format!("{} instances", back_populate_count),
                         ),
                         PersistReason::ImageReferencesModified => (
                             String::new(),
                             String::new(),
-                            format!("{} instances", image_refs_count)
+                            format!("{} instances", image_refs_count),
                         ),
                     };
 
@@ -193,7 +219,7 @@ impl MarkdownFiles {
             writer.writeln(LEVEL1, "files to be updated")?;
             writer.writeln("", "")?;
 
-            let headers = &["file", "persist reason", "info","before", "after"];
+            let headers = &["file", "persist reason", "info", "before", "after"];
             let alignments = &[
                 ColumnAlignment::Left,
                 ColumnAlignment::Left,

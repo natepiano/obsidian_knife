@@ -1,5 +1,6 @@
 use super::*;
-use crate::test_utils::TestFileBuilder;
+use crate::markdown_file_info::MarkdownFileInfo;
+use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use std::error::Error;
@@ -125,7 +126,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
         let mut repo_info = ObsidianRepositoryInfo::default();
-        let file_info = MarkdownFileInfo::new(file_path)?;
+        let file_info = get_test_markdown_file_info(file_path);
 
         repo_info.markdown_files.push(file_info);
 
@@ -149,8 +150,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             // Both frontmatter and fs should use January 1st
             initial_frontmatter_created: Some("2024-01-01".to_string()),
             initial_frontmatter_modified: Some("2024-01-01".to_string()),
-            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
-            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap(),
+            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 1, 5, 0, 0).unwrap(),
+            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 1, 5, 0, 0).unwrap(),
             expected_frontmatter_created: Some("2024-01-01".to_string()),
             expected_frontmatter_modified: Some("2024-01-01".to_string()),
             expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
@@ -161,8 +162,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             name: "created date mismatch triggers both dates update",
             initial_frontmatter_created: Some("2024-01-15".to_string()),
             initial_frontmatter_modified: Some("2024-01-15".to_string()),
-            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 20, 0, 0, 0).unwrap(),
-            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 20, 0, 0, 0).unwrap(),
+            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 20, 5, 0, 0).unwrap(),
+            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 20, 5, 0, 0).unwrap(),
             expected_frontmatter_created: Some("2024-01-20".to_string()),
             expected_frontmatter_modified: Some("2024-01-20".to_string()),
             expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),

@@ -9,6 +9,7 @@ use crate::{
 };
 
 use crate::config::ValidatedConfig;
+use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Sha256Cache;
 use crate::utils::Timer;
@@ -21,7 +22,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use crate::markdown_files::MarkdownFiles;
 
 #[derive(Debug, Clone)]
 pub struct ImageInfo {
@@ -124,7 +124,8 @@ pub fn scan_folders(
     obsidian_repository_info.other_files = other_files;
 
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
-    let (markdown_files, all_wikilinks) = scan_markdown_files(&markdown_paths)?;
+    let (markdown_files, all_wikilinks) =
+        scan_markdown_files(&markdown_paths, config.operational_timezone())?;
     obsidian_repository_info.markdown_files = markdown_files;
 
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
@@ -171,6 +172,7 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 
 fn scan_markdown_files(
     markdown_paths: &[PathBuf],
+    timezone: &str,
 ) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
     let image_regex = Arc::new(Regex::new(&format!(
@@ -183,7 +185,7 @@ fn scan_markdown_files(
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
-        match scan_markdown_file(file_path, &image_regex) {
+        match scan_markdown_file(file_path, &image_regex, timezone) {
             Ok((file_info, wikilinks)) => {
                 markdown_files.lock().unwrap().push(file_info);
                 all_wikilinks.lock().unwrap().extend(wikilinks);
@@ -212,8 +214,9 @@ fn scan_markdown_files(
 fn scan_markdown_file(
     file_path: &PathBuf,
     image_regex: &Arc<Regex>,
+    timezone: &str,
 ) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let mut markdown_file_info = MarkdownFileInfo::new(file_path.clone())?;
+    let mut markdown_file_info = MarkdownFileInfo::new(file_path.clone(), timezone)?;
 
     let aliases = markdown_file_info
         .frontmatter

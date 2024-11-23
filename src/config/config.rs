@@ -4,6 +4,7 @@ use crate::frontmatter::FrontMatter;
 use crate::utils::expand_tilde;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter_struct;
+use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -22,6 +23,8 @@ yaml_frontmatter_struct! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub ignore_folders: Option<Vec<PathBuf>>,
         pub obsidian_path: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        pub operational_timezone: Option<String>,
         pub output_folder: Option<String>,
         #[serde(skip)]
         pub config_file_path: PathBuf,
@@ -94,6 +97,15 @@ impl Config {
             None => None,
         };
 
+        // Validate operational timezone if specified
+        let validated_timezone = if let Some(ref tz) = self.operational_timezone {
+            tz.parse::<Tz>()
+                .map_err(|_| format!("Invalid timezone: {}", tz))?;
+            tz.to_string()
+        } else {
+            DEFAULT_TIMEZONE.to_string()
+        };
+
         Ok(ValidatedConfig::new(
             self.apply_changes.unwrap_or(false),
             validated_back_populate_file_count,
@@ -101,6 +113,7 @@ impl Config {
             validated_do_not_back_populate,
             ignore_folders,
             expanded_obsidian_path,
+            Some(validated_timezone),
             output_folder,
         ))
     }
