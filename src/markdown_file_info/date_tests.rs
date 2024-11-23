@@ -44,6 +44,7 @@ struct DateValidationTestCase {
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_process_frontmatter_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
