@@ -68,11 +68,11 @@ at some point, i may make this a configurable feature - for now it's default beh
 #### operational_timezone
 we can set an operational time zone (defaults to: America/New_York time zone). For more information on naming, see [IANA time zones](https://data.iana.org/time-zones/tzdb-2021a/zone1970.tab)
 
-the operational time zone bridges the gap between the wikilink dates of date_created and date_modified and the UTC date from the operating systme.
+the operational time zone bridges the gap between the wikilink dates of date_created and date_modified and the UTC date from the operating system.
 
-This way, mismatches between the OS and the frontmatter will always treat the frontmatter as if it's in the operational timezone so when you happen to run obsidian knife in some other time zone, it won't change all of the create and modified dates to line up with the timezone you happen to be in at that moment in time. It will keep aligning them all to whether the OS date on the east coast matches up with the frontmatter date.
+This way, mismatches between the OS and the frontmatter will always treat the frontmatter as if it's in the operational timezone so when you happen to run obsidian knife in some other time zone, it won't change the create and modified dates to line up with the timezone you happen to be in at that moment in time. It will keep aligning them all to whether the OS date on the East Coast matches up with the frontmatter date.
 
-As an example, 23:00 on the east coast is 04:00 of the next day UTC. Let's say the frontmatter date is 2024-01-15. On the east coast the OS will show it as 2024-01-15 23:00 but in UTC it will be 2024-01-16 04:00. We don't want the date fix to update the frontmatter to 2024-01-16 so the operational_timezone ensures that it's looking at the UTC date from the OS as if it's in the east coast to compare it to what's int he front matter - which will be 2024-01-15. 
+As an example, 23:00 on the East Coast is 04:00 of the next day UTC. Let's say the frontmatter date is 2024-01-15. On the East Coast the OS will show it as 2024-01-15 23:00 but in UTC it will be 2024-01-16 04:00. We don't want the date fix to update the frontmatter to 2024-01-16 so the operational_timezone ensures that it's looking at the UTC date from the OS as if it's in the East Coast to compare it to what's in the front matter - which will be 2024-01-15. 
 
 ### useful troubleshooting info
 ok will output a list of any files that have invalid frontmatter.

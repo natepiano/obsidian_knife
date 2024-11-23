@@ -18,7 +18,7 @@ use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
 use std::path::PathBuf;
-use std::{fs, io};
+use std::{fmt, fs, io};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -29,14 +29,14 @@ pub enum PersistReason {
     ImageReferencesModified,
 }
 
-impl PersistReason {
-    pub fn to_string(&self) -> String {
+impl fmt::Display for PersistReason {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PersistReason::DateCreatedUpdated { .. } => "date_created updated".to_string(),
-            PersistReason::DateModifiedUpdated { .. } => "date_modified updated".to_string(),
-            PersistReason::DateCreatedFixApplied => "date_created_fix applied".to_string(),
-            PersistReason::BackPopulated => "back populated".to_string(),
-            PersistReason::ImageReferencesModified => "image references updated".to_string(),
+            PersistReason::DateCreatedUpdated { .. } => write!(f, "date_created updated"),
+            PersistReason::DateModifiedUpdated { .. } => write!(f, "date_modified updated"),
+            PersistReason::DateCreatedFixApplied => write!(f, "date_created_fix applied"),
+            PersistReason::BackPopulated => write!(f, "back populated"),
+            PersistReason::ImageReferencesModified => write!(f, "image references updated"),
         }
     }
 }
@@ -49,14 +49,15 @@ pub enum DateValidationIssue {
     FileSystemMismatch,
 }
 
-impl DateValidationIssue {
-    pub fn to_string(&self) -> String {
-        match self {
-            DateValidationIssue::Missing => "missing".to_string(),
-            DateValidationIssue::InvalidDateFormat => "invalid date format".to_string(),
-            DateValidationIssue::InvalidWikilink => "invalid wikilink".to_string(),
-            DateValidationIssue::FileSystemMismatch => "doesn't match file system".to_string(),
-        }
+impl fmt::Display for DateValidationIssue {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let description = match self {
+            DateValidationIssue::Missing => "missing",
+            DateValidationIssue::InvalidDateFormat => "invalid date format",
+            DateValidationIssue::InvalidWikilink => "invalid wikilink",
+            DateValidationIssue::FileSystemMismatch => "doesn't match file system",
+        };
+        write!(f, "{}", description)
     }
 }
 
@@ -175,8 +176,7 @@ impl MarkdownFileInfo {
 
         let do_not_back_populate_regexes = frontmatter
             .as_ref()
-            .map(|fm| fm.get_do_not_back_populate_regexes())
-            .flatten();
+            .and_then(|fm| fm.get_do_not_back_populate_regexes());
 
         Ok(MarkdownFileInfo {
             content,
@@ -273,7 +273,7 @@ fn get_date_validation_issue(
     let extracted_date = extract_date(date_str);
 
     // Validate the extracted date format
-    if !is_valid_date(&extracted_date) {
+    if !is_valid_date(extracted_date) {
         return Some(DateValidationIssue::InvalidDateFormat);
     }
 

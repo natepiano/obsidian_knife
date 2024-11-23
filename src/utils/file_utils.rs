@@ -24,15 +24,15 @@ pub fn update_file<P: AsRef<Path>>(
     Ok(())
 }
 
-pub fn read_contents_from_file(path: &PathBuf) -> Result<String, Box<dyn Error + Send + Sync>> {
-    let contents = fs::read_to_string(&path).map_err(|e| -> Box<dyn Error + Send + Sync> {
+pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
+    let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
         if e.kind() == io::ErrorKind::NotFound {
             Box::new(io::Error::new(
                 io::ErrorKind::NotFound,
                 format!("{}{}", ERROR_NOT_FOUND, path.display()),
             ))
         } else {
-            Box::new(std::io::Error::new(
+            Box::new(io::Error::new(
                 e.kind(),
                 format!("{}'{}': {}", ERROR_READING, path.display(), e),
             ))
@@ -89,9 +89,9 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str() {
-        if path_str.starts_with("~/") {
-            if let Some(home) = std::env::var_os("HOME") {
-                return PathBuf::from(home).join(&path_str[2..]);
+        if let Some(home) = std::env::var_os("HOME") {
+            if let Some(stripped) = path_str.strip_prefix("~/") {
+                return PathBuf::from(home).join(stripped);
             }
         }
     } else {
@@ -158,7 +158,7 @@ pub fn collect_repository_files(
             }
 
             let mut subdirs = Vec::new();
-            for entry in std::fs::read_dir(&dir)? {
+            for entry in fs::read_dir(&dir)? {
                 let entry = entry?;
                 let path = entry.path();
 

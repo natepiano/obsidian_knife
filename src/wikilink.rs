@@ -226,7 +226,7 @@ impl WikilinkState {
         };
     }
 
-    fn to_wikilink(self, end_pos: usize) -> WikilinkParseResult {
+    fn to_wikilink(&self, end_pos: usize) -> WikilinkParseResult {
         match self {
             WikilinkState::Target { content, start_pos } => {
                 let trimmed = content.trim().to_string();
@@ -234,7 +234,8 @@ impl WikilinkState {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: "[[]]".to_string(),
                         reason: InvalidWikilinkReason::EmptyWikilink,
-                        span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
+                        // span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
+                        span: (start_pos.saturating_sub(2), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
@@ -256,7 +257,8 @@ impl WikilinkState {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: format!("[[{}|{}]]", target, content),
                         reason: InvalidWikilinkReason::EmptyWikilink,
-                        span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
+                        // span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
+                        span: (start_pos.saturating_sub(2), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
@@ -277,8 +279,8 @@ impl WikilinkState {
                 };
                 WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                     content: formatted,
-                    reason,
-                    span: (start_pos, end_pos),
+                    reason: *reason,
+                    span: (*start_pos, end_pos),
                 })
             }
         }
@@ -370,5 +372,12 @@ fn is_next_char(chars: &mut Peekable<CharIndices>, expected: char) -> bool {
 }
 
 fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
-    content[..index].chars().rev().next() == Some(expected)
+    if index == 0 {
+        return false; // No previous character if index is 0
+    }
+
+    match content[..index].chars().next_back() {
+        Some(c) => c == expected,
+        None => false,
+    }
 }

@@ -10,7 +10,6 @@ pub use assert_utils::*;
 pub use test_file_builder::parse_datetime;
 pub use test_file_builder::TestFileBuilder;
 
-
 /// Creates a DateTime<Utc> set to midnight Eastern time (05:00 UTC) for the given date
 /// This ensures consistent time handling across the codebase for matching filesystem dates
 /// with date strings like "[[2024-01-15]]" when viewed in Eastern timezone

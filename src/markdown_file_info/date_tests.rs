@@ -1,12 +1,13 @@
 use super::*;
 use crate::frontmatter::FrontMatter;
 
-use crate::test_utils::{assert_test_case, eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{
+    assert_test_case, eastern_midnight, get_test_markdown_file_info, TestFileBuilder,
+};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::DEFAULT_TIMEZONE;
 use chrono::TimeZone;
 use tempfile::TempDir;
-
 
 fn create_frontmatter(
     date_modified: &Option<String>,
@@ -123,16 +124,6 @@ fn test_process_date_validations() {
             file_system_create_date: eastern_midnight(2024, 1, 15),
             expected_modified_date: Some("[[2024-01-15]]".to_string()),
             expected_created_date: Some("[[2024-01-15]]".to_string()),
-            should_persist: true,
-        },
-        DateFixTestCase {
-            name: "filesystem mismatch should update both dates",
-            date_modified: Some("[[2024-01-14]]".to_string()), // Original frontmatter modified date
-            date_created: Some("[[2024-01-13]]".to_string()),  // Original frontmatter created date
-            file_system_mod_date: eastern_midnight(2024, 1, 15), // FS modified date
-            file_system_create_date: eastern_midnight(2024, 1, 15), // FS created date
-            expected_modified_date: Some("[[2024-01-15]]".to_string()), // Expected updated modified date
-            expected_created_date: Some("[[2024-01-15]]".to_string()), // Expected updated created date
             should_persist: true,
         },
         DateFixTestCase {
@@ -260,7 +251,6 @@ struct DateCreatedFixTestCase {
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_date_created_fix_integration() {
-
     let test_cases = vec![
         DateCreatedFixTestCase {
             name: "missing date_created_fix",

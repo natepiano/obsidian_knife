@@ -302,7 +302,7 @@ fn process_file(
         }
 
         // Update state and skip if needed
-        state.update_for_line(&line);
+        state.update_for_line(line);
         if state.should_skip_line() {
             continue;
         }

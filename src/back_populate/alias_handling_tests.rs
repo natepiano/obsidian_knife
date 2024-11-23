@@ -20,16 +20,16 @@ fn test_alias_priority() {
         },
     ];
 
-    let (temp_dir, config, mut repo_info) =
+    let (temp_dir, config, mut repository_info) =
         create_test_environment(false, None, Some(wikilinks), None);
 
     let content = "I love tomatoes in my salad";
-    create_markdown_test_file(&temp_dir, "salad.md", content, &mut repo_info);
+    create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
 
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    find_all_back_populate_matches(&config, &mut repository_info).unwrap();
 
     // Get total matches across all files
-    let total_matches: usize = repo_info
+    let total_matches: usize = repository_info
         .markdown_files
         .iter()
         .map(|file| file.matches.len())
@@ -39,7 +39,7 @@ fn test_alias_priority() {
     assert_eq!(total_matches, 1, "Should find exactly one match");
 
     // Find the file that has matches
-    let file_with_matches = repo_info
+    let file_with_matches = repository_info
         .markdown_files
         .iter()
         .find(|file| !file.matches.is_empty())

@@ -25,10 +25,7 @@ impl DeterministicSearch {
                 break;
             }
 
-            let chunk_results: Vec<_> = chunk
-                .par_iter_mut()
-                .filter_map(|info| search_fn(info))
-                .collect();
+            let chunk_results: Vec<_> = chunk.par_iter_mut().filter_map(&search_fn).collect();
 
             for result in chunk_results {
                 results.push(result);
@@ -49,11 +46,13 @@ mod tests {
     use std::path::PathBuf;
     use tempfile::TempDir;
 
+    type MatchFinder = dyn Fn(&mut PathBuf) -> Option<Vec<String>> + Send + Sync;
+
     struct SearchTestCase {
         name: &'static str,
         max_results: Option<usize>,
         file_count: usize,
-        find_matches: Box<dyn Fn(&mut PathBuf) -> Option<Vec<String>> + Send + Sync>,
+        find_matches: Box<MatchFinder>,
         expected: Vec<Vec<String>>,
     }
 
@@ -146,7 +145,7 @@ mod tests {
             results1.iter().collect::<Vec<_>>(),
             results2.iter().collect::<Vec<_>>(),
             "deterministic results",
-            |a, e| assert!(a == e, "Results don't match"),
+            |a, e| assert_eq!(a, e, "Results don't match"),
         );
     }
 }

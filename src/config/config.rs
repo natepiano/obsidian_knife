@@ -7,7 +7,7 @@ use crate::yaml_frontmatter_struct;
 use chrono_tz::Tz;
 use serde::{Deserialize, Serialize};
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -147,7 +147,7 @@ impl Config {
 
     fn validate_ignore_folders(
         &self,
-        expanded_path: &PathBuf,
+        expanded_path: &Path,
     ) -> Result<Option<Vec<PathBuf>>, Box<dyn Error + Send + Sync>> {
         Ok(if let Some(folders) = &self.ignore_folders {
             let mut validated_folders = Vec::new();

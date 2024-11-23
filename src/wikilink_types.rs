@@ -38,11 +38,7 @@ impl ToWikilink for String {
 
 /// Helper function to strip .md extension if present
 fn strip_md_extension(text: &str) -> &str {
-    if text.ends_with(".md") {
-        &text[..text.len() - 3]
-    } else {
-        text
-    }
+    text.strip_suffix(".md").unwrap_or(text)
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
@@ -68,7 +64,7 @@ impl fmt::Display for Wikilink {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
     DoubleAlias,               // e.g. [[A|B|C]]
     EmptyWikilink,             // [[]] or [[|]]

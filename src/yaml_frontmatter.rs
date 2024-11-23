@@ -67,16 +67,37 @@ pub enum YamlFrontMatterError {
     Serialize(String),
 }
 
+// impl PartialEq for YamlFrontMatterError {
+//     fn eq(&self, other: &Self) -> bool {
+//         match (self, other) {
+//             (YamlFrontMatterError::Empty, YamlFrontMatterError::Empty) => true,
+//             (YamlFrontMatterError::Missing, YamlFrontMatterError::Missing) => true,
+//             (YamlFrontMatterError::Invalid(_), YamlFrontMatterError::Invalid(_)) => true,
+//             (YamlFrontMatterError::Parse(_), YamlFrontMatterError::Parse(_)) => true,
+//             (YamlFrontMatterError::Serialize(_), YamlFrontMatterError::Serialize(_)) => true,
+//             _ => false,
+//         }
+//     }
+// }
 impl PartialEq for YamlFrontMatterError {
     fn eq(&self, other: &Self) -> bool {
-        match (self, other) {
-            (YamlFrontMatterError::Empty, YamlFrontMatterError::Empty) => true,
-            (YamlFrontMatterError::Missing, YamlFrontMatterError::Missing) => true,
-            (YamlFrontMatterError::Invalid(_), YamlFrontMatterError::Invalid(_)) => true,
-            (YamlFrontMatterError::Parse(_), YamlFrontMatterError::Parse(_)) => true,
-            (YamlFrontMatterError::Serialize(_), YamlFrontMatterError::Serialize(_)) => true,
-            _ => false,
-        }
+        matches!(
+            (self, other),
+            (YamlFrontMatterError::Empty, YamlFrontMatterError::Empty)
+                | (YamlFrontMatterError::Missing, YamlFrontMatterError::Missing)
+                | (
+                    YamlFrontMatterError::Invalid(_),
+                    YamlFrontMatterError::Invalid(_)
+                )
+                | (
+                    YamlFrontMatterError::Parse(_),
+                    YamlFrontMatterError::Parse(_)
+                )
+                | (
+                    YamlFrontMatterError::Serialize(_),
+                    YamlFrontMatterError::Serialize(_)
+                )
+        )
     }
 }
 
@@ -124,7 +145,7 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
 
             // Rebuild mapping in sorted order
             for key in keys {
-                if let Some(value) = map.get(&Value::String(key.clone())) {
+                if let Some(value) = map.get(Value::String(key.clone())) {
                     // Sort sequence/list values if present
                     let sorted_value = match value {
                         Value::Sequence(seq) => {

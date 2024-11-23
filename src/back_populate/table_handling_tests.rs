@@ -158,15 +158,7 @@ fn test_process_line_table_escaping_combined() {
             .with_content(line.to_string())
             .create(&temp_dir, "test.md");
 
-        let matches = process_line(
-            &mut line.to_string(),
-            0,
-            &ac,
-            &wikilink_refs,
-            &config,
-            &markdown_info,
-        )
-        .unwrap();
+        let matches = process_line(line, 0, &ac, &wikilink_refs, &config, markdown_info).unwrap();
 
         assert_eq!(
             matches.len(),

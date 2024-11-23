@@ -176,15 +176,8 @@ fn test_case_sensitivity_behavior() {
         let markdown_info =
             MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
-        let matches = process_line(
-            &mut case.content.to_string(),
-            0,
-            &ac,
-            &[&wikilink],
-            &config,
-            &markdown_info,
-        )
-        .unwrap();
+        let matches =
+            process_line(case.content, 0, &ac, &[&wikilink], &config, &markdown_info).unwrap();
 
         assert_eq!(
             matches.len(),

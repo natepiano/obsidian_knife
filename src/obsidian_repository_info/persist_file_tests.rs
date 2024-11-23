@@ -35,12 +35,10 @@ fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) ->
         .as_ref()
         .map(|d| format!("[[{}]]", d));
 
-    let file_path = TestFileBuilder::new()
+    TestFileBuilder::new()
         .with_frontmatter_dates(created, modified)
         .with_fs_dates(case.initial_fs_created, case.initial_fs_modified)
-        .create(temp_dir, "test.md");
-
-    file_path
+        .create(temp_dir, "test.md")
 }
 
 fn verify_dates(

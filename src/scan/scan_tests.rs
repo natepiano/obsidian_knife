@@ -161,7 +161,13 @@ fn test_parallel_image_reference_collection() {
     fn process_sequential(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
         files
             .iter()
-            .filter_map(|(path, info)| has_common_image(info).then(|| path.clone()))
+            .filter_map(|(path, info)| {
+                if has_common_image(info) {
+                    Some(path.clone())
+                } else {
+                    None
+                }
+            })
             .collect()
     }
 

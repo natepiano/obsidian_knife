@@ -9,7 +9,7 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
     // Test missing dates
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(None, None)
-        .with_title("test".to_string()) // to force valid fronttmatter with missing dates
+        .with_title("test".to_string()) // to force valid frontmatter with missing dates
         .create(&temp_dir, "missing_dates.md");
 
     let file_info = get_test_markdown_file_info(file_path);
