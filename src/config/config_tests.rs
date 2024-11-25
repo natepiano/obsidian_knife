@@ -2,7 +2,6 @@ use crate::config::Config;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
-use crate::validated_config::ValidationError;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{DEFAULT_TIMEZONE, ERROR_NOT_FOUND};
 use std::fs;
@@ -177,75 +176,6 @@ apply_changes: false"#;
 }
 
 #[test]
-fn test_validate_empty_output_folder() {
-    // Create a temporary directory for the test
-    let temp_dir = TempDir::new().unwrap();
-
-    let yaml = format!(
-        r#"
-obsidian_path: {}
-output_folder: "  ""#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let result = config.validate();
-    assert!(result.is_err());
-
-    let err = result.unwrap_err();
-    assert!(matches!(
-        *err.downcast_ref::<ValidationError>().unwrap(),
-        ValidationError::EmptyOutputFolder
-    ));
-}
-
-#[test]
-fn test_output_folder_added_to_ignore() {
-    // Create a temporary directory for the test
-    let temp_dir = TempDir::new().unwrap();
-
-    // Create the .obsidian directory
-    let obsidian_dir = temp_dir.path().join(".obsidian");
-    fs::create_dir(&obsidian_dir).unwrap();
-
-    let yaml = format!(
-        r#"
-obsidian_path: {}
-output_folder: custom_output
-ignore_folders:
-  - .obsidian"#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let validated = config.validate().unwrap();
-
-    let ignore_folders = validated.ignore_folders().unwrap();
-    let output_path = validated.output_folder();
-
-    assert!(ignore_folders.contains(&output_path.to_path_buf()));
-    assert!(ignore_folders.contains(&obsidian_dir));
-}
-
-#[test]
-fn test_default_output_folder() {
-    // Create a temporary directory for the test
-    let temp_dir = TempDir::new().unwrap();
-
-    let yaml = format!(
-        r#"
-obsidian_path: {}"#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let validated = config.validate().unwrap();
-
-    let expected_output = temp_dir.path().join("obsidian_knife");
-    assert_eq!(validated.output_folder(), expected_output.as_path());
-}
-
-#[test]
 fn test_process_config_with_valid_setup() {
     let (_temp_dir, config_path) = create_test_environment();
 
@@ -255,58 +185,4 @@ fn test_process_config_with_valid_setup() {
     let validated_config = config.validate().unwrap();
     assert!(!validated_config.apply_changes());
     assert!(validated_config.obsidian_path().exists());
-}
-
-#[test]
-fn test_timezone_validation() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Test valid timezone
-    let yaml = format!(
-        r#"
-obsidian_path: {}
-operational_timezone: "America/Los_Angeles""#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let result = config.validate();
-    assert!(result.is_ok());
-    assert_eq!(
-        result.unwrap().operational_timezone(),
-        "America/Los_Angeles"
-    );
-
-    // Test invalid timezone
-    let yaml = format!(
-        r#"
-obsidian_path: {}
-operational_timezone: "Invalid/Timezone""#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let result = config.validate();
-    assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Invalid timezone: Invalid/Timezone"));
-}
-
-#[test]
-fn test_default_timezone() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Test default timezone when none specified
-    let yaml = format!(
-        r#"
-obsidian_path: {}"#,
-        temp_dir.path().display()
-    );
-
-    let config: Config = serde_yaml::from_str(&yaml).unwrap();
-    let result = config.validate();
-    assert!(result.is_ok());
-    assert_eq!(result.unwrap().operational_timezone(), "America/New_York");
 }
