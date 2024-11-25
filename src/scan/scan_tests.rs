@@ -2,10 +2,10 @@ use super::*;
 
 use crate::scan::{scan_folders, scan_markdown_file};
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::utils::CachedImageInfo;
+use crate::validated_config::get_test_validated_config;
 use crate::wikilink_types::InvalidWikilinkReason;
 
-use crate::utils::CachedImageInfo;
-use crate::validated_config::ValidatedConfigBuilder;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -276,11 +276,7 @@ fn test_scan_folders_wikilink_collection() {
         .create(&temp_dir, "note2.md");
 
     // Create minimal validated config
-    let config = ValidatedConfigBuilder::default()
-        .obsidian_path(temp_dir.path().to_path_buf())
-        .output_folder(temp_dir.path().join("output"))
-        .build()
-        .unwrap();
+    let config = get_test_validated_config(&temp_dir, None);
 
     // Scan the folders
     let repo_info = scan_folders(&config).unwrap();
@@ -353,11 +349,7 @@ fn test_wikilink_sorting_with_aliases() {
         .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
         .create(&temp_dir, "other.md");
 
-    let config = ValidatedConfigBuilder::default()
-        .obsidian_path(temp_dir.path().to_path_buf())
-        .output_folder(temp_dir.path().join("output"))
-        .build()
-        .unwrap();
+    let config = get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
     let repo_info = scan_folders(&config).unwrap();
@@ -415,11 +407,7 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
-        let config = ValidatedConfigBuilder::default()
-            .obsidian_path(temp_dir.path().to_path_buf())
-            .output_folder(temp_dir.path().join("output"))
-            .build()
-            .unwrap();
+        let config = get_test_validated_config(&temp_dir, None);
 
         // First scan - creates cache with the image
         let _ = scan_folders(&config).unwrap();

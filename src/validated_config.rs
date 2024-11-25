@@ -1,5 +1,7 @@
 #[cfg(test)]
 mod validated_config_tests;
+#[cfg(test)]
+pub use validated_config_tests::get_test_validated_config;
 
 use crate::utils::build_case_insensitive_word_finder;
 use crate::DEFAULT_TIMEZONE;
@@ -11,16 +13,16 @@ use thiserror::Error;
 
 #[derive(Error, Debug)]
 pub enum ValidationError {
-    #[error("Invalid timezone: {0}")]
-    InvalidTimezone(String),
-    #[error("Back populate file count must be >= 1")]
-    InvalidBackPopulateCount,
+    #[error("Empty back populate file filter")]
+    EmptyBackPopulateFileFilter,
     #[error("Empty output folder")]
     EmptyOutputFolder,
+    #[error("Back populate file count must be >= 1")]
+    InvalidBackPopulateCount,
+    #[error("Invalid timezone: {0}")]
+    InvalidTimezone(String),
     #[error("Obsidian path does not exist: {0}")]
     InvalidObsidianPath(String),
-    #[error("Empty back populate file filter")]
-    EmptyBackPopulateFilter,
     #[error("Missing obsidian path")]
     MissingObsidianPath,
     #[error("Field not initialized: {0}")]
@@ -64,15 +66,16 @@ pub struct ValidatedConfig {
 
 impl ValidatedConfigBuilder {
     fn validate(&self) -> Result<(), ValidationError> {
-        // Validate obsidian path
-        if !self
-            .obsidian_path
-            .as_ref()
-            .ok_or(ValidationError::MissingObsidianPath)?
-            .exists()
-        {
+        // First check if we have a path at all
+        let path = match self.obsidian_path.as_ref() {
+            None => return Err(ValidationError::MissingObsidianPath),
+            Some(p) => p,
+        };
+
+        // Then check if the path exists
+        if !path.exists() {
             return Err(ValidationError::InvalidObsidianPath(
-                self.obsidian_path.as_ref().unwrap().display().to_string(),
+                path.display().to_string()
             ));
         }
 
@@ -86,7 +89,7 @@ impl ValidatedConfigBuilder {
         // Validate back_populate_file_filter
         if let Some(Some(filter)) = &self.back_populate_file_filter {
             if filter.trim().is_empty() {
-                return Err(ValidationError::EmptyBackPopulateFilter);
+                return Err(ValidationError::EmptyBackPopulateFileFilter);
             }
         }
 
