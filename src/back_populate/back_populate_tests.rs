@@ -1,10 +1,11 @@
 use crate::back_populate::{apply_back_populate_changes, find_all_back_populate_matches};
-use crate::config::ValidatedConfig;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink_types::Wikilink;
+use crate::ValidatedConfig;
 
 use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
+use crate::validated_config::ValidatedConfigBuilder;
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
 use std::fs::File;
@@ -31,16 +32,13 @@ pub(crate) fn create_test_environment(
 ) -> (TempDir, ValidatedConfig, ObsidianRepositoryInfo) {
     let temp_dir = TempDir::new().unwrap();
 
-    let config = ValidatedConfig::new(
-        apply_changes,
-        None,
-        None,
-        do_not_back_populate,
-        None,
-        temp_dir.path().to_path_buf(),
-        None,
-        temp_dir.path().join("output"),
-    );
+    let config = ValidatedConfigBuilder::default()
+        .apply_changes(apply_changes)
+        .do_not_back_populate(do_not_back_populate)
+        .obsidian_path(temp_dir.path().to_path_buf())
+        .output_folder(temp_dir.path().join("output"))
+        .build()
+        .unwrap();
 
     let mut repo_info = ObsidianRepositoryInfo::default();
 

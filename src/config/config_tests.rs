@@ -2,6 +2,7 @@ use crate::config::Config;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::validated_config::ValidationError;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{DEFAULT_TIMEZONE, ERROR_NOT_FOUND};
 use std::fs;
@@ -190,10 +191,12 @@ output_folder: "  ""#,
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
     let result = config.validate();
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("output_folder cannot be empty"));
+
+    let err = result.unwrap_err();
+    assert!(matches!(
+        *err.downcast_ref::<ValidationError>().unwrap(),
+        ValidationError::EmptyOutputFolder
+    ));
 }
 
 #[test]

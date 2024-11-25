@@ -1,4 +1,4 @@
-use crate::config::ValidatedConfig;
+use crate::ValidatedConfig;
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
 use chrono::{NaiveDateTime, Utc};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};

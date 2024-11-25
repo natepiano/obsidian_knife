@@ -8,13 +8,13 @@ use crate::{
     obsidian_repository_info::ObsidianRepositoryInfo, wikilink_types::Wikilink,
 };
 
-use crate::config::ValidatedConfig;
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Sha256Cache;
 use crate::utils::Timer;
 use crate::wikilink::{create_filename_wikilink, extract_wikilinks};
 use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink};
+use crate::ValidatedConfig;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
 use regex::Regex;

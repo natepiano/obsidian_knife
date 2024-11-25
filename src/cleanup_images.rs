@@ -1,12 +1,12 @@
 #[cfg(test)]
 mod cleanup_image_tests;
 
-use crate::config::ValidatedConfig;
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::scan::ImageInfo;
 use crate::utils::update_file;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
+use crate::ValidatedConfig;
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;

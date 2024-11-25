@@ -15,7 +15,6 @@ mod matching_tests;
 #[cfg(test)]
 mod table_handling_tests;
 
-use crate::config::ValidatedConfig;
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
@@ -24,6 +23,7 @@ use crate::utils::Timer;
 use crate::utils::MARKDOWN_REGEX;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
+use crate::ValidatedConfig;
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;

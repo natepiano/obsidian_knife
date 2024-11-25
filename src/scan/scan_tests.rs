@@ -1,11 +1,11 @@
 use super::*;
 
-use crate::config::ValidatedConfig;
 use crate::scan::{scan_folders, scan_markdown_file};
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink_types::InvalidWikilinkReason;
 
 use crate::utils::CachedImageInfo;
+use crate::validated_config::ValidatedConfigBuilder;
 use regex::Regex;
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -276,16 +276,11 @@ fn test_scan_folders_wikilink_collection() {
         .create(&temp_dir, "note2.md");
 
     // Create minimal validated config
-    let config = ValidatedConfig::new(
-        false,
-        None,
-        None,
-        None,
-        None,
-        temp_dir.path().to_path_buf(),
-        None,
-        temp_dir.path().join("output"),
-    );
+    let config = ValidatedConfigBuilder::default()
+        .obsidian_path(temp_dir.path().to_path_buf())
+        .output_folder(temp_dir.path().join("output"))
+        .build()
+        .unwrap();
 
     // Scan the folders
     let repo_info = scan_folders(&config).unwrap();
@@ -358,16 +353,11 @@ fn test_wikilink_sorting_with_aliases() {
         .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
         .create(&temp_dir, "other.md");
 
-    let config = ValidatedConfig::new(
-        false,
-        None,
-        None,
-        None,
-        None,
-        temp_dir.path().to_path_buf(),
-        None,
-        temp_dir.path().join("output"),
-    );
+    let config = ValidatedConfigBuilder::default()
+        .obsidian_path(temp_dir.path().to_path_buf())
+        .output_folder(temp_dir.path().join("output"))
+        .build()
+        .unwrap();
 
     // Scan folders and check results
     let repo_info = scan_folders(&config).unwrap();
@@ -408,45 +398,6 @@ fn test_wikilink_sorting_with_aliases() {
     }
 }
 
-// #[test]
-// fn test_cache_file_cleanup() {
-//     // Create scope to ensure TempDir is dropped
-//     {
-//         let temp_dir = TempDir::new().unwrap();
-//         let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
-//
-//         // Create a test file using TestFileBuilder
-//         TestFileBuilder::new()
-//             .with_content("# Test".to_string())
-//             .create(&temp_dir, "test.md");
-//
-//         // Create config that will create cache in temp dir
-//         let config = ValidatedConfig::new(
-//             false,
-//             None,
-//             None,
-//             None,
-//             None,
-//             temp_dir.path().to_path_buf(),
-//             temp_dir.path().join("output"),
-//         );
-//
-//         // This will create the cache file
-//         let _ = scan_folders(&config).unwrap();
-//
-//         // Verify cache was created
-//         assert!(cache_path.exists(), "Cache file should exist");
-//
-//         // temp_dir will be dropped here
-//     }
-//
-//     // Try to create a new temp dir with the same path (this would fail if the old one wasn't cleaned up)
-//     let new_temp = TempDir::new().unwrap();
-//     assert!(
-//         new_temp.path().exists(),
-//         "Should be able to create new temp dir"
-//     );
-// }
 #[test]
 fn test_cache_file_cleanup() {
     // Create scope to ensure TempDir is dropped
@@ -464,16 +415,11 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
-        let config = ValidatedConfig::new(
-            false,
-            None,
-            None,
-            None,
-            None,
-            temp_dir.path().to_path_buf(),
-            None,
-            temp_dir.path().join("output"),
-        );
+        let config = ValidatedConfigBuilder::default()
+            .obsidian_path(temp_dir.path().to_path_buf())
+            .output_folder(temp_dir.path().join("output"))
+            .build()
+            .unwrap();
 
         // First scan - creates cache with the image
         let _ = scan_folders(&config).unwrap();
