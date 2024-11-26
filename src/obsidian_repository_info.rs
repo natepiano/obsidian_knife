@@ -1,3 +1,4 @@
+mod file_process_limit_tests;
 #[cfg(test)]
 mod persist_file_tests;
 #[cfg(test)]

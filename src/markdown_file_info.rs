@@ -217,8 +217,6 @@ impl MarkdownFileInfo {
     }
 
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        println!("{}", self.to_full_content());
-
         // Write the updated content to the file
         fs::write(&self.path, self.to_full_content())?;
 

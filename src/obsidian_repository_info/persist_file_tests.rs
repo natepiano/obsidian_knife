@@ -1,8 +1,9 @@
 use super::*;
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::scan::scan_folders;
+use crate::test_utils::{eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config;
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use filetime::FileTime;
 use std::error::Error;
 use std::fs;
@@ -127,23 +128,13 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
         let config = get_test_validated_config(&temp_dir, None);
 
-        println!("Starting test case: {}", case.name);
         let file_path = create_test_file_from_case(&temp_dir, &case);
-        println!("File path created: {:?}", file_path);
-        println!("{:?}", case);
 
-        let mut repo_info = ObsidianRepositoryInfo::default();
+        let mut repo_info = scan_folders(&config).unwrap();
         let file_info = get_test_markdown_file_info(file_path);
 
-        println!(
-            "Before push - files length: {}",
-            repo_info.markdown_files.len()
-        );
         repo_info.markdown_files.push(file_info);
-        println!(
-            "After push - files length: {}",
-            repo_info.markdown_files.len()
-        );
+
         // Run persistence
         repo_info.persist(&config)?;
 
@@ -164,8 +155,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             // Both frontmatter and fs should use January 1st
             initial_frontmatter_created: Some("2024-01-01".to_string()),
             initial_frontmatter_modified: Some("2024-01-01".to_string()),
-            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 1, 5, 0, 0).unwrap(),
-            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 1, 5, 0, 0).unwrap(),
+            initial_fs_created: eastern_midnight(2024, 1, 1),
+            initial_fs_modified: eastern_midnight(2024, 1, 1),
             expected_frontmatter_created: Some("2024-01-01".to_string()),
             expected_frontmatter_modified: Some("2024-01-01".to_string()),
             expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
@@ -176,8 +167,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             name: "created date mismatch triggers both dates update",
             initial_frontmatter_created: Some("2024-01-15".to_string()),
             initial_frontmatter_modified: Some("2024-01-15".to_string()),
-            initial_fs_created: Utc.with_ymd_and_hms(2024, 1, 20, 5, 0, 0).unwrap(),
-            initial_fs_modified: Utc.with_ymd_and_hms(2024, 1, 20, 5, 0, 0).unwrap(),
+            initial_fs_created: eastern_midnight(2024, 1, 20),
+            initial_fs_modified: eastern_midnight(2024, 1, 20),
             expected_frontmatter_created: Some("2024-01-20".to_string()),
             expected_frontmatter_modified: Some("2024-01-20".to_string()),
             expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),

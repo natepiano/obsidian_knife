@@ -88,7 +88,6 @@ impl MarkdownFiles {
         };
 
         for file_info in files_to_process {
-            println!("persisting");
             file_info.persist()?;
         }
         Ok(())
