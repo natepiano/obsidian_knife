@@ -20,11 +20,11 @@ output_folder: obsidian_knife                  # where to place output file (rel
 
 # optional
 apply_changes: false                           # true to apply changes, false for dry-run
-back_populate_file_count: 1                    # limit files processed during back population 
 back_populate_file_filter: [[some note]]       # optionally process this specific file for back population
 do_not_back_populate:                          # text patterns to skip during back population
   - bill
   - will
+file_process_limit: 1                          # limit files processed
 ignore_folders:                                # folders to skip during processing
   - templates
 operational_timezone: America/New_York
@@ -146,9 +146,9 @@ if you have this configuration.md (or whatever you name it) in obsidian, then th
 
 After ok does an update with apply_changes: true, it will set this property back to false so you don't accidentally apply changes when you may not want to - especially when making sure that things work.
 
-### back_populate_file_count
+### file_process_limit
 
-Optional. Limits the number of files processed for back population. Useful for testing changes on a subset of files. 
+Optional. Limits the number of files processed. Useful for testing changes on a subset of files. 
 
 For example, you can set apply_changes: false and then limit the number of files processed so you can assess if ok is doing the right thing.  once your happy with the results, you can either remove this property or set it to a very large number.
 

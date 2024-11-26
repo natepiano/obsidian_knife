@@ -141,7 +141,7 @@ fn find_all_back_populate_matches(
     config: &ValidatedConfig,
     obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let searcher = DeterministicSearch::new(config.back_populate_file_count());
+    let searcher = DeterministicSearch::new(config.file_process_limit());
 
     let ac = obsidian_repository_info
         .wikilinks_ac
