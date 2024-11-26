@@ -16,13 +16,12 @@ mod table_handling_tests;
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::utils::Timer;
 use crate::utils::MARKDOWN_REGEX;
+use crate::utils::{escape_brackets, escape_pipe, Timer};
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
-use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
+use crate::wikilink_types::{ToWikilink, Wikilink};
 use crate::ValidatedConfig;
 use aho_corasick::AhoCorasick;
-use itertools::Itertools;
 use lazy_static::lazy_static;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -84,9 +83,6 @@ pub fn process_back_populate(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
     let _timer = Timer::new("process_back_populate");
-
-    // Write invalid wikilinks table first
-    write_invalid_wikilinks_table(writer, obsidian_repository_info)?;
 
     find_all_back_populate_matches(config, obsidian_repository_info)?;
 
@@ -593,99 +589,6 @@ fn write_ambiguous_matches(
     Ok(())
 }
 
-fn write_invalid_wikilinks_table(
-    writer: &ThreadSafeWriter,
-    obsidian_repository_info: &ObsidianRepositoryInfo,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Collect all invalid wikilinks from all files
-    let invalid_wikilinks = obsidian_repository_info
-        .markdown_files
-        .iter()
-        .flat_map(|markdown_file_info| {
-            markdown_file_info
-                .invalid_wikilinks
-                .iter()
-                .filter(|wikilink| {
-                    !matches!(
-                        wikilink.reason,
-                        InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag
-                    )
-                })
-                .map(move |wikilink| (&markdown_file_info.path, wikilink))
-        })
-        .collect::<Vec<_>>()
-        .into_iter()
-        .sorted_by(|a, b| {
-            let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-            file_a
-                .cmp(file_b)
-                .then(a.1.line_number.cmp(&b.1.line_number))
-        })
-        .collect::<Vec<_>>();
-
-    if invalid_wikilinks.is_empty() {
-        return Ok(());
-    }
-
-    writer.writeln(LEVEL2, "invalid wikilinks")?;
-
-    // Write header describing the count
-    writer.writeln(
-        "",
-        &format!(
-            "found {} invalid wikilinks in {} files\n",
-            invalid_wikilinks.len(),
-            invalid_wikilinks
-                .iter()
-                .map(|(p, _)| p)
-                .collect::<HashSet<_>>()
-                .len()
-        ),
-    )?;
-
-    // Prepare headers and alignments for the table
-    let headers = vec![
-        "file name",
-        "line",
-        "line text",
-        "invalid reason",
-        "source text",
-    ];
-
-    let alignments = vec![
-        ColumnAlignment::Left,
-        ColumnAlignment::Right,
-        ColumnAlignment::Left,
-        ColumnAlignment::Left,
-        ColumnAlignment::Left,
-    ];
-
-    // Prepare rows
-    let rows: Vec<Vec<String>> = invalid_wikilinks
-        .iter()
-        .map(|(file_path, invalid_wikilink)| {
-            vec![
-                file_path
-                    .file_stem()
-                    .and_then(|s| s.to_str())
-                    .unwrap_or("")
-                    .to_wikilink(),
-                invalid_wikilink.line_number.to_string(),
-                escape_pipe(&invalid_wikilink.line),
-                invalid_wikilink.reason.to_string(),
-                escape_brackets(&invalid_wikilink.content),
-            ]
-        })
-        .collect();
-
-    // Write the table
-    writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
-    writer.writeln("", "\n---\n")?;
-
-    Ok(())
-}
-
 fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
@@ -895,42 +798,6 @@ fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> St
     // Add any remaining text after the last match
     result.push_str(&text[last_end..]);
     result
-}
-
-// Helper function to escape pipes in Markdown strings
-fn escape_pipe(text: &str) -> String {
-    let mut escaped = String::with_capacity(text.len() * 2);
-    let chars: Vec<char> = text.chars().collect();
-
-    let mut i = 0;
-    while i < chars.len() {
-        let ch = chars[i];
-        if ch == '|' {
-            // Count the number of consecutive backslashes before '|'
-            let mut backslash_count = 0;
-            let mut j = i;
-            while j > 0 && chars[j - 1] == '\\' {
-                backslash_count += 1;
-                j -= 1;
-            }
-
-            // If even number of backslashes, '|' is not escaped
-            if backslash_count % 2 == 0 {
-                escaped.push('\\');
-            }
-            escaped.push('|');
-        } else {
-            escaped.push(ch);
-        }
-        i += 1;
-    }
-
-    escaped
-}
-
-// Helper function to escape pipes and brackets for visual verification
-fn escape_brackets(text: &str) -> String {
-    text.replace('[', r"\[").replace(']', r"\]")
 }
 
 fn apply_back_populate_changes(

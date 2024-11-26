@@ -57,6 +57,8 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
+    obsidian_repository_info.write_invalid_wikilinks_table(&writer)?;
+
     back_populate::process_back_populate(
         &validated_config,
         &mut obsidian_repository_info,

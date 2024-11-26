@@ -100,11 +100,6 @@ fn test_preserve_obsidian_in_ignore_folders() {
         ignore_folders.contains(&output_dir),
         "Should contain output directory"
     );
-
-    // Print folders for debugging if test fails
-    println!("Ignore folders: {:?}", ignore_folders);
-    println!("Looking for obsidian_dir: {:?}", obsidian_dir);
-    println!("Looking for output_dir: {:?}", output_dir);
 }
 
 #[test]
