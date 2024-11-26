@@ -51,17 +51,11 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
 
-    // frontmatter::report_frontmatter_issues(&obsidian_repository_info.markdown_files, &writer)?;
     obsidian_repository_info
         .markdown_files
         .report_frontmatter_issues(&writer)?;
-    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
-    // cleanup_dates::process_dates(
-    //     &validated_config,
-    //     &mut obsidian_repository_info.markdown_files,
-    //     &writer,
-    // )?;
+    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
     back_populate::process_back_populate(
         &validated_config,
@@ -74,22 +68,28 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         .write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
-        // this whole thing is a bit of a code smell
-        // converting from frontmatter to config
-        // making sure to update modified date so we can re-use markdown_file persist
-        // which in this case doesn't actually matter but does matter for frontmatter...
-        config.apply_changes = Some(false);
-        let config_yaml = config.to_yaml_str()?;
-        let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
-        markdown_file.frontmatter = Some(updated_frontmatter);
-        markdown_file
-            .frontmatter
-            .as_mut()
-            .unwrap()
-            .set_date_modified_now();
-        markdown_file.persist()?;
+        obsidian_repository_info.persist()?;
+        reset_apply_changes(&mut markdown_file, &mut config)?;
     }
 
+    Ok(())
+}
+
+fn reset_apply_changes(markdown_file: &mut MarkdownFileInfo, config: &mut Config) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // this whole thing is a bit of a code smell
+    // converting from frontmatter to config
+    // making sure to update modified date so we can re-use markdown_file persist
+    // which in this case doesn't actually matter but does matter for frontmatter...
+    config.apply_changes = Some(false);
+    let config_yaml = config.to_yaml_str()?;
+    let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
+    markdown_file.frontmatter = Some(updated_frontmatter);
+    markdown_file
+        .frontmatter
+        .as_mut()
+        .unwrap()
+        .set_date_modified_now();
+    markdown_file.persist()?;
     Ok(())
 }
 

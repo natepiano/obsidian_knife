@@ -223,11 +223,11 @@ fn identify_and_remove_ambiguous_matches(
                         matches: text_matches.clone(),
                     });
                 } else {
-                    // CHANGED: Unambiguous matches go back into the markdown_file
+                    // Unambiguous matches go back into the markdown_file
                     markdown_file.matches.extend(text_matches);
                 }
             } else {
-                // NEW: Handle unclassified matches (log warning and treat as unambiguous)
+                // Handle unclassified matches (log warning and treat as unambiguous)
                 println!(
                     "[WARNING] Found unclassified matches for '{}' in file '{}'",
                     found_text_lower,
