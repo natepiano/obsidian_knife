@@ -16,7 +16,6 @@ mod table_handling_tests;
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::utils::DeterministicSearch;
 use crate::utils::Timer;
 use crate::utils::MARKDOWN_REGEX;
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
@@ -25,6 +24,7 @@ use crate::ValidatedConfig;
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;
+use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -88,7 +88,6 @@ pub fn process_back_populate(
     // Write invalid wikilinks table first
     write_invalid_wikilinks_table(writer, obsidian_repository_info)?;
 
-    // let matches = find_all_back_populate_matches(config, obsidian_repository_info)?;
     find_all_back_populate_matches(config, obsidian_repository_info)?;
 
     if let Some(filter) = config.back_populate_file_filter() {
@@ -141,34 +140,27 @@ fn find_all_back_populate_matches(
     config: &ValidatedConfig,
     obsidian_repository_info: &mut ObsidianRepositoryInfo,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let searcher = DeterministicSearch::new(config.file_process_limit());
-
     let ac = obsidian_repository_info
         .wikilinks_ac
         .as_ref()
         .expect("Wikilinks AC pattern should be initialized");
-    let sorted_wikilinks: Vec<&Wikilink> =
-        obsidian_repository_info.wikilinks_sorted.iter().collect();
+    let sorted_wikilinks: Vec<&Wikilink> = obsidian_repository_info.wikilinks_sorted.iter().collect();
 
-    // CHANGED: No need to collect results, just process each file
-    searcher.search_with_info(
-        &mut obsidian_repository_info.markdown_files,
-        |markdown_file_info: &mut MarkdownFileInfo| {
+    obsidian_repository_info
+        .markdown_files
+        .par_iter_mut()
+        .for_each(|markdown_file_info| {
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
                     if !markdown_file_info.path.ends_with(filter) {
-                        return None;
+                        return;
                     }
                 }
             }
 
-            // CHANGED: process_file now returns () instead of matches
-            match process_file(&sorted_wikilinks, config, markdown_file_info, ac) {
-                Ok(()) if !markdown_file_info.matches.is_empty() => Some(()),
-                _ => None,
-            }
-        },
-    );
+            // todo - do you need to handle it with let _? is there a better way
+            let _ = process_file(&sorted_wikilinks, config, markdown_file_info, ac);
+        });
 
     Ok(())
 }
