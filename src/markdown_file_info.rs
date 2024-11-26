@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod date_tests;
 #[cfg(test)]
-mod parse_and_persist_tests;
+mod parse_tests;
 #[cfg(test)]
-mod persist_reason_tests;
+mod persist_tests;
 
 use crate::frontmatter::FrontMatter;
 use crate::utils::read_contents_from_file;
@@ -110,6 +110,7 @@ impl DateCreatedFixValidation {
 #[derive(Debug, Clone)]
 pub struct BackPopulateMatch {
     pub found_text: String,
+    pub frontmatter_line_count: usize,
     pub in_markdown_table: bool,
     pub line_number: usize,
     pub line_text: String,
@@ -127,6 +128,7 @@ pub struct MarkdownFileInfo {
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
+    pub frontmatter_line_count: usize,
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
     pub matches: Vec<BackPopulateMatch>,
@@ -141,7 +143,13 @@ impl MarkdownFileInfo {
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let full_content = read_contents_from_file(&path)?;
 
-        let (mut frontmatter, content, frontmatter_error) = match find_yaml_section(&full_content) {
+        let yaml_result = find_yaml_section(&full_content);
+        let frontmatter_line_count = match &yaml_result {
+            Ok(Some((yaml_section, _))) => yaml_section.lines().count() + 2,
+            _ => 0,
+        };
+
+        let (mut frontmatter, content, frontmatter_error) = match yaml_result {
             Ok(Some((yaml_section, after_yaml))) => {
                 match FrontMatter::from_yaml_str(yaml_section) {
                     Ok(fm) => (Some(fm), after_yaml.to_string(), None),
@@ -186,6 +194,7 @@ impl MarkdownFileInfo {
             date_validation_modified,
             frontmatter,
             frontmatter_error,
+            frontmatter_line_count,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
             matches: Vec::new(),

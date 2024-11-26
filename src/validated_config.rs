@@ -75,7 +75,7 @@ impl ValidatedConfigBuilder {
         // Then check if the path exists
         if !path.exists() {
             return Err(ValidationError::InvalidObsidianPath(
-                path.display().to_string()
+                path.display().to_string(),
             ));
         }
 

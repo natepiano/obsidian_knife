@@ -9,8 +9,6 @@ mod case_sensitivity_tests;
 #[cfg(test)]
 mod exclusion_zone_tests;
 #[cfg(test)]
-mod file_processing_state_and_config_tests;
-#[cfg(test)]
 mod matching_tests;
 #[cfg(test)]
 mod table_handling_tests;
@@ -419,6 +417,7 @@ fn process_line(
 
             matches.push(BackPopulateMatch {
                 found_text: matched_text.to_string(),
+                frontmatter_line_count: markdown_file_info.frontmatter_line_count,
                 line_number: line_idx + 1,
                 line_text: line.to_string(),
                 position: starts_at,
@@ -512,7 +511,8 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 
         // Update or create line info
         let line_info = line_map.entry(key).or_insert(LineInfo {
-            line_number: match_info.line_number,
+            // line_number: match_info.line_number,
+            line_number: match_info.line_number + match_info.frontmatter_line_count,
             line_text: match_info.line_text.clone(),
             positions: Vec::new(),
         });
@@ -697,7 +697,7 @@ fn write_back_populate_table(
     writer: &ThreadSafeWriter,
     matches: &[BackPopulateMatch],
     is_unambiguous_match: bool,
-    match_count: usize,
+    wikilinks_count: usize,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if is_unambiguous_match {
         writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
@@ -705,7 +705,7 @@ fn write_back_populate_table(
             "",
             &format!(
                 "{} {} {}",
-                BACK_POPULATE_COUNT_PREFIX, match_count, BACK_POPULATE_COUNT_SUFFIX
+                BACK_POPULATE_COUNT_PREFIX, wikilinks_count, BACK_POPULATE_COUNT_SUFFIX
             ),
         )?;
     }

@@ -44,6 +44,7 @@ fn test_back_populate_content() {
         vec![BackPopulateMatch {
             relative_path: "test.md".into(),
             line_number: 4,
+            frontmatter_line_count: 0,
             line_text: "|Test Link|Sample text|".into(),
             found_text: "Test Link".into(),
             replacement: "[[Test Link\\|Another Name]]".into(),

@@ -1,8 +1,153 @@
 use super::*;
-use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
-use std::error::Error;
-use std::fs;
+use crate::test_utils::{
+    eastern_midnight, get_test_markdown_file_info, parse_datetime, TestFileBuilder,
+};
 use tempfile::TempDir;
+
+#[test]
+fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+
+    // Test missing dates
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(None, None)
+        .with_title("test".to_string()) // to force valid frontmatter with missing dates
+        .create(&temp_dir, "missing_dates.md");
+
+    let file_info = get_test_markdown_file_info(file_path);
+
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateCreatedUpdated {
+            reason: DateValidationIssue::Missing
+        }));
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateModifiedUpdated {
+            reason: DateValidationIssue::Missing
+        }));
+
+    // Test invalid format dates
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(
+            Some("[[2024-13-45]]".to_string()),
+            Some("[[2024-13-45]]".to_string()),
+        )
+        .create(&temp_dir, "invalid_dates.md");
+
+    let file_info = get_test_markdown_file_info(file_path);
+
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateCreatedUpdated {
+            reason: DateValidationIssue::InvalidDateFormat
+        }));
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateModifiedUpdated {
+            reason: DateValidationIssue::InvalidDateFormat
+        }));
+
+    Ok(())
+}
+
+#[test]
+fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+    let test_date = eastern_midnight(2024, 1, 15);
+
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(
+            Some("[[2024-01-15]]".to_string()),
+            Some("[[2024-01-15]]".to_string()),
+        )
+        .with_fs_dates(test_date, test_date)
+        .with_date_created_fix(Some("2024-01-01".to_string()))
+        .create(&temp_dir, "date_fix.md");
+
+    let file_info = get_test_markdown_file_info(file_path);
+
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateCreatedFixApplied));
+
+    Ok(())
+}
+
+#[test]
+fn test_back_populate_persist_reason() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(
+            Some("[[2024-01-15]]".to_string()),
+            Some("[[2024-01-15]]".to_string()),
+        )
+        .create(&temp_dir, "back_populate.md");
+
+    let mut file_info = get_test_markdown_file_info(file_path);
+    file_info.mark_as_back_populated();
+
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::BackPopulated));
+
+    Ok(())
+}
+
+#[test]
+fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(
+            Some("[[2024-01-15]]".to_string()),
+            Some("[[2024-01-15]]".to_string()),
+        )
+        .create(&temp_dir, "image_refs.md");
+
+    let mut file_info = get_test_markdown_file_info(file_path);
+    file_info.record_image_references_change();
+
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::ImageReferencesModified));
+
+    Ok(())
+}
+
+#[test]
+fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(None, None)
+        .with_title("test".to_string()) // to force frontmatter creation
+        .create(&temp_dir, "multiple_reasons.md");
+
+    let mut file_info = get_test_markdown_file_info(file_path);
+
+    // This will add DateCreatedUpdated and DateModifiedUpdated
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::DateCreatedUpdated {
+            reason: DateValidationIssue::Missing
+        }));
+
+    // Add back populate reason
+    file_info.mark_as_back_populated();
+
+    // Add image reference change
+    file_info.record_image_references_change();
+
+    // Verify all reasons are present
+    assert_eq!(file_info.persist_reasons.len(), 4);
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::BackPopulated));
+    assert!(file_info
+        .persist_reasons
+        .contains(&PersistReason::ImageReferencesModified));
+
+    Ok(())
+}
 
 #[test]
 fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -54,38 +199,6 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
     assert!(updated_content.contains("[[2024-01-02]]"));
 
     Ok(())
-}
-
-#[test]
-fn test_parse_content_separation() {
-    let temp_dir = TempDir::new().unwrap();
-
-    // Test 1: File with frontmatter and content
-    let file_with_fm = TestFileBuilder::new()
-        .with_title("Test".to_string())
-        .with_content("This is the actual content")
-        .create(&temp_dir, "with_fm.md");
-
-    let mfi = get_test_markdown_file_info(file_with_fm);
-    assert_eq!(mfi.content.trim(), "This is the actual content");
-
-    // Test 2: File with no frontmatter
-    let file_no_fm = TestFileBuilder::new()
-        .with_content("Pure content\nNo frontmatter")
-        .create(&temp_dir, "no_fm.md");
-
-    let mfi = get_test_markdown_file_info(file_no_fm);
-    assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
-
-    // Test 3: File with --- separators in content
-    let content = "First line\n---\nMiddle section\n---\nLast section";
-    let file_with_separators = TestFileBuilder::new()
-        .with_title("Test".to_string())
-        .with_content(content)
-        .create(&temp_dir, "with_separators.md");
-
-    let mfi = get_test_markdown_file_info(file_with_separators);
-    assert_eq!(mfi.content.trim(), content);
 }
 
 #[test]

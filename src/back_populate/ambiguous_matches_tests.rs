@@ -47,6 +47,7 @@ fn test_identify_ambiguous_matches() {
     test_file.matches = vec![BackPopulateMatch {
         relative_path: "test1.md".to_string(),
         line_number: 1,
+        frontmatter_line_count: 0,
         line_text: "Ed wrote this".to_string(),
         found_text: "Ed".to_string(),
         replacement: "[[Ed Barnes|Ed]]".to_string(),
@@ -62,6 +63,7 @@ fn test_identify_ambiguous_matches() {
     test_file2.matches = vec![BackPopulateMatch {
         relative_path: "test2.md".to_string(),
         line_number: 1,
+        frontmatter_line_count: 0,
         line_text: "Unique wrote this".to_string(),
         found_text: "Unique".to_string(),
         replacement: "[[Unique Target]]".to_string(),
