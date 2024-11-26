@@ -29,7 +29,7 @@ pub struct ImageInfo {
     pub(crate) references: Vec<String>,
 }
 
-pub fn scan_obsidian_folder(
+pub fn pre_process_obsidian_folder(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let _timer = Timer::new("scan_obsidian_folder");

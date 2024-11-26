@@ -1,8 +1,6 @@
-use crate::back_populate::back_populate_tests::create_test_environment;
-use crate::back_populate::{
-    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, BackPopulateMatch,
-};
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::back_populate::identify_and_remove_ambiguous_matches;
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::obsidian_repository_info::back_populate_tests::create_test_environment;
 use crate::scan::scan_folders;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
@@ -115,7 +113,7 @@ fn test_truly_ambiguous_targets() {
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Find test1.md in the repository
     let test_file = repo_info
@@ -186,7 +184,7 @@ Amazon is ambiguous"#,
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Find test1.md in the repository
     let test_file = repo_info
@@ -296,7 +294,7 @@ Nate was here and so was Nate"#
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Find other.md in the repository
     let other_file = repo_info

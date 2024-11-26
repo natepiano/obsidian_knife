@@ -1,8 +1,6 @@
-use crate::back_populate::{
-    apply_back_populate_changes, find_all_back_populate_matches, FileProcessingState,
-};
+use crate::back_populate::apply_back_populate_changes;
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository_info::{FileProcessingState, ObsidianRepositoryInfo};
 use crate::wikilink_types::Wikilink;
 use crate::ValidatedConfig;
 
@@ -97,7 +95,7 @@ fn test_apply_changes() {
         create_test_environment(true, None, None, Some(initial_content));
 
     // First find the matches
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Apply the changes
     apply_back_populate_changes(&mut repo_info).unwrap();

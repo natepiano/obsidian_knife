@@ -49,21 +49,23 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     write_execution_start(&validated_config, &writer)?;
 
-    let mut obsidian_repository_info = scan::scan_obsidian_folder(&validated_config)?;
+    let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
+
+    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
+
+    obsidian_repository_info.find_all_back_populate_matches(&validated_config)?;
+
+    back_populate::write_back_populate_tables(
+        &validated_config,
+        &mut obsidian_repository_info,
+        &writer,
+    )?;
 
     obsidian_repository_info
         .markdown_files
         .report_frontmatter_issues(&writer)?;
 
-    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
-
     obsidian_repository_info.write_invalid_wikilinks_table(&writer)?;
-
-    back_populate::process_back_populate(
-        &validated_config,
-        &mut obsidian_repository_info,
-        &writer,
-    )?;
 
     obsidian_repository_info
         .markdown_files

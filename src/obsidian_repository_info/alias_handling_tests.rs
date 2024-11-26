@@ -1,7 +1,7 @@
-use crate::back_populate::back_populate_tests::{
+use crate::obsidian_repository_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::back_populate::{find_all_back_populate_matches, format_relative_path};
+use crate::obsidian_repository_info::format_relative_path;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink_types::Wikilink;
 
@@ -26,7 +26,9 @@ fn test_alias_priority() {
     let content = "I love tomatoes in my salad";
     create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
 
-    find_all_back_populate_matches(&config, &mut repository_info).unwrap();
+    repository_info
+        .find_all_back_populate_matches(&config)
+        .unwrap();
 
     // Get total matches across all files
     let total_matches: usize = repository_info
@@ -78,7 +80,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(get_test_markdown_file_info(file_path));
 
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get total matches
     let total_matches: usize = repo_info
@@ -102,7 +104,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(get_test_markdown_file_info(other_file_path));
 
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get total matches after adding other file
     let total_matches: usize = repo_info
@@ -131,7 +133,7 @@ fn test_no_self_referential_back_population() {
     let content = "Will is mentioned here but should not be replaced";
     create_markdown_test_file(&temp_dir, "Will.md", content, &mut repo_info);
 
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get total matches
     let total_matches: usize = repo_info
@@ -147,7 +149,7 @@ fn test_no_self_referential_back_population() {
 
     let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
 
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get total matches after adding other file
     let total_matches: usize = repo_info

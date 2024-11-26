@@ -1,11 +1,9 @@
-use crate::back_populate::back_populate_tests::{
+use crate::back_populate::identify_and_remove_ambiguous_matches;
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::obsidian_repository_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::back_populate::{
-    find_all_back_populate_matches, identify_and_remove_ambiguous_matches, process_line,
-    BackPopulateMatch,
-};
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::obsidian_repository_info::process_line;
 use crate::scan::scan_folders;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
@@ -119,7 +117,7 @@ fn test_case_insensitive_targets() {
     let mut repo_info = scan_folders(&config).unwrap();
 
     // Process files to find matches
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Find our test file
     let test_file = repo_info

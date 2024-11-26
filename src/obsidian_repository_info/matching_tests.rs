@@ -1,5 +1,5 @@
-use crate::back_populate::back_populate_tests::create_test_environment;
-use crate::back_populate::{find_all_back_populate_matches, is_within_wikilink};
+use crate::obsidian_repository_info::back_populate_tests::create_test_environment;
+use crate::obsidian_repository_info::is_within_wikilink;
 use crate::wikilink_types::Wikilink;
 
 #[test]
@@ -14,7 +14,7 @@ fn test_find_matches_with_existing_wikilinks() {
         create_test_environment(false, None, None, Some(content));
 
     // Find matches - this now stores them in repo_info.markdown_files
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get all matches from the first (and only) file
     let matches = &repo_info.markdown_files[0].matches;
@@ -51,7 +51,7 @@ fn test_overlapping_wikilink_matches() {
         create_test_environment(false, None, Some(wikilinks), Some(content));
 
     // Find matches - this now stores them in repo_info.markdown_files
-    find_all_back_populate_matches(&config, &mut repo_info).unwrap();
+    repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Get matches from the first (and only) file
     let matches = &repo_info.markdown_files[0].matches;
