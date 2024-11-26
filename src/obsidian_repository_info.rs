@@ -5,6 +5,7 @@ mod update_modified_tests;
 
 use crate::markdown_files::MarkdownFiles;
 use crate::scan::ImageInfo;
+use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::Wikilink;
 use aho_corasick::AhoCorasick;
 use std::collections::HashMap;
@@ -21,8 +22,11 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-    pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.markdown_files.persist_all()
+    pub fn persist(
+        &mut self,
+        config: &ValidatedConfig,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.markdown_files.persist_all(config.file_process_limit())
     }
 
     pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {

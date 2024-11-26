@@ -1,6 +1,7 @@
 use super::*;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::validated_config::get_test_validated_config;
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use std::error::Error;
@@ -8,6 +9,7 @@ use std::fs;
 use std::time::SystemTime;
 use tempfile::TempDir;
 
+#[derive(Debug)]
 struct PersistenceTestCase {
     name: &'static str,
     // Input state
@@ -121,16 +123,29 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = create_test_cases();
 
     for case in test_cases {
+        // temp_dir needs to go out of scope each time for the file to be cleaned up
         let temp_dir = TempDir::new()?;
+        let config = get_test_validated_config(&temp_dir, None);
+
+        println!("Starting test case: {}", case.name);
         let file_path = create_test_file_from_case(&temp_dir, &case);
+        println!("File path created: {:?}", file_path);
+        println!("{:?}", case);
 
         let mut repo_info = ObsidianRepositoryInfo::default();
         let file_info = get_test_markdown_file_info(file_path);
 
+        println!(
+            "Before push - files length: {}",
+            repo_info.markdown_files.len()
+        );
         repo_info.markdown_files.push(file_info);
-
+        println!(
+            "After push - files length: {}",
+            repo_info.markdown_files.len()
+        );
         // Run persistence
-        repo_info.persist()?;
+        repo_info.persist(&config)?;
 
         // Verify results
         verify_dates(&repo_info.markdown_files[0], &case)?;

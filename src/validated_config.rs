@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod validated_config_tests;
 #[cfg(test)]
-pub use validated_config_tests::get_test_validated_config;
+pub use validated_config_tests::{get_test_validated_config, get_test_validated_config_builder};
 
 use crate::utils::build_case_insensitive_word_finder;
 use crate::DEFAULT_TIMEZONE;

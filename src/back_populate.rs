@@ -144,7 +144,8 @@ fn find_all_back_populate_matches(
         .wikilinks_ac
         .as_ref()
         .expect("Wikilinks AC pattern should be initialized");
-    let sorted_wikilinks: Vec<&Wikilink> = obsidian_repository_info.wikilinks_sorted.iter().collect();
+    let sorted_wikilinks: Vec<&Wikilink> =
+        obsidian_repository_info.wikilinks_sorted.iter().collect();
 
     obsidian_repository_info
         .markdown_files

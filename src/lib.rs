@@ -68,14 +68,17 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         .write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
-        obsidian_repository_info.persist()?;
+        obsidian_repository_info.persist(&validated_config)?;
         reset_apply_changes(&mut markdown_file, &mut config)?;
     }
 
     Ok(())
 }
 
-fn reset_apply_changes(markdown_file: &mut MarkdownFileInfo, config: &mut Config) -> Result<(), Box<dyn Error + Send + Sync>> {
+fn reset_apply_changes(
+    markdown_file: &mut MarkdownFileInfo,
+    config: &mut Config,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     // this whole thing is a bit of a code smell
     // converting from frontmatter to config
     // making sure to update modified date so we can re-use markdown_file persist

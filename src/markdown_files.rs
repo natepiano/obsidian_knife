@@ -65,13 +65,31 @@ impl MarkdownFiles {
         self.files.par_iter()
     }
 
-    pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        for file_info in &self.files {
-            if let Some(frontmatter) = &file_info.frontmatter {
-                if frontmatter.needs_persist() {
-                    file_info.persist()?;
-                }
-            }
+    pub fn persist_all(
+        &self,
+        file_limit: Option<usize>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let files_to_persist: Vec<_> = self
+            .files
+            .iter()
+            .filter(|file_info| {
+                file_info
+                    .frontmatter
+                    .as_ref()
+                    .map_or(false, |fm| fm.needs_persist())
+            })
+            .collect();
+
+        let total_files = files_to_persist.len();
+        let iter = files_to_persist.iter();
+        let files_to_process = match file_limit {
+            Some(limit) => iter.take(limit),
+            None => iter.take(total_files), // Match the Take type from Some branch
+        };
+
+        for file_info in files_to_process {
+            println!("persisting");
+            file_info.persist()?;
         }
         Ok(())
     }
