@@ -51,9 +51,9 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
 
-    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
-
     obsidian_repository_info.find_all_back_populate_matches(&validated_config)?;
+
+    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
     back_populate::write_back_populate_tables(
         &validated_config,

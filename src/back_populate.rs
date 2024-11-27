@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::markdown_file_info::BackPopulateMatch;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::utils::{escape_brackets, escape_pipe, Timer};
+use crate::utils::{escape_brackets, escape_pipe};
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink_types::ToWikilink;
 use crate::ValidatedConfig;
@@ -22,7 +22,6 @@ pub fn write_back_populate_tables(
     writer: &ThreadSafeWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
-    let _timer = Timer::new("process_back_populate");
 
     if let Some(filter) = config.back_populate_file_filter() {
         writer.writeln(
@@ -64,7 +63,7 @@ pub fn write_back_populate_tables(
             obsidian_repository_info.wikilinks_sorted.len(),
         )?;
 
-        apply_back_populate_changes(obsidian_repository_info)?;
+        obsidian_repository_info.apply_back_populate_changes()?;
     }
 
     Ok(())
@@ -473,111 +472,4 @@ fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> St
     // Add any remaining text after the last match
     result.push_str(&text[last_end..]);
     result
-}
-
-pub(crate) fn apply_back_populate_changes(
-    obsidian_repository_info: &mut ObsidianRepositoryInfo,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Only process files that have matches
-    for markdown_file in &mut obsidian_repository_info.markdown_files.iter_mut() {
-        if markdown_file.matches.is_empty() {
-            continue;
-        }
-
-        // Sort matches by line number and position (reverse position for same line)
-        let mut sorted_matches = markdown_file.matches.clone();
-        sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
-
-        let mut updated_content = String::new();
-        let mut current_line_num = 1;
-
-        // Process line by line
-        for (line_idx, line) in markdown_file.content.lines().enumerate() {
-            if current_line_num != line_idx + 1 {
-                updated_content.push_str(line);
-                updated_content.push('\n');
-                continue;
-            }
-
-            // Collect matches for the current line
-            let line_matches: Vec<&BackPopulateMatch> = sorted_matches
-                .iter()
-                .filter(|m| m.line_number == current_line_num)
-                .collect();
-
-            // Apply matches in reverse order if there are any
-            let mut updated_line = line.to_string();
-            if !line_matches.is_empty() {
-                updated_line = apply_line_replacements(line, &line_matches, &markdown_file.path);
-            }
-
-            updated_content.push_str(&updated_line);
-            updated_content.push('\n');
-            current_line_num += 1;
-        }
-
-        // Final validation check
-        if updated_content.contains("[[[")
-            || updated_content.contains("]]]")
-            || updated_content.matches("[[").count() != updated_content.matches("]]").count()
-        {
-            eprintln!(
-                "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
-                markdown_file.path.display(),
-                updated_content.escape_debug()
-            );
-            panic!(
-                "Unintended nesting or malformed brackets detected in file '{}'. Please check the content above for any hidden or misplaced patterns.",
-                markdown_file.path.display(),
-            );
-        }
-
-        // Update the content and mark file as modified
-        markdown_file.content = updated_content.trim_end().to_string();
-        markdown_file.mark_as_back_populated();
-    }
-
-    Ok(())
-}
-
-fn apply_line_replacements(
-    line: &str,
-    line_matches: &[&BackPopulateMatch],
-    file_path: &PathBuf,
-) -> String {
-    let mut updated_line = line.to_string();
-
-    // Sort matches in descending order by `position`
-    let mut sorted_matches = line_matches.to_vec();
-    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position));
-
-    // Apply replacements in sorted (reverse) order
-    for match_info in sorted_matches {
-        let start = match_info.position;
-        let end = start + match_info.found_text.len();
-
-        // Check for UTF-8 boundary issues
-        if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
-            eprintln!(
-                "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
-                Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
-                file_path, match_info.line_number, start, end, updated_line, match_info.found_text
-            );
-            panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
-        }
-
-        // Perform the replacement
-        updated_line.replace_range(start..end, &match_info.replacement);
-
-        // Validation check after each replacement
-        if updated_line.contains("[[[") || updated_line.contains("]]]") {
-            eprintln!(
-                "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
-                Current line:\n{}\n",
-                file_path, match_info.line_number, updated_line
-            );
-        }
-    }
-
-    updated_line
 }

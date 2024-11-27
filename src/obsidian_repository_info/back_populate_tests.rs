@@ -1,4 +1,3 @@
-use crate::back_populate::apply_back_populate_changes;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::{FileProcessingState, ObsidianRepositoryInfo};
 use crate::wikilink_types::Wikilink;
@@ -98,7 +97,7 @@ fn test_apply_changes() {
     repo_info.find_all_back_populate_matches(&config).unwrap();
 
     // Apply the changes
-    apply_back_populate_changes(&mut repo_info).unwrap();
+    repo_info.apply_back_populate_changes().unwrap();
 
     // Verify changes by checking MarkdownFileInfo content
     assert_eq!(

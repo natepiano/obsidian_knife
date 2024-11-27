@@ -1,4 +1,3 @@
-use crate::back_populate::apply_back_populate_changes;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::back_populate_tests::{
     build_aho_corasick, create_test_environment,
@@ -71,7 +70,7 @@ fn test_back_populate_content() {
         repo_info.markdown_files.push(markdown_info);
 
         // Apply back-populate changes
-        apply_back_populate_changes(&mut repo_info).unwrap();
+        repo_info.apply_back_populate_changes().unwrap();
 
         // Add more debug info
         if let Some(file) = repo_info.markdown_files.iter().find(|f| f.path == file) {

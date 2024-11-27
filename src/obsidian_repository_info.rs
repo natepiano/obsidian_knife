@@ -27,7 +27,7 @@ use crate::utils::{
 };
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use crate::LEVEL2;
+use crate::{Timer, LEVEL2};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -50,6 +50,8 @@ impl ObsidianRepositoryInfo {
         &mut self,
         config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let _timer = Timer::new("find_all_back_populate_matches");
+
         let ac = self
             .wikilinks_ac
             .as_ref()
@@ -70,6 +72,71 @@ impl ObsidianRepositoryInfo {
                 // todo - do you need to handle it with let _? is there a better way
                 let _ = process_file(&sorted_wikilinks, config, markdown_file_info, ac);
             });
+
+        Ok(())
+    }
+
+    pub fn apply_back_populate_changes(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Only process files that have matches
+        // matches have been pruned to only unambiguous matches
+        for markdown_file in self.markdown_files.iter_mut() {
+            if markdown_file.matches.is_empty() {
+                continue;
+            }
+
+            // Sort matches by line number and position (reverse position for same line)
+            let mut sorted_matches = markdown_file.matches.clone();
+            sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
+
+            let mut updated_content = String::new();
+            let mut current_line_num = 1;
+
+            // Process line by line
+            for (line_idx, line) in markdown_file.content.lines().enumerate() {
+                if current_line_num != line_idx + 1 {
+                    updated_content.push_str(line);
+                    updated_content.push('\n');
+                    continue;
+                }
+
+                // Collect matches for the current line
+                let line_matches: Vec<&BackPopulateMatch> = sorted_matches
+                    .iter()
+                    .filter(|m| m.line_number == current_line_num)
+                    .collect();
+
+                // Apply matches in reverse order if there are any
+                let mut updated_line = line.to_string();
+                if !line_matches.is_empty() {
+                    updated_line =
+                        apply_line_replacements(line, &line_matches, &markdown_file.path);
+                }
+
+                updated_content.push_str(&updated_line);
+                updated_content.push('\n');
+                current_line_num += 1;
+            }
+
+            // Final validation check
+            if updated_content.contains("[[[")
+                || updated_content.contains("]]]")
+                || updated_content.matches("[[").count() != updated_content.matches("]]").count()
+            {
+                eprintln!(
+                    "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
+                    markdown_file.path.display(),
+                    updated_content.escape_debug()
+                );
+                panic!(
+                    "Unintended nesting or malformed brackets detected in file '{}'. Please check the content above for any hidden or misplaced patterns.",
+                    markdown_file.path.display(),
+                );
+            }
+
+            // Update the content and mark file as modified
+            markdown_file.content = updated_content.trim_end().to_string();
+            markdown_file.mark_as_back_populated();
+        }
 
         Ok(())
     }
@@ -178,6 +245,48 @@ impl ObsidianRepositoryInfo {
 
         Ok(())
     }
+}
+
+fn apply_line_replacements(
+    line: &str,
+    line_matches: &[&BackPopulateMatch],
+    file_path: &PathBuf,
+) -> String {
+    let mut updated_line = line.to_string();
+
+    // Sort matches in descending order by `position`
+    let mut sorted_matches = line_matches.to_vec();
+    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position));
+
+    // Apply replacements in sorted (reverse) order
+    for match_info in sorted_matches {
+        let start = match_info.position;
+        let end = start + match_info.found_text.len();
+
+        // Check for UTF-8 boundary issues
+        if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
+            eprintln!(
+                "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
+                Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
+                file_path, match_info.line_number, start, end, updated_line, match_info.found_text
+            );
+            panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
+        }
+
+        // Perform the replacement
+        updated_line.replace_range(start..end, &match_info.replacement);
+
+        // Validation check after each replacement
+        if updated_line.contains("[[[") || updated_line.contains("]]]") {
+            eprintln!(
+                "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
+                Current line:\n{}\n",
+                file_path, match_info.line_number, updated_line
+            );
+        }
+    }
+
+    updated_line
 }
 
 fn process_file(
