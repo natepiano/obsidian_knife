@@ -20,11 +20,15 @@ fn test_find_matches_with_existing_wikilinks() {
     let matches = &repo_info.markdown_files[0].matches;
 
     // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
-    assert_eq!(matches.len(), 4, "Mismatch in number of matches");
+    assert_eq!(
+        matches.unambiguous.len(),
+        4,
+        "Mismatch in number of matches"
+    );
 
     // Verify that the matches are at the expected positions
     let expected_lines = vec![1, 2, 2, 5];
-    let actual_lines: Vec<usize> = matches.iter().map(|m| m.line_number).collect();
+    let actual_lines: Vec<usize> = matches.unambiguous.iter().map(|m| m.line_number).collect();
     assert_eq!(
         actual_lines, expected_lines,
         "Mismatch in line numbers of matches"
@@ -56,8 +60,11 @@ fn test_overlapping_wikilink_matches() {
     // Get matches from the first (and only) file
     let matches = &repo_info.markdown_files[0].matches;
 
-    assert_eq!(matches.len(), 1, "Expected exactly one match");
-    assert_eq!(matches[0].position, 28, "Expected match at position 28");
+    assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
+    assert_eq!(
+        matches.unambiguous[0].position, 28,
+        "Expected match at position 28"
+    );
 }
 
 #[test]

@@ -16,6 +16,7 @@ use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use itertools::Itertools;
 use regex::Regex;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
 use std::{fmt, fs, io};
@@ -107,7 +108,7 @@ impl DateCreatedFixValidation {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct BackPopulateMatch {
     pub found_text: String,
     pub frontmatter_line_count: usize,
@@ -117,6 +118,32 @@ pub struct BackPopulateMatch {
     pub position: usize,
     pub relative_path: String,
     pub replacement: String,
+}
+
+#[derive(Debug, Default)]
+pub struct BackPopulateMatchCollections {
+    pub ambiguous: Vec<BackPopulateMatch>,
+    pub unambiguous: Vec<BackPopulateMatch>,
+}
+
+impl BackPopulateMatchCollections {
+    pub fn new() -> Self {
+        Self {
+            ambiguous: Vec::new(),
+            unambiguous: Vec::new(),
+        }
+    }
+
+    fn transfer_to_ambiguous(&mut self, found_text: &str, targets: &HashSet<String>) {
+        // Move matches from unambiguous to ambiguous when they match the found_text
+        let (matching, non_matching): (Vec<_>, Vec<_>) = self
+            .unambiguous
+            .drain(..)
+            .partition(|m| m.found_text.to_lowercase() == found_text.to_lowercase());
+
+        self.ambiguous.extend(matching);
+        self.unambiguous = non_matching;
+    }
 }
 
 #[derive(Debug)]
@@ -131,7 +158,7 @@ pub struct MarkdownFileInfo {
     pub frontmatter_line_count: usize,
     pub image_links: Vec<String>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
-    pub matches: Vec<BackPopulateMatch>,
+    pub matches: BackPopulateMatchCollections,
     pub path: PathBuf,
     pub persist_reasons: Vec<PersistReason>,
 }
@@ -197,7 +224,7 @@ impl MarkdownFileInfo {
             frontmatter_line_count,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
-            matches: Vec::new(),
+            matches: BackPopulateMatchCollections::default(),
             path,
             persist_reasons,
         })

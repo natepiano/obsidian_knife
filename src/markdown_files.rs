@@ -152,7 +152,7 @@ impl MarkdownFiles {
                 let wikilink = format!("[[{}]]", file_name);
 
                 // Count instances of BackPopulated and ImageReferencesModified
-                let back_populate_count = file.matches.len();
+                let back_populate_count = file.matches.unambiguous.len();
 
                 let image_refs_count = file
                     .persist_reasons

@@ -128,7 +128,7 @@ fn test_case_insensitive_targets() {
 
     // Verify we found both case variations initially
     assert_eq!(
-        test_file.matches.len(),
+        test_file.matches.unambiguous.len(),
         2,
         "Should have matches for both case variations"
     );
@@ -152,7 +152,7 @@ fn test_case_insensitive_targets() {
 
     // All matches should remain in the markdown file as unambiguous
     assert_eq!(
-        test_file.matches.len(),
+        test_file.matches.unambiguous.len(),
         2,
         "Both matches should be considered unambiguous"
     );

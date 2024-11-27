@@ -7,7 +7,7 @@ use crate::wikilink_types::ToWikilink;
 use crate::ValidatedConfig;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 #[derive(Debug)]
 pub struct AmbiguousMatch {
@@ -38,7 +38,7 @@ pub fn write_back_populate_tables(
     let has_matches = obsidian_repository_info
         .markdown_files
         .iter()
-        .any(|file| !file.matches.is_empty());
+        .any(|file| !file.matches.unambiguous.is_empty());
 
     if !has_matches {
         return Ok(());
@@ -52,7 +52,7 @@ pub fn write_back_populate_tables(
     let unambiguous_matches: Vec<BackPopulateMatch> = obsidian_repository_info
         .markdown_files
         .iter()
-        .flat_map(|file| file.matches.clone())
+        .flat_map(|file| file.matches.unambiguous.clone())
         .collect();
 
     if !unambiguous_matches.is_empty() {
@@ -101,13 +101,13 @@ pub fn identify_and_remove_ambiguous_matches(
     // NEW: Vector to store all ambiguous matches we find
     let mut ambiguous_matches = Vec::new();
 
-    // CHANGED: Instead of grouping matches, we'll process each file's matches
+    // process each file's matches
     for markdown_file in &mut obsidian_repository_info.markdown_files.iter_mut() {
         // NEW: Create a map to group matches by their lowercased found_text within this file
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
         // NEW: Drain matches from the file into our temporary map
-        let file_matches = std::mem::take(&mut markdown_file.matches);
+        let file_matches = std::mem::take(&mut markdown_file.matches.unambiguous);
         for match_info in file_matches {
             let lower_found_text = match_info.found_text.to_lowercase();
             matches_by_text
@@ -128,7 +128,7 @@ pub fn identify_and_remove_ambiguous_matches(
                     });
                 } else {
                     // Unambiguous matches go back into the markdown_file
-                    markdown_file.matches.extend(text_matches);
+                    markdown_file.matches.unambiguous.extend(text_matches);
                 }
             } else {
                 // Handle unclassified matches (log warning and treat as unambiguous)
@@ -137,7 +137,7 @@ pub fn identify_and_remove_ambiguous_matches(
                     found_text_lower,
                     markdown_file.path.display()
                 );
-                markdown_file.matches.extend(text_matches);
+                markdown_file.matches.unambiguous.extend(text_matches);
             }
         }
     }

@@ -66,7 +66,7 @@ fn test_back_populate_content() {
         let mut markdown_info =
             MarkdownFileInfo::new(file.clone(), config.operational_timezone()).unwrap();
         markdown_info.content = content.to_string(); // Explicitly set content
-        markdown_info.matches = matches.clone();
+        markdown_info.matches.unambiguous = matches.clone();
         repo_info.markdown_files.push(markdown_info);
 
         // Apply back-populate changes

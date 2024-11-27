@@ -34,7 +34,7 @@ fn test_alias_priority() {
     let total_matches: usize = repository_info
         .markdown_files
         .iter()
-        .map(|file| file.matches.len())
+        .map(|file| file.matches.unambiguous.len())
         .sum();
 
     // Verify we got exactly one match
@@ -44,11 +44,11 @@ fn test_alias_priority() {
     let file_with_matches = repository_info
         .markdown_files
         .iter()
-        .find(|file| !file.matches.is_empty())
+        .find(|file| !file.matches.unambiguous.is_empty())
         .expect("Should have a file with matches");
 
     // Verify the match uses the alias form
-    let first_match = &file_with_matches.matches[0];
+    let first_match = &file_with_matches.matches.unambiguous[0];
     assert_eq!(first_match.found_text, "tomatoes");
     assert_eq!(
         first_match.replacement, "[[tomato|tomatoes]]",
@@ -86,7 +86,7 @@ fn test_no_matches_for_frontmatter_aliases() {
     let total_matches: usize = repo_info
         .markdown_files
         .iter()
-        .map(|file| file.matches.len())
+        .map(|file| file.matches.unambiguous.len())
         .sum();
 
     assert_eq!(
@@ -110,7 +110,7 @@ fn test_no_matches_for_frontmatter_aliases() {
     let total_matches: usize = repo_info
         .markdown_files
         .iter()
-        .map(|file| file.matches.len())
+        .map(|file| file.matches.unambiguous.len())
         .sum();
 
     assert_eq!(total_matches, 1, "Should find match on other pages");
@@ -139,7 +139,7 @@ fn test_no_self_referential_back_population() {
     let total_matches: usize = repo_info
         .markdown_files
         .iter()
-        .map(|file| file.matches.len())
+        .map(|file| file.matches.unambiguous.len())
         .sum();
 
     assert_eq!(
@@ -155,7 +155,7 @@ fn test_no_self_referential_back_population() {
     let total_matches: usize = repo_info
         .markdown_files
         .iter()
-        .map(|file| file.matches.len())
+        .map(|file| file.matches.unambiguous.len())
         .sum();
 
     assert_eq!(total_matches, 1, "Should find match on other pages");
@@ -164,7 +164,7 @@ fn test_no_self_referential_back_population() {
     let file_with_matches = repo_info
         .markdown_files
         .iter()
-        .find(|file| !file.matches.is_empty())
+        .find(|file| !file.matches.unambiguous.is_empty())
         .expect("Should have a file with matches");
 
     assert_eq!(

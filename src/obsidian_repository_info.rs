@@ -80,12 +80,12 @@ impl ObsidianRepositoryInfo {
         // Only process files that have matches
         // matches have been pruned to only unambiguous matches
         for markdown_file in self.markdown_files.iter_mut() {
-            if markdown_file.matches.is_empty() {
+            if markdown_file.matches.unambiguous.is_empty() {
                 continue;
             }
 
             // Sort matches by line number and position (reverse position for same line)
-            let mut sorted_matches = markdown_file.matches.clone();
+            let mut sorted_matches = markdown_file.matches.unambiguous.clone();
             sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
 
             let mut updated_content = String::new();
@@ -321,7 +321,7 @@ fn process_file(
         )?;
 
         // Store matches instead of accumulating for return
-        markdown_file_info.matches.extend(matches);
+        markdown_file_info.matches.unambiguous.extend(matches);
     }
 
     Ok(())

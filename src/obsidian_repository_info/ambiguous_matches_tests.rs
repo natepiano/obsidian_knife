@@ -42,7 +42,7 @@ fn test_identify_ambiguous_matches() {
         config.operational_timezone(),
     )
     .unwrap();
-    test_file.matches = vec![BackPopulateMatch {
+    test_file.matches.unambiguous = vec![BackPopulateMatch {
         relative_path: "test1.md".to_string(),
         line_number: 1,
         frontmatter_line_count: 0,
@@ -58,7 +58,7 @@ fn test_identify_ambiguous_matches() {
         config.operational_timezone(),
     )
     .unwrap();
-    test_file2.matches = vec![BackPopulateMatch {
+    test_file2.matches.unambiguous = vec![BackPopulateMatch {
         relative_path: "test2.md".to_string(),
         line_number: 1,
         frontmatter_line_count: 0,
@@ -83,11 +83,14 @@ fn test_identify_ambiguous_matches() {
 
     // Check that unambiguous match remains in markdown_files
     assert_eq!(
-        repo_info.markdown_files[1].matches.len(),
+        repo_info.markdown_files[1].matches.unambiguous.len(),
         1,
         "Should have one unambiguous match"
     );
-    assert_eq!(repo_info.markdown_files[1].matches[0].found_text, "Unique");
+    assert_eq!(
+        repo_info.markdown_files[1].matches.unambiguous[0].found_text,
+        "Unique"
+    );
 }
 
 #[test]
@@ -123,7 +126,11 @@ fn test_truly_ambiguous_targets() {
         .expect("Should find test1.md");
 
     // Verify initial match exists
-    assert_eq!(test_file.matches.len(), 1, "Should have one initial match");
+    assert_eq!(
+        test_file.matches.unambiguous.len(),
+        1,
+        "Should have one initial match"
+    );
 
     let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
 
@@ -141,7 +148,7 @@ fn test_truly_ambiguous_targets() {
         .find(|f| f.path.ends_with("test1.md"))
         .expect("Should find test1.md");
     assert!(
-        test_file.matches.is_empty(),
+        test_file.matches.unambiguous.is_empty(),
         "All matches should be moved to ambiguous"
     );
 }
@@ -195,7 +202,7 @@ Amazon is ambiguous"#,
 
     // We should initially have three matches (both cases of AWS and Amazon)
     assert_eq!(
-        test_file.matches.len(),
+        test_file.matches.unambiguous.len(),
         3,
         "Should have both AWS cases and Amazon matches initially"
     );
@@ -203,6 +210,7 @@ Amazon is ambiguous"#,
     // Verify we found both cases of AWS and Amazon
     let aws_matches: Vec<_> = test_file
         .matches
+        .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "aws")
         .collect();
@@ -210,6 +218,7 @@ Amazon is ambiguous"#,
 
     let amazon_matches: Vec<_> = test_file
         .matches
+        .unambiguous
         .iter()
         .filter(|m| m.found_text == "Amazon")
         .collect();
@@ -231,7 +240,7 @@ Amazon is ambiguous"#,
         .expect("Should find test1.md");
 
     assert_eq!(
-        test_file.matches.len(),
+        test_file.matches.unambiguous.len(),
         2,
         "Both AWS case variations should remain as unambiguous"
     );
@@ -239,6 +248,7 @@ Amazon is ambiguous"#,
     // Verify the remaining matches are both AWS-related
     let aws_matches: Vec<_> = test_file
         .matches
+        .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "aws")
         .collect();
@@ -306,6 +316,7 @@ Nate was here and so was Nate"#
     // Count matches by case-insensitive comparison
     let karen_matches: Vec<_> = other_file
         .matches
+        .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "karen")
         .collect();
@@ -356,6 +367,7 @@ Nate was here and so was Nate"#
 
     let karen_matches: Vec<_> = other_file
         .matches
+        .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "karen")
         .collect();
