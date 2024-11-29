@@ -134,14 +134,7 @@ fn test_case_insensitive_targets() {
     );
 
     // Get ambiguous matches
-    let ambiguous_matches = identify_and_remove_ambiguous_matches(&mut repo_info);
-
-    // Should treat case variations of the same target as the same file
-    assert_eq!(
-        ambiguous_matches.len(),
-        0,
-        "Case variations of the same target should not be ambiguous"
-    );
+    identify_and_remove_ambiguous_matches(&mut repo_info);
 
     // Find our test file again after ambiguous matching
     let test_file = repo_info

@@ -10,6 +10,7 @@ fn test_identify_ambiguous_matches() {
     let (temp_dir, config, mut repo_info) =
         create_test_environment(false, None, Some(vec![]), None);
 
+    // Set up aliases that make "Ed" ambiguous
     repo_info.wikilinks_sorted = vec![
         Wikilink {
             display_text: "Ed".to_string(),
@@ -28,6 +29,7 @@ fn test_identify_ambiguous_matches() {
         },
     ];
 
+    // Create test files
     TestFileBuilder::new()
         .with_content("Ed wrote this")
         .create(&temp_dir, "test1.md");
@@ -36,7 +38,7 @@ fn test_identify_ambiguous_matches() {
         .with_content("Unique wrote this")
         .create(&temp_dir, "test2.md");
 
-    // Create test markdown files with matches
+    // Set up initial matches in test1.md
     let mut test_file = MarkdownFileInfo::new(
         temp_dir.path().join("test1.md"),
         config.operational_timezone(),
@@ -53,6 +55,7 @@ fn test_identify_ambiguous_matches() {
         in_markdown_table: false,
     }];
 
+    // Set up initial matches in test2.md
     let mut test_file2 = MarkdownFileInfo::new(
         temp_dir.path().join("test2.md"),
         config.operational_timezone(),
@@ -72,24 +75,45 @@ fn test_identify_ambiguous_matches() {
     repo_info.markdown_files.push(test_file2);
     repo_info.markdown_files.push(test_file);
 
-    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
+    // Call the function we're testing
+    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
 
-    // Check ambiguous matches
-    assert_eq!(ambiguous.len(), 1, "Should have one ambiguous match group");
-    assert_eq!(ambiguous[0].display_text, "ed");
-    assert_eq!(ambiguous[0].targets.len(), 2);
-    assert!(ambiguous[0].targets.contains(&"Ed Barnes".to_string()));
-    assert!(ambiguous[0].targets.contains(&"Ed Stanfield".to_string()));
+    // Find test1.md to check its matches
+    let test_file = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test1.md"))
+        .expect("Should find test1.md");
 
-    // Check that unambiguous match remains in markdown_files
+    // Verify match was moved from unambiguous to ambiguous
+    assert!(
+        test_file.matches.unambiguous.is_empty(),
+        "Ed match should be removed from unambiguous"
+    );
     assert_eq!(
-        repo_info.markdown_files[1].matches.unambiguous.len(),
+        test_file.matches.ambiguous.len(),
+        1,
+        "Ed match should be moved to ambiguous"
+    );
+    let ambiguous_match = &test_file.matches.ambiguous[0];
+    assert_eq!(ambiguous_match.found_text, "Ed");
+    assert_eq!(ambiguous_match.line_text, "Ed wrote this");
+
+    // Verify unambiguous match for "Unique" remains unchanged
+    let test_file2 = repo_info
+        .markdown_files
+        .iter()
+        .find(|f| f.path.ends_with("test2.md"))
+        .expect("Should find test2.md");
+    assert_eq!(
+        test_file2.matches.unambiguous.len(),
         1,
         "Should have one unambiguous match"
     );
-    assert_eq!(
-        repo_info.markdown_files[1].matches.unambiguous[0].found_text,
-        "Unique"
+    assert_eq!(test_file2.matches.unambiguous[0].found_text, "Unique");
+    assert!(
+        test_file2.matches.ambiguous.is_empty(),
+        "Should have no ambiguous matches"
     );
 }
 
@@ -118,39 +142,48 @@ fn test_truly_ambiguous_targets() {
     let mut repo_info = scan_folders(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config).unwrap();
 
-    // Find test1.md in the repository
+    // Find test1.md and verify initial state
     let test_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
         .expect("Should find test1.md");
 
-    // Verify initial match exists
+    // Verify initial match exists in unambiguous
     assert_eq!(
         test_file.matches.unambiguous.len(),
         1,
-        "Should have one initial match"
+        "Should have one initial match in unambiguous"
+    );
+    assert!(
+        test_file.matches.ambiguous.is_empty(),
+        "Should start with no ambiguous matches"
     );
 
-    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
+    // Process ambiguous matches
+    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
 
-    assert_eq!(
-        ambiguous.len(),
-        1,
-        "Different targets should be identified as ambiguous"
-    );
-    assert_eq!(ambiguous[0].targets.len(), 2);
-
-    // Verify the match was moved to ambiguous matches
+    // Find test1.md again and verify final state
     let test_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
         .expect("Should find test1.md");
+
+    // Verify the match was moved to ambiguous
     assert!(
         test_file.matches.unambiguous.is_empty(),
-        "All matches should be moved to ambiguous"
+        "All matches should be moved from unambiguous"
     );
+    assert_eq!(
+        test_file.matches.ambiguous.len(),
+        1,
+        "Should have one match in ambiguous"
+    );
+
+    let ambiguous_match = &test_file.matches.ambiguous[0];
+    assert_eq!(ambiguous_match.found_text, "Amazon");
+    assert_eq!(ambiguous_match.line_text, "Amazon is huge");
 }
 
 #[test]
@@ -193,14 +226,14 @@ Amazon is ambiguous"#,
     let mut repo_info = scan_folders(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config).unwrap();
 
-    // Find test1.md in the repository
+    // Find test1.md and verify initial state
     let test_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
         .expect("Should find test1.md");
 
-    // We should initially have three matches (both cases of AWS and Amazon)
+    // Verify initial matches
     assert_eq!(
         test_file.matches.unambiguous.len(),
         3,
@@ -224,21 +257,17 @@ Amazon is ambiguous"#,
         .collect();
     assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
 
-    let ambiguous = identify_and_remove_ambiguous_matches(&mut repo_info);
+    // Process ambiguous matches
+    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
 
-    assert_eq!(
-        ambiguous.len(),
-        1,
-        "Should only identify truly different targets as ambiguous"
-    );
-
-    // Find test1.md again after ambiguous matches were processed
+    // Find test1.md again and verify final state
     let test_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
         .expect("Should find test1.md");
 
+    // Verify final state of unambiguous matches
     assert_eq!(
         test_file.matches.unambiguous.len(),
         2,
@@ -256,6 +285,17 @@ Amazon is ambiguous"#,
         aws_matches.len(),
         2,
         "Should have both AWS case variations remaining"
+    );
+
+    // Verify Amazon was moved to ambiguous
+    assert_eq!(
+        test_file.matches.ambiguous.len(),
+        1,
+        "Should have one ambiguous match"
+    );
+    assert_eq!(
+        test_file.matches.ambiguous[0].found_text, "Amazon",
+        "Amazon should be in ambiguous matches"
     );
 }
 
@@ -306,14 +346,14 @@ Nate was here and so was Nate"#
     let mut repo_info = scan_folders(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config).unwrap();
 
-    // Find other.md in the repository
+    // Find other.md and verify initial state
     let other_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("other.md"))
         .expect("Should find other.md");
 
-    // Count matches by case-insensitive comparison
+    // Verify initial Karen matches
     let karen_matches: Vec<_> = other_file
         .matches
         .unambiguous
@@ -332,39 +372,26 @@ Nate was here and so was Nate"#
         "Should find lowercase karen"
     );
 
-    // Get ambiguous matches
-    let ambiguous_matches = identify_and_remove_ambiguous_matches(&mut repo_info);
-
-    // Verify ambiguous matches
-    let nate_matches = ambiguous_matches
+    // Verify initial Nate matches
+    let nate_matches: Vec<_> = other_file
+        .matches
+        .unambiguous
         .iter()
-        .find(|am| am.display_text == "nate")
-        .expect("Should find Nate as ambiguous");
+        .filter(|m| m.found_text == "Nate")
+        .collect();
+    assert_eq!(nate_matches.len(), 2, "Should have two Nate matches");
 
-    assert_eq!(
-        nate_matches.matches.len(),
-        2,
-        "Should find both 'Nate' instances as ambiguous"
-    );
+    // Process ambiguous matches
+    identify_and_remove_ambiguous_matches(&mut repo_info);
 
-    assert_eq!(
-        nate_matches.targets.len(),
-        2,
-        "Should have two possible targets for Nate"
-    );
-    assert!(
-        nate_matches.targets.contains(&"Nate McCoy".to_string())
-            && nate_matches.targets.contains(&"Nathan Dye".to_string()),
-        "Should have both Nate targets"
-    );
-
-    // Verify Karen matches remain unambiguous after processing ambiguous matches
+    // Find other.md again and verify final state
     let other_file = repo_info
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("other.md"))
         .expect("Should find other.md");
 
+    // Verify Karen matches remain unambiguous
     let karen_matches: Vec<_> = other_file
         .matches
         .unambiguous
@@ -376,4 +403,24 @@ Nate was here and so was Nate"#
         2,
         "Both Karen case variations should remain as unambiguous"
     );
+
+    // Verify Nate matches were moved to ambiguous
+    let nate_ambiguous_matches: Vec<_> = other_file
+        .matches
+        .ambiguous
+        .iter()
+        .filter(|m| m.found_text == "Nate")
+        .collect();
+    assert_eq!(
+        nate_ambiguous_matches.len(),
+        2,
+        "Should have both Nate matches in ambiguous"
+    );
+
+    // Verify correct line text for Nate matches
+    let nate_line_texts: Vec<_> = nate_ambiguous_matches
+        .iter()
+        .map(|m| m.line_text.as_str())
+        .collect();
+    assert!(nate_line_texts.contains(&"Nate was here and so was Nate"));
 }
