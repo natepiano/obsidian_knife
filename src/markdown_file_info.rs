@@ -126,26 +126,6 @@ pub struct BackPopulateMatchCollections {
     pub unambiguous: Vec<BackPopulateMatch>,
 }
 
-impl BackPopulateMatchCollections {
-    pub fn new() -> Self {
-        Self {
-            ambiguous: Vec::new(),
-            unambiguous: Vec::new(),
-        }
-    }
-
-    fn transfer_to_ambiguous(&mut self, found_text: &str, targets: &HashSet<String>) {
-        // Move matches from unambiguous to ambiguous when they match the found_text
-        let (matching, non_matching): (Vec<_>, Vec<_>) = self
-            .unambiguous
-            .drain(..)
-            .partition(|m| m.found_text.to_lowercase() == found_text.to_lowercase());
-
-        self.ambiguous.extend(matching);
-        self.unambiguous = non_matching;
-    }
-}
-
 #[derive(Debug)]
 pub struct MarkdownFileInfo {
     pub content: String,
