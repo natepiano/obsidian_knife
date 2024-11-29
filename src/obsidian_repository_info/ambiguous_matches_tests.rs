@@ -1,4 +1,4 @@
-use crate::back_populate::identify_and_remove_ambiguous_matches;
+//use crate::back_populate::identify_and_remove_ambiguous_matches;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::back_populate_tests::create_test_environment;
 use crate::scan::scan_folders;
@@ -75,8 +75,7 @@ fn test_identify_ambiguous_matches() {
     repo_info.markdown_files.push(test_file2);
     repo_info.markdown_files.push(test_file);
 
-    // Call the function we're testing
-    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
+    repo_info.identify_ambiguous_matches();
 
     // Find test1.md to check its matches
     let test_file = repo_info
@@ -161,7 +160,7 @@ fn test_truly_ambiguous_targets() {
     );
 
     // Process ambiguous matches
-    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
+    repo_info.identify_ambiguous_matches();
 
     // Find test1.md again and verify final state
     let test_file = repo_info
@@ -258,7 +257,7 @@ Amazon is ambiguous"#,
     assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
 
     // Process ambiguous matches
-    let _ = identify_and_remove_ambiguous_matches(&mut repo_info);
+    repo_info.identify_ambiguous_matches();
 
     // Find test1.md again and verify final state
     let test_file = repo_info
@@ -382,7 +381,8 @@ Nate was here and so was Nate"#
     assert_eq!(nate_matches.len(), 2, "Should have two Nate matches");
 
     // Process ambiguous matches
-    identify_and_remove_ambiguous_matches(&mut repo_info);
+    // identify_and_remove_ambiguous_matches(&mut repo_info);
+    repo_info.identify_ambiguous_matches();
 
     // Find other.md again and verify final state
     let other_file = repo_info

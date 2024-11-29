@@ -27,7 +27,7 @@ use crate::utils::{
 };
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use crate::{Timer, LEVEL2};
+use crate::{Timer, LEVEL2, LEVEL3, MATCHES_AMBIGUOUS};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -35,6 +35,7 @@ use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use crate::back_populate::write_back_populate_table;
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
@@ -46,6 +47,72 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
+
+    pub fn identify_ambiguous_matches(
+        &mut self,
+    ) {
+        // Create target and display_text maps as before...
+        let mut target_map: HashMap<String, String> = HashMap::new();
+        for wikilink in &self.wikilinks_sorted {
+            let lower_target = wikilink.target.to_lowercase();
+            if !target_map.contains_key(&lower_target)
+                || wikilink.target.to_lowercase() == wikilink.target
+            {
+                target_map.insert(lower_target.clone(), wikilink.target.clone());
+            }
+        }
+
+        let mut display_text_map: HashMap<String, HashSet<String>> = HashMap::new();
+        for wikilink in &self.wikilinks_sorted {
+            let lower_display_text = wikilink.display_text.to_lowercase();
+            let lower_target = wikilink.target.to_lowercase();
+            if let Some(canonical_target) = target_map.get(&lower_target) {
+                display_text_map
+                    .entry(lower_display_text.clone())
+                    .or_default()
+                    .insert(canonical_target.clone());
+            }
+        }
+
+        // Process each file's matches
+        for markdown_file in &mut self.markdown_files.iter_mut() {
+            // Create a map to group matches by their lowercased found_text within this file
+            let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
+
+            // Drain matches from the file into our temporary map
+            let file_matches = std::mem::take(&mut markdown_file.matches.unambiguous);
+            for match_info in file_matches {
+                let lower_found_text = match_info.found_text.to_lowercase();
+                matches_by_text
+                    .entry(lower_found_text)
+                    .or_default()
+                    .push(match_info);
+            }
+
+            // Process each group of matches
+            for (found_text_lower, text_matches) in matches_by_text {
+                if let Some(targets) = display_text_map.get(&found_text_lower) {
+                    if targets.len() > 1 {
+                        // This is an ambiguous match
+                        // Add to the file's ambiguous collection
+                        markdown_file.matches.ambiguous.extend(text_matches.clone());
+                    } else {
+                        // Unambiguous matches go back into the markdown_file
+                        markdown_file.matches.unambiguous.extend(text_matches);
+                    }
+                } else {
+                    // Handle unclassified matches
+                    println!(
+                        "[WARNING] Found unclassified matches for '{}' in file '{}'",
+                        found_text_lower,
+                        markdown_file.path.display()
+                    );
+                    markdown_file.matches.unambiguous.extend(text_matches);
+                }
+            }
+        }
+    }
+
     pub fn find_all_back_populate_matches(
         &mut self,
         config: &ValidatedConfig,
@@ -242,6 +309,72 @@ impl ObsidianRepositoryInfo {
         // Write the table
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
         writer.writeln("", "\n---\n")?;
+
+        Ok(())
+    }
+
+    pub fn write_ambiguous_matches_table(
+        &self,
+        writer: &ThreadSafeWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Skip if no files have ambiguous matches
+        let has_ambiguous = self
+            .markdown_files
+            .iter()
+            .any(|file| !file.matches.ambiguous.is_empty());
+
+        if !has_ambiguous {
+            return Ok(());
+        }
+
+        writer.writeln(LEVEL2, MATCHES_AMBIGUOUS)?;
+
+        // Create a map to group ambiguous matches by their display text (case-insensitive)
+        let mut matches_by_text: HashMap<String, (HashSet<String>, Vec<BackPopulateMatch>)> =
+            HashMap::new();
+
+        // First pass: collect all matches and their targets
+        for markdown_file in self.markdown_files.iter() {
+            for match_info in &markdown_file.matches.ambiguous {
+                let key = match_info.found_text.to_lowercase();
+                let entry = matches_by_text
+                    .entry(key)
+                    .or_insert((HashSet::new(), Vec::new()));
+                entry.1.push(match_info.clone());
+            }
+        }
+
+        // Second pass: collect targets for each found text
+        for wikilink in &self.wikilinks_sorted {
+            if let Some(entry) = matches_by_text.get_mut(&wikilink.display_text.to_lowercase()) {
+                entry.0.insert(wikilink.target.clone());
+            }
+        }
+
+        // Convert to sorted vec for consistent output
+        let mut sorted_matches: Vec<_> = matches_by_text.into_iter().collect();
+        sorted_matches.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        // Write out each group of matches
+        for (display_text, (targets, matches)) in sorted_matches {
+            writer.writeln(
+                LEVEL3,
+                &format!("\"{}\" matches {} targets:", display_text, targets.len(),),
+            )?;
+
+            // Write out all possible targets
+            let mut sorted_targets: Vec<_> = targets.into_iter().collect();
+            sorted_targets.sort();
+            for target in sorted_targets {
+                writer.writeln(
+                    "",
+                    &format!("- \\[\\[{}|{}]]", target.to_wikilink(), display_text),
+                )?;
+            }
+
+            // Reuse existing table writing code for the matches
+            write_back_populate_table(writer, &matches, false, 0)?;
+        }
 
         Ok(())
     }

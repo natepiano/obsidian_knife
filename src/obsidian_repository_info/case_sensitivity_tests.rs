@@ -1,4 +1,4 @@
-use crate::back_populate::identify_and_remove_ambiguous_matches;
+//use crate::back_populate::identify_and_remove_ambiguous_matches;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
@@ -134,7 +134,8 @@ fn test_case_insensitive_targets() {
     );
 
     // Get ambiguous matches
-    identify_and_remove_ambiguous_matches(&mut repo_info);
+    // identify_and_remove_ambiguous_matches(&mut repo_info);
+    repo_info.identify_ambiguous_matches();
 
     // Find our test file again after ambiguous matching
     let test_file = repo_info
