@@ -13,7 +13,7 @@ use crate::scan::ImageInfo;
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use crate::{constants::*, format_back_populate_header, pluralize_occurrence_in_files, Timer};
+use crate::{constants::*, Timer};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
@@ -593,6 +593,31 @@ pub fn write_back_populate_table(
     }
 
     Ok(())
+}
+
+fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
+    format!(
+        "{} {} {} {} {}",
+        match_count,
+        pluralize(match_count, Phrase::Matches),
+        BACK_POPULATE_TABLE_HEADER_MIDDLE,
+        file_count,
+        pluralize(file_count, Phrase::Files)
+    )
+}
+
+fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {
+    // We want "time" for 1, "times" for other numbers
+    let occurrence_word = pluralize(occurrences, Phrase::Times);
+
+    // Format as "time(s) in file(s)"
+    format!(
+        "{} {} in {} {}",
+        occurrences,
+        occurrence_word,
+        file_count,
+        pluralize(file_count, Phrase::Files)
+    )
 }
 
 // Helper function to highlight all instances of a pattern in text

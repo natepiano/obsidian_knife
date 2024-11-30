@@ -145,28 +145,3 @@ pub const fn pluralize(count: usize, phrase: Phrase) -> &'static str {
         (_, Phrase::TimesInFiles) => "times in",
     }
 }
-
-pub fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {
-    // We want "time" for 1, "times" for other numbers
-    let occurrence_word = pluralize(occurrences, Phrase::Times);
-
-    // Format as "time(s) in file(s)"
-    format!(
-        "{} {} in {} {}",
-        occurrences,
-        occurrence_word,
-        file_count,
-        pluralize(file_count, Phrase::Files)
-    )
-}
-
-pub fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
-    format!(
-        "{} {} {} {} {}",
-        match_count,
-        pluralize(match_count, Phrase::Matches),
-        BACK_POPULATE_TABLE_HEADER_MIDDLE,
-        file_count,
-        pluralize(file_count, Phrase::Files)
-    )
-}
