@@ -1,6 +1,6 @@
 //use crate::back_populate::identify_and_remove_ambiguous_matches;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
-use crate::obsidian_repository_info::back_populate_tests::create_test_environment;
+use crate::markdown_files::back_populate_tests::create_test_environment;
 use crate::scan::scan_folders;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;

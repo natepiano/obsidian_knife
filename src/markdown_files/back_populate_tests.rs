@@ -1,8 +1,9 @@
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::obsidian_repository_info::{FileProcessingState, ObsidianRepositoryInfo};
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink_types::Wikilink;
 use crate::ValidatedConfig;
 
+use crate::markdown_files::FileProcessingState;
 use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
 use crate::validated_config::ValidatedConfigBuilder;
 use aho_corasick::AhoCorasick;

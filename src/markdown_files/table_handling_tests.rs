@@ -1,8 +1,6 @@
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
-use crate::obsidian_repository_info::back_populate_tests::{
-    build_aho_corasick, create_test_environment,
-};
-use crate::obsidian_repository_info::{process_line, should_create_match};
+use crate::markdown_files::back_populate_tests::{build_aho_corasick, create_test_environment};
+use crate::markdown_files::{process_line, should_create_match};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
 

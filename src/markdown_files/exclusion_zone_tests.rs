@@ -1,5 +1,5 @@
-use crate::obsidian_repository_info::back_populate_tests::create_test_environment;
-use crate::obsidian_repository_info::collect_exclusion_zones;
+use crate::markdown_files::back_populate_tests::create_test_environment;
+use crate::markdown_files::collect_exclusion_zones;
 use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason};
 
 #[test]
