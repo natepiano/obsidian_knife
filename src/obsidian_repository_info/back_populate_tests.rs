@@ -94,10 +94,10 @@ fn test_apply_changes() {
         create_test_environment(true, None, None, Some(initial_content));
 
     // First find the matches
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Apply the changes
-    repo_info.apply_back_populate_changes().unwrap();
+    repo_info.apply_back_populate_changes();
 
     // Verify changes by checking MarkdownFileInfo content
     assert_eq!(

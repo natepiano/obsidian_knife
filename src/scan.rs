@@ -126,6 +126,7 @@ pub fn scan_folders(
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
     let (markdown_files, all_wikilinks) =
         scan_markdown_files(&markdown_paths, config.operational_timezone())?;
+
     obsidian_repository_info.markdown_files = markdown_files;
 
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);

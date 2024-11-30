@@ -114,10 +114,7 @@ impl ObsidianRepositoryInfo {
         }
     }
 
-    pub fn find_all_back_populate_matches(
-        &mut self,
-        config: &ValidatedConfig,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
         let _timer = Timer::new("find_all_back_populate_matches");
 
         let ac = self
@@ -140,11 +137,9 @@ impl ObsidianRepositoryInfo {
                 // todo - do you need to handle it with let _? is there a better way
                 let _ = process_file(&sorted_wikilinks, config, markdown_file_info, ac);
             });
-
-        Ok(())
     }
 
-    pub fn apply_back_populate_changes(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn apply_back_populate_changes(&mut self) {
         // Only process files that have matches
         // matches have been pruned to only unambiguous matches
         for markdown_file in self.markdown_files.iter_mut() {
@@ -205,8 +200,6 @@ impl ObsidianRepositoryInfo {
             markdown_file.content = updated_content.trim_end().to_string();
             markdown_file.mark_as_back_populated();
         }
-
-        Ok(())
     }
 
     pub fn persist(

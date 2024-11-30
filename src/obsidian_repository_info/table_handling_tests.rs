@@ -70,7 +70,7 @@ fn test_back_populate_content() {
         repo_info.markdown_files.push(markdown_info);
 
         // Apply back-populate changes
-        repo_info.apply_back_populate_changes().unwrap();
+        repo_info.apply_back_populate_changes();
 
         // Add more debug info
         if let Some(file) = repo_info.markdown_files.iter().find(|f| f.path == file) {

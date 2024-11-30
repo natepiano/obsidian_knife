@@ -26,9 +26,7 @@ fn test_alias_priority() {
     let content = "I love tomatoes in my salad";
     create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
 
-    repository_info
-        .find_all_back_populate_matches(&config)
-        .unwrap();
+    repository_info.find_all_back_populate_matches(&config);
 
     // Get total matches across all files
     let total_matches: usize = repository_info
@@ -80,7 +78,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(get_test_markdown_file_info(file_path));
 
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Get total matches
     let total_matches: usize = repo_info
@@ -104,7 +102,7 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(get_test_markdown_file_info(other_file_path));
 
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Get total matches after adding other file
     let total_matches: usize = repo_info
@@ -133,7 +131,7 @@ fn test_no_self_referential_back_population() {
     let content = "Will is mentioned here but should not be replaced";
     create_markdown_test_file(&temp_dir, "Will.md", content, &mut repo_info);
 
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Get total matches
     let total_matches: usize = repo_info
@@ -149,7 +147,7 @@ fn test_no_self_referential_back_population() {
 
     let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
 
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Get total matches after adding other file
     let total_matches: usize = repo_info

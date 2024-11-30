@@ -117,7 +117,7 @@ fn test_case_insensitive_targets() {
     let mut repo_info = scan_folders(&config).unwrap();
 
     // Process files to find matches
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Find our test file
     let test_file = repo_info

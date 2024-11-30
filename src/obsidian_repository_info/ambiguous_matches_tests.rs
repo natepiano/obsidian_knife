@@ -139,7 +139,7 @@ fn test_truly_ambiguous_targets() {
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
     let test_file = repo_info
@@ -223,7 +223,7 @@ Amazon is ambiguous"#,
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
     let test_file = repo_info
@@ -343,7 +343,7 @@ Nate was here and so was Nate"#
 
     // Let scan_folders find all the files and process them
     let mut repo_info = scan_folders(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config).unwrap();
+    repo_info.find_all_back_populate_matches(&config);
 
     // Find other.md and verify initial state
     let other_file = repo_info
