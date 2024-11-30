@@ -1,6 +1,5 @@
+use crate::markdown_file_info::back_populate_tests::{build_aho_corasick, create_test_environment};
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
-use crate::markdown_files::back_populate_tests::{build_aho_corasick, create_test_environment};
-use crate::markdown_files::{process_line, should_create_match};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink_types::Wikilink;
 
@@ -10,26 +9,14 @@ fn test_should_create_match_in_table() {
     let (temp_dir, config, _) = create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
-    let markdown_info =
+    let markdown_file_info =
         MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
     // Test simple table cell match
-    assert!(should_create_match(
-        "| Test Link | description |",
-        2,
-        "Test Link",
-        &file_path,
-        &markdown_info,
-    ));
+    assert!(markdown_file_info.should_create_match("| Test Link | description |", 2, "Test Link",));
 
     // Test match in table with existing wikilinks
-    assert!(should_create_match(
-        "| Test Link | [[Other]] |",
-        2,
-        "Test Link",
-        &file_path,
-        &markdown_info,
-    ));
+    assert!(markdown_file_info.should_create_match("| Test Link | [[Other]] |", 2, "Test Link",));
 }
 
 #[test]
@@ -157,7 +144,7 @@ fn test_process_line_table_escaping_combined() {
             .with_content(line.to_string())
             .create(&temp_dir, "test.md");
 
-        let matches = process_line(line, 0, &ac, &wikilink_refs, &config, markdown_info);
+        let matches = markdown_info.process_line(line, 0, &ac, &wikilink_refs, &config);
 
         assert_eq!(
             matches.len(),

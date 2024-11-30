@@ -1,5 +1,5 @@
-use crate::markdown_files::back_populate_tests::create_test_environment;
-use crate::markdown_files::is_within_wikilink;
+use crate::markdown_file_info::back_populate_tests::create_test_environment;
+use crate::markdown_file_info::is_within_wikilink;
 use crate::wikilink_types::Wikilink;
 
 #[test]

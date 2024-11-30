@@ -1,7 +1,7 @@
-use crate::markdown_files::back_populate_tests::{
+use crate::markdown_file_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::markdown_files::format_relative_path;
+use crate::markdown_file_info::format_relative_path;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink_types::Wikilink;
 
