@@ -1,4 +1,5 @@
 use super::*;
+use crate::wikilink::InvalidWikilinkReason;
 
 struct WikilinkTestCase {
     description: &'static str,

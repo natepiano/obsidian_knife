@@ -4,7 +4,7 @@ use crate::scan::{scan_folders, scan_markdown_file};
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::utils::CachedImageInfo;
 use crate::validated_config::get_test_validated_config;
-use crate::wikilink_types::InvalidWikilinkReason;
+use crate::wikilink::InvalidWikilinkReason;
 
 use regex::Regex;
 use std::collections::HashSet;

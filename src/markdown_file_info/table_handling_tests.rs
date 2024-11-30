@@ -1,7 +1,7 @@
 use crate::markdown_file_info::back_populate_tests::{build_aho_corasick, create_test_environment};
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::test_utils::TestFileBuilder;
-use crate::wikilink_types::Wikilink;
+use crate::wikilink::Wikilink;
 
 #[test]
 fn test_should_create_match_in_table() {

@@ -1,5 +1,5 @@
 use super::*;
-use crate::wikilink_types::ToWikilink;
+use crate::wikilink::{ToWikilink, WikilinkParseResult};
 use std::path::Path;
 
 // Macro to test simple wikilink creation

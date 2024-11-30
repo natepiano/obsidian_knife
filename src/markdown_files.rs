@@ -2,7 +2,7 @@ use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReas
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::format_wikilink;
-use crate::wikilink_types::Wikilink;
+use crate::wikilink::Wikilink;
 use crate::{LEVEL1, LEVEL3};
 
 use aho_corasick::AhoCorasick;

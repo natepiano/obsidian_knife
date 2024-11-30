@@ -1,6 +1,6 @@
 use crate::markdown_file_info::{FileProcessingState, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::wikilink_types::Wikilink;
+use crate::wikilink::Wikilink;
 use crate::ValidatedConfig;
 
 use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};

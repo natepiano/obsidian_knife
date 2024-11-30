@@ -5,12 +5,14 @@ mod markdown_link_tests;
 #[cfg(test)]
 mod wikilink_creation_tests;
 
-use crate::constants::*;
-use crate::utils::{EMAIL_REGEX, TAG_REGEX};
-use crate::wikilink_types::{
-    InvalidWikilinkReason, ParsedExtractedWikilinks, ParsedInvalidWikilink, Wikilink,
-    WikilinkParseResult,
+mod wikilink_types;
+pub use wikilink_types::*;
+
+use crate::{
+    constants::*,
+    utils::{EMAIL_REGEX, TAG_REGEX},
 };
+
 use std::iter::Peekable;
 use std::path::Path;
 use std::str::CharIndices;

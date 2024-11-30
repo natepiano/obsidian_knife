@@ -1,6 +1,6 @@
 use crate::scan::process_content;
 use crate::test_utils::TestFileBuilder;
-use crate::wikilink_types::{InvalidWikilinkReason, Wikilink};
+use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use crate::IMAGE_EXTENSIONS;
 use regex::Regex;
 use std::sync::Arc;

@@ -1,5 +1,5 @@
 use crate::markdown_file_info::back_populate_tests::create_test_environment;
-use crate::wikilink_types::{InvalidWikilink, InvalidWikilinkReason};
+use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason};
 
 #[test]
 fn test_collect_exclusion_zones_with_invalid_wikilinks() {

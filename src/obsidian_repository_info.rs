@@ -12,7 +12,7 @@ use crate::markdown_files::MarkdownFiles;
 use crate::scan::ImageInfo;
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
+use crate::wikilink::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use crate::{constants::*, format_back_populate_header, pluralize_occurrence_in_files, Timer};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;

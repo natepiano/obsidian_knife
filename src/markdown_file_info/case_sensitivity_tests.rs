@@ -5,7 +5,7 @@ use crate::markdown_file_info::back_populate_tests::{
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::scan::scan_folders;
 use crate::test_utils::TestFileBuilder;
-use crate::wikilink_types::Wikilink;
+use crate::wikilink::Wikilink;
 
 // Helper struct for test cases
 struct TestCase {

@@ -5,15 +5,16 @@ mod scan_tests;
 
 use crate::{
     constants::*, markdown_file_info::MarkdownFileInfo,
-    obsidian_repository_info::ObsidianRepositoryInfo, wikilink_types::Wikilink,
+    obsidian_repository_info::ObsidianRepositoryInfo,
 };
 
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Sha256Cache;
 use crate::utils::Timer;
-use crate::wikilink::{create_filename_wikilink, extract_wikilinks};
-use crate::wikilink_types::{ExtractedWikilinks, InvalidWikilink};
+use crate::wikilink::{
+    create_filename_wikilink, extract_wikilinks, ExtractedWikilinks, InvalidWikilink, Wikilink,
+};
 use crate::ValidatedConfig;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;

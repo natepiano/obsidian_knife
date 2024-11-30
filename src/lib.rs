@@ -13,7 +13,6 @@ mod scan;
 mod utils;
 mod validated_config;
 mod wikilink;
-mod wikilink_types;
 mod yaml_frontmatter;
 
 // Re-export types for main
