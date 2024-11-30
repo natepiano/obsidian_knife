@@ -1,4 +1,4 @@
-use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
 use crate::utils::{ColumnAlignment, ThreadSafeWriter};
 use crate::wikilink::format_wikilink;
 use crate::{LEVEL1, LEVEL3};
@@ -63,6 +63,12 @@ impl MarkdownFiles {
 
     pub fn par_iter(&self) -> impl ParallelIterator<Item = &MarkdownFileInfo> {
         self.files.par_iter()
+    }
+
+    pub fn unambiguous_matches(&self) -> Vec<BackPopulateMatch> {
+        self.iter()
+            .flat_map(|file| file.matches.unambiguous.clone())
+            .collect()
     }
 
     pub fn persist_all(

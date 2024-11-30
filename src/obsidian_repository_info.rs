@@ -27,7 +27,12 @@ use crate::utils::{
 };
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use crate::{Timer, LEVEL2, LEVEL3, MATCHES_AMBIGUOUS};
+use crate::{
+    format_back_populate_header, pluralize_occurrence_in_files, Timer, BACK_POPULATE_COUNT_PREFIX,
+    BACK_POPULATE_COUNT_SUFFIX, BACK_POPULATE_TABLE_HEADER_SUFFIX, COL_OCCURRENCES,
+    COL_SOURCE_TEXT, COL_TEXT, COL_WILL_REPLACE_WITH, LEVEL2, LEVEL3, LEVEL4, MATCHES_AMBIGUOUS,
+    MATCHES_UNAMBIGUOUS,
+};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use lazy_static::lazy_static;
@@ -35,7 +40,6 @@ use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use crate::back_populate::write_back_populate_table;
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
@@ -47,10 +51,7 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-
-    pub fn identify_ambiguous_matches(
-        &mut self,
-    ) {
+    pub fn identify_ambiguous_matches(&mut self) {
         // Create target and display_text maps as before...
         let mut target_map: HashMap<String, String> = HashMap::new();
         for wikilink in &self.wikilinks_sorted {
@@ -701,4 +702,291 @@ impl FileProcessingState {
     fn should_skip_line(&self) -> bool {
         self.in_frontmatter || self.in_code_block
     }
+}
+
+pub fn write_back_populate_table(
+    writer: &ThreadSafeWriter,
+    matches: &[BackPopulateMatch],
+    is_unambiguous_match: bool,
+    wikilinks_count: usize,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if is_unambiguous_match {
+        writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
+        writer.writeln(
+            "",
+            &format!(
+                "{} {} {}",
+                BACK_POPULATE_COUNT_PREFIX, wikilinks_count, BACK_POPULATE_COUNT_SUFFIX
+            ),
+        )?;
+    }
+
+    // Step 1: Group matches by found_text (case-insensitive) using a HashMap
+    let mut matches_by_text: HashMap<String, Vec<&BackPopulateMatch>> = HashMap::new();
+    for m in matches {
+        let key = m.found_text.to_lowercase();
+        matches_by_text.entry(key).or_default().push(m);
+    }
+
+    // Step 2: Get display text for each group (use first occurrence's case)
+    let mut display_text_map: HashMap<String, String> = HashMap::new();
+    for m in matches {
+        let key = m.found_text.to_lowercase();
+        display_text_map
+            .entry(key)
+            .or_insert_with(|| m.found_text.clone());
+    }
+
+    if is_unambiguous_match {
+        // Count unique files across all matches
+        let unique_files: HashSet<String> =
+            matches.iter().map(|m| m.relative_path.clone()).collect();
+        writer.writeln(
+            "",
+            &format!(
+                "{} {}",
+                format_back_populate_header(matches.len(), unique_files.len()),
+                BACK_POPULATE_TABLE_HEADER_SUFFIX,
+            ),
+        )?;
+    }
+
+    // Headers for the tables
+    let headers: Vec<&str> = if is_unambiguous_match {
+        vec![
+            "file name",
+            "line",
+            COL_TEXT,
+            COL_OCCURRENCES,
+            COL_WILL_REPLACE_WITH,
+            COL_SOURCE_TEXT,
+        ]
+    } else {
+        vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
+    };
+
+    // Step 3: Collect and sort the keys
+    let mut sorted_found_texts: Vec<String> = matches_by_text.keys().cloned().collect();
+    sorted_found_texts.sort();
+
+    // Step 4: Iterate over the sorted keys
+    for found_text_key in sorted_found_texts {
+        let text_matches = &matches_by_text[&found_text_key];
+        let display_text = &display_text_map[&found_text_key];
+        let total_occurrences = text_matches.len();
+        let file_paths: HashSet<String> = text_matches
+            .iter()
+            .map(|m| m.relative_path.clone())
+            .collect();
+
+        let level_string = if is_unambiguous_match { LEVEL3 } else { LEVEL4 };
+
+        writer.writeln(
+            level_string,
+            &format!(
+                "found: \"{}\" ({})",
+                display_text,
+                pluralize_occurrence_in_files(total_occurrences, file_paths.len())
+            ),
+        )?;
+
+        // Sort matches by file path and line number
+        let mut sorted_matches = text_matches.to_vec();
+        sorted_matches.sort_by(|a, b| {
+            let file_a = Path::new(&a.relative_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+            let file_b = Path::new(&b.relative_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("");
+
+            // First compare by file name (case-insensitive)
+            let file_cmp = file_a.to_lowercase().cmp(&file_b.to_lowercase());
+            if file_cmp != std::cmp::Ordering::Equal {
+                return file_cmp;
+            }
+
+            // Then by line number within the same file
+            a.line_number.cmp(&b.line_number)
+        });
+
+        // Consolidate matches
+        let consolidated = consolidate_matches(&sorted_matches);
+
+        // Prepare rows
+        let mut table_rows = Vec::new();
+
+        for m in consolidated {
+            let file_path = Path::new(&m.file_path);
+            let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+
+            // Create a row for each line, maintaining the consolidation of occurrences
+            for line_info in m.line_info {
+                let highlighted_line = highlight_matches(
+                    &line_info.line_text,
+                    &line_info.positions,
+                    display_text.len(),
+                );
+
+                let mut row = vec![
+                    file_stem.to_wikilink(),
+                    line_info.line_number.to_string(),
+                    escape_pipe(&highlighted_line),
+                    line_info.positions.len().to_string(),
+                ];
+
+                // Only add replacement columns for unambiguous matches
+                if is_unambiguous_match {
+                    let replacement = if m.in_markdown_table {
+                        m.replacement.clone()
+                    } else {
+                        escape_pipe(&m.replacement)
+                    };
+                    row.push(replacement.clone());
+                    row.push(escape_brackets(&replacement));
+                }
+
+                table_rows.push(row);
+            }
+        }
+
+        // Write the table with appropriate column alignments
+        let alignments = if is_unambiguous_match {
+            vec![
+                ColumnAlignment::Left,
+                ColumnAlignment::Right,
+                ColumnAlignment::Left,
+                ColumnAlignment::Center,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+            ]
+        } else {
+            vec![
+                ColumnAlignment::Left,
+                ColumnAlignment::Right,
+                ColumnAlignment::Left,
+                ColumnAlignment::Center,
+            ]
+        };
+
+        writer.write_markdown_table(&headers, &table_rows, Some(&alignments))?;
+        writer.writeln("", "\n---")?;
+    }
+
+    Ok(())
+}
+
+// Helper function to highlight all instances of a pattern in text
+fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
+    let mut result = String::with_capacity(text.len() * 2);
+    let mut last_end = 0;
+
+    // Sort positions to ensure we process them in order
+    let mut sorted_positions = positions.to_vec();
+    sorted_positions.sort_unstable();
+
+    for &start in sorted_positions.iter() {
+        let end = start + match_length;
+
+        // Validate UTF-8 boundaries
+        if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
+            eprintln!(
+                "Invalid UTF-8 boundary detected at position {} or {}",
+                start, end
+            );
+            return text.to_string();
+        }
+
+        // Add text before the match
+        result.push_str(&text[last_end..start]);
+
+        // Add the highlighted match
+        result.push_str("<span style=\"color: red;\">");
+        result.push_str(&text[start..end]);
+        result.push_str("</span>");
+
+        last_end = end;
+    }
+
+    // Add any remaining text after the last match
+    result.push_str(&text[last_end..]);
+    result
+}
+
+#[derive(Debug, Clone)]
+struct ConsolidatedMatch {
+    file_path: String,
+    line_info: Vec<LineInfo>, // Sorted vector of line information
+    replacement: String,
+    in_markdown_table: bool,
+}
+
+#[derive(Debug, Clone)]
+struct LineInfo {
+    line_number: usize,
+    line_text: String,
+    positions: Vec<usize>, // Multiple positions for same line
+}
+
+fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch> {
+    // First, group by file path and line number
+    let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
+    let mut file_info: HashMap<String, (String, bool)> = HashMap::new(); // Tracks replacement and table status per file
+
+    // Group matches by file and line
+    for match_info in matches {
+        let key = (match_info.relative_path.clone(), match_info.line_number);
+
+        // Update or create line info
+        let line_info = line_map.entry(key).or_insert(LineInfo {
+            // line_number: match_info.line_number,
+            line_number: match_info.line_number + match_info.frontmatter_line_count,
+            line_text: match_info.line_text.clone(),
+            positions: Vec::new(),
+        });
+        line_info.positions.push(match_info.position);
+
+        // Track file-level information
+        file_info.insert(
+            match_info.relative_path.clone(),
+            (match_info.replacement.clone(), match_info.in_markdown_table),
+        );
+    }
+
+    // Convert to consolidated matches, sorting lines within each file
+    let mut result = Vec::new();
+    for (file_path, (replacement, in_markdown_table)) in file_info {
+        let mut file_lines: Vec<LineInfo> = line_map
+            .iter()
+            .filter(|((path, _), _)| path == &file_path)
+            .map(|((_, _), line_info)| line_info.clone())
+            .collect();
+
+        // Sort lines by line number
+        file_lines.sort_by_key(|line| line.line_number);
+
+        result.push(ConsolidatedMatch {
+            file_path,
+            line_info: file_lines,
+            replacement,
+            in_markdown_table,
+        });
+    }
+
+    // Sort consolidated matches by file path
+    result.sort_by(|a, b| {
+        let file_a = Path::new(&a.file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        let file_b = Path::new(&b.file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("");
+        file_a.cmp(file_b)
+    });
+
+    result
 }

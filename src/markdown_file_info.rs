@@ -16,7 +16,6 @@ use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use filetime::FileTime;
 use itertools::Itertools;
 use regex::Regex;
-use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
 use std::{fmt, fs, io};
