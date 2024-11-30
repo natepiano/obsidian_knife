@@ -29,9 +29,9 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink_types::{InvalidWikilinkReason, ToWikilink, Wikilink};
 use crate::{
     format_back_populate_header, pluralize_occurrence_in_files, Timer, BACK_POPULATE_COUNT_PREFIX,
-    BACK_POPULATE_COUNT_SUFFIX, BACK_POPULATE_TABLE_HEADER_SUFFIX, COL_OCCURRENCES,
-    COL_SOURCE_TEXT, COL_TEXT, COL_WILL_REPLACE_WITH, LEVEL2, LEVEL3, LEVEL4, MATCHES_AMBIGUOUS,
-    MATCHES_UNAMBIGUOUS,
+    BACK_POPULATE_COUNT_SUFFIX, BACK_POPULATE_FILE_FILTER_PREFIX, BACK_POPULATE_FILE_FILTER_SUFFIX,
+    BACK_POPULATE_TABLE_HEADER_SUFFIX, COL_OCCURRENCES, COL_SOURCE_TEXT, COL_TEXT,
+    COL_WILL_REPLACE_WITH, LEVEL1, LEVEL2, LEVEL3, LEVEL4, MATCHES_AMBIGUOUS, MATCHES_UNAMBIGUOUS,
 };
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
@@ -219,6 +219,42 @@ impl ObsidianRepositoryInfo {
     pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
         self.markdown_files
             .update_modified_dates_for_cleanup_images(paths);
+    }
+
+    pub fn write_back_populate_tables(
+        &self,
+        config: &ValidatedConfig,
+        writer: &ThreadSafeWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
+
+        if let Some(filter) = config.back_populate_file_filter() {
+            writer.writeln(
+                "",
+                &format!(
+                    "{} {}\n{}\n",
+                    BACK_POPULATE_FILE_FILTER_PREFIX,
+                    filter.to_wikilink(),
+                    BACK_POPULATE_FILE_FILTER_SUFFIX
+                ),
+            )?;
+        }
+
+        // only writes if there are any
+        self.write_ambiguous_matches_table(writer)?;
+
+        let unambiguous_matches = self.markdown_files.unambiguous_matches();
+
+        if !unambiguous_matches.is_empty() {
+            write_back_populate_table(
+                writer,
+                &unambiguous_matches,
+                true,
+                self.wikilinks_sorted.len(),
+            )?;
+        }
+
+        Ok(())
     }
 
     pub fn write_invalid_wikilinks_table(

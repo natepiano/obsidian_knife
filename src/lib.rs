@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub(crate) mod test_utils;
 
-mod back_populate;
+// mod back_populate;
 // mod cleanup_dates;
 mod cleanup_images;
 mod config;
@@ -55,13 +55,10 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     obsidian_repository_info.identify_ambiguous_matches();
     obsidian_repository_info.apply_back_populate_changes()?;
 
+    // todo: this is out of order...for now
     cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
 
-    back_populate::write_back_populate_tables(
-        &validated_config,
-        &mut obsidian_repository_info,
-        &writer,
-    )?;
+    obsidian_repository_info.write_back_populate_tables(&validated_config, &writer)?;
 
     obsidian_repository_info
         .markdown_files
