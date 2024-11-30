@@ -98,8 +98,7 @@ impl MarkdownFiles {
                 }
             }
 
-            // todo - do you need to handle it with let _? is there a better way
-            let _ = process_file(&sorted_wikilinks, config, markdown_file_info, ac);
+            process_file(&sorted_wikilinks, config, markdown_file_info, ac);
         });
     }
 
@@ -306,7 +305,7 @@ fn process_file(
     config: &ValidatedConfig,
     markdown_file_info: &mut MarkdownFileInfo,
     ac: &AhoCorasick,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
+) {
     let content = markdown_file_info.content.clone();
     let mut state = FileProcessingState::new();
 
@@ -330,13 +329,11 @@ fn process_file(
             sorted_wikilinks,
             config,
             markdown_file_info,
-        )?;
+        );
 
         // Store matches instead of accumulating for return
         markdown_file_info.matches.unambiguous.extend(matches);
     }
-
-    Ok(())
 }
 
 fn process_line(
@@ -346,7 +343,7 @@ fn process_line(
     sorted_wikilinks: &[&Wikilink],
     config: &ValidatedConfig,
     markdown_file_info: &MarkdownFileInfo,
-) -> Result<Vec<BackPopulateMatch>, Box<dyn Error + Send + Sync>> {
+) -> Vec<BackPopulateMatch> {
     let mut matches = Vec::new();
     let exclusion_zones = collect_exclusion_zones(line, config, markdown_file_info);
 
@@ -399,7 +396,7 @@ fn process_line(
         }
     }
 
-    Ok(matches)
+    matches
 }
 
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
