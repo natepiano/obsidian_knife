@@ -10,7 +10,6 @@ use crate::{
 
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
-use crate::utils::Sha256Cache;
 use crate::utils::Timer;
 use crate::wikilink::{
     create_filename_wikilink, extract_wikilinks, ExtractedWikilinks, InvalidWikilink, Wikilink,
@@ -40,79 +39,6 @@ pub fn pre_process_obsidian_folder(
     Ok(obsidian_repository_info)
 }
 
-fn get_image_info_map(
-    config: &ValidatedConfig,
-    markdown_files: &MarkdownFiles,
-    image_files: &[PathBuf],
-) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
-    let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
-    // Create set of valid paths once
-    let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
-
-    // let cache = Arc::new(Mutex::new(Sha256Cache::new(cache_file_path.clone())?.0));
-    let cache = Arc::new(Mutex::new({
-        let mut cache_instance = Sha256Cache::new(cache_file_path.clone())?.0;
-        cache_instance.mark_deletions(&valid_paths);
-        cache_instance
-    }));
-
-    let markdown_refs: HashMap<String, HashSet<String>> = markdown_files
-        .par_iter()
-        .filter(|file_info| !file_info.image_links.is_empty())
-        .map(|file_info| {
-            let path = file_info.path.to_string_lossy().to_string();
-            let images: HashSet<_> = file_info
-                .image_links
-                .iter()
-                .map(|link| {
-                    // Remove ![[]] and any pipe and content after it
-                    let clean_name = link
-                        .trim_start_matches("![[")
-                        .trim_end_matches("]]")
-                        .split('|')
-                        .next()
-                        .unwrap_or("")
-                        .to_string();
-                    clean_name
-                })
-                .collect();
-            (path, images)
-        })
-        .collect();
-
-    // Process images
-    let image_info_map: HashMap<_, _> = image_files
-        .par_iter()
-        .filter_map(|image_path| {
-            let hash = cache.lock().ok()?.get_or_update(image_path).ok()?.0;
-
-            let image_name = image_path.file_name()?.to_str()?;
-
-            let references: Vec<String> = markdown_refs
-                .iter()
-                .filter_map(|(path, image_names)| {
-                    if image_names.contains(image_name) {
-                        Some(path.clone())
-                    } else {
-                        None
-                    }
-                })
-                .collect();
-
-            Some((image_path.clone(), ImageInfo { hash, references }))
-        })
-        .collect();
-
-    // Final cache operations
-    if let Ok(cache) = Arc::try_unwrap(cache).unwrap().into_inner() {
-        if cache.has_changes() {
-            cache.save()?;
-        }
-    }
-
-    Ok(image_info_map)
-}
-
 pub fn scan_folders(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
@@ -128,18 +54,16 @@ pub fn scan_folders(
     let (markdown_files, all_wikilinks) =
         scan_markdown_files(&markdown_paths, config.operational_timezone())?;
 
-    obsidian_repository_info.markdown_files = markdown_files;
-
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
     obsidian_repository_info.wikilinks_sorted = sorted;
     obsidian_repository_info.wikilinks_ac = Some(ac);
 
+    obsidian_repository_info.markdown_files = markdown_files;
+
     // Process image info
-    obsidian_repository_info.image_map = get_image_info_map(
-        config,
-        &obsidian_repository_info.markdown_files,
-        &image_files,
-    )?;
+    obsidian_repository_info.image_map = obsidian_repository_info
+        .markdown_files
+        .get_image_info_map(config, &image_files)?;
 
     Ok(obsidian_repository_info)
 }
@@ -283,7 +207,7 @@ fn process_content(
             .collect();
         result.invalid.extend(invalid_with_lines);
 
-        // Process image references in the same pass
+        // Process image references on the same line
         for capture in image_regex.captures_iter(line) {
             if let Some(reference) = capture.get(0) {
                 image_links.push(reference.as_str().to_string());

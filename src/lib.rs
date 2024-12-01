@@ -2,7 +2,6 @@
 pub(crate) mod test_utils;
 
 // mod cleanup_dates;
-mod cleanup_images;
 mod config;
 mod constants;
 mod frontmatter;
@@ -43,15 +42,15 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     };
 
     let validated_config = config.validate()?;
-    let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
-
-    write_execution_start(&validated_config, &writer)?;
 
     let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
-
     obsidian_repository_info.find_all_back_populate_matches(&validated_config);
+
+    let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
+    write_execution_start(&validated_config, &writer)?;
+
     // todo: this is out of order...for now because it both scans and writes
-    cleanup_images::cleanup_images(&validated_config, &mut obsidian_repository_info, &writer)?;
+    obsidian_repository_info.cleanup_images(&validated_config, &writer)?;
 
     obsidian_repository_info.identify_ambiguous_matches();
     obsidian_repository_info.apply_back_populate_changes();

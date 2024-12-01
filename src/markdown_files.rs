@@ -1,17 +1,19 @@
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
-use crate::utils::{ColumnAlignment, ThreadSafeWriter};
+use crate::utils::{ColumnAlignment, Sha256Cache, ThreadSafeWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::format_wikilink;
 use crate::wikilink::Wikilink;
-use crate::{LEVEL1, LEVEL3};
+use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1, LEVEL3};
 
+use crate::scan::ImageInfo;
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::PathBuf;
+use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
@@ -283,5 +285,78 @@ impl MarkdownFiles {
         }
 
         Ok(())
+    }
+
+    pub(crate) fn get_image_info_map(
+        &self,
+        config: &ValidatedConfig,
+        image_files: &[PathBuf],
+    ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+        let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
+        // Create set of valid paths once
+        let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
+
+        // let cache = Arc::new(Mutex::new(Sha256Cache::new(cache_file_path.clone())?.0));
+        let cache = Arc::new(Mutex::new({
+            let mut cache_instance = Sha256Cache::new(cache_file_path.clone())?.0;
+            cache_instance.mark_deletions(&valid_paths);
+            cache_instance
+        }));
+
+        let markdown_refs: HashMap<String, HashSet<String>> = self
+            .par_iter()
+            .filter(|file_info| !file_info.image_links.is_empty())
+            .map(|markdown_file_info| {
+                let path = markdown_file_info.path.to_string_lossy().to_string();
+                let images: HashSet<_> = markdown_file_info
+                    .image_links
+                    .iter()
+                    .map(|link| {
+                        // Remove ![[]] and any pipe and content after it
+                        let clean_name = link
+                            .trim_start_matches("![[")
+                            .trim_end_matches("]]")
+                            .split('|')
+                            .next()
+                            .unwrap_or("")
+                            .to_string();
+                        clean_name
+                    })
+                    .collect();
+                (path, images)
+            })
+            .collect();
+
+        // Process images
+        let image_info_map: HashMap<_, _> = image_files
+            .par_iter()
+            .filter_map(|image_path| {
+                let hash = cache.lock().ok()?.get_or_update(image_path).ok()?.0;
+
+                let image_name = image_path.file_name()?.to_str()?;
+
+                let references: Vec<String> = markdown_refs
+                    .iter()
+                    .filter_map(|(path, image_names)| {
+                        if image_names.contains(image_name) {
+                            Some(path.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                Some((image_path.clone(), ImageInfo { hash, references }))
+            })
+            .collect();
+
+        // Final cache operations
+        if let Ok(cache) = Arc::try_unwrap(cache).unwrap().into_inner() {
+            if cache.has_changes() {
+                cache.save()?;
+            }
+        }
+
+        Ok(image_info_map)
     }
 }
