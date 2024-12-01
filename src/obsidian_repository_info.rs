@@ -42,7 +42,7 @@ pub enum ImageGroupType {
     DuplicateGroup(String), // String is the hash value
 }
 #[derive(Debug, Clone)]
-pub struct ImageInfo {
+pub struct ImageReferences {
     pub hash: String,
     pub markdown_file_references: Vec<String>,
 }
@@ -50,7 +50,7 @@ pub struct ImageInfo {
 #[derive(Clone)]
 struct ImageGroup {
     path: PathBuf,
-    info: ImageInfo,
+    info: ImageReferences,
 }
 
 // New struct to hold grouped images
@@ -88,7 +88,7 @@ impl GroupedImages {
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
     pub markdown_files: MarkdownFiles,
-    pub image_map: HashMap<PathBuf, ImageInfo>,
+    pub image_map: HashMap<PathBuf, ImageReferences>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
@@ -876,7 +876,7 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
     result
 }
 
-fn group_images(image_map: &HashMap<PathBuf, ImageInfo>) -> GroupedImages {
+fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages {
     let mut groups = GroupedImages::new();
 
     for (path, info) in image_map {
@@ -950,7 +950,7 @@ fn write_image_tables(
     Ok(())
 }
 
-fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
+fn determine_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
     if path
         .extension()
         .and_then(|ext| ext.to_str())
@@ -989,7 +989,7 @@ fn write_missing_references_table(
             .or_default()
             .push(ImageGroup {
                 path: PathBuf::from(extracted_filename),
-                info: ImageInfo {
+                info: ImageReferences {
                     hash: String::new(),
                     markdown_file_references: vec![markdown_path.to_string_lossy().to_string()],
                 },

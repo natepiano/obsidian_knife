@@ -4,7 +4,7 @@ use std::fs;
 
 use crate::obsidian_repository_info::{
     determine_group_type, group_images, handle_file_operation, FileOperation, ImageGroupType,
-    ImageInfo,
+    ImageReferences,
 };
 use chrono::Utc;
 use std::fs::File;
@@ -493,7 +493,7 @@ fn test_group_images() {
     // Add test entries to image_map
     image_map.insert(
         tiff_path.clone(),
-        ImageInfo {
+        ImageReferences {
             hash: "hash1".to_string(),
             markdown_file_references: vec!["ref1".to_string()],
         },
@@ -501,7 +501,7 @@ fn test_group_images() {
 
     image_map.insert(
         zero_byte_path.clone(),
-        ImageInfo {
+        ImageReferences {
             hash: "hash2".to_string(),
             markdown_file_references: vec!["ref2".to_string()],
         },
@@ -509,7 +509,7 @@ fn test_group_images() {
 
     image_map.insert(
         unreferenced_path.clone(),
-        ImageInfo {
+        ImageReferences {
             hash: "hash3".to_string(),
             markdown_file_references: vec![],
         },
@@ -518,14 +518,14 @@ fn test_group_images() {
     let duplicate_hash = "hash4".to_string();
     image_map.insert(
         duplicate_path1.clone(),
-        ImageInfo {
+        ImageReferences {
             hash: duplicate_hash.clone(),
             markdown_file_references: vec!["ref3".to_string()],
         },
     );
     image_map.insert(
         duplicate_path2.clone(),
-        ImageInfo {
+        ImageReferences {
             hash: duplicate_hash.clone(),
             markdown_file_references: vec!["ref4".to_string()],
         },
@@ -568,7 +568,7 @@ fn test_determine_group_type_case_insensitive() {
         let path = temp_dir.path().join(format!("test.{}", ext));
         File::create(&path).unwrap();
 
-        let info = ImageInfo {
+        let info = ImageReferences {
             hash: "hash1".to_string(),
             markdown_file_references: vec!["ref1".to_string()],
         };

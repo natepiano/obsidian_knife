@@ -5,7 +5,7 @@ use crate::wikilink::format_wikilink;
 use crate::wikilink::Wikilink;
 use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1, LEVEL3};
 
-use crate::obsidian_repository_info::ImageInfo;
+use crate::obsidian_repository_info::ImageReferences;
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -291,7 +291,7 @@ impl MarkdownFiles {
         &self,
         config: &ValidatedConfig,
         image_files: &[PathBuf],
-    ) -> Result<HashMap<PathBuf, ImageInfo>, Box<dyn Error + Send + Sync>> {
+    ) -> Result<HashMap<PathBuf, ImageReferences>, Box<dyn Error + Send + Sync>> {
         let cache_file_path = config.obsidian_path().join(CACHE_FOLDER).join(CACHE_FILE);
 
         // Create set of valid paths once
@@ -339,7 +339,7 @@ impl MarkdownFiles {
 
                 Some((
                     image_path.clone(),
-                    ImageInfo {
+                    ImageReferences {
                         hash,
                         markdown_file_references: references,
                     },
