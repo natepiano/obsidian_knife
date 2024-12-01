@@ -39,7 +39,7 @@ pub struct Sha256Cache {
 }
 
 impl Sha256Cache {
-    pub fn new(
+    pub fn load_or_create(
         cache_file_path: PathBuf,
     ) -> Result<(Self, CacheFileStatus), Box<dyn Error + Send + Sync>> {
         let (cache, status) = if cache_file_path.exists() {
@@ -57,13 +57,10 @@ impl Sha256Cache {
             (HashMap::new(), CacheFileStatus::CreatedNewCache)
         };
 
-        // let initial_count = cache.len();
-
         Ok((
             Sha256Cache {
                 cache,
                 cache_file_path,
-                // initial_count,
                 files_read: 0,
                 files_added: 0,
                 files_modified: 0,

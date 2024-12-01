@@ -41,6 +41,7 @@ pub enum ImageGroupType {
     UnreferencedImage,
     DuplicateGroup(String), // String is the hash value
 }
+
 #[derive(Debug, Clone)]
 pub struct ImageReferences {
     pub hash: String,
@@ -53,7 +54,6 @@ struct ImageGroup {
     info: ImageReferences,
 }
 
-// New struct to hold grouped images
 #[derive(Default)]
 struct GroupedImages {
     groups: HashMap<ImageGroupType, Vec<ImageGroup>>,
@@ -88,7 +88,7 @@ impl GroupedImages {
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
     pub markdown_files: MarkdownFiles,
-    pub image_map: HashMap<PathBuf, ImageReferences>,
+    pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
@@ -451,7 +451,7 @@ impl ObsidianRepositoryInfo {
 
         let mut modified_paths = HashSet::new(); // Add HashSet to track modified files
 
-        let grouped_images = group_images(&self.image_map);
+        let grouped_images = group_images(&self.image_path_to_references_map);
         let missing_references = self.generate_missing_references()?;
 
         let empty_vec = Vec::new();
@@ -501,7 +501,7 @@ impl ObsidianRepositoryInfo {
     ) -> Result<Vec<(&PathBuf, String)>, Box<dyn Error + Send + Sync>> {
         let mut missing_references = Vec::new();
         let image_filenames: HashSet<String> = self
-            .image_map
+            .image_path_to_references_map
             .keys()
             .filter_map(|path| path.file_name())
             .map(|name| name.to_string_lossy().to_lowercase())

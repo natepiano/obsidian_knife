@@ -56,7 +56,7 @@ pub fn scan_folders(
     obsidian_repository_info.markdown_files = markdown_files;
 
     // Process image info
-    obsidian_repository_info.image_map = obsidian_repository_info
+    obsidian_repository_info.image_path_to_references_map = obsidian_repository_info
         .markdown_files
         .get_image_info_map(config, &image_files)?;
 
@@ -204,8 +204,8 @@ fn process_content(
 
         // Process image references on the same line
         for capture in image_regex.captures_iter(line) {
-            if let Some(reference) = capture.get(0) {
-                image_links.push(ImageLink::new(reference.as_str().to_string()));
+            if let Some(raw_image_link) = capture.get(0) {
+                image_links.push(ImageLink::new(raw_image_link.as_str().to_string()));
             }
         }
     }

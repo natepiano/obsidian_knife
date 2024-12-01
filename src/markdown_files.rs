@@ -287,6 +287,7 @@ impl MarkdownFiles {
         Ok(())
     }
 
+    // map of image files to the markdown files that reference them
     pub(crate) fn get_image_info_map(
         &self,
         config: &ValidatedConfig,
@@ -298,11 +299,12 @@ impl MarkdownFiles {
         let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
 
         let cache = Arc::new(Mutex::new({
-            let mut cache_instance = Sha256Cache::new(cache_file_path.clone())?.0;
+            let mut cache_instance = Sha256Cache::load_or_create(cache_file_path.clone())?.0;
             cache_instance.mark_deletions(&valid_paths);
             cache_instance
         }));
 
+        // map of markdown_file_info paths to list of image link file names on that markdown file
         let markdown_refs: HashMap<String, HashSet<String>> = self
             .par_iter()
             .filter(|file_info| !file_info.image_links.is_empty())
