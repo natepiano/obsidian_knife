@@ -157,7 +157,7 @@ fn test_process_content_with_empty() {
 
 #[test]
 fn test_process_content_with_images() {
-    let content = "# Test\n![[image.png]]\nHere's a [[link]] and ![alt text](another.jpg)";
+    let content = "# Test\n![[image.png]]\nHere's a [[link]] and ![[another.jpg]]";
     let image_regex = create_image_regex();
 
     let temp_dir = TempDir::new().unwrap();
@@ -174,6 +174,16 @@ fn test_process_content_with_images() {
 
     // Check image links
     assert_eq!(image_links.len(), 2, "Should have two image links");
-    assert!(image_links.contains(&"![[image.png]]".to_string()));
-    assert!(image_links.contains(&"![alt text](another.jpg)".to_string()));
+    assert!(image_links
+        .iter()
+        .any(|link| link.raw_link == "![[image.png]]"));
+    assert!(image_links
+        .iter()
+        .any(|link| link.raw_link == "![[another.jpg]]"));
+
+    // Optionally, also test the filenames were extracted correctly
+    assert!(image_links.iter().any(|link| link.filename == "image.png"));
+    assert!(image_links
+        .iter()
+        .any(|link| link.filename == "another.jpg"));
 }

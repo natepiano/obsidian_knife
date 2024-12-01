@@ -8,6 +8,7 @@ use crate::{
     obsidian_repository_info::ObsidianRepositoryInfo,
 };
 
+use crate::markdown_file_info::ImageLink;
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Timer;
@@ -22,12 +23,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-
-#[derive(Debug, Clone)]
-pub struct ImageInfo {
-    pub hash: String,
-    pub(crate) references: Vec<String>,
-}
 
 pub fn pre_process_obsidian_folder(
     config: &ValidatedConfig,
@@ -169,7 +164,7 @@ fn process_content(
     aliases: &Option<Vec<String>>,
     file_path: &Path,
     image_regex: &Arc<Regex>,
-) -> Result<(ExtractedWikilinks, Vec<String>), Box<dyn Error + Send + Sync>> {
+) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
     let mut result = ExtractedWikilinks::default();
     let mut image_links = Vec::new();
 
@@ -210,7 +205,7 @@ fn process_content(
         // Process image references on the same line
         for capture in image_regex.captures_iter(line) {
             if let Some(reference) = capture.get(0) {
-                image_links.push(reference.as_str().to_string());
+                image_links.push(ImageLink::new(reference.as_str().to_string()));
             }
         }
     }

@@ -149,3 +149,23 @@ impl FileProcessingState {
         self.in_frontmatter || self.in_code_block
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct ImageLink {
+    pub raw_link: String, // The full ![[image.jpg]] syntax
+    pub filename: String, // Just "image.jpg"
+}
+
+impl ImageLink {
+    pub fn new(raw_link: String) -> Self {
+        let filename = raw_link
+            .trim_start_matches("![[")
+            .trim_end_matches("]]")
+            .split('|')
+            .next()
+            .unwrap_or("")
+            .to_string();
+
+        Self { raw_link, filename }
+    }
+}

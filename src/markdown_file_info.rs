@@ -48,7 +48,7 @@ pub struct MarkdownFileInfo {
     pub frontmatter: Option<FrontMatter>,
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub frontmatter_line_count: usize,
-    pub image_links: Vec<String>,
+    pub image_links: Vec<ImageLink>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
     pub matches: BackPopulateMatchCollections,
     pub path: PathBuf,

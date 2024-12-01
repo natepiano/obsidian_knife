@@ -133,8 +133,6 @@ pub fn collect_repository_files(
     config: &ValidatedConfig,
     ignore_folders: &[PathBuf],
 ) -> Result<(Vec<PathBuf>, Vec<PathBuf>, Vec<PathBuf>), Box<dyn Error + Send + Sync>> {
-    // let _timer = Timer::new("collect_repository_files");
-
     fn is_ignored(path: &Path, ignore_folders: &[PathBuf]) -> bool {
         ignore_folders
             .iter()

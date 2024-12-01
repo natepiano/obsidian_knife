@@ -4,8 +4,8 @@ use std::fs;
 
 use crate::obsidian_repository_info::{
     determine_group_type, group_images, handle_file_operation, FileOperation, ImageGroupType,
+    ImageInfo,
 };
-use crate::scan::ImageInfo;
 use chrono::Utc;
 use std::fs::File;
 use std::path::PathBuf;
@@ -495,7 +495,7 @@ fn test_group_images() {
         tiff_path.clone(),
         ImageInfo {
             hash: "hash1".to_string(),
-            references: vec!["ref1".to_string()],
+            markdown_file_references: vec!["ref1".to_string()],
         },
     );
 
@@ -503,7 +503,7 @@ fn test_group_images() {
         zero_byte_path.clone(),
         ImageInfo {
             hash: "hash2".to_string(),
-            references: vec!["ref2".to_string()],
+            markdown_file_references: vec!["ref2".to_string()],
         },
     );
 
@@ -511,7 +511,7 @@ fn test_group_images() {
         unreferenced_path.clone(),
         ImageInfo {
             hash: "hash3".to_string(),
-            references: vec![],
+            markdown_file_references: vec![],
         },
     );
 
@@ -520,14 +520,14 @@ fn test_group_images() {
         duplicate_path1.clone(),
         ImageInfo {
             hash: duplicate_hash.clone(),
-            references: vec!["ref3".to_string()],
+            markdown_file_references: vec!["ref3".to_string()],
         },
     );
     image_map.insert(
         duplicate_path2.clone(),
         ImageInfo {
             hash: duplicate_hash.clone(),
-            references: vec!["ref4".to_string()],
+            markdown_file_references: vec!["ref4".to_string()],
         },
     );
 
@@ -570,7 +570,7 @@ fn test_determine_group_type_case_insensitive() {
 
         let info = ImageInfo {
             hash: "hash1".to_string(),
-            references: vec!["ref1".to_string()],
+            markdown_file_references: vec!["ref1".to_string()],
         };
 
         let group_type = determine_group_type(&path, &info);

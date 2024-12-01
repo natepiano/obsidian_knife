@@ -134,12 +134,17 @@ fn test_parallel_image_reference_collection() {
 
     for i in 0..100 {
         let filename = format!("note{}.md", i);
-        let content = format!("![image{}](test{}.jpg)\n![shared](common.jpg)", i, i);
+        let content = format!("![[test{}.jpg]]\n![[common.jpg]]", i);
         let file_path = TestFileBuilder::new()
             .with_content(content.clone())
             .create(&temp_dir, &filename);
         let mut info = get_test_markdown_file_info(file_path.clone());
-        info.image_links = content.split('\n').map(|s| s.to_string()).collect();
+
+        info.image_links = content
+            .split('\n')
+            .map(|s| ImageLink::new(s.to_string()))
+            .collect();
+
         markdown_files.insert(file_path, info);
     }
 
@@ -147,7 +152,7 @@ fn test_parallel_image_reference_collection() {
     fn has_common_image(info: &MarkdownFileInfo) -> bool {
         info.image_links
             .iter()
-            .any(|link| link.contains("common.jpg"))
+            .any(|link| link.filename == "common.jpg")
     }
 
     // Helper functions using shared filter

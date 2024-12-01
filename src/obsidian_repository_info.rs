@@ -9,13 +9,15 @@ mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-use crate::markdown_file_info::BackPopulateMatch;
-use crate::markdown_files::MarkdownFiles;
-use crate::scan::ImageInfo;
-use crate::utils::{escape_brackets, escape_pipe, update_file, ColumnAlignment, ThreadSafeWriter};
-use crate::validated_config::ValidatedConfig;
-use crate::wikilink::{InvalidWikilinkReason, ToWikilink, Wikilink};
-use crate::{constants::*, Timer};
+use crate::{
+    constants::*,
+    markdown_file_info::BackPopulateMatch,
+    markdown_files::MarkdownFiles,
+    utils::{escape_brackets, escape_pipe, update_file, ColumnAlignment, ThreadSafeWriter},
+    validated_config::ValidatedConfig,
+    wikilink::{InvalidWikilinkReason, ToWikilink, Wikilink},
+    Timer,
+};
 use aho_corasick::AhoCorasick;
 use itertools::Itertools;
 use regex::Regex;
@@ -38,6 +40,11 @@ pub enum ImageGroupType {
     ZeroByteImage,
     UnreferencedImage,
     DuplicateGroup(String), // String is the hash value
+}
+#[derive(Debug, Clone)]
+pub struct ImageInfo {
+    pub hash: String,
+    pub markdown_file_references: Vec<String>,
 }
 
 #[derive(Clone)]
@@ -502,7 +509,8 @@ impl ObsidianRepositoryInfo {
 
         for markdown_file_info in self.markdown_files.iter() {
             for image_link in &markdown_file_info.image_links {
-                if let Some(extracted_filename) = extract_local_image_filename(image_link) {
+                if let Some(extracted_filename) = extract_local_image_filename(&image_link.raw_link)
+                {
                     if !image_exists_in_set(&extracted_filename, &image_filenames) {
                         missing_references.push((&markdown_file_info.path, extracted_filename));
                     }
@@ -951,7 +959,7 @@ fn determine_group_type(path: &Path, info: &ImageInfo) -> ImageGroupType {
         ImageGroupType::TiffImage
     } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {
         ImageGroupType::ZeroByteImage
-    } else if info.references.is_empty() {
+    } else if info.markdown_file_references.is_empty() {
         ImageGroupType::UnreferencedImage
     } else {
         ImageGroupType::DuplicateGroup(info.hash.clone())
@@ -983,7 +991,7 @@ fn write_missing_references_table(
                 path: PathBuf::from(extracted_filename),
                 info: ImageInfo {
                     hash: String::new(),
-                    references: vec![markdown_path.to_string_lossy().to_string()],
+                    markdown_file_references: vec![markdown_path.to_string_lossy().to_string()],
                 },
             });
     }
@@ -1054,7 +1062,10 @@ fn write_duplicate_group_table(
     writer.writeln(LEVEL2, "duplicate images with references")?;
     writer.writeln(LEVEL3, &format!("image file hash: {}", group_hash))?;
     writer.writeln_pluralized(groups.len(), Phrase::DuplicateImages)?;
-    let total_references: usize = groups.iter().map(|g| g.info.references.len()).sum();
+    let total_references: usize = groups
+        .iter()
+        .map(|g| g.info.markdown_file_references.len())
+        .sum();
     let references_string = pluralize(total_references, Phrase::Files);
     writer.writeln(
         "",
@@ -1077,7 +1088,7 @@ fn format_references(
         .flat_map(|group| {
             group
                 .info
-                .references
+                .markdown_file_references
                 .iter()
                 .enumerate()
                 .map(|(index, ref_path)| (index, ref_path.clone(), &group.path))
