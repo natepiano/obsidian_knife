@@ -96,10 +96,8 @@ impl MarkdownFiles {
             .collect()
     }
 
-    pub fn persist_all(
-        &self,
-        file_limit: Option<usize>,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // can be used for writing output files so we know which ones are in play
+    pub fn get_files_to_persist(&self, file_limit: Option<usize>) -> HashSet<PathBuf> {
         let files_to_persist: Vec<_> = self
             .files
             .iter()
@@ -109,17 +107,28 @@ impl MarkdownFiles {
                     .as_ref()
                     .map_or(false, |fm| fm.needs_persist())
             })
+            .map(|file_info| file_info.path.clone())
             .collect();
 
         let total_files = files_to_persist.len();
-        let iter = files_to_persist.iter();
-        let files_to_process = match file_limit {
-            Some(limit) => iter.take(limit),
-            None => iter.take(total_files), // Match the Take type from Some branch
-        };
+        match file_limit {
+            Some(limit) => files_to_persist.into_iter().take(limit).collect(),
+            None => files_to_persist.into_iter().take(total_files).collect(),
+        }
+    }
 
-        for file_info in files_to_process {
-            file_info.persist()?;
+    pub fn persist_all(
+        &self,
+        file_limit: Option<usize>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let files_to_persist = self.get_files_to_persist(file_limit);
+
+        // todo - get_files_to_persist should probably just return the markdown_file_info (or we need another fn)
+        // so we don't have to do a find on the list to find the ones to persist - which seems ridiculous
+        for file_path in files_to_persist {
+            if let Some(file_info) = self.files.iter().find(|f| f.path == file_path) {
+                file_info.persist()?;
+            }
         }
         Ok(())
     }

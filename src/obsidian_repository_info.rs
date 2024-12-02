@@ -442,17 +442,23 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
-    pub fn cleanup_images(
-        &mut self,
-        config: &ValidatedConfig,
-        writer: &ThreadSafeWriter,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
-
-        let mut modified_paths = HashSet::new(); // Add HashSet to track modified files
-
+    fn analyze_images(
+        &self,
+    ) -> Result<(GroupedImages, Vec<(&PathBuf, String)>), Box<dyn Error + Send + Sync>> {
         let grouped_images = group_images(&self.image_path_to_references_map);
         let missing_references = self.generate_missing_references()?;
+        Ok((grouped_images, missing_references))
+    }
+
+    fn write_image_analysis(
+        &self,
+        config: &ValidatedConfig,
+        writer: &ThreadSafeWriter,
+        grouped_images: &GroupedImages,
+        missing_references: &[(&PathBuf, String)],
+        modified_paths: &mut HashSet<PathBuf>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
 
         let empty_vec = Vec::new();
 
@@ -480,11 +486,31 @@ impl ObsidianRepositoryInfo {
         write_image_tables(
             config,
             writer,
-            &missing_references,
+            missing_references,
             tiff_images,
             zero_byte_images,
             unreferenced_images,
             &duplicate_groups,
+            modified_paths,
+        )?;
+
+        Ok(())
+    }
+
+    pub fn cleanup_images(
+        &mut self,
+        config: &ValidatedConfig,
+        writer: &ThreadSafeWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let (grouped_images, missing_references) = self.analyze_images()?;
+
+        let mut modified_paths = HashSet::new();
+
+        self.write_image_analysis(
+            config,
+            writer,
+            &grouped_images,
+            &missing_references,
             &mut modified_paths,
         )?;
 

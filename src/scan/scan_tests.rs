@@ -7,7 +7,7 @@ use crate::validated_config::get_test_validated_config;
 use crate::wikilink::InvalidWikilinkReason;
 
 use regex::Regex;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use tempfile::TempDir;
 
