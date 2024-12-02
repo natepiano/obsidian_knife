@@ -1124,13 +1124,6 @@ fn format_references(
                 if let Some(keeper) = keeper_path {
                     if group_path != keeper {
                         link.push_str(" - updated");
-                        // if let Err(e) = handle_file_operation(
-                        //     Path::new(&ref_path),
-                        //     FileOperation::UpdateReference(group_path.clone(), keeper.clone()),
-                        // ) {
-                        //     eprintln!("Error updating reference in {:?}: {}", ref_path, e);
-                        // }
-                        // Add to operations
                         operations.markdown_ops.push(MarkdownOperation::UpdateReference {
                             markdown_path: PathBuf::from(&ref_path),
                             old_image_path: group_path.clone(),
@@ -1139,17 +1132,6 @@ fn format_references(
                     }
                 } else {
                     link.push_str(" - reference removed");
-                    // let remove_path = group_path
-                    //     .file_name()
-                    //     .unwrap_or_default()
-                    //     .to_str()
-                    //     .unwrap_or_default();
-                    // if let Err(e) = handle_file_operation(
-                    //     Path::new(&ref_path),
-                    //     FileOperation::RemoveReference(PathBuf::from(remove_path)),
-                    // ) {
-                    //     eprintln!("Error removing reference in {:?}: {}", ref_path, e);
-                    // }
                     operations.markdown_ops.push(MarkdownOperation::RemoveReference {
                         markdown_path: PathBuf::from(&ref_path),
                         image_path: group_path.clone(),
@@ -1289,11 +1271,6 @@ fn format_duplicates(
 
 fn stage_delete_image_operation(operations: &mut ImageOperations, group: &&ImageGroup, link: &mut String) {
     link.push_str(" - deleted");
-    // if let Err(e) =
-    //     handle_file_operation(&group.path, FileOperation::Delete)
-    // {
-    //     eprintln!("Error deleting file {:?}: {}", group.path, e);
-    // }
     operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
 }
 
