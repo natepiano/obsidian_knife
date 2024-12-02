@@ -5,7 +5,7 @@ use crate::validated_config::get_test_validated_config_builder;
 use chrono::Utc;
 use std::fs;
 use tempfile::TempDir;
-
+use crate::OUTPUT_MARKDOWN_FILE;
 // todo: right now these tests validate the old path that doesn't use our new persist
 //       but they test the full input/output which is what we want to make sure we haven't
 //       missed something while we refactor separate writing tables from changing the code
@@ -49,7 +49,7 @@ fn test_cleanup_images_missing_references() {
 
     // Verify the missing references were reported
     let output_content =
-        fs::read_to_string(config.output_folder().join("obsidian knife output.md")).unwrap();
+        fs::read_to_string(config.output_folder().join(OUTPUT_MARKDOWN_FILE)).unwrap();
     assert!(output_content.contains("missing image references"));
     assert!(output_content.contains("missing.jpg"));
     assert!(output_content.contains("also_missing.jpg"));
@@ -113,7 +113,7 @@ fn test_cleanup_images_duplicates() {
 
     // Verify the duplication was reported
     let output_content =
-        fs::read_to_string(config.output_folder().join("obsidian knife output.md")).unwrap();
+        fs::read_to_string(config.output_folder().join(OUTPUT_MARKDOWN_FILE)).unwrap();
     assert!(output_content.contains("duplicate images"));
     assert!(output_content.contains("image1.jpg"));
     assert!(output_content.contains("image2.jpg"));

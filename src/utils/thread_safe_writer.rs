@@ -3,6 +3,7 @@ use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
+use crate::OUTPUT_MARKDOWN_FILE;
 
 pub struct ThreadSafeWriter {
     buffer: Arc<Mutex<Vec<u8>>>,
@@ -18,7 +19,7 @@ pub enum ColumnAlignment {
 
 impl ThreadSafeWriter {
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
-        let file_path = obsidian_path.join("obsidian knife output.md");
+        let file_path = obsidian_path.join(OUTPUT_MARKDOWN_FILE);
 
         let file = OpenOptions::new()
             .write(true)
@@ -143,7 +144,7 @@ mod tests {
         writer.writeln_pluralized(1, Phrase::InvalidDates)?;
         writer.write_count_with_prefix(LEVEL2, 2, Phrase::InvalidDates)?;
 
-        let content = fs::read_to_string(temp_dir.path().join("obsidian knife output.md"))?;
+        let content = fs::read_to_string(temp_dir.path().join(OUTPUT_MARKDOWN_FILE))?;
         assert!(content.contains("file has an invalid date"));
         assert!(content.contains("## files have invalid dates"));
         Ok(())

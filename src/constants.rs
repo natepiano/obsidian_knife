@@ -21,6 +21,7 @@ pub const ERROR_READING: &str = "error reading config file ";
 pub const ERROR_BACK_POPULATE_FILE_FILTER: &str = "back_populate_filter_filter cannot be empty";
 pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
 pub const OBSIDIAN_HIDDEN_FOLDER: &str = ".obsidian";
+pub const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // cache stuff
 pub const CACHE_FOLDER: &str = ".ok";
