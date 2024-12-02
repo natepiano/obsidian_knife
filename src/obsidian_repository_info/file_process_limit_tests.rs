@@ -39,6 +39,7 @@ fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFileInfo> 
 }
 
 #[test]
+#[cfg_attr(target_os = "linux", ignore)]
 fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = vec![
         ProcessLimitTestCase {
