@@ -11,7 +11,7 @@ mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-mod obsidian_repository_info_types;
+pub mod obsidian_repository_info_types;
 
 use crate::{
     constants::*,
@@ -29,66 +29,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::obsidian_repository_info::obsidian_repository_info_types::{ImageOperation, ImageOperations, MarkdownOperation};
-
-#[derive(Debug)]
-pub enum FileOperation {
-    Delete,
-    RemoveReference(PathBuf),
-    UpdateReference(PathBuf, PathBuf), // (old_path, new_path)
-}
-
-// represent different types of image groups
-#[derive(Debug, PartialEq, Eq, Hash)]
-pub enum ImageGroupType {
-    TiffImage,
-    ZeroByteImage,
-    UnreferencedImage,
-    DuplicateGroup(String), // String is the hash value
-}
-
-#[derive(Debug, Clone)]
-pub struct ImageReferences {
-    pub hash: String,
-    pub markdown_file_references: Vec<String>,
-}
-
-#[derive(Clone)]
-struct ImageGroup {
-    path: PathBuf,
-    info: ImageReferences,
-}
-
-#[derive(Default)]
-struct GroupedImages {
-    groups: HashMap<ImageGroupType, Vec<ImageGroup>>,
-}
-
-impl GroupedImages {
-    fn new() -> Self {
-        Self {
-            groups: HashMap::new(),
-        }
-    }
-
-    fn add_or_update(&mut self, group_type: ImageGroupType, image: ImageGroup) {
-        self.groups.entry(group_type).or_default().push(image);
-    }
-
-    fn get(&self, group_type: &ImageGroupType) -> Option<&Vec<ImageGroup>> {
-        self.groups.get(group_type)
-    }
-
-    fn get_duplicate_groups(&self) -> Vec<(&String, &Vec<ImageGroup>)> {
-        self.groups
-            .iter()
-            .filter_map(|(key, group)| match key {
-                ImageGroupType::DuplicateGroup(hash) if group.len() > 1 => Some((hash, group)),
-                _ => None,
-            })
-            .collect()
-    }
-}
+use crate::obsidian_repository_info::obsidian_repository_info_types::{FileOperation, GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation};
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
@@ -100,6 +41,7 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
+
     pub fn identify_ambiguous_matches(&mut self) {
         // Create target and display_text maps as before...
         let mut target_map: HashMap<String, String> = HashMap::new();
@@ -529,6 +471,10 @@ impl ObsidianRepositoryInfo {
             self.update_modified_dates_for_cleanup_images(&paths);
         }
 
+        if config.apply_changes() {
+            execute_image_operations(&operations)?;
+        }
+
         Ok(operations)
     }
 
@@ -554,6 +500,61 @@ impl ObsidianRepositoryInfo {
 
         Ok(missing_references)
     }
+}
+
+fn execute_image_operations(
+    operations: &ImageOperations,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // First execute image deletions
+    for op in &operations.image_ops {
+        match op {
+            ImageOperation::Delete(path) => {
+                if let Err(e) = handle_file_operation(path, FileOperation::Delete) {
+                    eprintln!("Error deleting file {:?}: {}", path, e);
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    // Then execute markdown updates
+    for op in &operations.markdown_ops {
+        match op {
+            MarkdownOperation::RemoveReference {
+                markdown_path,
+                image_path,
+            } => {
+                if let Err(e) = handle_file_operation(
+                    markdown_path,
+                    FileOperation::RemoveReference(image_path.clone()),
+                ) {
+                    eprintln!(
+                        "Error removing reference in {:?} to {:?}: {}",
+                        markdown_path, image_path, e
+                    );
+                    return Err(e);
+                }
+            }
+            MarkdownOperation::UpdateReference {
+                markdown_path,
+                old_image_path,
+                new_image_path,
+            } => {
+                if let Err(e) = handle_file_operation(
+                    markdown_path,
+                    FileOperation::UpdateReference(old_image_path.clone(), new_image_path.clone()),
+                ) {
+                    eprintln!(
+                        "Error updating reference in {:?} from {:?} to {:?}: {}",
+                        markdown_path, old_image_path, new_image_path, e
+                    );
+                    return Err(e);
+                }
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn apply_line_replacements(
@@ -1123,12 +1124,12 @@ fn format_references(
                 if let Some(keeper) = keeper_path {
                     if group_path != keeper {
                         link.push_str(" - updated");
-                        if let Err(e) = handle_file_operation(
-                            Path::new(&ref_path),
-                            FileOperation::UpdateReference(group_path.clone(), keeper.clone()),
-                        ) {
-                            eprintln!("Error updating reference in {:?}: {}", ref_path, e);
-                        }
+                        // if let Err(e) = handle_file_operation(
+                        //     Path::new(&ref_path),
+                        //     FileOperation::UpdateReference(group_path.clone(), keeper.clone()),
+                        // ) {
+                        //     eprintln!("Error updating reference in {:?}: {}", ref_path, e);
+                        // }
                         // Add to operations
                         operations.markdown_ops.push(MarkdownOperation::UpdateReference {
                             markdown_path: PathBuf::from(&ref_path),
@@ -1138,17 +1139,17 @@ fn format_references(
                     }
                 } else {
                     link.push_str(" - reference removed");
-                    let remove_path = group_path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_str()
-                        .unwrap_or_default();
-                    if let Err(e) = handle_file_operation(
-                        Path::new(&ref_path),
-                        FileOperation::RemoveReference(PathBuf::from(remove_path)),
-                    ) {
-                        eprintln!("Error removing reference in {:?}: {}", ref_path, e);
-                    }
+                    // let remove_path = group_path
+                    //     .file_name()
+                    //     .unwrap_or_default()
+                    //     .to_str()
+                    //     .unwrap_or_default();
+                    // if let Err(e) = handle_file_operation(
+                    //     Path::new(&ref_path),
+                    //     FileOperation::RemoveReference(PathBuf::from(remove_path)),
+                    // ) {
+                    //     eprintln!("Error removing reference in {:?}: {}", ref_path, e);
+                    // }
                     operations.markdown_ops.push(MarkdownOperation::RemoveReference {
                         markdown_path: PathBuf::from(&ref_path),
                         image_path: group_path.clone(),
@@ -1288,11 +1289,11 @@ fn format_duplicates(
 
 fn stage_delete_image_operation(operations: &mut ImageOperations, group: &&ImageGroup, link: &mut String) {
     link.push_str(" - deleted");
-    if let Err(e) =
-        handle_file_operation(&group.path, FileOperation::Delete)
-    {
-        eprintln!("Error deleting file {:?}: {}", group.path, e);
-    }
+    // if let Err(e) =
+    //     handle_file_operation(&group.path, FileOperation::Delete)
+    // {
+    //     eprintln!("Error deleting file {:?}: {}", group.path, e);
+    // }
     operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
 }
 
