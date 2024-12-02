@@ -211,6 +211,8 @@ fn test_mixed_reference_styles() {
 ![[test.jpg]]
 ![Full Path](conf/media/test.jpg)
 ![[conf/media/test.jpg]]
+![External](https://example.com/test.jpg)
+![Another External](http://example.com/test.jpg)
 More text"#
                 .to_string(),
         )
@@ -228,6 +230,8 @@ More text"#
     let expected_content = format!("---\ndate_modified: \"{}\"\n---\n# Test\nMore text", today);
 
     assert_eq!(result, expected_content);
+    // Verify external links were not processed
+    assert!(!result.contains("example.com"));
 }
 
 #[test]

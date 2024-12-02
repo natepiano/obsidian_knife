@@ -96,6 +96,8 @@ fn scan_markdown_files(
     timezone: &str,
 ) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
     let extensions_pattern = IMAGE_EXTENSIONS.join("|");
+
+    // Only matches ![[image.ext]] or ![[image.ext|alt]]
     let image_regex = Arc::new(Regex::new(&format!(
         r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
         extensions_pattern

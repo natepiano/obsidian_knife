@@ -4,6 +4,7 @@ mod ambiguous_matches_tests;
 mod cleanup_image_tests;
 #[cfg(test)]
 mod file_process_limit_tests;
+mod image_tests;
 #[cfg(test)]
 mod persist_file_tests;
 #[cfg(test)]
@@ -535,11 +536,9 @@ impl ObsidianRepositoryInfo {
 
         for markdown_file_info in self.markdown_files.iter() {
             for image_link in &markdown_file_info.image_links {
-                if let Some(extracted_filename) = extract_local_image_filename(&image_link.raw_link)
-                {
-                    if !image_exists_in_set(&extracted_filename, &image_filenames) {
-                        missing_references.push((&markdown_file_info.path, extracted_filename));
-                    }
+                if !image_exists_in_set(&image_link.filename, &image_filenames) {
+                    missing_references
+                        .push((&markdown_file_info.path, image_link.filename.clone()));
                 }
             }
         }
@@ -1049,35 +1048,6 @@ fn write_missing_references_table(
     Ok(())
 }
 
-fn extract_local_image_filename(image_link: &str) -> Option<String> {
-    // Handle Obsidian-style links (always local)
-    if image_link.starts_with(OPENING_IMAGE_WIKILINK_BRACKET)
-        && image_link.ends_with(CLOSING_WIKILINK)
-    {
-        let inner = &image_link[3..image_link.len() - 2];
-        let filename = inner.split('|').next().unwrap_or(inner).trim();
-        Some(filename.to_lowercase())
-    }
-    // Handle Markdown-style links (check if local)
-    else if image_link.starts_with("![") && image_link.contains("](") && image_link.ends_with(")")
-    {
-        let start = image_link.find("](").map(|i| i + 2)?;
-        let end = image_link.len() - 1;
-        let url = &image_link[start..end];
-
-        // Check if the URL is local (doesn't start with http:// or https://)
-        if !url.starts_with("https://") && !url.starts_with("https://") {
-            url.rsplit(FORWARD_SLASH).next().map(|s| s.to_lowercase())
-        } else {
-            None
-        }
-    }
-    // If it's not a recognized image link format, return None
-    else {
-        None
-    }
-}
-
 fn write_duplicate_group_table(
     config: &ValidatedConfig,
     writer: &ThreadSafeWriter,
@@ -1344,12 +1314,12 @@ fn update_file_content(
             .and_then(|n| n.to_str())
             .unwrap_or_default();
 
-        let regex = create_image_regex(old_name);
+        let regex = create_file_specific_image_regex(old_name);
         process_content(content, &regex, new_path)
     })
 }
 
-fn create_image_regex(filename: &str) -> Regex {
+fn create_file_specific_image_regex(filename: &str) -> Regex {
     Regex::new(&format!(
         r"(!?\[.*?\]\([^)]*{}(?:\|[^)]*)?\)|!\[\[[^]\n]*{}(?:\|[^\]]*?)?\]\])",
         regex::escape(filename),

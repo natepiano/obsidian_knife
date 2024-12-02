@@ -156,15 +156,33 @@ pub struct ImageLink {
     pub filename: String, // Just "image.jpg"
 }
 
+// handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
     pub fn new(raw_link: String) -> Self {
-        let filename = raw_link
-            .trim_start_matches("![[")
-            .trim_end_matches("]]")
-            .split('|')
-            .next()
-            .unwrap_or("")
-            .to_string();
+        let filename = if raw_link.starts_with("![[") && raw_link.ends_with("]]") {
+            // Handle Obsidian wikilink style
+            raw_link
+                .trim_start_matches("![[")
+                .trim_end_matches("]]")
+                .split('|')
+                .next()
+                .unwrap_or("")
+                .to_lowercase()
+        } else if raw_link.starts_with("![") && raw_link.contains("](") && raw_link.ends_with(")") {
+            // Handle Markdown style - only for local files
+            let start = raw_link.find("](").map(|i| i + 2).unwrap_or(0);
+            let end = raw_link.len() - 1;
+            let url = &raw_link[start..end];
+
+            // Only process if not an external link
+            if !url.starts_with("http://") && !url.starts_with("https://") {
+                url.rsplit('/').next().unwrap_or("").to_lowercase()
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
 
         Self { raw_link, filename }
     }
