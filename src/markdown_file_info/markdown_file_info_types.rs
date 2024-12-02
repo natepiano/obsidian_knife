@@ -152,7 +152,7 @@ impl FileProcessingState {
 
 #[derive(Debug, Clone)]
 pub struct ImageLink {
-    pub raw_link: String, // The full ![[image.jpg]] syntax
+    // pub raw_link: String, // The full ![[image.jpg]] syntax
     pub filename: String, // Just "image.jpg"
 }
 
@@ -184,6 +184,6 @@ impl ImageLink {
             String::new()
         };
 
-        Self { raw_link, filename }
+        Self { /*raw_link,*/ filename }
     }
 }

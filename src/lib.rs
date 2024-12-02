@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub(crate) mod test_utils;
+pub mod test_utils;
 
 // mod cleanup_dates;
 mod config;
