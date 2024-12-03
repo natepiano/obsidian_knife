@@ -3,11 +3,13 @@ use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
+use crate::obsidian_repository_info::obsidian_repository_info_types::{
+    ImageOperation, MarkdownOperation,
+};
 use crate::scan::scan_folders;
 use crate::test_utils::{eastern_midnight, TestFileBuilder};
 use crate::utils::ThreadSafeWriter;
 use crate::validated_config::get_test_validated_config_builder;
-use crate::obsidian_repository_info::obsidian_repository_info_types::{ImageOperation, MarkdownOperation};
 use crate::OUTPUT_MARKDOWN_FILE;
 
 // todo: right now these tests validate the old path that doesn't use our new persist
@@ -125,7 +127,7 @@ fn test_cleanup_images_duplicates() {
 
 struct CleanupTestCase {
     name: &'static str,
-    setup: fn(&TempDir) -> Vec<PathBuf>,  // Returns paths created
+    setup: fn(&TempDir) -> Vec<PathBuf>, // Returns paths created
     expected_ops: fn(&[PathBuf]) -> (Vec<ImageOperation>, Vec<MarkdownOperation>),
 }
 
@@ -150,7 +152,7 @@ fn test_image_operations_match_cleanup() {
                     vec![MarkdownOperation::RemoveReference {
                         markdown_path: paths[0].clone(),
                         image_path: PathBuf::from("missing.jpg"),
-                    }]
+                    }],
                 )
             },
         },
@@ -183,14 +185,14 @@ fn test_image_operations_match_cleanup() {
             },
             expected_ops: |paths| {
                 (
-                    vec![ImageOperation::Delete(paths[1].clone())],  // Delete image2.jpg
+                    vec![ImageOperation::Delete(paths[1].clone())], // Delete image2.jpg
                     vec![MarkdownOperation::UpdateReference {
                         markdown_path: paths[3].clone(),  // test2.md
                         old_image_path: paths[1].clone(), // image2.jpg
                         new_image_path: paths[0].clone(), // image1.jpg
-                    }]
+                    }],
                 )
-            }
+            },
         },
         CleanupTestCase {
             name: "zero_byte_images",
@@ -210,7 +212,7 @@ fn test_image_operations_match_cleanup() {
 
                 vec![img_path, md_file]
             },
-            expected_ops: expect_delete_remove_reference()
+            expected_ops: expect_delete_remove_reference(),
         },
         CleanupTestCase {
             name: "tiff_images",
@@ -230,7 +232,7 @@ fn test_image_operations_match_cleanup() {
 
                 vec![img_path, md_file]
             },
-            expected_ops: expect_delete_remove_reference()
+            expected_ops: expect_delete_remove_reference(),
         },
         CleanupTestCase {
             name: "unreferenced_images",
@@ -245,10 +247,10 @@ fn test_image_operations_match_cleanup() {
             expected_ops: |paths| {
                 (
                     vec![ImageOperation::Delete(paths[0].clone())],
-                    vec![] // No markdown changes needed
+                    vec![], // No markdown changes needed
                 )
-            }
-        }
+            },
+        },
     ];
 
     for test_case in test_cases {
@@ -268,17 +270,30 @@ fn test_image_operations_match_cleanup() {
         for (actual, expected) in operations.image_ops.iter().zip(expected_image_ops.iter()) {
             match (actual, expected) {
                 (ImageOperation::Delete(actual_path), ImageOperation::Delete(expected_path)) => {
-                    assert_eq!(actual_path.as_path(), expected_path.as_path(),
-                               "Test case '{}': Delete operation paths don't match", test_case.name);
+                    assert_eq!(
+                        actual_path.as_path(),
+                        expected_path.as_path(),
+                        "Test case '{}': Delete operation paths don't match",
+                        test_case.name
+                    );
                 }
             }
         }
 
-        for (i, (actual, expected)) in operations.markdown_ops.iter().zip(expected_markdown_ops.iter()).enumerate() {
+        for (i, (actual, expected)) in operations
+            .markdown_ops
+            .iter()
+            .zip(expected_markdown_ops.iter())
+            .enumerate()
+        {
             assert!(
-                matches!(actual, MarkdownOperation::RemoveReference { .. }) == matches!(expected, MarkdownOperation::RemoveReference { .. }) &&
-                    matches!(actual, MarkdownOperation::UpdateReference { .. }) == matches!(expected, MarkdownOperation::UpdateReference { .. }),
-                "Test case '{}': Operation type mismatch at position {}", test_case.name, i
+                matches!(actual, MarkdownOperation::RemoveReference { .. })
+                    == matches!(expected, MarkdownOperation::RemoveReference { .. })
+                    && matches!(actual, MarkdownOperation::UpdateReference { .. })
+                        == matches!(expected, MarkdownOperation::UpdateReference { .. }),
+                "Test case '{}': Operation type mismatch at position {}",
+                test_case.name,
+                i
             );
 
             match (actual, expected) {
@@ -308,14 +323,115 @@ fn test_image_operations_match_cleanup() {
     }
 }
 
-fn expect_delete_remove_reference() -> fn(&[PathBuf]) -> (Vec<ImageOperation>, Vec<MarkdownOperation>) {
+fn expect_delete_remove_reference(
+) -> fn(&[PathBuf]) -> (Vec<ImageOperation>, Vec<MarkdownOperation>) {
     |paths| {
         (
             vec![ImageOperation::Delete(paths[0].clone())],
             vec![MarkdownOperation::RemoveReference {
                 markdown_path: paths[1].clone(),
                 image_path: paths[0].clone(),
-            }]
+            }],
         )
     }
+}
+
+#[test]
+#[cfg_attr(target_os = "linux", ignore)]
+fn test_image_reference_detection() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+    fs::create_dir_all(config.output_folder()).unwrap();
+
+    // Test date for consistent file timestamps
+    let test_date = eastern_midnight(2024, 1, 15);
+
+    // Create test images with some content
+    let img_content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Simple JPEG header
+    let img_path1 = TestFileBuilder::new()
+        .with_content(img_content.clone())
+        .create(&temp_dir, "Image1.jpg"); // Mixed case filename
+    let img_path2 = TestFileBuilder::new()
+        .with_content(img_content.clone())
+        .create(&temp_dir, "image2.JPG"); // Different case extension
+    let img_path3 = TestFileBuilder::new()
+        .with_content(img_content.clone())
+        .create(&temp_dir, "image3.jpg");
+
+    // Create markdown files with various reference formats
+    let md_content1 = "# Doc1\n![[Image1.jpg]]\n[[image2.JPG]]".to_string();
+    let _ = TestFileBuilder::new()
+        .with_content(md_content1)
+        .with_matching_dates(test_date)
+        .with_fs_dates(test_date, test_date)
+        .create(&temp_dir, "doc1.md");
+
+    let md_content2 = "# Doc2\n![](Image1.jpg)\n![Alt](image2.JPG)".to_string();
+    let _ = TestFileBuilder::new()
+        .with_content(md_content2)
+        .with_matching_dates(test_date)
+        .with_fs_dates(test_date, test_date)
+        .create(&temp_dir, "doc2.md");
+
+    // Scan the repository
+    let mut repo_info = scan_folders(&config).unwrap();
+
+    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
+
+    // Run cleanup images to generate the image info map
+    let operations = repo_info.cleanup_images(&config, &writer).unwrap();
+
+    // Verify image reference detection
+    let deletion_operations: Vec<_> = operations
+        .image_ops
+        .iter()
+        .filter(|op| matches!(op, ImageOperation::Delete(_)))
+        .collect();
+
+    println!("{:?}", deletion_operations);
+
+    // both image2 and image3 should be deleted - for different reasons, though
+    // image2 because it is a duplicate and image 3 because it is unreferenced
+    assert_eq!(
+        deletion_operations.len(),
+        2,
+        "Expected only one unreferenced image"
+    );
+
+    match &deletion_operations[0] {
+        ImageOperation::Delete(path) => {
+            assert_eq!(
+                path.file_name().unwrap(),
+                img_path3.file_name().unwrap(),
+                "Wrong image marked as unreferenced"
+            );
+        }
+    }
+
+    // Verify the image references map
+    let image_refs = &repo_info.image_path_to_references_map;
+
+    // Check Image1.jpg references
+    let image1_refs = image_refs.get(&img_path1).unwrap();
+    assert_eq!(
+        image1_refs.markdown_file_references.len(),
+        2,
+        "Image1.jpg should be referenced by both markdown files"
+    );
+
+    // Check image2.JPG references
+    let image2_refs = image_refs.get(&img_path2).unwrap();
+    assert_eq!(
+        image2_refs.markdown_file_references.len(),
+        2,
+        "image2.JPG should be referenced by both markdown files"
+    );
+
+    // Check image3.jpg references
+    let image3_refs = image_refs.get(&img_path3).unwrap();
+    assert!(
+        image3_refs.markdown_file_references.is_empty(),
+        "image3.jpg should have no references"
+    );
 }

@@ -23,7 +23,9 @@ fn test_update_modified_dates_changes_frontmatter() {
     repo_info.markdown_files.push(markdown_file);
 
     // Update the modified dates
-    repo_info.update_modified_dates_for_cleanup_images(&[file_path.clone()]);
+    repo_info
+        .markdown_files
+        .update_modified_dates_for_cleanup_images(&[file_path.clone()]);
 
     let frontmatter = repo_info.markdown_files[0].frontmatter.as_ref().unwrap();
 
@@ -82,7 +84,9 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .push(get_test_markdown_file_info(file_path2.clone()));
 
     // Only update the first file
-    repo_info.update_modified_dates_for_cleanup_images(&[file_path1]);
+    repo_info
+        .markdown_files
+        .update_modified_dates_for_cleanup_images(&[file_path1]);
 
     let file1 = &repo_info.markdown_files[0];
     let file2 = &repo_info.markdown_files[1];

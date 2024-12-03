@@ -1,4 +1,5 @@
-use crate::scan::process_content;
+use crate::markdown_file_info::{ImageLink, ImageLinkLocation, ImageLinkRendering, ImageLinkType};
+use crate::scan::{get_image_regex, process_content};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use crate::IMAGE_EXTENSIONS;
@@ -186,4 +187,98 @@ fn test_process_content_with_images() {
     assert!(image_links
         .iter()
         .any(|link| link.filename == "another.jpg"));
+}
+
+#[derive(Debug)]
+struct ImageLinkTestCase {
+    input: &'static str,
+    expected_filename: &'static str,
+    expected_type: ImageLinkType,
+}
+
+impl ImageLinkTestCase {
+    const fn new(input: &'static str, filename: &'static str, link_type: ImageLinkType) -> Self {
+        Self {
+            input,
+            expected_filename: filename,
+            expected_type: link_type,
+        }
+    }
+}
+
+#[test]
+fn test_image_link_types() {
+    let test_cases = [
+        // Wikilinks
+        ImageLinkTestCase::new(
+            "![[image.png]]",
+            "image.png",
+            ImageLinkType::Wikilink(ImageLinkRendering::Embedded),
+        ),
+        ImageLinkTestCase::new(
+            "[[image.jpg]]",
+            "image.jpg",
+            ImageLinkType::Wikilink(ImageLinkRendering::LinkOnly),
+        ),
+        ImageLinkTestCase::new(
+            "![[image.png|alt text]]",
+            "image.png",
+            ImageLinkType::Wikilink(ImageLinkRendering::Embedded),
+        ),
+        // Markdown Internal Links
+        ImageLinkTestCase::new(
+            "![alt](image.png)",
+            "image.png",
+            ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, ImageLinkRendering::Embedded),
+        ),
+        ImageLinkTestCase::new(
+            "[alt](image.jpg)",
+            "image.jpg",
+            ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, ImageLinkRendering::LinkOnly),
+        ),
+        // Markdown External Links
+        ImageLinkTestCase::new(
+            "![alt](https://example.com/image.png)",
+            "https://example.com/image.png",
+            ImageLinkType::MarkdownLink(ImageLinkLocation::External, ImageLinkRendering::Embedded),
+        ),
+        ImageLinkTestCase::new(
+            "[alt](https://example.com/image.jpg)",
+            "https://example.com/image.jpg",
+            ImageLinkType::MarkdownLink(ImageLinkLocation::External, ImageLinkRendering::LinkOnly),
+        ),
+    ];
+
+    let image_regex = get_image_regex();
+
+    for case in test_cases.iter() {
+        let captures = image_regex
+            .captures(case.input)
+            .unwrap_or_else(|| panic!("Regex failed to match valid image link: {}", case.input));
+
+        let raw_image_link = captures
+            .get(0)
+            .unwrap_or_else(|| panic!("Failed to get capture group for: {}", case.input))
+            .as_str();
+
+        let image_link = ImageLink::new(raw_image_link.to_string());
+
+        assert_eq!(
+            image_link.filename, case.expected_filename,
+            "Filename mismatch for input: {}",
+            case.input
+        );
+        assert_eq!(
+            image_link.image_link_type, case.expected_type,
+            "ImageLinkType mismatch for input: {}",
+            case.input
+        );
+    }
+}
+
+#[test]
+#[should_panic(expected = "Invalid image link format")]
+fn test_image_link_invalid_format() {
+    // This simulates a case where an invalid format somehow got past the regex
+    ImageLink::new("invalid[format]".to_string());
 }

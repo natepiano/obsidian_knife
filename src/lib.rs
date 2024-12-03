@@ -49,8 +49,8 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
     write_execution_start(&validated_config, &writer)?;
 
-    // todo: this is out of order...for now because it both scans and writes
-    obsidian_repository_info.cleanup_images(&validated_config, &writer)?;
+    // Get image operations based on files being persisted
+    let image_operations = obsidian_repository_info.cleanup_images(&validated_config, &writer)?;
 
     obsidian_repository_info.identify_ambiguous_matches();
     obsidian_repository_info.apply_back_populate_changes();

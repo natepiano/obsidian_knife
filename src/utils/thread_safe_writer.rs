@@ -1,9 +1,9 @@
 use crate::constants::{pluralize, Phrase};
+use crate::OUTPUT_MARKDOWN_FILE;
 use std::fs::OpenOptions;
 use std::io::{self, Write};
 use std::path::Path;
 use std::sync::{Arc, Mutex};
-use crate::OUTPUT_MARKDOWN_FILE;
 
 pub struct ThreadSafeWriter {
     buffer: Arc<Mutex<Vec<u8>>>,

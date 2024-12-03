@@ -5,6 +5,7 @@ use crate::wikilink::format_wikilink;
 use crate::wikilink::Wikilink;
 use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1, LEVEL3};
 
+use crate::obsidian_repository_info::obsidian_repository_info_types::ImageReferences;
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -13,7 +14,6 @@ use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-use crate::obsidian_repository_info::obsidian_repository_info_types::ImageReferences;
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
@@ -306,6 +306,7 @@ impl MarkdownFiles {
         }));
 
         // map of markdown_file_info paths to list of image link file names on that markdown file
+        // to_lowercase() for comparisons
         let markdown_refs: HashMap<String, HashSet<String>> = self
             .par_iter()
             .filter(|file_info| !file_info.image_links.is_empty())
@@ -314,25 +315,25 @@ impl MarkdownFiles {
                 let images: HashSet<_> = markdown_file_info
                     .image_links
                     .iter()
-                    .map(|link| link.filename.clone())
+                    .map(|link| link.filename.to_lowercase())
                     .collect();
                 (path, images)
             })
             .collect();
 
         // Process each image file - for each, find all the markdown_file_info's that have
-        // image links that reference that image
+        // image links that reference that image - using to_lowercase() for comparisons
         let image_info_map: HashMap<_, _> = image_files
             .par_iter()
             .filter_map(|image_path| {
                 let hash = cache.lock().ok()?.get_or_update(image_path).ok()?.0;
 
-                let image_name = image_path.file_name()?.to_str()?;
+                let image_name = image_path.file_name()?.to_str()?.to_lowercase();
 
                 let references: Vec<String> = markdown_refs
                     .iter()
                     .filter_map(|(path, image_names)| {
-                        if image_names.contains(image_name) {
+                        if image_names.contains(&image_name) {
                             Some(path.clone())
                         } else {
                             None

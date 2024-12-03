@@ -8,7 +8,7 @@ use crate::{
     obsidian_repository_info::ObsidianRepositoryInfo,
 };
 
-use crate::markdown_file_info::ImageLink;
+use crate::markdown_file_info::{ImageLink, ImageLinkLocation, ImageLinkType};
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Timer;
@@ -91,17 +91,27 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
     (wikilinks, ac)
 }
 
+pub fn get_image_regex() -> Arc<Regex> {
+    let extensions_pattern = IMAGE_EXTENSIONS.join("|");
+    Arc::new(
+        Regex::new(&format!(
+            r"(?ix)                                     # Enable comments mode and case-insensitive
+        (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])         # Wikilink: [[image.ext]] or ![[image.ext]] or with |alt
+        |                                           # OR
+        (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))     # Markdown: [alt](image.ext) or ![alt](image.ext)
+        ",
+            extensions_pattern,
+            extensions_pattern
+        ))
+            .unwrap(),
+    )
+}
+
 fn scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let extensions_pattern = IMAGE_EXTENSIONS.join("|");
-
-    // Only matches ![[image.ext]] or ![[image.ext|alt]]
-    let image_regex = Arc::new(Regex::new(&format!(
-        r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
-        extensions_pattern
-    ))?);
+    let image_regex = get_image_regex();
 
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
@@ -204,10 +214,25 @@ fn process_content(
             .collect();
         result.invalid.extend(invalid_with_lines);
 
+        // new only matches image patterns:
+        // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
+        // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
+        // ![alt](image.ext) -> Embedded Markdown Internal
+        // [alt](image.ext) -> Link Only Markdown Internal
+        // ![alt](https://example.com/image.ext) -> Embedded Markdown External
+        // [alt](https://example.com/image.ext) -> Link Only Markdown External
+
         // Process image references on the same line
         for capture in image_regex.captures_iter(line) {
             if let Some(raw_image_link) = capture.get(0) {
-                image_links.push(ImageLink::new(raw_image_link.as_str().to_string()));
+                let image_link = ImageLink::new(raw_image_link.as_str().to_string());
+                match image_link.image_link_type {
+                    ImageLinkType::Wikilink(_)
+                    | ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, _) => {
+                        image_links.push(image_link)
+                    }
+                    _ => {}
+                }
             }
         }
     }

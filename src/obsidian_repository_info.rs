@@ -13,6 +13,10 @@ mod update_modified_tests;
 
 pub mod obsidian_repository_info_types;
 
+use crate::obsidian_repository_info::obsidian_repository_info_types::{
+    FileOperation, GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
+    ImageReferences, MarkdownOperation,
+};
 use crate::{
     constants::*,
     markdown_file_info::BackPopulateMatch,
@@ -29,7 +33,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
-use crate::obsidian_repository_info::obsidian_repository_info_types::{FileOperation, GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation};
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
@@ -41,7 +44,6 @@ pub struct ObsidianRepositoryInfo {
 }
 
 impl ObsidianRepositoryInfo {
-
     pub fn identify_ambiguous_matches(&mut self) {
         // Create target and display_text maps as before...
         let mut target_map: HashMap<String, String> = HashMap::new();
@@ -187,11 +189,6 @@ impl ObsidianRepositoryInfo {
         config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.markdown_files.persist_all(config.file_process_limit())
-    }
-
-    pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
-        self.markdown_files
-            .update_modified_dates_for_cleanup_images(paths);
     }
 
     pub fn write_back_populate_tables(
@@ -403,7 +400,6 @@ impl ObsidianRepositoryInfo {
         writer: &ThreadSafeWriter,
         grouped_images: &GroupedImages,
         missing_references: &[(&PathBuf, String)],
-        modified_paths: &mut HashSet<PathBuf>,
         operations: &mut ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
@@ -439,8 +435,7 @@ impl ObsidianRepositoryInfo {
             zero_byte_images,
             unreferenced_images,
             &duplicate_groups,
-            modified_paths,
-            operations
+            operations,
         )?;
 
         Ok(())
@@ -453,8 +448,7 @@ impl ObsidianRepositoryInfo {
     ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
         let (grouped_images, missing_references) = self.analyze_images()?;
 
-        // holds modified markdown files so we can mark them for persisting...
-        let mut modified_paths = HashSet::new();
+        // collect the ImageOperations we need to work with
         let mut operations = ImageOperations::default();
 
         self.write_image_analysis(
@@ -462,14 +456,15 @@ impl ObsidianRepositoryInfo {
             writer,
             &grouped_images,
             &missing_references,
-            &mut modified_paths,
             &mut operations,
         )?;
 
-        if !modified_paths.is_empty() {
-            let paths: Vec<PathBuf> = modified_paths.into_iter().collect();
-            self.update_modified_dates_for_cleanup_images(&paths);
-        }
+        let paths_to_update: Vec<PathBuf> = operations
+            .get_markdown_paths_to_update()
+            .into_iter()
+            .collect();
+        self.markdown_files
+            .update_modified_dates_for_cleanup_images(&paths_to_update);
 
         if config.apply_changes() {
             execute_image_operations(&operations)?;
@@ -941,10 +936,9 @@ fn write_image_tables(
     zero_byte_images: &[ImageGroup],
     unreferenced_images: &[ImageGroup],
     duplicate_groups: &[(&String, &Vec<ImageGroup>)],
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    write_missing_references_table(config, missing_references, writer, modified_paths, operations)?;
+    write_missing_references_table(config, missing_references, writer, operations)?;
 
     if !tiff_images.is_empty() {
         write_special_image_group_table(
@@ -953,7 +947,6 @@ fn write_image_tables(
             TIFF_IMAGES,
             tiff_images,
             Phrase::TiffImages,
-            modified_paths,
             operations,
         )?;
     }
@@ -965,7 +958,6 @@ fn write_image_tables(
             ZERO_BYTE_IMAGES,
             zero_byte_images,
             Phrase::ZeroByteImages,
-            modified_paths,
             operations,
         )?;
     }
@@ -977,13 +969,12 @@ fn write_image_tables(
             UNREFERENCED_IMAGES,
             unreferenced_images,
             Phrase::UnreferencedImages,
-            modified_paths,
             operations,
         )?;
     }
 
     for (hash, group) in duplicate_groups {
-        write_duplicate_group_table(config, writer, hash, group, modified_paths, operations)?;
+        write_duplicate_group_table(config, writer, hash, group, operations)?;
     }
 
     Ok(())
@@ -1009,7 +1000,6 @@ fn write_missing_references_table(
     config: &ValidatedConfig,
     missing_references: &[(&PathBuf, String)],
     writer: &ThreadSafeWriter,
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if missing_references.is_empty() {
@@ -1042,10 +1032,12 @@ fn write_missing_references_table(
             let markdown_link = format_wikilink(markdown_path, config.obsidian_path(), false);
             let image_links = image_groups
                 .iter()
-                .map(|group| group.path.to_string_lossy().to_string())
+                .map(|group| {
+                    escape_pipe(&escape_brackets(&group.path.to_string_lossy().to_string()))
+                })
                 .collect::<Vec<_>>()
                 .join(", ");
-            let actions = format_references(config, image_groups, None, modified_paths, operations);
+            let actions = format_references(config, image_groups, None, operations);
             vec![markdown_link, image_links, actions]
         })
         .collect();
@@ -1068,7 +1060,6 @@ fn write_duplicate_group_table(
     writer: &ThreadSafeWriter,
     group_hash: &str,
     groups: &[ImageGroup],
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, "duplicate images with references")?;
@@ -1084,7 +1075,7 @@ fn write_duplicate_group_table(
         &format!("referenced by {} {}\n", total_references, references_string),
     )?;
 
-    write_group_table(config, writer, groups, true, false, modified_paths, operations)?;
+    write_group_table(config, writer, groups, true, false, operations)?;
     Ok(())
 }
 
@@ -1092,7 +1083,6 @@ fn format_references(
     config: &ValidatedConfig,
     groups: &[ImageGroup],
     keeper_path: Option<&PathBuf>,
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> String {
     // First, collect all references into a Vec
@@ -1119,23 +1109,25 @@ fn format_references(
                 format_wikilink(Path::new(&ref_path), config.obsidian_path(), false)
             );
             if config.apply_changes() {
-                modified_paths.insert(PathBuf::from(&ref_path));
-
                 if let Some(keeper) = keeper_path {
                     if group_path != keeper {
                         link.push_str(" - updated");
-                        operations.markdown_ops.push(MarkdownOperation::UpdateReference {
-                            markdown_path: PathBuf::from(&ref_path),
-                            old_image_path: group_path.clone(),
-                            new_image_path: keeper.clone(),
-                        });
+                        operations
+                            .markdown_ops
+                            .push(MarkdownOperation::UpdateReference {
+                                markdown_path: PathBuf::from(&ref_path),
+                                old_image_path: group_path.clone(),
+                                new_image_path: keeper.clone(),
+                            });
                     }
                 } else {
                     link.push_str(" - reference removed");
-                    operations.markdown_ops.push(MarkdownOperation::RemoveReference {
-                        markdown_path: PathBuf::from(&ref_path),
-                        image_path: group_path.clone(),
-                    });
+                    operations
+                        .markdown_ops
+                        .push(MarkdownOperation::RemoveReference {
+                            markdown_path: PathBuf::from(&ref_path),
+                            image_path: group_path.clone(),
+                        });
                 }
             } else {
                 if keeper_path.is_some() {
@@ -1161,7 +1153,6 @@ fn write_special_image_group_table(
     group_type: &str,
     groups: &[ImageGroup],
     phrase: Phrase,
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, group_type)?;
@@ -1169,7 +1160,7 @@ fn write_special_image_group_table(
     let description = format!("{} {}", groups.len(), pluralize(groups.len(), phrase));
     writer.writeln("", &format!("{}\n", description))?;
 
-    write_group_table(config, writer, groups, false, true, modified_paths, operations)?;
+    write_group_table(config, writer, groups, false, true, operations)?;
     Ok(())
 }
 
@@ -1179,7 +1170,6 @@ fn write_group_table(
     groups: &[ImageGroup],
     is_ref_group: bool,
     is_special_group: bool,
-    modified_paths: &mut HashSet<PathBuf>,
     operations: &mut ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     let headers = &["Sample", "Duplicates", "Referenced By"];
@@ -1212,8 +1202,9 @@ fn write_group_table(
             group_vec[0].path.file_name().unwrap().to_string_lossy()
         );
 
-        let duplicates = format_duplicates(config, group_vec, keeper_path, is_special_group, operations);
-        let references = format_references(config, group_vec, keeper_path, modified_paths, operations);
+        let duplicates =
+            format_duplicates(config, group_vec, keeper_path, is_special_group, operations);
+        let references = format_references(config, group_vec, keeper_path, operations);
 
         rows.push(vec![sample, duplicates, references]);
     }
@@ -1269,9 +1260,15 @@ fn format_duplicates(
         .join("<br>")
 }
 
-fn stage_delete_image_operation(operations: &mut ImageOperations, group: &&ImageGroup, link: &mut String) {
+fn stage_delete_image_operation(
+    operations: &mut ImageOperations,
+    group: &&ImageGroup,
+    link: &mut String,
+) {
     link.push_str(" - deleted");
-    operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
+    operations
+        .image_ops
+        .push(ImageOperation::Delete(group.path.clone()));
 }
 
 fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {

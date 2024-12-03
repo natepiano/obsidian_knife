@@ -50,7 +50,7 @@ pub struct MarkdownFileInfo {
     pub frontmatter_line_count: usize,
     pub image_links: Vec<ImageLink>,
     pub invalid_wikilinks: Vec<InvalidWikilink>,
-    pub matches: BackPopulateMatchCollections,
+    pub matches: BackPopulateMatches,
     pub path: PathBuf,
     pub persist_reasons: Vec<PersistReason>,
 }
@@ -116,7 +116,7 @@ impl MarkdownFileInfo {
             frontmatter_line_count,
             invalid_wikilinks: Vec::new(),
             image_links: Vec::new(),
-            matches: BackPopulateMatchCollections::default(),
+            matches: BackPopulateMatches::default(),
             path,
             persist_reasons,
         })
