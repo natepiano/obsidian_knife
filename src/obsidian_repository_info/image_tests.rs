@@ -53,6 +53,17 @@ fn test_cleanup_images_missing_references() {
     );
     assert_eq!(updated_content, expected_content);
 
+    // Second cleanup pass to verify idempotency
+    let mut repo_info = scan_folders(&config).unwrap();
+    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    repo_info.process_image_reference_updates(&image_operations);
+    repo_info.persist(&config, image_operations).unwrap();
+
+    // Verify content remains the same after second pass
+    let final_content = fs::read_to_string(&md_file).unwrap();
+    assert_eq!(final_content, expected_content, "Content should not change on second cleanup pass");
+
+
     // Verify the missing references were reported
     let output_content =
         fs::read_to_string(config.output_folder().join(OUTPUT_MARKDOWN_FILE)).unwrap();
@@ -349,36 +360,57 @@ fn test_image_reference_detection() {
     // Test date for consistent file timestamps
     let test_date = eastern_midnight(2024, 1, 15);
 
+    // Create nested directory structure
+    let nested_paths = [
+        "deeply/nested/path",
+        "another/path",
+        "current/path",
+        "conf/media",
+    ];
+
+    for path in nested_paths.iter() {
+        fs::create_dir_all(temp_dir.path().join(path)).unwrap();
+    }
+
     // Create test images with some content
     let img_content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Simple JPEG header
+    let nested_img_path = temp_dir.path().join("deeply").join("nested").join("path").join("image2.JPG");
+    let another_img_path = temp_dir.path().join("another").join("path").join("image3.jpg");
+
     let img_path1 = TestFileBuilder::new()
         .with_content(img_content.clone())
         .create(&temp_dir, "Image1.jpg"); // Mixed case filename
     let img_path2 = TestFileBuilder::new()
         .with_content(img_content.clone())
-        .create(&temp_dir, "image2.JPG"); // Different case extension
+        .create(&temp_dir, &nested_img_path.to_string_lossy()); // Different case extension in nested dir
     let img_path3 = TestFileBuilder::new()
         .with_content(img_content.clone())
-        .create(&temp_dir, "image3.jpg");
+        .create(&temp_dir, &another_img_path.to_string_lossy()); // Unreferenced in another path
 
-    // Create markdown files with various reference formats
-    let md_content1 = "# Doc1\n![[Image1.jpg]]\n[[image2.JPG]]".to_string();
+    // Create markdown files with various reference formats including nested paths
+    let md_content1 = r#"# Doc1
+![[Image1.jpg|300]]
+![[deeply/nested/path/image2.JPG]]
+[[image2.JPG]]"#;
     let _ = TestFileBuilder::new()
-        .with_content(md_content1)
+        .with_content(md_content1.to_string())
         .with_matching_dates(test_date)
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "doc1.md");
 
-    let md_content2 = "# Doc2\n![](Image1.jpg)\n![Alt](image2.JPG)".to_string();
+    let md_content2 = r#"# Doc2
+![](Image1.jpg)
+![Alt](deeply/nested/path/image2.JPG)
+![[./current/path/other.jpg]]
+![[../relative/path/another.jpg]]"#;
     let _ = TestFileBuilder::new()
-        .with_content(md_content2)
+        .with_content(md_content2.to_string())
         .with_matching_dates(test_date)
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "doc2.md");
 
     // Scan the repository
     let mut repo_info = scan_folders(&config).unwrap();
-
     let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
 
     // Run cleanup images to generate the image info map
@@ -391,12 +423,10 @@ fn test_image_reference_detection() {
         .filter(|op| matches!(op, ImageOperation::Delete(_)))
         .collect();
 
-    // both image2 and image3 should be deleted - for different reasons, though
-    // image2 because it is a duplicate and image 3 because it is unreferenced
     assert_eq!(
         deletion_operations.len(),
         2,
-        "Expected only one unreferenced image"
+        "Expected two images to be deleted - one duplicate and one unreferenced"
     );
 
     match &deletion_operations[0] {
@@ -412,7 +442,7 @@ fn test_image_reference_detection() {
     // Verify the image references map
     let image_refs = &repo_info.image_path_to_references_map;
 
-    // Check Image1.jpg references
+    // Check Image1.jpg references (root directory)
     let image1_refs = image_refs.get(&img_path1).unwrap();
     assert_eq!(
         image1_refs.markdown_file_references.len(),
@@ -420,18 +450,50 @@ fn test_image_reference_detection() {
         "Image1.jpg should be referenced by both markdown files"
     );
 
-    // Check image2.JPG references
+    // Check nested image2.JPG references
     let image2_refs = image_refs.get(&img_path2).unwrap();
     assert_eq!(
         image2_refs.markdown_file_references.len(),
         2,
-        "image2.JPG should be referenced by both markdown files"
+        "image2.JPG should be referenced by both markdown files despite being in nested directory"
     );
 
-    // Check image3.jpg references
+    // Check unreferenced image3.jpg
     let image3_refs = image_refs.get(&img_path3).unwrap();
     assert!(
         image3_refs.markdown_file_references.is_empty(),
-        "image3.jpg should have no references"
+        "image3.jpg in nested directory should have no references"
     );
+}
+
+#[test]
+#[cfg_attr(target_os = "linux", ignore)]
+fn test_cleanup_images_wikilink_errors() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+    fs::create_dir_all(config.output_folder()).unwrap();
+
+    // Create a markdown file with a wikilink as a path (invalid)
+    let test_date = eastern_midnight(2024, 1, 15);
+    let md_file = TestFileBuilder::new()
+        .with_content("# Test\n![[[[Some File]]]]".to_string())
+        .with_matching_dates(test_date)
+        .with_fs_dates(test_date, test_date)
+        .create(&temp_dir, "test_file.md");
+
+    let mut repo_info = scan_folders(&config).unwrap();
+    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
+
+    // Run cleanup images and verify it handles wikilink paths appropriately
+    let operations = repo_info.cleanup_images(&config, &writer).unwrap();
+
+    // Verify no operations were generated for invalid wikilink paths
+    assert!(operations.image_ops.is_empty(), "No image operations should be created for wikilink paths");
+    assert!(operations.markdown_ops.is_empty(), "No markdown operations should be created for wikilink paths");
+
+    // Verify the content wasn't modified
+    let final_content = fs::read_to_string(&md_file).unwrap();
+    assert!(final_content.contains("![[[[Some File]]]]"), "Content with invalid wikilinks should not be modified");
+
 }

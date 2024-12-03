@@ -1,8 +1,6 @@
 #[cfg(test)]
 mod ambiguous_matches_tests;
 #[cfg(test)]
-mod cleanup_image_tests;
-#[cfg(test)]
 mod file_process_limit_tests;
 #[cfg(test)]
 mod image_tests;
@@ -14,14 +12,14 @@ mod update_modified_tests;
 pub mod obsidian_repository_info_types;
 
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    FileOperation, GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
+    GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
     ImageReferences, MarkdownOperation,
 };
 use crate::{
     constants::*,
     markdown_file_info::BackPopulateMatch,
     markdown_files::MarkdownFiles,
-    utils::{escape_brackets, escape_pipe, update_file, ColumnAlignment, ThreadSafeWriter},
+    utils::{escape_brackets, escape_pipe, ColumnAlignment, ThreadSafeWriter},
     validated_config::ValidatedConfig,
     wikilink::{InvalidWikilinkReason, ToWikilink, Wikilink},
     Timer,
@@ -1268,41 +1266,6 @@ fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -
         path.file_stem().unwrap_or_default().to_string_lossy()
     };
     format!("[[{}\\|{}]]", relative_path.display(), display_name)
-}
-
-fn handle_file_operation(
-    path: &Path,
-    operation: FileOperation,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    match operation {
-        FileOperation::Delete => {
-            fs::remove_file(path)?;
-        }
-        FileOperation::RemoveReference(ref old_path) => {
-            update_file_content(path, old_path, None)?;
-        }
-        FileOperation::UpdateReference(ref old_path, ref new_path) => {
-            update_file_content(path, old_path, Some(new_path))?;
-        }
-    }
-
-    Ok(())
-}
-
-fn update_file_content(
-    file_path: &Path,
-    old_path: &Path,
-    new_path: Option<&Path>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    update_file(file_path, |content| {
-        let old_name = old_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or_default();
-
-        let regex = create_file_specific_image_regex(old_name);
-        process_content(content, &regex, new_path)
-    })
 }
 
 fn create_file_specific_image_regex(filename: &str) -> Regex {

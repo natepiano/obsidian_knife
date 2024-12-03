@@ -25,13 +25,6 @@ pub struct ImageOperations {
     pub markdown_ops: Vec<MarkdownOperation>,
 }
 
-#[derive(Debug)]
-pub enum FileOperation {
-    Delete,
-    RemoveReference(PathBuf),
-    UpdateReference(PathBuf, PathBuf), // (old_path, new_path)
-}
-
 // represent different types of image groups
 #[derive(Debug, PartialEq, Eq, Hash)]
 pub enum ImageGroupType {
