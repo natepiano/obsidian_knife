@@ -70,6 +70,7 @@ pub enum InvalidWikilinkReason {
     EmptyWikilink,             // [[]] or [[|]]
     EmailAddress,              // bob@rock.com
     NestedOpening,             // [[blah [[blah]]
+    RawHttpLink,               // http://somelink.com/
     Tag,                       // #tags should be ignored
     UnmatchedClosing,          // ]] without matching [[
     UnmatchedMarkdownOpening,  // [ without following ]
@@ -84,6 +85,7 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::EmailAddress => write!(f, "ignore email addresses for back population"),
             Self::EmptyWikilink => write!(f, "contains empty wikilink"),
             Self::NestedOpening => write!(f, "contains a nested opening"),
+            Self::RawHttpLink => write!(f, "ignore raw web links"),
             Self::Tag => write!(f, "ignore tags for back population"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
             Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),

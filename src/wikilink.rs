@@ -13,6 +13,7 @@ use crate::{
     utils::{EMAIL_REGEX, TAG_REGEX},
 };
 
+use crate::utils::RAW_HTTP_REGEX;
 use std::iter::Peekable;
 use std::path::Path;
 use std::str::CharIndices;
@@ -137,27 +138,34 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     result
 }
 
-// Replace parse_email_addresses with this more generic function
 fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
     // Add email addresses as invalid wikilinks
-    for email_match in EMAIL_REGEX.find_iter(line) {
-        result.invalid.push(ParsedInvalidWikilink {
-            content: email_match.as_str().to_string(),
-            reason: InvalidWikilinkReason::EmailAddress,
-            span: (email_match.start(), email_match.end()),
-        });
-    }
+    let reason = InvalidWikilinkReason::EmailAddress;
+    let regex = &EMAIL_REGEX;
+
+    add_special_patterns(line, result, reason, regex);
+
+    let reason = InvalidWikilinkReason::RawHttpLink;
+    let regex = &RAW_HTTP_REGEX;
+    add_special_patterns(line, result, reason, regex);
 
     // Add tags as invalid wikilinks
-    for tag_match in TAG_REGEX.find_iter(line) {
-        let tag = tag_match.as_str().trim();
+    let reason = InvalidWikilinkReason::Tag;
+    let regex = &TAG_REGEX;
+    add_special_patterns(line, result, reason, regex);
+}
+
+fn add_special_patterns(
+    line: &str,
+    result: &mut ParsedExtractedWikilinks,
+    reason: InvalidWikilinkReason,
+    regex: &regex::Regex,
+) {
+    for regex_match in regex.find_iter(line) {
         result.invalid.push(ParsedInvalidWikilink {
-            content: tag.to_string(),
-            reason: InvalidWikilinkReason::Tag,
-            span: (
-                tag_match.start() + tag_match.as_str().find(tag).unwrap_or(0),
-                tag_match.start() + tag_match.as_str().find(tag).unwrap_or(0) + tag.len(),
-            ),
+            content: regex_match.as_str().trim().to_string(),
+            reason,
+            span: (regex_match.start(), regex_match.end()),
         });
     }
 }

@@ -98,7 +98,7 @@ pub fn get_image_regex() -> Arc<Regex> {
             r"(?ix)                                     # Enable comments mode and case-insensitive
         (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])         # Wikilink: [[image.ext]] or ![[image.ext]] or with |alt
         |                                           # OR
-        (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))     # Markdown: [alt](image.ext) or ![alt](image.ext)
+        (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))      # Markdown: [alt](image.ext) or ![alt](image.ext)
         ",
             extensions_pattern,
             extensions_pattern

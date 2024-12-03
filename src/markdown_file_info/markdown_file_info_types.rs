@@ -165,6 +165,7 @@ pub enum ImageLinkRendering {
 pub enum ImageLinkType {
     Wikilink(ImageLinkRendering),
     MarkdownLink(ImageLinkLocation, ImageLinkRendering),
+    // RawHTTP,
 }
 
 #[derive(Debug, Clone)]
@@ -174,9 +175,25 @@ pub struct ImageLink {
     pub filename: String, // Just "image.jpg"
 }
 
+// todo - if we store the line and position info of the link, couldn't we automatically mark those
+//        exclusion zones - then we'd have to store all of them - right now we don't store all because
+//        we don't want them to be considered for reference processing (for example, external links)
+//        but instead we could store all and just filter out the ones we want to consider for image reference checking
+//        probably just a bool on ImageLink that says "check_image_reference"
+
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
     pub fn new(raw_link: String) -> Self {
+        // // Handle Raw HTTP style: starts with http:// or https://
+        // if raw_link.starts_with("http://") || raw_link.starts_with("https://") {
+        //     let filename = raw_link.rsplit('/').next().unwrap_or("").to_lowercase();
+        //     return Self {
+        //         image_link_type: ImageLinkType::RawHTTP,
+        //         raw_link,
+        //         filename,
+        //     };
+        // }
+
         // Handle Wikilink style: [[image.png]] or ![[image.png]]
         if raw_link.ends_with("]]") {
             let rendering = if raw_link.starts_with("!") {

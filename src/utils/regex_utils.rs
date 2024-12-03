@@ -5,7 +5,8 @@ lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
     pub static ref EMAIL_REGEX: Regex =
         Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
-    pub static ref TAG_REGEX: Regex = Regex::new(r"(?:^|\s)#[a-zA-Z0-9_-]+").unwrap();
+    pub static ref TAG_REGEX: Regex = Regex::new(r"(?:^|\s)(#[a-zA-Z0-9_-]+)").unwrap();
+    pub static ref RAW_HTTP_REGEX: Regex = Regex::new(r"https?://[^\s]+").unwrap();
 }
 
 pub fn build_case_insensitive_word_finder(patterns: &Option<Vec<String>>) -> Option<Vec<Regex>> {

@@ -291,6 +291,9 @@ impl MarkdownFileInfo {
             }
         }
 
+        // todo - we should use the ImageLinks once we add line number and start/end position
+        //        to ImageLink struct then we can simply exclude everything without a redundant
+        //        regex search right here
         // Add Markdown links as exclusion zones
         for mat in MARKDOWN_REGEX.find_iter(line) {
             exclusion_zones.push((mat.start(), mat.end()));

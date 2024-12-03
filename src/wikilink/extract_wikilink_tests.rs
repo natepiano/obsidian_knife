@@ -69,6 +69,7 @@ fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
         );
     }
 }
+
 #[test]
 fn test_various_extractions() {
     let test_cases = vec![
@@ -323,7 +324,7 @@ fn test_tag_detection() {
             description: "Tag after space",
             input: "Check out this #ka-fave tag",
             expected_valid: vec![],
-            expected_invalid: vec![("#ka-fave", InvalidWikilinkReason::Tag, (15, 23))],
+            expected_invalid: vec![("#ka-fave", InvalidWikilinkReason::Tag, (14, 23))],
         },
         WikilinkTestCase {
             description: "Multiple tags",
@@ -331,20 +332,67 @@ fn test_tag_detection() {
             expected_valid: vec![],
             expected_invalid: vec![
                 ("#tag1", InvalidWikilinkReason::Tag, (0, 5)),
-                ("#tag2", InvalidWikilinkReason::Tag, (16, 21)),
+                ("#tag2", InvalidWikilinkReason::Tag, (15, 21)),
             ],
         },
         WikilinkTestCase {
             description: "Tag with wikilink",
             input: "[[Note]] #important reference",
             expected_valid: vec![("Note", "Note", false)],
-            expected_invalid: vec![("#important", InvalidWikilinkReason::Tag, (9, 19))],
+            expected_invalid: vec![("#important", InvalidWikilinkReason::Tag, (8, 19))],
         },
         WikilinkTestCase {
             description: "Tag with underscore and numbers",
             input: "Task #todo_123 pending",
             expected_valid: vec![],
-            expected_invalid: vec![("#todo_123", InvalidWikilinkReason::Tag, (5, 14))],
+            expected_invalid: vec![("#todo_123", InvalidWikilinkReason::Tag, (4, 14))],
+        },
+    ];
+
+    for test_case in test_cases {
+        assert_wikilink_extraction(test_case);
+    }
+}
+
+#[test]
+fn test_raw_http_detection() {
+    let test_cases = vec![
+        WikilinkTestCase {
+            description: "link at start of line",
+            input: "https://google.com/ is blah",
+            expected_valid: vec![],
+            expected_invalid: vec![(
+                "https://google.com/",
+                InvalidWikilinkReason::RawHttpLink,
+                (0, 19),
+            )],
+        },
+        WikilinkTestCase {
+            description: "link after space",
+            input: "Check out this https://google.com/ link",
+            expected_valid: vec![],
+            expected_invalid: vec![(
+                "https://google.com/",
+                InvalidWikilinkReason::RawHttpLink,
+                (15, 34),
+            )],
+        },
+        WikilinkTestCase {
+            description: "Multiple links",
+            input: "http://this.com/ some text http://that.com/",
+            expected_valid: vec![],
+            expected_invalid: vec![
+                (
+                    "http://this.com/",
+                    InvalidWikilinkReason::RawHttpLink,
+                    (0, 16),
+                ),
+                (
+                    "http://that.com/",
+                    InvalidWikilinkReason::RawHttpLink,
+                    (27, 43),
+                ),
+            ],
         },
     ];
 
