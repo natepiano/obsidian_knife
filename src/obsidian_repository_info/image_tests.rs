@@ -1,8 +1,3 @@
-use chrono::Utc;
-use std::fs;
-use std::path::PathBuf;
-use tempfile::TempDir;
-
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageOperation, MarkdownOperation,
 };
@@ -11,6 +6,10 @@ use crate::test_utils::{eastern_midnight, TestFileBuilder};
 use crate::utils::ThreadSafeWriter;
 use crate::validated_config::get_test_validated_config_builder;
 use crate::OUTPUT_MARKDOWN_FILE;
+use chrono::Utc;
+use std::fs;
+use std::path::PathBuf;
+use tempfile::TempDir;
 
 // todo: right now these tests validate the old path that doesn't use our new persist
 //       but they test the full input/output which is what we want to make sure we haven't
@@ -39,8 +38,9 @@ fn test_cleanup_images_missing_references() {
     let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
 
     // Run cleanup images
-    repo_info.cleanup_images(&config, &writer).unwrap();
-    // repo_info.persist(&config).unwrap();
+    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    repo_info.process_image_reference_updates(&image_operations);
+    repo_info.persist(&config, image_operations).unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&md_file).unwrap();
@@ -48,7 +48,7 @@ fn test_cleanup_images_missing_references() {
     let today_formatted = Utc::now().format("[[%Y-%m-%d]]").to_string();
 
     let expected_content = format!(
-        "---\ndate_created: \"[[2024-01-15]]\"\ndate_modified: \"{}\"\n---\n# Test\nSome content",
+        "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '{}'\n---\n# Test\nSome content",
         today_formatted
     );
     assert_eq!(updated_content, expected_content);
@@ -96,7 +96,9 @@ fn test_cleanup_images_duplicates() {
     let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
 
     // Run cleanup images
-    repo_info.cleanup_images(&config, &writer).unwrap();
+    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    repo_info.process_image_reference_updates(&image_operations);
+    repo_info.persist(&config, image_operations).unwrap();
 
     // Verify one image was kept and one was deleted
     assert_ne!(
@@ -388,8 +390,6 @@ fn test_image_reference_detection() {
         .iter()
         .filter(|op| matches!(op, ImageOperation::Delete(_)))
         .collect();
-
-    println!("{:?}", deletion_operations);
 
     // both image2 and image3 should be deleted - for different reasons, though
     // image2 because it is a duplicate and image 3 because it is unreferenced

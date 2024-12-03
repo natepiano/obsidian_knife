@@ -105,7 +105,7 @@ fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + S
         .create(&temp_dir, "image_refs.md");
 
     let mut file_info = get_test_markdown_file_info(file_path);
-    file_info.record_image_references_change();
+    file_info.mark_image_reference_as_updated();
 
     assert!(file_info
         .persist_reasons
@@ -135,7 +135,7 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     file_info.mark_as_back_populated();
 
     // Add image reference change
-    file_info.record_image_references_change();
+    file_info.mark_image_reference_as_updated();
 
     // Verify all reasons are present
     assert_eq!(file_info.persist_reasons.len(), 4);

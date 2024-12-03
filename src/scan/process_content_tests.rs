@@ -1,4 +1,4 @@
-use crate::markdown_file_info::{ImageLink, ImageLinkLocation, ImageLinkRendering, ImageLinkType};
+use crate::markdown_file_info::{ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType};
 use crate::scan::{get_image_regex, process_content};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
@@ -229,23 +229,23 @@ fn test_image_link_types() {
         ImageLinkTestCase::new(
             "![alt](image.png)",
             "image.png",
-            ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, ImageLinkRendering::Embedded),
+            ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, ImageLinkRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](image.jpg)",
             "image.jpg",
-            ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, ImageLinkRendering::LinkOnly),
+            ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly),
         ),
         // Markdown External Links
         ImageLinkTestCase::new(
             "![alt](https://example.com/image.png)",
             "https://example.com/image.png",
-            ImageLinkType::MarkdownLink(ImageLinkLocation::External, ImageLinkRendering::Embedded),
+            ImageLinkType::MarkdownLink(ImageLinkTarget::External, ImageLinkRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](https://example.com/image.jpg)",
             "https://example.com/image.jpg",
-            ImageLinkType::MarkdownLink(ImageLinkLocation::External, ImageLinkRendering::LinkOnly),
+            ImageLinkType::MarkdownLink(ImageLinkTarget::External, ImageLinkRendering::LinkOnly),
         ),
     ];
 
@@ -261,7 +261,7 @@ fn test_image_link_types() {
             .unwrap_or_else(|| panic!("Failed to get capture group for: {}", case.input))
             .as_str();
 
-        let image_link = ImageLink::new(raw_image_link.to_string());
+        let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0);
 
         assert_eq!(
             image_link.filename, case.expected_filename,
@@ -274,11 +274,4 @@ fn test_image_link_types() {
             case.input
         );
     }
-}
-
-#[test]
-#[should_panic(expected = "Invalid image link format")]
-fn test_image_link_invalid_format() {
-    // This simulates a case where an invalid format somehow got past the regex
-    ImageLink::new("invalid[format]".to_string());
 }

@@ -51,6 +51,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     // Get image operations based on files being persisted
     let image_operations = obsidian_repository_info.cleanup_images(&validated_config, &writer)?;
+    obsidian_repository_info.process_image_reference_updates(&image_operations);
 
     obsidian_repository_info.identify_ambiguous_matches();
     obsidian_repository_info.apply_back_populate_changes();
@@ -68,7 +69,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         .write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
-        obsidian_repository_info.persist(&validated_config)?;
+        obsidian_repository_info.persist(&validated_config, image_operations)?;
         reset_apply_changes(&mut markdown_file, &mut config)?;
     }
 

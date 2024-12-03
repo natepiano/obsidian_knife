@@ -19,13 +19,10 @@ fn test_update_modified_dates_changes_frontmatter() {
         .create(&temp_dir, "test1.md");
 
     let mut repo_info = ObsidianRepositoryInfo::default();
-    let markdown_file = get_test_markdown_file_info(file_path.clone());
-    repo_info.markdown_files.push(markdown_file);
+    let mut markdown_file = get_test_markdown_file_info(file_path.clone());
+    markdown_file.mark_image_reference_as_updated();
 
-    // Update the modified dates
-    repo_info
-        .markdown_files
-        .update_modified_dates_for_cleanup_images(&[file_path.clone()]);
+    repo_info.markdown_files.push(markdown_file);
 
     let frontmatter = repo_info.markdown_files[0].frontmatter.as_ref().unwrap();
 
@@ -76,17 +73,17 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .create(&temp_dir, "test2.md");
 
     let mut repo_info = ObsidianRepositoryInfo::default();
+    let mut markdown_file1 = get_test_markdown_file_info(file_path1.clone());
+
+    // Only update the first file
+    markdown_file1.mark_image_reference_as_updated();
+
     repo_info
         .markdown_files
-        .push(get_test_markdown_file_info(file_path1.clone()));
+        .push(markdown_file1);
     repo_info
         .markdown_files
         .push(get_test_markdown_file_info(file_path2.clone()));
-
-    // Only update the first file
-    repo_info
-        .markdown_files
-        .update_modified_dates_for_cleanup_images(&[file_path1]);
 
     let file1 = &repo_info.markdown_files[0];
     let file2 = &repo_info.markdown_files[1];

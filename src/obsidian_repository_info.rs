@@ -187,7 +187,9 @@ impl ObsidianRepositoryInfo {
     pub fn persist(
         &mut self,
         config: &ValidatedConfig,
+        image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        execute_image_deletions(&image_operations)?;
         self.markdown_files.persist_all(config.file_process_limit())
     }
 
@@ -459,17 +461,6 @@ impl ObsidianRepositoryInfo {
             &mut operations,
         )?;
 
-        let paths_to_update: Vec<PathBuf> = operations
-            .get_markdown_paths_to_update()
-            .into_iter()
-            .collect();
-        self.markdown_files
-            .update_modified_dates_for_cleanup_images(&paths_to_update);
-
-        if config.apply_changes() {
-            execute_image_operations(&operations)?;
-        }
-
         Ok(operations)
     }
 
@@ -495,55 +486,54 @@ impl ObsidianRepositoryInfo {
 
         Ok(missing_references)
     }
+
+    pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
+        for op in &operations.markdown_ops {
+            match op {
+                MarkdownOperation::RemoveReference {
+                    markdown_path,
+                    image_path,
+                } => {
+                    // todo - eventually we need to store these changes directly on the MarkdownFileInfo - probably
+                    //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
+                    if let Some(markdown_file) = self.markdown_files.get_mut(markdown_path) {
+                        let regex = create_file_specific_image_regex(
+                            image_path.file_name().unwrap().to_str().unwrap(),
+                        );
+                        markdown_file.content =
+                            process_content(&markdown_file.content, &regex, None);
+                        markdown_file.mark_image_reference_as_updated();
+                    }
+                }
+                MarkdownOperation::UpdateReference {
+                    markdown_path,
+                    old_image_path,
+                    new_image_path,
+                } => {
+                    if let Some(markdown_file) = self.markdown_files.get_mut(markdown_path) {
+                        let regex = create_file_specific_image_regex(
+                            old_image_path.file_name().unwrap().to_str().unwrap(),
+                        );
+                        markdown_file.content =
+                            process_content(&markdown_file.content, &regex, Some(new_image_path));
+                        markdown_file.mark_image_reference_as_updated();
+                    }
+                }
+            }
+        }
+    }
 }
 
-fn execute_image_operations(
+pub fn execute_image_deletions(
     operations: &ImageOperations,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // First execute image deletions
     for op in &operations.image_ops {
         match op {
             ImageOperation::Delete(path) => {
-                if let Err(e) = handle_file_operation(path, FileOperation::Delete) {
+                if let Err(e) = fs::remove_file(path) {
                     eprintln!("Error deleting file {:?}: {}", path, e);
-                    return Err(e);
-                }
-            }
-        }
-    }
-
-    // Then execute markdown updates
-    for op in &operations.markdown_ops {
-        match op {
-            MarkdownOperation::RemoveReference {
-                markdown_path,
-                image_path,
-            } => {
-                if let Err(e) = handle_file_operation(
-                    markdown_path,
-                    FileOperation::RemoveReference(image_path.clone()),
-                ) {
-                    eprintln!(
-                        "Error removing reference in {:?} to {:?}: {}",
-                        markdown_path, image_path, e
-                    );
-                    return Err(e);
-                }
-            }
-            MarkdownOperation::UpdateReference {
-                markdown_path,
-                old_image_path,
-                new_image_path,
-            } => {
-                if let Err(e) = handle_file_operation(
-                    markdown_path,
-                    FileOperation::UpdateReference(old_image_path.clone(), new_image_path.clone()),
-                ) {
-                    eprintln!(
-                        "Error updating reference in {:?} from {:?} to {:?}: {}",
-                        markdown_path, old_image_path, new_image_path, e
-                    );
-                    return Err(e);
+                    return Err(e.into());
                 }
             }
         }
@@ -856,7 +846,6 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 
         // Update or create line info
         let line_info = line_map.entry(key).or_insert(LineInfo {
-            // line_number: match_info.line_number,
             line_number: match_info.line_number + match_info.frontmatter_line_count,
             line_text: match_info.line_text.clone(),
             positions: Vec::new(),
@@ -909,13 +898,13 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages {
     let mut groups = GroupedImages::new();
 
-    for (path, info) in image_map {
-        let group_type = determine_group_type(path, info);
+    for (path_buf, image_references) in image_map {
+        let group_type = determine_group_type(path_buf, image_references);
         groups.add_or_update(
             group_type,
             ImageGroup {
-                path: path.clone(),
-                info: info.clone(),
+                path: path_buf.clone(),
+                info: image_references.clone(),
             },
         );
     }
@@ -1285,15 +1274,6 @@ fn handle_file_operation(
     path: &Path,
     operation: FileOperation,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Check if the path is a wikilink
-    if path.to_str().map_or(false, |s| {
-        s.contains(OPENING_WIKILINK) && s.contains(CLOSING_WIKILINK)
-    }) {
-        return Err(Box::new(std::io::Error::new(
-            std::io::ErrorKind::InvalidInput,
-            format!("Wikilink paths are not allowed: {:?}", path),
-        )));
-    }
     match operation {
         FileOperation::Delete => {
             fs::remove_file(path)?;

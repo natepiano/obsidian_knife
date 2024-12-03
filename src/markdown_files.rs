@@ -12,7 +12,7 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Default)]
@@ -57,6 +57,10 @@ impl MarkdownFiles {
     pub fn push(&mut self, file: MarkdownFileInfo) {
         // Note: now takes &mut self
         self.files.push(file);
+    }
+
+    pub fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFileInfo> {
+        self.iter_mut().find(|file| file.path == path)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &MarkdownFileInfo> {
@@ -123,17 +127,6 @@ impl MarkdownFiles {
             file_info.persist()?;
         }
         Ok(())
-    }
-
-    pub fn update_modified_dates_for_cleanup_images(&mut self, paths: &[PathBuf]) {
-        let paths_set: HashSet<_> = paths.iter().collect();
-
-        self.files
-            .iter_mut()
-            .filter(|file_info| paths_set.contains(&file_info.path))
-            .for_each(|file_info| {
-                file_info.record_image_references_change();
-            });
     }
 
     pub fn report_frontmatter_issues(

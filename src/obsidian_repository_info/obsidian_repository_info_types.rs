@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::path::PathBuf;
 
 #[derive(Debug)]
@@ -23,25 +23,6 @@ pub enum MarkdownOperation {
 pub struct ImageOperations {
     pub image_ops: Vec<ImageOperation>,
     pub markdown_ops: Vec<MarkdownOperation>,
-}
-
-impl ImageOperations {
-    // Add a method to get all markdown paths that need updating
-    pub fn get_markdown_paths_to_update(&self) -> HashSet<PathBuf> {
-        let mut paths = HashSet::new();
-
-        // Add paths from markdown operations
-        for op in &self.markdown_ops {
-            match op {
-                MarkdownOperation::RemoveReference { markdown_path, .. }
-                | MarkdownOperation::UpdateReference { markdown_path, .. } => {
-                    paths.insert(markdown_path.clone());
-                }
-            }
-        }
-
-        paths
-    }
 }
 
 #[derive(Debug)]

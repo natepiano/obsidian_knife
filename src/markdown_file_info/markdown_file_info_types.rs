@@ -151,7 +151,7 @@ impl FileProcessingState {
 }
 
 #[derive(Debug, Clone, PartialEq)]
-pub enum ImageLinkLocation {
+pub enum ImageLinkTarget {
     Internal,
     External,
 }
@@ -164,13 +164,15 @@ pub enum ImageLinkRendering {
 #[derive(Debug, Clone, PartialEq)]
 pub enum ImageLinkType {
     Wikilink(ImageLinkRendering),
-    MarkdownLink(ImageLinkLocation, ImageLinkRendering),
+    MarkdownLink(ImageLinkTarget, ImageLinkRendering),
     // RawHTTP,
 }
 
 #[derive(Debug, Clone)]
 pub struct ImageLink {
     pub image_link_type: ImageLinkType,
+    pub line_number: usize,
+    pub position: usize,
     pub raw_link: String, // The full ![[image.jpg]] syntax
     pub filename: String, // Just "image.jpg"
 }
@@ -183,7 +185,7 @@ pub struct ImageLink {
 
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
-    pub fn new(raw_link: String) -> Self {
+    pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
         // // Handle Raw HTTP style: starts with http:// or https://
         // if raw_link.starts_with("http://") || raw_link.starts_with("https://") {
         //     let filename = raw_link.rsplit('/').next().unwrap_or("").to_lowercase();
@@ -213,6 +215,8 @@ impl ImageLink {
 
             return Self {
                 image_link_type: ImageLinkType::Wikilink(rendering),
+                line_number,
+                position,
                 raw_link,
                 filename,
             };
@@ -231,12 +235,12 @@ impl ImageLink {
             let url = &raw_link[start..raw_link.len() - 1];
 
             let location = if url.starts_with("http://") || url.starts_with("https://") {
-                ImageLinkLocation::External
+                ImageLinkTarget::External
             } else {
-                ImageLinkLocation::Internal
+                ImageLinkTarget::Internal
             };
 
-            let filename = if location == ImageLinkLocation::Internal {
+            let filename = if location == ImageLinkTarget::Internal {
                 url.rsplit('/').next().unwrap_or("").to_lowercase()
             } else {
                 url.to_lowercase()
@@ -244,12 +248,17 @@ impl ImageLink {
 
             return Self {
                 image_link_type: ImageLinkType::MarkdownLink(location, rendering),
+                line_number,
+                position,
                 raw_link,
                 filename,
             };
         }
 
         // Invalid/unrecognized format
-        panic!("Invalid image link format: {}", raw_link);
+        panic!(
+            "Invalid image link format passed to ImageLink::new(): {}",
+            raw_link
+        );
     }
 }

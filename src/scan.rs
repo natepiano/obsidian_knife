@@ -8,7 +8,7 @@ use crate::{
     obsidian_repository_info::ObsidianRepositoryInfo,
 };
 
-use crate::markdown_file_info::{ImageLink, ImageLinkLocation, ImageLinkType};
+use crate::markdown_file_info::{ImageLink, ImageLinkTarget, ImageLinkType};
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Timer;
@@ -132,7 +132,7 @@ fn scan_markdown_files(
     })?;
 
     // Extract data from Arc<Mutex<...>>
-    let markdown_info = Arc::try_unwrap(markdown_files)
+    let markdown_files = Arc::try_unwrap(markdown_files)
         .unwrap()
         .into_inner()
         .unwrap();
@@ -141,7 +141,7 @@ fn scan_markdown_files(
         .into_inner()
         .unwrap();
 
-    Ok((markdown_info, all_wikilinks))
+    Ok((markdown_files, all_wikilinks))
 }
 
 fn scan_markdown_file(
@@ -225,10 +225,14 @@ fn process_content(
         // Process image references on the same line
         for capture in image_regex.captures_iter(line) {
             if let Some(raw_image_link) = capture.get(0) {
-                let image_link = ImageLink::new(raw_image_link.as_str().to_string());
+                let image_link = ImageLink::new(
+                    raw_image_link.as_str().to_string(),
+                    line_idx + 1,
+                    raw_image_link.start(),
+                );
                 match image_link.image_link_type {
                     ImageLinkType::Wikilink(_)
-                    | ImageLinkType::MarkdownLink(ImageLinkLocation::Internal, _) => {
+                    | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
                         image_links.push(image_link)
                     }
                     _ => {}

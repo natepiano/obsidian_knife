@@ -142,7 +142,7 @@ fn test_parallel_image_reference_collection() {
 
         info.image_links = content
             .split('\n')
-            .map(|s| ImageLink::new(s.to_string()))
+            .map(|s| ImageLink::new(s.to_string(), 1, 0))
             .collect();
 
         markdown_files.insert(file_path, info);

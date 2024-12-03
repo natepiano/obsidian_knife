@@ -1,4 +1,5 @@
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::obsidian_repository_info::obsidian_repository_info_types::ImageOperations;
 use crate::scan::scan_folders;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config_builder;
@@ -79,8 +80,10 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let _ = create_test_files(&temp_dir, case.file_count);
         let mut repo_info = scan_folders(&config)?;
 
+        let image_operations = ImageOperations::default();
+
         // Run persistence
-        repo_info.persist(&config)?;
+        repo_info.persist(&config, image_operations)?;
 
         // Verify files were actually processed by checking their content
         let processed_count = repo_info

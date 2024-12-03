@@ -171,7 +171,7 @@ impl MarkdownFileInfo {
         self.persist_reasons.push(PersistReason::BackPopulated);
     }
 
-    pub fn record_image_references_change(&mut self) {
+    pub fn mark_image_reference_as_updated(&mut self) {
         let fm = self
             .frontmatter
             .as_mut()
