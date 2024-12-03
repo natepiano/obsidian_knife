@@ -5,7 +5,7 @@ use crate::wikilink::format_wikilink;
 use crate::wikilink::Wikilink;
 use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1, LEVEL3};
 
-use crate::obsidian_repository_info::obsidian_repository_info_types::ImageReferences;
+use crate::obsidian_repository_info::obsidian_repository_info_types::{ImageOperations, ImageReferences};
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -14,6 +14,7 @@ use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use crate::obsidian_repository_info::execute_image_deletions;
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
@@ -122,7 +123,9 @@ impl MarkdownFiles {
     pub fn persist_all(
         &self,
         file_limit: Option<usize>,
+        image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        execute_image_deletions(&image_operations)?;
         for file_info in self.get_files_to_persist(file_limit) {
             file_info.persist()?;
         }

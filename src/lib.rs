@@ -43,30 +43,31 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     let validated_config = config.validate()?;
 
+    // ANALYSIS PHASE
     let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
     obsidian_repository_info.find_all_back_populate_matches(&validated_config);
-
-    let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
-    write_execution_start(&validated_config, &writer)?;
-
-    // Get image operations based on files being persisted
-    let image_operations = obsidian_repository_info.cleanup_images(&validated_config, &writer)?;
-    obsidian_repository_info.process_image_reference_updates(&image_operations);
-
     obsidian_repository_info.identify_ambiguous_matches();
     obsidian_repository_info.apply_back_populate_changes();
 
-    obsidian_repository_info.write_back_populate_tables(&validated_config, &writer)?;
+    let (grouped_images, missing_references, image_operations) =
+        obsidian_repository_info.analyze_images(&validated_config)?;
 
-    obsidian_repository_info
-        .markdown_files
-        .report_frontmatter_issues(&writer)?;
+    obsidian_repository_info.process_image_reference_updates(&image_operations);
 
+    // REPORTING PHASE
+    let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
+    write_execution_start(&validated_config, &writer)?;
+
+    obsidian_repository_info.markdown_files.report_frontmatter_issues(&writer)?;
     obsidian_repository_info.write_invalid_wikilinks_table(&writer)?;
-
-    obsidian_repository_info
-        .markdown_files
-        .write_persist_reasons_table(&writer)?;
+    obsidian_repository_info.write_image_analysis(
+        &validated_config,
+        &writer,
+        &grouped_images,
+        &missing_references,
+    )?;
+    obsidian_repository_info.write_back_populate_tables(&validated_config, &writer)?;
+    obsidian_repository_info.markdown_files.write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
         obsidian_repository_info.persist(&validated_config, image_operations)?;

@@ -3,21 +3,15 @@ use crate::obsidian_repository_info::obsidian_repository_info_types::{
 };
 use crate::scan::scan_folders;
 use crate::test_utils::{eastern_midnight, TestFileBuilder};
-use crate::utils::ThreadSafeWriter;
 use crate::validated_config::get_test_validated_config_builder;
-use crate::OUTPUT_MARKDOWN_FILE;
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
 
-// todo: right now these tests validate the old path that doesn't use our new persist
-//       but they test the full input/output which is what we want to make sure we haven't
-//       missed something while we refactor separate writing tables from changing the code
-
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_cleanup_images_missing_references() {
+fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
@@ -34,11 +28,12 @@ fn test_cleanup_images_missing_references() {
         .create(&temp_dir, "test.md");
 
     let mut repo_info = scan_folders(&config).unwrap();
+    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file) {
+        markdown_file.mark_image_reference_as_updated();
+    }
 
-    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
-
-    // Run cleanup images
-    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    // Run analyze
+    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
     repo_info.process_image_reference_updates(&image_operations);
     repo_info.persist(&config, image_operations).unwrap();
 
@@ -53,28 +48,22 @@ fn test_cleanup_images_missing_references() {
     );
     assert_eq!(updated_content, expected_content);
 
-    // Second cleanup pass to verify idempotency
+    // Second analyze pass to verify idempotency
     let mut repo_info = scan_folders(&config).unwrap();
-    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+
+    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
     repo_info.process_image_reference_updates(&image_operations);
     repo_info.persist(&config, image_operations).unwrap();
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&md_file).unwrap();
-    assert_eq!(final_content, expected_content, "Content should not change on second cleanup pass");
+    assert_eq!(final_content, expected_content, "Content should not change on second analyze/persist pass");
 
-
-    // Verify the missing references were reported
-    let output_content =
-        fs::read_to_string(config.output_folder().join(OUTPUT_MARKDOWN_FILE)).unwrap();
-    assert!(output_content.contains("missing image references"));
-    assert!(output_content.contains("missing.jpg"));
-    assert!(output_content.contains("also_missing.jpg"));
 }
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_cleanup_images_duplicates() {
+fn test_analyze_duplicates() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
@@ -104,10 +93,18 @@ fn test_cleanup_images_duplicates() {
         .create(&temp_dir, "doc2.md");
 
     let mut repo_info = scan_folders(&config).unwrap();
-    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
 
-    // Run cleanup images
-    let image_operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
+        markdown_file.mark_image_reference_as_updated();
+    }
+    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file2) {
+        markdown_file.mark_image_reference_as_updated();
+    }
+
+    // Run analyze images
+    let (_, _, image_operations) =
+        repo_info.analyze_images(&config).unwrap();
+
     repo_info.process_image_reference_updates(&image_operations);
     repo_info.persist(&config, image_operations).unwrap();
 
@@ -129,16 +126,9 @@ fn test_cleanup_images_duplicates() {
 
     assert!(updated_content1.contains(keeper_name));
     assert!(updated_content2.contains(keeper_name));
-
-    // Verify the duplication was reported
-    let output_content =
-        fs::read_to_string(config.output_folder().join(OUTPUT_MARKDOWN_FILE)).unwrap();
-    assert!(output_content.contains("duplicate images"));
-    assert!(output_content.contains("image1.jpg"));
-    assert!(output_content.contains("image2.jpg"));
 }
 
-struct CleanupTestCase {
+struct ImageTestCase {
     name: &'static str,
     setup: fn(&TempDir) -> Vec<PathBuf>, // Returns paths created
     expected_ops: fn(&[PathBuf]) -> (Vec<ImageOperation>, Vec<MarkdownOperation>),
@@ -146,9 +136,9 @@ struct CleanupTestCase {
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_image_operations_match_cleanup() {
+fn test_image_operation_generation() {
     let test_cases = vec![
-        CleanupTestCase {
+        ImageTestCase {
             name: "missing_references",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
@@ -169,7 +159,7 @@ fn test_image_operations_match_cleanup() {
                 )
             },
         },
-        CleanupTestCase {
+        ImageTestCase {
             name: "duplicate_images",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
@@ -207,7 +197,7 @@ fn test_image_operations_match_cleanup() {
                 )
             },
         },
-        CleanupTestCase {
+        ImageTestCase {
             name: "zero_byte_images",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
@@ -227,7 +217,7 @@ fn test_image_operations_match_cleanup() {
             },
             expected_ops: expect_delete_remove_reference(),
         },
-        CleanupTestCase {
+        ImageTestCase {
             name: "tiff_images",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
@@ -247,7 +237,7 @@ fn test_image_operations_match_cleanup() {
             },
             expected_ops: expect_delete_remove_reference(),
         },
-        CleanupTestCase {
+        ImageTestCase {
             name: "unreferenced_images",
             setup: |temp_dir| {
                 // Create image with no references
@@ -273,10 +263,9 @@ fn test_image_operations_match_cleanup() {
         fs::create_dir_all(config.output_folder()).unwrap();
 
         let created_paths = (test_case.setup)(&temp_dir);
-        let mut repo_info = scan_folders(&config).unwrap();
-        let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
+        let repo_info = scan_folders(&config).unwrap();
 
-        let operations = repo_info.cleanup_images(&config, &writer).unwrap();
+        let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
 
         let (expected_image_ops, expected_markdown_ops) = (test_case.expected_ops)(&created_paths);
 
@@ -392,7 +381,7 @@ fn test_image_reference_detection() {
 ![[Image1.jpg|300]]
 ![[deeply/nested/path/image2.JPG]]
 [[image2.JPG]]"#;
-    let _ = TestFileBuilder::new()
+    let md_file1 = TestFileBuilder::new()
         .with_content(md_content1.to_string())
         .with_matching_dates(test_date)
         .with_fs_dates(test_date, test_date)
@@ -403,7 +392,7 @@ fn test_image_reference_detection() {
 ![Alt](deeply/nested/path/image2.JPG)
 ![[./current/path/other.jpg]]
 ![[../relative/path/another.jpg]]"#;
-    let _ = TestFileBuilder::new()
+    let md_file2 = TestFileBuilder::new()
         .with_content(md_content2.to_string())
         .with_matching_dates(test_date)
         .with_fs_dates(test_date, test_date)
@@ -411,10 +400,16 @@ fn test_image_reference_detection() {
 
     // Scan the repository
     let mut repo_info = scan_folders(&config).unwrap();
-    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
 
-    // Run cleanup images to generate the image info map
-    let operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
+        markdown_file.mark_image_reference_as_updated();
+    }
+    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file2) {
+        markdown_file.mark_image_reference_as_updated();
+    }
+
+    // Run analyze to generate the image info map
+    let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
 
     // Verify image reference detection
     let deletion_operations: Vec<_> = operations
@@ -468,7 +463,7 @@ fn test_image_reference_detection() {
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_cleanup_images_wikilink_errors() {
+fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
@@ -482,11 +477,10 @@ fn test_cleanup_images_wikilink_errors() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test_file.md");
 
-    let mut repo_info = scan_folders(&config).unwrap();
-    let writer = ThreadSafeWriter::new(config.output_folder()).unwrap();
+    let repo_info = scan_folders(&config).unwrap();
 
-    // Run cleanup images and verify it handles wikilink paths appropriately
-    let operations = repo_info.cleanup_images(&config, &writer).unwrap();
+    // Run analyze and verify it handles wikilink paths appropriately
+    let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(operations.image_ops.is_empty(), "No image operations should be created for wikilink paths");

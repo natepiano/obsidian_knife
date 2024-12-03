@@ -40,13 +40,13 @@ pub struct ImageReferences {
     pub markdown_file_references: Vec<String>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ImageGroup {
     pub path: PathBuf,
     pub info: ImageReferences,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct GroupedImages {
     pub groups: HashMap<ImageGroupType, Vec<ImageGroup>>,
 }
