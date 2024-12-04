@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportWriter, TableBuilder};
+use crate::report::{ReportWriter, TableDefinition};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 pub struct InvalidWikilinksTable;
 
-impl TableBuilder for InvalidWikilinksTable {
+impl TableDefinition for InvalidWikilinksTable {
     type Item = (PathBuf, InvalidWikilink);
 
     fn headers(&self) -> Vec<&str> {
@@ -75,6 +75,7 @@ impl TableBuilder for InvalidWikilinksTable {
     fn level(&self) -> &'static str {
         LEVEL2
     }
+
 }
 
 impl ObsidianRepositoryInfo {
@@ -82,6 +83,20 @@ impl ObsidianRepositoryInfo {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let invalid_wikilinks = self.collect_invalid_wikilinks();
+
+        if invalid_wikilinks.is_empty() {
+            return Ok(());
+        }
+
+        ReportWriter::write_table(
+            self.collect_invalid_wikilinks(),
+            &InvalidWikilinksTable,
+            writer,
+        )
+    }
+
+    fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {
         let invalid_wikilinks: Vec<(PathBuf, InvalidWikilink)> = self
             .markdown_files
             .iter()
@@ -109,14 +124,6 @@ impl ObsidianRepositoryInfo {
                     .then(a.1.line_number.cmp(&b.1.line_number))
             })
             .collect();
-
-        if invalid_wikilinks.is_empty() {
-            return Ok(());
-        }
-
-        let table = ReportWriter::new(invalid_wikilinks);
-        table.write(&InvalidWikilinksTable, writer)?;
-
-        Ok(())
+        invalid_wikilinks
     }
 }

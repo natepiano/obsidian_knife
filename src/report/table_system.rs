@@ -2,7 +2,7 @@ use crate::utils::{ColumnAlignment, OutputFileWriter};
 use std::error::Error;
 
 /// Core trait for building report tables
-pub trait TableBuilder {
+pub trait TableDefinition {
     /// The type of data being displayed in the table
     type Item;
 
@@ -21,12 +21,16 @@ pub trait TableBuilder {
     }
 
     /// Optional table description/summary
-    fn description(&self, items: &[Self::Item]) -> Option<String> {
+    fn description(&self, _: &[Self::Item]) -> Option<String> {
         None
     }
 
     /// markdown level
     fn level(&self) -> &'static str;
+
+    fn hide_title_if_no_rows(&self) -> bool {
+        true
+    }
 }
 
 /// Represents a table section in a report
@@ -40,30 +44,36 @@ impl<T> ReportWriter<T> {
     }
 
     /// Write the table using the provided builder and writer
-    pub fn write<B: TableBuilder<Item = T>>(
-        &self,
-        builder: &B,
+    pub fn write_table<B: TableDefinition<Item = T>>(
+        items: Vec<T>,
+        table: &B,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+
+        let report = Self::new(items);
+        if report.items.is_empty() && table.hide_title_if_no_rows() {
+            return Ok(());
+        }
+
         // Write title if present
-        if let Some(title) = builder.title() {
-            writer.writeln(builder.level(), title)?;
+        if let Some(title) = table.title() {
+            writer.writeln(table.level(), title)?;
         }
 
         // Write description if present
-        if let Some(desc) = builder.description(&self.items) {
+        if let Some(desc) = table.description(&report.items) {
             writer.writeln("", &desc)?;
         }
 
         // Skip empty tables unless overridden
-        if self.items.is_empty() {
+        if report.items.is_empty() {
             return Ok(());
         }
 
         // Build and write the table
-        let headers = builder.headers();
-        let alignments = builder.alignments();
-        let rows = builder.build_rows(&self.items);
+        let headers = table.headers();
+        let alignments = table.alignments();
+        let rows = table.build_rows(&report.items);
 
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 
