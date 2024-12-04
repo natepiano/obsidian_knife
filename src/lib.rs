@@ -8,6 +8,7 @@ mod frontmatter;
 mod markdown_file_info;
 mod markdown_files;
 mod obsidian_repository_info;
+mod report;
 mod scan;
 mod utils;
 mod validated_config;
@@ -45,29 +46,15 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     // ANALYSIS PHASE
     let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
-    obsidian_repository_info.find_all_back_populate_matches(&validated_config);
-    obsidian_repository_info.identify_ambiguous_matches();
-    obsidian_repository_info.apply_back_populate_changes();
-
     let (grouped_images, missing_references, image_operations) =
-        obsidian_repository_info.analyze_images(&validated_config)?;
-
-    obsidian_repository_info.process_image_reference_updates(&image_operations);
+        obsidian_repository_info.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
-    let writer = ThreadSafeWriter::new(validated_config.output_folder())?;
-    write_execution_start(&validated_config, &writer)?;
-
-    obsidian_repository_info.markdown_files.report_frontmatter_issues(&writer)?;
-    obsidian_repository_info.write_invalid_wikilinks_table(&writer)?;
-    obsidian_repository_info.write_image_analysis(
+    obsidian_repository_info.write_reports(
         &validated_config,
-        &writer,
         &grouped_images,
         &missing_references,
     )?;
-    obsidian_repository_info.write_back_populate_tables(&validated_config, &writer)?;
-    obsidian_repository_info.markdown_files.write_persist_reasons_table(&writer)?;
 
     if config.apply_changes == Some(true) {
         obsidian_repository_info.persist(&validated_config, image_operations)?;

@@ -12,8 +12,8 @@ mod update_modified_tests;
 pub mod obsidian_repository_info_types;
 
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
-    ImageReferences, MarkdownOperation,
+    GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences,
+    MarkdownOperation,
 };
 use crate::{
     constants::*,
@@ -187,7 +187,8 @@ impl ObsidianRepositoryInfo {
         config: &ValidatedConfig,
         image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.markdown_files.persist_all(config.file_process_limit(), image_operations)
+        self.markdown_files
+            .persist_all(config.file_process_limit(), image_operations)
     }
 
     pub fn write_back_populate_tables(
@@ -241,7 +242,9 @@ impl ObsidianRepositoryInfo {
                     .filter(|wikilink| {
                         !matches!(
                             wikilink.reason,
-                            InvalidWikilinkReason::EmailAddress | InvalidWikilinkReason::Tag | InvalidWikilinkReason::RawHttpLink
+                            InvalidWikilinkReason::EmailAddress
+                                | InvalidWikilinkReason::Tag
+                                | InvalidWikilinkReason::RawHttpLink
                         )
                     })
                     .map(move |wikilink| (&markdown_file_info.path, wikilink))
@@ -385,17 +388,40 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
+    pub fn analyze_repository(
+        &mut self,
+        validated_config: &ValidatedConfig,
+    ) -> Result<
+        (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
+        Box<dyn Error + Send + Sync>,
+    > {
+        self.find_all_back_populate_matches(&validated_config);
+        self.identify_ambiguous_matches();
+        self.apply_back_populate_changes();
+
+        let (grouped_images, missing_references, image_operations) =
+            self.analyze_images(&validated_config)?;
+
+        self.process_image_reference_updates(&image_operations);
+        Ok((grouped_images, missing_references, image_operations))
+    }
+
     pub(crate) fn analyze_images(
         &self,
         config: &ValidatedConfig,
-    ) -> Result<(GroupedImages, Vec<(PathBuf, String)>, ImageOperations), Box<dyn Error + Send + Sync>> {
+    ) -> Result<
+        (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
+        Box<dyn Error + Send + Sync>,
+    > {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 
         let missing_references = self.generate_missing_references()?;
 
         // Get files being persisted in this run
-        let files_to_persist = self.markdown_files.get_files_to_persist(config.file_process_limit());
+        let files_to_persist = self
+            .markdown_files
+            .get_files_to_persist(config.file_process_limit());
         let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
 
         let mut operations = ImageOperations::default();
@@ -403,17 +429,21 @@ impl ObsidianRepositoryInfo {
         // 0. Handle missing references first
         for (markdown_path, missing_image) in &missing_references {
             if files_to_persist.contains(markdown_path) {
-                operations.markdown_ops.push(MarkdownOperation::RemoveReference {
-                    markdown_path: markdown_path.clone(),
-                    image_path: PathBuf::from(missing_image),
-                });
+                operations
+                    .markdown_ops
+                    .push(MarkdownOperation::RemoveReference {
+                        markdown_path: markdown_path.clone(),
+                        image_path: PathBuf::from(missing_image),
+                    });
             }
         }
 
         // 1. Handle unreferenced images - always safe to delete
         if let Some(unreferenced) = grouped_images.get(&ImageGroupType::UnreferencedImage) {
             for group in unreferenced {
-                operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
+                operations
+                    .image_ops
+                    .push(ImageOperation::Delete(group.path.clone()));
             }
         }
 
@@ -431,18 +461,25 @@ impl ObsidianRepositoryInfo {
         for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
             if let Some(keeper) = duplicate_group.first() {
                 for duplicate in duplicate_group.iter().skip(1) {
-                    let can_delete = duplicate.info.markdown_file_references.iter()
+                    let can_delete = duplicate
+                        .info
+                        .markdown_file_references
+                        .iter()
                         .all(|path| files_to_persist.contains(&PathBuf::from(path)));
                     if can_delete {
-                        operations.image_ops.push(ImageOperation::Delete(duplicate.path.clone()));
+                        operations
+                            .image_ops
+                            .push(ImageOperation::Delete(duplicate.path.clone()));
 
                         // Add operations to update references to point to keeper
                         for ref_path in &duplicate.info.markdown_file_references {
-                            operations.markdown_ops.push(MarkdownOperation::UpdateReference {
-                                markdown_path: PathBuf::from(ref_path),
-                                old_image_path: duplicate.path.clone(),
-                                new_image_path: keeper.path.clone(),
-                            });
+                            operations
+                                .markdown_ops
+                                .push(MarkdownOperation::UpdateReference {
+                                    markdown_path: PathBuf::from(ref_path),
+                                    old_image_path: duplicate.path.clone(),
+                                    new_image_path: keeper.path.clone(),
+                                });
                         }
                     }
                 }
@@ -624,18 +661,27 @@ fn process_special_image_group(
 ) {
     for group in group_images {
         if group.info.markdown_file_references.is_empty() {
-            operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
+            operations
+                .image_ops
+                .push(ImageOperation::Delete(group.path.clone()));
         } else {
-            let can_delete = group.info.markdown_file_references.iter()
+            let can_delete = group
+                .info
+                .markdown_file_references
+                .iter()
                 .all(|path| files_to_persist.contains(&PathBuf::from(path)));
             if can_delete {
-                operations.image_ops.push(ImageOperation::Delete(group.path.clone()));
+                operations
+                    .image_ops
+                    .push(ImageOperation::Delete(group.path.clone()));
                 // Add operations to remove references
                 for ref_path in &group.info.markdown_file_references {
-                    operations.markdown_ops.push(MarkdownOperation::RemoveReference {
-                        markdown_path: PathBuf::from(ref_path),
-                        image_path: group.path.clone(),
-                    });
+                    operations
+                        .markdown_ops
+                        .push(MarkdownOperation::RemoveReference {
+                            markdown_path: PathBuf::from(ref_path),
+                            image_path: group.path.clone(),
+                        });
                 }
             }
         }
@@ -954,7 +1000,6 @@ fn consolidate_matches(matches: &[&BackPopulateMatch]) -> Vec<ConsolidatedMatch>
 }
 
 fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages {
-
     let mut groups = GroupedImages::new();
 
     for (path_buf, image_references) in image_map {
@@ -1228,8 +1273,7 @@ fn write_group_table(
             group_vec[0].path.file_name().unwrap().to_string_lossy()
         );
 
-        let duplicates =
-            format_duplicates(config, group_vec, keeper_path, is_special_group);
+        let duplicates = format_duplicates(config, group_vec, keeper_path, is_special_group);
         let references = format_references(config, group_vec, keeper_path);
 
         rows.push(vec![sample, duplicates, references]);

@@ -78,9 +78,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     // Only update the first file
     markdown_file1.mark_image_reference_as_updated();
 
-    repo_info
-        .markdown_files
-        .push(markdown_file1);
+    repo_info.markdown_files.push(markdown_file1);
     repo_info
         .markdown_files
         .push(get_test_markdown_file_info(file_path2.clone()));

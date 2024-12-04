@@ -57,8 +57,10 @@ fn test_analyze_missing_references() {
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&md_file).unwrap();
-    assert_eq!(final_content, expected_content, "Content should not change on second analyze/persist pass");
-
+    assert_eq!(
+        final_content, expected_content,
+        "Content should not change on second analyze/persist pass"
+    );
 }
 
 #[test]
@@ -102,8 +104,7 @@ fn test_analyze_duplicates() {
     }
 
     // Run analyze images
-    let (_, _, image_operations) =
-        repo_info.analyze_images(&config).unwrap();
+    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
 
     repo_info.process_image_reference_updates(&image_operations);
     repo_info.persist(&config, image_operations).unwrap();
@@ -363,8 +364,17 @@ fn test_image_reference_detection() {
 
     // Create test images with some content
     let img_content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Simple JPEG header
-    let nested_img_path = temp_dir.path().join("deeply").join("nested").join("path").join("image2.JPG");
-    let another_img_path = temp_dir.path().join("another").join("path").join("image3.jpg");
+    let nested_img_path = temp_dir
+        .path()
+        .join("deeply")
+        .join("nested")
+        .join("path")
+        .join("image2.JPG");
+    let another_img_path = temp_dir
+        .path()
+        .join("another")
+        .join("path")
+        .join("image3.jpg");
 
     let img_path1 = TestFileBuilder::new()
         .with_content(img_content.clone())
@@ -483,11 +493,19 @@ fn test_analyze_wikilink_errors() {
     let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
-    assert!(operations.image_ops.is_empty(), "No image operations should be created for wikilink paths");
-    assert!(operations.markdown_ops.is_empty(), "No markdown operations should be created for wikilink paths");
+    assert!(
+        operations.image_ops.is_empty(),
+        "No image operations should be created for wikilink paths"
+    );
+    assert!(
+        operations.markdown_ops.is_empty(),
+        "No markdown operations should be created for wikilink paths"
+    );
 
     // Verify the content wasn't modified
     let final_content = fs::read_to_string(&md_file).unwrap();
-    assert!(final_content.contains("![[[[Some File]]]]"), "Content with invalid wikilinks should not be modified");
-
+    assert!(
+        final_content.contains("![[[[Some File]]]]"),
+        "Content with invalid wikilinks should not be modified"
+    );
 }
