@@ -42,16 +42,14 @@ impl<T> ReportWriter<T> {
     pub fn new(items: Vec<T>) -> Self {
         Self { items }
     }
-
     /// Write the table using the provided builder and writer
-    pub fn write_table<B: TableDefinition<Item = T>>(
-        items: Vec<T>,
+    pub fn write<B: TableDefinition<Item = T>>(
+        &self,
         table: &B,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
-        let report = Self::new(items);
-        if report.items.is_empty() && table.hide_title_if_no_rows() {
+        if self.items.is_empty() && table.hide_title_if_no_rows() {
             return Ok(());
         }
 
@@ -61,19 +59,19 @@ impl<T> ReportWriter<T> {
         }
 
         // Write description if present
-        if let Some(desc) = table.description(&report.items) {
+        if let Some(desc) = table.description(&self.items) {
             writer.writeln("", &desc)?;
         }
 
         // Skip empty tables unless overridden
-        if report.items.is_empty() {
+        if self.items.is_empty() {
             return Ok(());
         }
 
         // Build and write the table
         let headers = table.headers();
         let alignments = table.alignments();
-        let rows = table.build_rows(&report.items);
+        let rows = table.build_rows(&self.items);
 
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 

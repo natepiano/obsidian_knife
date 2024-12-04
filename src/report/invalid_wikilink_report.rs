@@ -83,17 +83,8 @@ impl ObsidianRepositoryInfo {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let invalid_wikilinks = self.collect_invalid_wikilinks();
-
-        if invalid_wikilinks.is_empty() {
-            return Ok(());
-        }
-
-        ReportWriter::write_table(
-            self.collect_invalid_wikilinks(),
-            &InvalidWikilinksTable,
-            writer,
-        )
+        let report = ReportWriter::new( self.collect_invalid_wikilinks());
+        report.write(&InvalidWikilinksTable, writer)
     }
 
     fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {
