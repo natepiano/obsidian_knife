@@ -58,7 +58,11 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report stuff
+pub const FOUND: &str = "found";
+pub const FRONTMATTER: &str = "frontmatter";
 pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
+pub const IN: &str = "in";
+pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const OF: &str = "of";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
@@ -82,12 +86,34 @@ pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {
+    File(usize),
+    Issue(usize),
+    Wikilink(usize),
+}
+
+impl Phrase {
+    pub const fn pluralize(&self) -> &'static str {
+        match (self) {
+            Phrase::File(1) => "file",
+            Phrase::File(_) => "files",
+            Phrase::Issue(1) => "issue",
+            Phrase::Issue(_) => "issues",
+            Phrase::Wikilink(1) => "wikilink",
+            Phrase::Wikilink(_) => "wikilinks",
+        }
+    }
+
+    pub const fn value(&self) -> usize {
+        match self {
+            Phrase::File(value) | Phrase::Issue(value) | Phrase::Wikilink(value) => *value,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum PhraseOld {
     // File-related phrases
     Files,
-    InvalidDates,
-    PropertyErrors,
-    DateCreated,
-    DateModified,
 
     // Image-related phrases
     MissingImageReferences,
@@ -99,55 +125,32 @@ pub enum Phrase {
     // compound pluralize
     Matches,
     Times,
-    TimeInFiles,
-    TimesInFiles,
 }
-
 /// Pluralizes a phrase based on count at compile time
-pub const fn pluralize(count: usize, phrase: Phrase) -> &'static str {
+pub const fn pluralize(count: usize, phrase: PhraseOld) -> &'static str {
     match (count, phrase) {
-        // File-related phrases
-        (1, Phrase::Files) => "file",
-        (_, Phrase::Files) => "files",
+        (1, PhraseOld::Files) => "file",
+        (_, PhraseOld::Files) => "files",
 
-        (1, Phrase::InvalidDates) => "file has an invalid date",
-        (_, Phrase::InvalidDates) => "files have invalid dates",
+        (1, PhraseOld::MissingImageReferences) => "file has missing image references",
+        (_, PhraseOld::MissingImageReferences) => "files have missing image references",
 
-        (1, Phrase::PropertyErrors) => "file has a yaml property error",
-        (_, Phrase::PropertyErrors) => "files have yaml property errors",
+        (1, PhraseOld::TiffImages) => "TIFF image will not render correctly in obsidian",
+        (_, PhraseOld::TiffImages) => "TIFF images will not render correctly in obsidian",
 
-        (1, Phrase::DateModified) => "file has an issue with date_modified",
-        (_, Phrase::DateModified) => "files have issues with date_modified",
+        (1, PhraseOld::ZeroByteImages) => "image has zero bytes and is probably corrupted",
+        (_, PhraseOld::ZeroByteImages) => "images have zero bytes and are probably corrupted",
 
-        (1, Phrase::DateCreated) => "file has an issue with date_created",
-        (_, Phrase::DateCreated) => "files have issues with date_created",
+        (1, PhraseOld::UnreferencedImages) => "image is not referenced by any file",
+        (_, PhraseOld::UnreferencedImages) => "images are not referenced by any files",
 
-        // Image-related phrases
-        (1, Phrase::MissingImageReferences) => "file has missing image references",
-        (_, Phrase::MissingImageReferences) => "files have missing image references",
+        (1, PhraseOld::DuplicateImages) => "duplicate image",
+        (_, PhraseOld::DuplicateImages) => "duplicate images",
 
-        (1, Phrase::TiffImages) => "TIFF image will not render correctly in obsidian",
-        (_, Phrase::TiffImages) => "TIFF images will not render correctly in obsidian",
+        (1, PhraseOld::Matches) => "match",
+        (_, PhraseOld::Matches) => "matches",
 
-        (1, Phrase::ZeroByteImages) => "image has zero bytes and is probably corrupted",
-        (_, Phrase::ZeroByteImages) => "images have zero bytes and are probably corrupted",
-
-        (1, Phrase::UnreferencedImages) => "image is not referenced by any file",
-        (_, Phrase::UnreferencedImages) => "images are not referenced by any files",
-
-        (1, Phrase::DuplicateImages) => "duplicate image",
-        (_, Phrase::DuplicateImages) => "duplicate images",
-
-        (1, Phrase::Matches) => "match",
-        (_, Phrase::Matches) => "matches",
-
-        (1, Phrase::Times) => "time",
-        (_, Phrase::Times) => "times",
-
-        (1, Phrase::TimeInFiles) => "time in",
-        (_, Phrase::TimeInFiles) => "time in", // Note: this case shouldn't occur in practice
-
-        (1, Phrase::TimesInFiles) => "times in", // Note: this case shouldn't occur in practice
-        (_, Phrase::TimesInFiles) => "times in",
+        (1, PhraseOld::Times) => "time",
+        (_, PhraseOld::Times) => "times",
     }
 }

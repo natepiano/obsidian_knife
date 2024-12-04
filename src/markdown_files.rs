@@ -1,8 +1,8 @@
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
-use crate::utils::{ColumnAlignment, OutputFileWriter, Sha256Cache};
+use crate::constants::*;
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
-use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1};
 
 use crate::obsidian_repository_info::execute_image_deletions;
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
@@ -12,7 +12,6 @@ use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::io;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};

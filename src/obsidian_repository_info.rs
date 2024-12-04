@@ -16,13 +16,8 @@ use crate::obsidian_repository_info::obsidian_repository_info_types::{
     MarkdownOperation,
 };
 use crate::{
-    constants::*,
-    markdown_file_info::BackPopulateMatch,
-    markdown_files::MarkdownFiles,
-    utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter},
-    validated_config::ValidatedConfig,
-    wikilink::{ToWikilink, Wikilink},
-    Timer,
+    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles,
+    validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
 };
 use aho_corasick::AhoCorasick;
 use regex::Regex;

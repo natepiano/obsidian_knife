@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportWriter, ReportDefinition};
+use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::wikilink::ToWikilink;
 use std::error::Error;
@@ -9,7 +9,7 @@ use std::path::PathBuf;
 pub struct FrontmatterIssuesTable;
 
 impl ReportDefinition for FrontmatterIssuesTable {
-    type Item = (PathBuf, String);  // (file_path, error_message)
+    type Item = (PathBuf, String); // (file_path, error_message)
 
     fn headers(&self) -> Vec<&str> {
         vec!["file name", "error message"]
@@ -19,7 +19,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]
     }
 
-    fn build_rows(&self, items: &[Self::Item]) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: &()) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|(file_path, error_message)| {
@@ -39,11 +39,13 @@ impl ReportDefinition for FrontmatterIssuesTable {
         Some(FRONTMATTER_ISSUES)
     }
 
-    fn description(&self, items: &[Self::Item]) -> Option<String> {
-        Some(format!(
-            "found {} files with frontmatter parsing errors\n",
-            items.len()
-        ))
+    fn description(&self, items: &[Self::Item]) -> String {
+        DescriptionBuilder::new()
+            .text(FOUND)
+            .pluralize_with_count(Phrase::File(items.len()))
+            .text(FRONTMATTER)
+            .pluralize(Phrase::Issue(items.len()))
+            .build()
     }
 
     fn level(&self) -> &'static str {

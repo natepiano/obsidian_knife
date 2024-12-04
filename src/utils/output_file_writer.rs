@@ -1,4 +1,4 @@
-use crate::constants::{pluralize, Phrase};
+use crate::constants::{pluralize, PhraseOld};
 use crate::OUTPUT_MARKDOWN_FILE;
 use std::fs::{File, OpenOptions};
 use std::io;
@@ -100,7 +100,7 @@ impl OutputFileWriter {
         file.flush()
     }
 
-    pub fn writeln_pluralized(&self, count: usize, phrase: Phrase) -> io::Result<()> {
+    pub fn writeln_pluralized(&self, count: usize, phrase: PhraseOld) -> io::Result<()> {
         let message = pluralize(count, phrase);
         self.writeln("", &format!("{} {}\n", count, message))
     }

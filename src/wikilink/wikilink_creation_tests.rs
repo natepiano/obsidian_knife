@@ -1,24 +1,24 @@
 use super::*;
 use crate::wikilink::{ToWikilink, WikilinkParseResult};
-use std::path::Path;
+//use std::path::Path;
 
-// Macro to test simple wikilink creation
-macro_rules! test_wikilink {
-    ($test_name:ident, $input:expr, $expected:expr) => {
-        #[test]
-        fn $test_name() {
-            let formatted = format_path_as_wikilink(&Path::new($input));
-            assert_eq!(formatted, $expected);
-        }
-    };
-}
-
-// Define simple wikilink tests using the macro
-test_wikilink!(wikilink_simple, "test", "[[test]]");
-test_wikilink!(wikilink_with_md, "test.md", "[[test]]");
-test_wikilink!(wikilink_empty, "", "[[]]");
-test_wikilink!(wikilink_unicode, "テスト.md", "[[テスト]]");
-test_wikilink!(wikilink_with_space, "test café.md", "[[test café]]");
+// // Macro to test simple wikilink creation
+// macro_rules! test_wikilink {
+//     ($test_name:ident, $input:expr, $expected:expr) => {
+//         #[test]
+//         fn $test_name() {
+//             let formatted = format_path_as_wikilink(&Path::new($input));
+//             assert_eq!(formatted, $expected);
+//         }
+//     };
+// }
+//
+// // Define simple wikilink tests using the macro
+// test_wikilink!(wikilink_simple, "test", "[[test]]");
+// test_wikilink!(wikilink_with_md, "test.md", "[[test]]");
+// test_wikilink!(wikilink_empty, "", "[[]]");
+// test_wikilink!(wikilink_unicode, "テスト.md", "[[テスト]]");
+// test_wikilink!(wikilink_with_space, "test café.md", "[[test café]]");
 
 /// Helper function to parse a full wikilink string.
 /// It ensures the input starts with `[[` and ends with `]]`,

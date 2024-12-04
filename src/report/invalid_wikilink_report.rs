@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportWriter, ReportDefinition};
+use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
@@ -35,7 +35,7 @@ impl ReportDefinition for InvalidWikilinksTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item]) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: &()) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|(file_path, invalid_wikilink)| {
@@ -58,24 +58,27 @@ impl ReportDefinition for InvalidWikilinksTable {
         Some(INVALID_WIKILINKS)
     }
 
-    fn description(&self, items: &[Self::Item]) -> Option<String> {
+    fn description(&self, items: &[Self::Item]) -> String {
         let unique_files = items
             .iter()
             .map(|(p, _)| p)
             .collect::<std::collections::HashSet<_>>()
             .len();
 
-        Some(format!(
-            "found {} invalid wikilinks in {} files\n",
-            items.len(),
-            unique_files
-        ))
+        DescriptionBuilder::new()
+            .text(FOUND)
+            .number(items.len())
+            .text(INVALID)
+            .pluralize(Phrase::Wikilink(items.len()))
+            .text(IN)
+            .pluralize_with_count(Phrase::File(unique_files))
+            .build()
+
     }
 
     fn level(&self) -> &'static str {
         LEVEL2
     }
-
 }
 
 impl ObsidianRepositoryInfo {
@@ -83,7 +86,7 @@ impl ObsidianRepositoryInfo {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new( self.collect_invalid_wikilinks());
+        let report = ReportWriter::new(self.collect_invalid_wikilinks());
         report.write(&InvalidWikilinksTable, writer)
     }
 

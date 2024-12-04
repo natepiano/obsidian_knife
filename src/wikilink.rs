@@ -15,7 +15,6 @@ use crate::{
 
 use crate::utils::RAW_HTTP_REGEX;
 use std::iter::Peekable;
-use std::path::Path;
 use std::str::CharIndices;
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
@@ -36,12 +35,12 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     }
 }
 
-pub fn format_path_as_wikilink(path: &Path) -> String {
-    path.file_stem()
-        .and_then(|s| s.to_str())
-        .map(|s| format!("[[{}]]", s))
-        .unwrap_or_else(|| "[[]]".to_string())
-}
+// pub fn format_path_as_wikilink(path: &Path) -> String {
+//     path.file_stem()
+//         .and_then(|s| s.to_str())
+//         .map(|s| format!("[[{}]]", s))
+//         .unwrap_or_else(|| "[[]]".to_string())
+// }
 
 pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut result = ParsedExtractedWikilinks::default();

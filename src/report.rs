@@ -12,13 +12,52 @@ use crate::obsidian_repository_info::obsidian_repository_info_types::{
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink;
 use crate::wikilink::ToWikilink;
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io;
 use std::path::{Path, PathBuf};
+
+struct DescriptionBuilder {
+    parts: Vec<String>,
+}
+
+impl DescriptionBuilder {
+    /// Creates a new DescriptionBuilder instance.
+    pub fn new() -> Self {
+        Self { parts: Vec::new() }
+    }
+
+    pub fn number(mut self, number: usize) -> Self {
+        self.parts.push(number.to_string());
+        self
+    }
+
+    /// Appends text to the builder.
+    pub fn text(mut self, text: &str) -> Self {
+        self.parts.push(text.to_string());
+        self
+    }
+
+    pub fn pluralize_with_count(mut self, phrase_new: Phrase) -> Self {
+        self.parts
+            .push(format!("{} {}", phrase_new.value(), phrase_new.pluralize()));
+        self
+    }
+
+    pub fn pluralize(mut self, phrase_new: Phrase) -> Self {
+        self.parts.push(format!("{}", phrase_new.pluralize()));
+        self
+    }
+
+    /// Builds the final string with all appended parts, adding a newline at the end.
+    pub fn build(self) -> String {
+        let mut result = self.parts.join(" ");
+        result.push('\n');
+        result
+    }
+}
 
 impl ObsidianRepositoryInfo {
     pub fn write_reports(
@@ -43,8 +82,7 @@ impl ObsidianRepositoryInfo {
 
         self.write_back_populate_tables(&validated_config, &writer, files_to_persist)?;
 
-        self.markdown_files
-            .write_persist_reasons_table(&writer, files_to_persist)?;
+        self.write_persist_reasons_table(&writer, files_to_persist)?;
 
         Ok(())
     }
@@ -83,7 +121,7 @@ impl ObsidianRepositoryInfo {
                 files_to_persist.len(),
                 OF,
                 total_files,
-                pluralize(total_files, Phrase::Files),
+                pluralize(total_files, PhraseOld::Files),
                 THAT_NEED_UPDATES,
             );
             writer.writeln("", message.as_str())?;
@@ -92,7 +130,7 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
-   fn write_image_analysis(
+    fn write_image_analysis(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
@@ -385,7 +423,7 @@ fn write_image_tables(
             writer,
             TIFF_IMAGES,
             tiff_images,
-            Phrase::TiffImages,
+            PhraseOld::TiffImages,
         )?;
     }
 
@@ -395,7 +433,7 @@ fn write_image_tables(
             writer,
             ZERO_BYTE_IMAGES,
             zero_byte_images,
-            Phrase::ZeroByteImages,
+            PhraseOld::ZeroByteImages,
         )?;
     }
 
@@ -405,7 +443,7 @@ fn write_image_tables(
             writer,
             UNREFERENCED_IMAGES,
             unreferenced_images,
-            Phrase::UnreferencedImages,
+            PhraseOld::UnreferencedImages,
         )?;
     }
 
@@ -428,7 +466,7 @@ fn write_missing_references_table(
     writer.writeln(LEVEL2, MISSING_IMAGE_REFERENCES)?;
     writer.writeln_pluralized(
         markdown_references_to_missing_image_files.len(),
-        Phrase::MissingImageReferences,
+        PhraseOld::MissingImageReferences,
     )?;
 
     let headers = &["markdown file", "missing image reference", "action"];
@@ -485,12 +523,12 @@ fn write_duplicate_group_table(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, "duplicate images with references")?;
     writer.writeln(LEVEL3, &format!("image file hash: {}", group_hash))?;
-    writer.writeln_pluralized(groups.len(), Phrase::DuplicateImages)?;
+    writer.writeln_pluralized(groups.len(), PhraseOld::DuplicateImages)?;
     let total_references: usize = groups
         .iter()
         .map(|g| g.info.markdown_file_references.len())
         .sum();
-    let references_string = pluralize(total_references, Phrase::Files);
+    let references_string = pluralize(total_references, PhraseOld::Files);
     writer.writeln(
         "",
         &format!("referenced by {} {}\n", total_references, references_string),
@@ -505,7 +543,7 @@ fn write_special_image_group_table(
     writer: &OutputFileWriter,
     group_type: &str,
     groups: &[ImageGroup],
-    phrase: Phrase,
+    phrase: PhraseOld,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     writer.writeln(LEVEL2, group_type)?;
 
@@ -847,16 +885,16 @@ fn format_back_populate_header(match_count: usize, file_count: usize) -> String 
     format!(
         "{} {} {} {} {}",
         match_count,
-        pluralize(match_count, Phrase::Matches),
+        pluralize(match_count, PhraseOld::Matches),
         BACK_POPULATE_TABLE_HEADER_MIDDLE,
         file_count,
-        pluralize(file_count, Phrase::Files)
+        pluralize(file_count, PhraseOld::Files)
     )
 }
 
 fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {
     // We want "time" for 1, "times" for other numbers
-    let occurrence_word = pluralize(occurrences, Phrase::Times);
+    let occurrence_word = pluralize(occurrences, PhraseOld::Times);
 
     // Format as "time(s) in file(s)"
     format!(
@@ -864,7 +902,7 @@ fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> Strin
         occurrences,
         occurrence_word,
         file_count,
-        pluralize(file_count, Phrase::Files)
+        pluralize(file_count, PhraseOld::Files)
     )
 }
 
