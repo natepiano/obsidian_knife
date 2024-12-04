@@ -1,10 +1,11 @@
+mod frontmatter_issues_report;
 mod invalid_wikilink_report;
-mod table_system;
+mod report_writer;
 
-pub use table_system::*;
+pub use report_writer::*;
 
 use crate::constants::*;
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     GroupedImages, ImageGroup, ImageGroupType, ImageReferences,
 };
@@ -16,6 +17,7 @@ use crate::wikilink::ToWikilink;
 use chrono::Utc;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
+use std::io;
 use std::path::{Path, PathBuf};
 
 impl ObsidianRepositoryInfo {
@@ -29,7 +31,7 @@ impl ObsidianRepositoryInfo {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
         self.write_execution_start(&validated_config, &writer, files_to_persist)?;
 
-        self.report_frontmatter_issues(&writer)?;
+        self.write_frontmatter_issues_report(&writer)?;
 
         self.write_image_analysis(
             &validated_config,
@@ -90,44 +92,7 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
-    pub fn report_frontmatter_issues(
-        &self,
-        writer: &OutputFileWriter,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let files_with_errors: Vec<_> = self
-            .markdown_files
-            .files
-            .iter()
-            .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
-            .collect();
-
-        if files_with_errors.is_empty() {
-            return Ok(());
-        }
-
-        writer.writeln(LEVEL1, FRONTMATTER_ISSUES)?;
-
-        writer.writeln(
-            "",
-            &format!(
-                "found {} files with frontmatter parsing errors",
-                files_with_errors.len()
-            ),
-        )?;
-
-        for (path, err) in files_with_errors {
-            writer.writeln(
-                LEVEL3,
-                &format!("in file {}", wikilink::format_path_as_wikilink(path)),
-            )?;
-            writer.writeln("", &format!("{}", err))?;
-            writer.writeln("", "")?;
-        }
-
-        Ok(())
-    }
-
-    fn write_image_analysis(
+   fn write_image_analysis(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
@@ -194,7 +159,7 @@ impl ObsidianRepositoryInfo {
         }
 
         // only writes if there are any
-        self.write_invalid_wikilinks_table(&writer)?;
+        self.write_invalid_wikilinks_report(&writer)?;
 
         // only writes if there are any
         self.write_ambiguous_matches_table(writer)?;
@@ -274,6 +239,129 @@ impl ObsidianRepositoryInfo {
 
             // Reuse existing table writing code for the matches
             write_back_populate_table(writer, &matches, false, 0)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn write_persist_reasons_table(
+        &self,
+        writer: &OutputFileWriter,
+        files_to_persist: &[&MarkdownFileInfo],
+    ) -> io::Result<()> {
+        let mut rows: Vec<Vec<String>> = Vec::new();
+
+        for file in &self.markdown_files.files {
+            if !file.persist_reasons.is_empty() {
+                let file_name = file
+                    .path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.trim_end_matches(".md"))
+                    .unwrap_or_default();
+
+                let wikilink = format!("[[{}]]", file_name);
+
+                // Count instances of BackPopulated and ImageReferencesModified
+                let back_populate_count = file.matches.unambiguous.len();
+
+                let image_refs_count = file
+                    .persist_reasons
+                    .iter()
+                    .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
+                    .count();
+
+                // Generate rows for each persist reason
+                for reason in &file.persist_reasons {
+                    let (before, after, reason_info) = match reason {
+                        PersistReason::DateCreatedUpdated { reason } => (
+                            file.date_validation_created
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_created
+                                    .file_system_date
+                                    .format("%Y-%m-%d")
+                            ),
+                            reason.to_string(),
+                        ),
+                        PersistReason::DateModifiedUpdated { reason } => (
+                            file.date_validation_modified
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_modified
+                                    .file_system_date
+                                    .format("%Y-%m-%d")
+                            ),
+                            reason.to_string(),
+                        ),
+                        PersistReason::DateCreatedFixApplied => (
+                            file.date_created_fix
+                                .date_string
+                                .clone()
+                                .unwrap_or_default(),
+                            file.date_created_fix
+                                .fix_date
+                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
+                                .unwrap_or_default(),
+                            String::new(),
+                        ),
+                        PersistReason::BackPopulated => (
+                            String::new(),
+                            String::new(),
+                            format!("{} instances", back_populate_count),
+                        ),
+                        PersistReason::ImageReferencesModified => (
+                            String::new(),
+                            String::new(),
+                            format!("{} instances", image_refs_count),
+                        ),
+                    };
+
+                    rows.push(vec![
+                        wikilink.clone(),
+                        reason.to_string(),
+                        reason_info,
+                        before,
+                        after,
+                    ]);
+                }
+            }
+        }
+
+        if !rows.is_empty() {
+            rows.sort_by(|a, b| {
+                let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
+                if file_cmp == std::cmp::Ordering::Equal {
+                    a[1].cmp(&b[1])
+                } else {
+                    file_cmp
+                }
+            });
+
+            writer.writeln(LEVEL1, "files to be updated")?;
+            writer.writeln("", "")?;
+
+            let headers = &["file", "persist reason", "info", "before", "after"];
+            let alignments = &[
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+                ColumnAlignment::Left,
+            ];
+
+            for (i, chunk) in rows.chunks(500).enumerate() {
+                if i > 0 {
+                    writer.writeln("", "")?;
+                }
+                writer.write_markdown_table(headers, chunk, Some(alignments))?;
+            }
         }
 
         Ok(())

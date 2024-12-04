@@ -79,7 +79,7 @@ impl TableDefinition for InvalidWikilinksTable {
 }
 
 impl ObsidianRepositoryInfo {
-    pub fn write_invalid_wikilinks_table(
+    pub fn write_invalid_wikilinks_report(
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
