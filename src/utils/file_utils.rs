@@ -1,10 +1,8 @@
 use crate::ValidatedConfig;
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
-use chrono::NaiveDateTime;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::sync::Mutex;
 use std::{fs, io};
 
@@ -52,21 +50,6 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Return the original path if no tilde expansion was needed
     path.to_path_buf()
-}
-
-// #todo either re-use or remove
-#[allow(dead_code)]
-pub fn set_file_create_date(file_path: &Path, creation_date: NaiveDateTime) -> io::Result<()> {
-    // Format the date with hh:mm:ss included
-    let formatted_date = creation_date.format("%m/%d/%Y %H:%M:%S").to_string();
-
-    Command::new("SetFile")
-        .arg("-d")
-        .arg(&formatted_date)
-        .arg(file_path.to_str().unwrap())
-        .status()?;
-
-    Ok(())
 }
 
 // using rayon (.into_par_iter()) and not using walkdir
@@ -149,32 +132,6 @@ pub fn collect_repository_files(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::fs::File;
-    use std::io::Write;
-    use tempfile::TempDir;
-
-    #[cfg(test)]
-    fn is_macos() -> bool {
-        cfg!(target_os = "macos")
-    }
-
-    /// Use `GetFileInfo` to verify creation time on macOS
-    fn get_creation_time(file_path: &Path) -> io::Result<NaiveDateTime> {
-        let output = Command::new("GetFileInfo")
-            .arg("-d")
-            .arg(file_path.to_str().unwrap())
-            .output()?;
-
-        let output_str = String::from_utf8_lossy(&output.stdout);
-        // Expected format: MM/DD/YYYY HH:MM:SS
-        let date_time_str = output_str.trim();
-        NaiveDateTime::parse_from_str(date_time_str, "%m/%d/%Y %H:%M:%S").map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("Failed to parse date: {}", e),
-            )
-        })
-    }
 
     #[test]
     fn test_expand_tilde() {
@@ -219,74 +176,5 @@ mod tests {
                 PathBuf::from(OsStr::from_bytes(b"~/invalid-\xFF-path"))
             );
         }
-    }
-
-    #[test]
-    fn test_set_file_times_with_full_datetime() {
-        if !is_macos() {
-            println!("Skipping test on non-macOS platform");
-            return;
-        }
-
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("test_file.txt");
-
-        // Create a temporary file
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "Temporary content").unwrap();
-
-        // Arbitrary date and time for testing
-        let test_date_time =
-            NaiveDateTime::parse_from_str("2023-10-24 15:45:30", "%Y-%m-%d %H:%M:%S").unwrap();
-
-        // Set the creation time of the file to the specified date and time
-        set_file_create_date(&file_path, test_date_time).unwrap();
-
-        // Verify the creation time using GetFileInfo
-        let creation_time = get_creation_time(&file_path).unwrap();
-
-        // Assert the expected and actual creation times
-        assert_eq!(
-            creation_time, test_date_time,
-            "The file's creation time was not set correctly"
-        );
-    }
-
-    #[test]
-    fn test_set_file_times_with_edge_case_times() {
-        if !is_macos() {
-            println!("Skipping test on non-macOS platform");
-            return;
-        }
-
-        let temp_dir = TempDir::new().unwrap();
-        let file_path = temp_dir.path().join("edge_case_file.txt");
-
-        // Create the file
-        let mut file = File::create(&file_path).unwrap();
-        writeln!(file, "Edge case test").unwrap();
-
-        // Test with midnight time
-        let midnight_time =
-            NaiveDateTime::parse_from_str("2024-01-01 00:00:00", "%Y-%m-%d %H:%M:%S").unwrap();
-        set_file_create_date(&file_path, midnight_time).unwrap();
-
-        // Verify the creation date was set correctly to midnight
-        let creation_time = get_creation_time(&file_path).unwrap();
-        assert_eq!(
-            creation_time, midnight_time,
-            "The midnight creation time was not set correctly"
-        );
-
-        // Test with a random time of day
-        let random_time =
-            NaiveDateTime::parse_from_str("2024-06-15 13:22:11", "%Y-%m-%d %H:%M:%S").unwrap();
-        set_file_create_date(&file_path, random_time).unwrap();
-
-        let creation_time = get_creation_time(&file_path).unwrap();
-        assert_eq!(
-            creation_time, random_time,
-            "The random time of day was not set correctly"
-        );
     }
 }
