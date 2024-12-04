@@ -65,12 +65,16 @@ pub const IN: &str = "in";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const MISSING_IMAGE: &str = "missing image";
+pub const NO_RENDER: &str = "- these won't render in obsidian";
+pub const NOT_VALID: &str = "- these are probably corrupted";
 pub const OF: &str = "of";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
+pub const TIFF: &str = "TIFF";
+pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
+pub const ZERO_BYTE: &str = "zero-byte";
 
 // wikilink back populate
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
-pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
 pub const BACK_POPULATE_COUNT_PREFIX: &str = "back populate";
 pub const BACK_POPULATE_COUNT_SUFFIX: &str = "wikilinks";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
@@ -88,7 +92,9 @@ pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 pub enum Phrase {
     File(usize),
     Has(usize),
+    Image(usize),
     Issue(usize),
+    Match(usize),
     Reference(usize),
     Wikilink(usize),
     With(usize),
@@ -96,13 +102,17 @@ pub enum Phrase {
 
 impl Phrase {
     pub const fn pluralize(&self) -> &'static str {
-        match (self) {
+        match self {
             Phrase::File(1) => "file",
             Phrase::File(_) => "files",
             Phrase::Has(1) => "has a",
             Phrase::Has(_) => "have",
+            Phrase::Image(1) => "image",
+            Phrase::Image(_) => "images",
             Phrase::Issue(1) => "issue",
             Phrase::Issue(_) => "issues",
+            Phrase::Match(1) => "match",
+            Phrase::Match(_) => "matches",
             Phrase::Reference(1) => "reference",
             Phrase::Reference(_) => "references",
             Phrase::Wikilink(1) => "wikilink",
@@ -116,7 +126,9 @@ impl Phrase {
         match self {
             Phrase::File(value)
             | Phrase::Has(value)
+            | Phrase::Image(value)
             | Phrase::Issue(value)
+            | Phrase::Match(value)
             | Phrase::Reference(value)
             | Phrase::Wikilink(value)
             | Phrase::With(value) => *value,
@@ -170,14 +182,10 @@ pub enum PhraseOld {
     Files,
 
     // Image-related phrases
-    MissingImageReferences,
     UnreferencedImages,
-    ZeroByteImages,
     DuplicateImages,
-    TiffImages,
 
     // compound pluralize
-    Matches,
     Times,
 }
 /// Pluralizes a phrase based on count at compile time
@@ -186,23 +194,11 @@ pub const fn pluralize(count: usize, phrase: PhraseOld) -> &'static str {
         (1, PhraseOld::Files) => "file",
         (_, PhraseOld::Files) => "files",
 
-        (1, PhraseOld::MissingImageReferences) => "file has missing image references",
-        (_, PhraseOld::MissingImageReferences) => "files have missing image references",
-
-        (1, PhraseOld::TiffImages) => "TIFF image will not render correctly in obsidian",
-        (_, PhraseOld::TiffImages) => "TIFF images will not render correctly in obsidian",
-
-        (1, PhraseOld::ZeroByteImages) => "image has zero bytes and is probably corrupted",
-        (_, PhraseOld::ZeroByteImages) => "images have zero bytes and are probably corrupted",
-
         (1, PhraseOld::UnreferencedImages) => "image is not referenced by any file",
         (_, PhraseOld::UnreferencedImages) => "images are not referenced by any files",
 
         (1, PhraseOld::DuplicateImages) => "duplicate image",
         (_, PhraseOld::DuplicateImages) => "duplicate images",
-
-        (1, PhraseOld::Matches) => "match",
-        (_, PhraseOld::Matches) => "matches",
 
         (1, PhraseOld::Times) => "time",
         (_, PhraseOld::Times) => "times",

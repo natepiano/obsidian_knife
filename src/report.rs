@@ -1,4 +1,5 @@
 mod frontmatter_issues_report;
+mod incompatible_image_report;
 mod invalid_wikilink_report;
 mod missing_references_report;
 mod report_writer;
@@ -130,28 +131,11 @@ impl ObsidianRepositoryInfo {
             writer,
         )?;
 
-        if !tiff_images.is_empty() {
-            write_special_image_group_table(
-                config,
-                writer,
-                TIFF_IMAGES,
-                tiff_images,
-                PhraseOld::TiffImages,
-            )?;
-        }
-
-        if !zero_byte_images.is_empty() {
-            write_special_image_group_table(
-                config,
-                writer,
-                ZERO_BYTE_IMAGES,
-                zero_byte_images,
-                PhraseOld::ZeroByteImages,
-            )?;
-        }
+        self.write_tiff_images_report(config, tiff_images, writer)?;
+        self.write_zero_byte_images_report(config, zero_byte_images, writer)?;
 
         if !unreferenced_images.is_empty() {
-            write_special_image_group_table(
+            write_image_group_table(
                 config,
                 writer,
                 UNREFERENCED_IMAGES,
@@ -419,7 +403,7 @@ fn write_duplicate_group_table(
     Ok(())
 }
 
-fn write_special_image_group_table(
+fn write_image_group_table(
     config: &ValidatedConfig,
     writer: &OutputFileWriter,
     group_type: &str,
@@ -582,9 +566,9 @@ fn format_references(
                 }
             } else {
                 if keeper_path.is_some() {
-                    link.push_str(" - would be updated");
+                    link.push_str(" - will be updated");
                 } else {
-                    link.push_str(" - reference would be removed");
+                    link.push_str(" - reference will be removed");
                 }
             }
             link
@@ -600,6 +584,7 @@ pub fn write_back_populate_table(
     is_unambiguous_match: bool,
     wikilinks_count: usize,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // description only for unambiguous matches
     if is_unambiguous_match {
         writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
         writer.writeln(
@@ -609,6 +594,20 @@ pub fn write_back_populate_table(
                 BACK_POPULATE_COUNT_PREFIX, wikilinks_count, BACK_POPULATE_COUNT_SUFFIX
             ),
         )?;
+
+        // Count unique files across all matches
+        let unique_files: HashSet<String> =
+            matches.iter().map(|m| m.relative_path.clone()).collect();
+
+        let header_message = DescriptionBuilder::new()
+            .number(matches.len())
+            .pluralize(Phrase::Match(matches.len()))
+            .text(IN)
+            .pluralize_with_count(Phrase::File(unique_files.len()))
+            .text(WILL_BE_BACK_POPULATED)
+            .build();
+
+        writer.writeln("", header_message.as_str())?;
     }
 
     // Step 1: Group matches by found_text (case-insensitive) using a HashMap
@@ -625,20 +624,6 @@ pub fn write_back_populate_table(
         display_text_map
             .entry(key)
             .or_insert_with(|| m.found_text.clone());
-    }
-
-    if is_unambiguous_match {
-        // Count unique files across all matches
-        let unique_files: HashSet<String> =
-            matches.iter().map(|m| m.relative_path.clone()).collect();
-        writer.writeln(
-            "",
-            &format!(
-                "{} {}",
-                format_back_populate_header(matches.len(), unique_files.len()),
-                BACK_POPULATE_TABLE_HEADER_SUFFIX,
-            ),
-        )?;
     }
 
     // Headers for the tables
@@ -766,17 +751,6 @@ pub fn write_back_populate_table(
     }
 
     Ok(())
-}
-
-fn format_back_populate_header(match_count: usize, file_count: usize) -> String {
-    format!(
-        "{} {} {} {} {}",
-        match_count,
-        pluralize(match_count, PhraseOld::Matches),
-        BACK_POPULATE_TABLE_HEADER_MIDDLE,
-        file_count,
-        pluralize(file_count, PhraseOld::Files)
-    )
 }
 
 fn pluralize_occurrence_in_files(occurrences: usize, file_count: usize) -> String {

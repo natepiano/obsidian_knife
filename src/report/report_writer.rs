@@ -1,4 +1,3 @@
-use crate::report::missing_references_report::MissingReferencesTable;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
