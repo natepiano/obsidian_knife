@@ -1,8 +1,8 @@
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use std::error::Error;
 
-/// Core trait for building report tables
-pub trait TableDefinition {
+/// definition of the elements of a report to write out as a markdown table
+pub trait ReportDefinition {
     /// The type of data being displayed in the table
     type Item;
 
@@ -32,8 +32,7 @@ pub trait TableDefinition {
         true
     }
 }
-
-/// Represents a table section in a report
+/// writes out the TableDefinition
 pub struct ReportWriter<T> {
     items: Vec<T>,
 }
@@ -43,23 +42,23 @@ impl<T> ReportWriter<T> {
         Self { items }
     }
     /// Write the table using the provided builder and writer
-    pub fn write<B: TableDefinition<Item = T>>(
+    pub fn write<B: ReportDefinition<Item = T>>(
         &self,
-        table: &B,
+        report: &B,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
 
-        if self.items.is_empty() && table.hide_title_if_no_rows() {
+        if self.items.is_empty() && report.hide_title_if_no_rows() {
             return Ok(());
         }
 
         // Write title if present
-        if let Some(title) = table.title() {
-            writer.writeln(table.level(), title)?;
+        if let Some(title) = report.title() {
+            writer.writeln(report.level(), title)?;
         }
 
         // Write description if present
-        if let Some(desc) = table.description(&self.items) {
+        if let Some(desc) = report.description(&self.items) {
             writer.writeln("", &desc)?;
         }
 
@@ -69,9 +68,9 @@ impl<T> ReportWriter<T> {
         }
 
         // Build and write the table
-        let headers = table.headers();
-        let alignments = table.alignments();
-        let rows = table.build_rows(&self.items);
+        let headers = report.headers();
+        let alignments = report.alignments();
+        let rows = report.build_rows(&self.items);
 
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 

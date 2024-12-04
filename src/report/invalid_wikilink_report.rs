@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportWriter, TableDefinition};
+use crate::report::{ReportWriter, ReportDefinition};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
@@ -12,7 +12,7 @@ use std::path::PathBuf;
 
 pub struct InvalidWikilinksTable;
 
-impl TableDefinition for InvalidWikilinksTable {
+impl ReportDefinition for InvalidWikilinksTable {
     type Item = (PathBuf, InvalidWikilink);
 
     fn headers(&self) -> Vec<&str> {

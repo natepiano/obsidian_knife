@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportWriter, TableDefinition};
+use crate::report::{ReportWriter, ReportDefinition};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::wikilink::ToWikilink;
 use std::error::Error;
@@ -8,7 +8,7 @@ use std::path::PathBuf;
 
 pub struct FrontmatterIssuesTable;
 
-impl TableDefinition for FrontmatterIssuesTable {
+impl ReportDefinition for FrontmatterIssuesTable {
     type Item = (PathBuf, String);  // (file_path, error_message)
 
     fn headers(&self) -> Vec<&str> {
