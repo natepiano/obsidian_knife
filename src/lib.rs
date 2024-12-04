@@ -24,11 +24,9 @@ use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use chrono::Utc;
 use std::error::Error;
 use std::path::PathBuf;
 use utils::expand_tilde;
-use utils::ThreadSafeWriter;
 
 // lib was separated from main so it could be incorporated into integration tests
 // such as config_tests.rs - but that's not happening so...
@@ -50,10 +48,14 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         obsidian_repository_info.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
+    let files_to_persist = obsidian_repository_info
+        .markdown_files
+        .get_files_to_persist(validated_config.file_process_limit());
     obsidian_repository_info.write_reports(
         &validated_config,
         &grouped_images,
         &missing_references,
+        &files_to_persist,
     )?;
 
     if config.apply_changes == Some(true) {
@@ -82,28 +84,5 @@ fn reset_apply_changes(
         .unwrap()
         .set_date_modified_now();
     markdown_file.persist()?;
-    Ok(())
-}
-
-pub fn write_execution_start(
-    validated_config: &ValidatedConfig,
-    writer: &ThreadSafeWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
-    let properties = format!(
-        "{}{}\n{}{}\n",
-        YAML_TIMESTAMP,
-        timestamp,
-        YAML_APPLY_CHANGES,
-        validated_config.apply_changes(),
-    );
-
-    writer.write_properties(&properties)?;
-
-    if validated_config.apply_changes() {
-        writer.writeln("", MODE_APPLY_CHANGES)?;
-    } else {
-        writer.writeln("", MODE_DRY_RUN)?;
-    }
     Ok(())
 }

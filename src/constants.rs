@@ -57,6 +57,11 @@ pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";
 pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
+// report stuff
+pub const PROCESSING: &str = "processing";
+pub const OF: &str = "of";
+pub const THAT_NEED_UPDATES: &str = "that need updates";
+
 // wikilink back populate
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
 pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
@@ -132,7 +137,6 @@ pub const fn pluralize(count: usize, phrase: Phrase) -> &'static str {
         (1, Phrase::DuplicateImages) => "duplicate image",
         (_, Phrase::DuplicateImages) => "duplicate images",
 
-        // Occurrence-related phrases
         (1, Phrase::Matches) => "match",
         (_, Phrase::Matches) => "matches",
 

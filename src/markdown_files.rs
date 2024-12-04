@@ -1,9 +1,8 @@
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
-use crate::utils::{ColumnAlignment, Sha256Cache, ThreadSafeWriter};
+use crate::utils::{ColumnAlignment, ReportWriter, Sha256Cache};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::format_wikilink;
 use crate::wikilink::Wikilink;
-use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1, LEVEL3};
+use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1};
 
 use crate::obsidian_repository_info::execute_image_deletions;
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
@@ -20,7 +19,7 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
-    files: Vec<MarkdownFileInfo>,
+    pub(crate) files: Vec<MarkdownFileInfo>,
 }
 
 impl Deref for MarkdownFiles {
@@ -134,40 +133,11 @@ impl MarkdownFiles {
         Ok(())
     }
 
-    pub fn report_frontmatter_issues(
+    pub fn write_persist_reasons_table(
         &self,
-        writer: &ThreadSafeWriter,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let files_with_errors: Vec<_> = self
-            .files
-            .iter()
-            .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
-            .collect();
-
-        writer.writeln(LEVEL1, "frontmatter")?;
-
-        if files_with_errors.is_empty() {
-            return Ok(());
-        }
-
-        writer.writeln(
-            "",
-            &format!(
-                "found {} files with frontmatter parsing errors",
-                files_with_errors.len()
-            ),
-        )?;
-
-        for (path, err) in files_with_errors {
-            writer.writeln(LEVEL3, &format!("in file {}", format_wikilink(path)))?;
-            writer.writeln("", &format!("{}", err))?;
-            writer.writeln("", "")?;
-        }
-
-        Ok(())
-    }
-
-    pub fn write_persist_reasons_table(&self, writer: &ThreadSafeWriter) -> io::Result<()> {
+        writer: &ReportWriter,
+        files_to_persist: &[&MarkdownFileInfo],
+    ) -> io::Result<()> {
         let mut rows: Vec<Vec<String>> = Vec::new();
 
         for file in &self.files {

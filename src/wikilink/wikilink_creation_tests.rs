@@ -7,7 +7,7 @@ macro_rules! test_wikilink {
     ($test_name:ident, $input:expr, $expected:expr) => {
         #[test]
         fn $test_name() {
-            let formatted = format_wikilink(&Path::new($input));
+            let formatted = format_path_as_wikilink(&Path::new($input));
             assert_eq!(formatted, $expected);
         }
     };

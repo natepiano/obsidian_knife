@@ -49,6 +49,7 @@ pub struct ValidatedConfig {
     #[builder(default)]
     back_populate_file_filter: Option<String>,
     #[builder(setter(custom), default)]
+    #[allow(dead_code)]
     do_not_back_populate: Option<Vec<String>>,
     #[builder(setter(strip_option), default)]
     do_not_back_populate_regexes: Option<Vec<Regex>>,
@@ -223,6 +224,7 @@ impl ValidatedConfig {
         })
     }
 
+    #[cfg(test)]
     pub fn do_not_back_populate(&self) -> Option<&[String]> {
         self.do_not_back_populate.as_deref()
     }

@@ -36,7 +36,7 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     }
 }
 
-pub fn format_wikilink(path: &Path) -> String {
+pub fn format_path_as_wikilink(path: &Path) -> String {
     path.file_stem()
         .and_then(|s| s.to_str())
         .map(|s| format!("[[{}]]", s))
