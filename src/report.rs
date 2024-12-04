@@ -1,5 +1,6 @@
 mod frontmatter_issues_report;
 mod invalid_wikilink_report;
+mod missing_references_report;
 mod report_writer;
 
 pub use report_writer::*;
@@ -7,7 +8,7 @@ pub use report_writer::*;
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    GroupedImages, ImageGroup, ImageGroupType, ImageReferences,
+    GroupedImages, ImageGroup, ImageGroupType,
 };
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter};
@@ -18,46 +19,6 @@ use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::io;
 use std::path::{Path, PathBuf};
-
-struct DescriptionBuilder {
-    parts: Vec<String>,
-}
-
-impl DescriptionBuilder {
-    /// Creates a new DescriptionBuilder instance.
-    pub fn new() -> Self {
-        Self { parts: Vec::new() }
-    }
-
-    pub fn number(mut self, number: usize) -> Self {
-        self.parts.push(number.to_string());
-        self
-    }
-
-    /// Appends text to the builder.
-    pub fn text(mut self, text: &str) -> Self {
-        self.parts.push(text.to_string());
-        self
-    }
-
-    pub fn pluralize_with_count(mut self, phrase_new: Phrase) -> Self {
-        self.parts
-            .push(format!("{} {}", phrase_new.value(), phrase_new.pluralize()));
-        self
-    }
-
-    pub fn pluralize(mut self, phrase_new: Phrase) -> Self {
-        self.parts.push(format!("{}", phrase_new.pluralize()));
-        self
-    }
-
-    /// Builds the final string with all appended parts, adding a newline at the end.
-    pub fn build(self) -> String {
-        let mut result = self.parts.join(" ");
-        result.push('\n');
-        result
-    }
-}
 
 impl ObsidianRepositoryInfo {
     pub fn write_reports(
@@ -163,15 +124,45 @@ impl ObsidianRepositoryInfo {
             return Ok(());
         }
 
-        write_image_tables(
+        self.write_missing_references_report(
             config,
-            writer,
             markdown_references_to_missing_image_files,
-            tiff_images,
-            zero_byte_images,
-            unreferenced_images,
-            &duplicate_groups,
+            writer,
         )?;
+
+        if !tiff_images.is_empty() {
+            write_special_image_group_table(
+                config,
+                writer,
+                TIFF_IMAGES,
+                tiff_images,
+                PhraseOld::TiffImages,
+            )?;
+        }
+
+        if !zero_byte_images.is_empty() {
+            write_special_image_group_table(
+                config,
+                writer,
+                ZERO_BYTE_IMAGES,
+                zero_byte_images,
+                PhraseOld::ZeroByteImages,
+            )?;
+        }
+
+        if !unreferenced_images.is_empty() {
+            write_special_image_group_table(
+                config,
+                writer,
+                UNREFERENCED_IMAGES,
+                unreferenced_images,
+                PhraseOld::UnreferencedImages,
+            )?;
+        }
+
+        for (hash, group) in duplicate_groups {
+            write_duplicate_group_table(config, writer, hash, group)?;
+        }
 
         Ok(())
     }
@@ -405,116 +396,6 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 }
-
-fn write_image_tables(
-    config: &ValidatedConfig,
-    writer: &OutputFileWriter,
-    markdown_references_to_missing_image_files: &[(PathBuf, String)],
-    tiff_images: &[ImageGroup],
-    zero_byte_images: &[ImageGroup],
-    unreferenced_images: &[ImageGroup],
-    duplicate_groups: &[(&String, &Vec<ImageGroup>)],
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    write_missing_references_table(config, markdown_references_to_missing_image_files, writer)?;
-
-    if !tiff_images.is_empty() {
-        write_special_image_group_table(
-            config,
-            writer,
-            TIFF_IMAGES,
-            tiff_images,
-            PhraseOld::TiffImages,
-        )?;
-    }
-
-    if !zero_byte_images.is_empty() {
-        write_special_image_group_table(
-            config,
-            writer,
-            ZERO_BYTE_IMAGES,
-            zero_byte_images,
-            PhraseOld::ZeroByteImages,
-        )?;
-    }
-
-    if !unreferenced_images.is_empty() {
-        write_special_image_group_table(
-            config,
-            writer,
-            UNREFERENCED_IMAGES,
-            unreferenced_images,
-            PhraseOld::UnreferencedImages,
-        )?;
-    }
-
-    for (hash, group) in duplicate_groups {
-        write_duplicate_group_table(config, writer, hash, group)?;
-    }
-
-    Ok(())
-}
-
-fn write_missing_references_table(
-    config: &ValidatedConfig,
-    markdown_references_to_missing_image_files: &[(PathBuf, String)],
-    writer: &OutputFileWriter,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if markdown_references_to_missing_image_files.is_empty() {
-        return Ok(());
-    }
-
-    writer.writeln(LEVEL2, MISSING_IMAGE_REFERENCES)?;
-    writer.writeln_pluralized(
-        markdown_references_to_missing_image_files.len(),
-        PhraseOld::MissingImageReferences,
-    )?;
-
-    let headers = &["markdown file", "missing image reference", "action"];
-
-    // Group missing references by markdown file
-    let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
-    for (markdown_path, extracted_filename) in markdown_references_to_missing_image_files {
-        grouped_references
-            .entry(markdown_path)
-            .or_default()
-            .push(ImageGroup {
-                path: PathBuf::from(extracted_filename),
-                info: ImageReferences {
-                    hash: String::new(),
-                    markdown_file_references: vec![markdown_path.to_string_lossy().to_string()],
-                },
-            });
-    }
-
-    let rows: Vec<Vec<String>> = grouped_references
-        .iter()
-        .map(|(markdown_path, image_groups)| {
-            let markdown_link = format_wikilink(markdown_path, config.obsidian_path(), false);
-            let image_links = image_groups
-                .iter()
-                .map(|group| {
-                    escape_pipe(&escape_brackets(&group.path.to_string_lossy().to_string()))
-                })
-                .collect::<Vec<_>>()
-                .join(", ");
-            let actions = format_references(config, image_groups, None);
-            vec![markdown_link, image_links, actions]
-        })
-        .collect();
-
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ]),
-    )?;
-
-    Ok(())
-}
-
 fn write_duplicate_group_table(
     config: &ValidatedConfig,
     writer: &OutputFileWriter,
@@ -592,7 +473,12 @@ fn write_group_table(
         );
 
         let duplicates = format_duplicates(config, group_vec, keeper_path, is_special_group);
-        let references = format_references(config, group_vec, keeper_path);
+        let references = format_references(
+            config.apply_changes(),
+            config.obsidian_path(),
+            group_vec,
+            keeper_path,
+        );
 
         rows.push(vec![sample, duplicates, references]);
     }
@@ -658,7 +544,8 @@ fn format_duplicates(
 }
 
 fn format_references(
-    config: &ValidatedConfig,
+    apply_changes: bool,
+    obsidian_path: &Path,
     groups: &[ImageGroup],
     keeper_path: Option<&PathBuf>,
 ) -> String {
@@ -683,9 +570,9 @@ fn format_references(
             let mut link = format!(
                 "{}. {}",
                 index + 1,
-                format_wikilink(Path::new(&ref_path), config.obsidian_path(), false)
+                format_wikilink(Path::new(&ref_path), obsidian_path, false)
             );
-            if config.apply_changes() {
+            if apply_changes {
                 if let Some(keeper) = keeper_path {
                     if group_path != keeper {
                         link.push_str(" - updated");

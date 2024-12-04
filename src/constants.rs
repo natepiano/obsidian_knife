@@ -64,13 +64,13 @@ pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
 pub const IN: &str = "in";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
+pub const MISSING_IMAGE: &str = "missing image";
 pub const OF: &str = "of";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 
 // wikilink back populate
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
 pub const BACK_POPULATE_TABLE_HEADER_SUFFIX: &str = "will be back populated";
-
 pub const BACK_POPULATE_COUNT_PREFIX: &str = "back populate";
 pub const BACK_POPULATE_COUNT_SUFFIX: &str = "wikilinks";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
@@ -87,8 +87,11 @@ pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {
     File(usize),
+    Has(usize),
     Issue(usize),
+    Reference(usize),
     Wikilink(usize),
+    With(usize),
 }
 
 impl Phrase {
@@ -96,17 +99,68 @@ impl Phrase {
         match (self) {
             Phrase::File(1) => "file",
             Phrase::File(_) => "files",
+            Phrase::Has(1) => "has a",
+            Phrase::Has(_) => "have",
             Phrase::Issue(1) => "issue",
             Phrase::Issue(_) => "issues",
+            Phrase::Reference(1) => "reference",
+            Phrase::Reference(_) => "references",
             Phrase::Wikilink(1) => "wikilink",
             Phrase::Wikilink(_) => "wikilinks",
+            Phrase::With(1) => "with a",
+            Phrase::With(_) => "with",
         }
     }
 
     pub const fn value(&self) -> usize {
         match self {
-            Phrase::File(value) | Phrase::Issue(value) | Phrase::Wikilink(value) => *value,
+            Phrase::File(value)
+            | Phrase::Has(value)
+            | Phrase::Issue(value)
+            | Phrase::Reference(value)
+            | Phrase::Wikilink(value)
+            | Phrase::With(value) => *value,
         }
+    }
+}
+
+pub struct DescriptionBuilder {
+    parts: Vec<String>,
+}
+
+impl DescriptionBuilder {
+    /// Creates a new DescriptionBuilder instance.
+    pub fn new() -> Self {
+        Self { parts: Vec::new() }
+    }
+
+    pub fn number(mut self, number: usize) -> Self {
+        self.parts.push(number.to_string());
+        self
+    }
+
+    /// Appends text to the builder.
+    pub fn text(mut self, text: &str) -> Self {
+        self.parts.push(text.to_string());
+        self
+    }
+
+    pub fn pluralize_with_count(mut self, phrase_new: Phrase) -> Self {
+        self.parts
+            .push(format!("{} {}", phrase_new.value(), phrase_new.pluralize()));
+        self
+    }
+
+    pub fn pluralize(mut self, phrase_new: Phrase) -> Self {
+        self.parts.push(format!("{}", phrase_new.pluralize()));
+        self
+    }
+
+    /// Builds the final string with all appended parts, adding a newline at the end.
+    pub fn build(self) -> String {
+        let mut result = self.parts.join(" ");
+        result.push('\n');
+        result
     }
 }
 

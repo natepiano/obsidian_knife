@@ -73,7 +73,6 @@ impl ReportDefinition for InvalidWikilinksTable {
             .text(IN)
             .pluralize_with_count(Phrase::File(unique_files))
             .build()
-
     }
 
     fn level(&self) -> &'static str {

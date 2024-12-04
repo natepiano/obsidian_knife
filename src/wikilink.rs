@@ -35,13 +35,6 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     }
 }
 
-// pub fn format_path_as_wikilink(path: &Path) -> String {
-//     path.file_stem()
-//         .and_then(|s| s.to_str())
-//         .map(|s| format!("[[{}]]", s))
-//         .unwrap_or_else(|| "[[]]".to_string())
-// }
-
 pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut result = ParsedExtractedWikilinks::default();
 

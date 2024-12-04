@@ -1,3 +1,4 @@
+use crate::report::missing_references_report::MissingReferencesTable;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
@@ -43,8 +44,8 @@ pub trait ReportDefinition<C = ()> {
 }
 
 // using this to get owned values from a ValidatedConfig to make available to
-// reports without having to have all kinds of lifetime attributes set
-// in ReportWriter and ReportDefinition
+// reports from the ReportDefinition.build_rows - avoids having all kinds of lifetime attributes set
+// in ReportWriter and ReportDefinition just to have a reference to ValidatedConfig
 #[derive(Clone)]
 pub struct ReportContext {
     obsidian_path: PathBuf, // Owned PathBuf instead of borrowed Path
@@ -75,16 +76,26 @@ impl ReportContext {
 /// then the ReportWriter will call build_rows with the items and the context (if provided)
 /// where the definition will do the work to transform items into rows
 pub struct ReportWriter<T, C = ()> {
-    items: Vec<T>,
-    context: C,
+    pub(crate) items: Vec<T>,
+    pub(crate) context: C,
 }
 
 impl<T> ReportWriter<T, ()> {
     pub fn new(items: Vec<T>) -> Self {
         Self { items, context: () }
     }
+
+    pub fn with_validated_config(self, config: &ValidatedConfig) -> ReportWriter<T, ReportContext> {
+        ReportWriter {
+            items: self.items,
+            context: ReportContext::new(config),
+        }
+    }
+}
+
+impl<T, C> ReportWriter<T, C> {
     /// Write the table using the provided builder and writer
-    pub fn write<B: ReportDefinition<Item = T>>(
+    pub fn write<B: ReportDefinition<C, Item = T>>(
         &self,
         report: &B,
         writer: &OutputFileWriter,

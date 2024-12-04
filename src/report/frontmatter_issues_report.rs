@@ -43,6 +43,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
         DescriptionBuilder::new()
             .text(FOUND)
             .pluralize_with_count(Phrase::File(items.len()))
+            .pluralize(Phrase::With(items.len()))
             .text(FRONTMATTER)
             .pluralize(Phrase::Issue(items.len()))
             .build()
