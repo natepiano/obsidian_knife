@@ -1,5 +1,5 @@
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
-use crate::utils::{ColumnAlignment, ReportWriter, Sha256Cache};
+use crate::utils::{ColumnAlignment, OutputFileWriter, Sha256Cache};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 use crate::{CACHE_FILE, CACHE_FOLDER, LEVEL1};
@@ -135,7 +135,7 @@ impl MarkdownFiles {
 
     pub fn write_persist_reasons_table(
         &self,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
         files_to_persist: &[&MarkdownFileInfo],
     ) -> io::Result<()> {
         let mut rows: Vec<Vec<String>> = Vec::new();

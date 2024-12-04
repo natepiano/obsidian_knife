@@ -9,7 +9,7 @@ use crate::obsidian_repository_info::obsidian_repository_info_types::{
     GroupedImages, ImageGroup, ImageGroupType, ImageReferences,
 };
 use crate::obsidian_repository_info::{write_back_populate_table, ObsidianRepositoryInfo};
-use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, ReportWriter};
+use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
 use crate::wikilink::ToWikilink;
@@ -26,7 +26,7 @@ impl ObsidianRepositoryInfo {
         markdown_references_to_missing_image_files: &Vec<(PathBuf, String)>,
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let writer = ReportWriter::new(validated_config.output_folder())?;
+        let writer = OutputFileWriter::new(validated_config.output_folder())?;
         self.write_execution_start(&validated_config, &writer, files_to_persist)?;
 
         self.report_frontmatter_issues(&writer)?;
@@ -50,7 +50,7 @@ impl ObsidianRepositoryInfo {
     pub fn write_execution_start(
         &self,
         validated_config: &ValidatedConfig,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
@@ -92,7 +92,7 @@ impl ObsidianRepositoryInfo {
 
     pub fn report_frontmatter_issues(
         &self,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let files_with_errors: Vec<_> = self
             .markdown_files
@@ -130,7 +130,7 @@ impl ObsidianRepositoryInfo {
     fn write_image_analysis(
         &self,
         config: &ValidatedConfig,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
         grouped_images: &GroupedImages,
         markdown_references_to_missing_image_files: &[(PathBuf, String)],
         files_to_persist: &[&MarkdownFileInfo],
@@ -176,7 +176,7 @@ impl ObsidianRepositoryInfo {
     pub fn write_back_populate_tables(
         &self,
         config: &ValidatedConfig,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
@@ -215,7 +215,7 @@ impl ObsidianRepositoryInfo {
 
     pub fn write_ambiguous_matches_table(
         &self,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Skip if no files have ambiguous matches
         let has_ambiguous = self
@@ -282,7 +282,7 @@ impl ObsidianRepositoryInfo {
 
 fn write_image_tables(
     config: &ValidatedConfig,
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
     markdown_references_to_missing_image_files: &[(PathBuf, String)],
     tiff_images: &[ImageGroup],
     zero_byte_images: &[ImageGroup],
@@ -331,7 +331,7 @@ fn write_image_tables(
 fn write_missing_references_table(
     config: &ValidatedConfig,
     markdown_references_to_missing_image_files: &[(PathBuf, String)],
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if markdown_references_to_missing_image_files.is_empty() {
         return Ok(());
@@ -391,7 +391,7 @@ fn write_missing_references_table(
 
 fn write_duplicate_group_table(
     config: &ValidatedConfig,
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
     group_hash: &str,
     groups: &[ImageGroup],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -414,7 +414,7 @@ fn write_duplicate_group_table(
 
 fn write_special_image_group_table(
     config: &ValidatedConfig,
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
     group_type: &str,
     groups: &[ImageGroup],
     phrase: Phrase,
@@ -430,7 +430,7 @@ fn write_special_image_group_table(
 
 fn write_group_table(
     config: &ValidatedConfig,
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
     groups: &[ImageGroup],
     is_ref_group: bool,
     is_special_group: bool,

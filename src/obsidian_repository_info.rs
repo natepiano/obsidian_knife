@@ -19,7 +19,7 @@ use crate::{
     constants::*,
     markdown_file_info::BackPopulateMatch,
     markdown_files::MarkdownFiles,
-    utils::{escape_brackets, escape_pipe, ColumnAlignment, ReportWriter},
+    utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter},
     validated_config::ValidatedConfig,
     wikilink::{ToWikilink, Wikilink},
     Timer,
@@ -455,7 +455,7 @@ fn process_special_image_group(
 }
 
 pub fn write_back_populate_table(
-    writer: &ReportWriter,
+    writer: &OutputFileWriter,
     matches: &[BackPopulateMatch],
     is_unambiguous_match: bool,
     wikilinks_count: usize,

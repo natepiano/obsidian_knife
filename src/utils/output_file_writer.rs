@@ -6,7 +6,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
 
-pub struct ReportWriter {
+pub struct OutputFileWriter {
     file: Mutex<File>,
 }
 
@@ -17,7 +17,7 @@ pub enum ColumnAlignment {
     Right,
 }
 
-impl ReportWriter {
+impl OutputFileWriter {
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
         let file_path = obsidian_path.join(OUTPUT_MARKDOWN_FILE);
 
@@ -27,7 +27,7 @@ impl ReportWriter {
             .truncate(true)
             .open(file_path)?;
 
-        Ok(ReportWriter {
+        Ok(OutputFileWriter {
             file: Mutex::new(file),
         })
     }
@@ -71,6 +71,7 @@ impl ReportWriter {
 
         // there has to be a blank line after a table or it won't render
         writeln!(file, "")?;
+        writeln!(file, "---")?;
 
         file.flush()?;
         Ok(())

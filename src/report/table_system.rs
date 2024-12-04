@@ -1,4 +1,4 @@
-use crate::utils::{ColumnAlignment, ReportWriter};
+use crate::utils::{ColumnAlignment, OutputFileWriter};
 use std::error::Error;
 
 /// Core trait for building report tables
@@ -24,28 +24,30 @@ pub trait TableBuilder {
     fn description(&self, items: &[Self::Item]) -> Option<String> {
         None
     }
+
+    /// markdown level
+    fn level(&self) -> &'static str;
 }
 
 /// Represents a table section in a report
-pub struct ReportTable<T> {
+pub struct ReportWriter<T> {
     items: Vec<T>,
-    level: &'static str,
 }
 
-impl<T> ReportTable<T> {
-    pub fn new(items: Vec<T>, level: &'static str) -> Self {
-        Self { items, level }
+impl<T> ReportWriter<T> {
+    pub fn new(items: Vec<T>) -> Self {
+        Self { items }
     }
 
     /// Write the table using the provided builder and writer
     pub fn write<B: TableBuilder<Item = T>>(
         &self,
         builder: &B,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Write title if present
         if let Some(title) = builder.title() {
-            writer.writeln(self.level, title)?;
+            writer.writeln(builder.level(), title)?;
         }
 
         // Write description if present

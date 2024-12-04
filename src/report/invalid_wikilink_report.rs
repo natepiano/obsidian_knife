@@ -1,9 +1,9 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{ReportTable, TableBuilder};
+use crate::report::{ReportWriter, TableBuilder};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
-use crate::utils::{ColumnAlignment, ReportWriter};
+use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason, ToWikilink};
 use itertools::Itertools;
 use std::error::Error;
@@ -71,12 +71,16 @@ impl TableBuilder for InvalidWikilinksTable {
             unique_files
         ))
     }
+
+    fn level(&self) -> &'static str {
+        LEVEL2
+    }
 }
 
 impl ObsidianRepositoryInfo {
     pub fn write_invalid_wikilinks_table(
         &self,
-        writer: &ReportWriter,
+        writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let invalid_wikilinks: Vec<(PathBuf, InvalidWikilink)> = self
             .markdown_files
@@ -110,10 +114,8 @@ impl ObsidianRepositoryInfo {
             return Ok(());
         }
 
-        let table = ReportTable::new(invalid_wikilinks, LEVEL2);
+        let table = ReportWriter::new(invalid_wikilinks);
         table.write(&InvalidWikilinksTable, writer)?;
-
-        writer.writeln("", "---\n")?;
 
         Ok(())
     }

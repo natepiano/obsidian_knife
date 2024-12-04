@@ -1,12 +1,12 @@
 mod file_utils;
+mod output_file_writer;
 mod regex_utils;
-mod report_writer;
 mod sha256_cache;
 mod timer;
 
 pub use file_utils::*;
+pub use output_file_writer::*;
 pub use regex_utils::*;
-pub use report_writer::*;
 pub use sha256_cache::*;
 pub use timer::Timer;
 
