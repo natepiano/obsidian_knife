@@ -1,3 +1,8 @@
+mod invalid_wikilink_report;
+mod table_system;
+
+pub use table_system::*;
+
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
@@ -7,9 +12,8 @@ use crate::obsidian_repository_info::{write_back_populate_table, ObsidianReposit
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, ReportWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
-use crate::wikilink::{InvalidWikilinkReason, ToWikilink};
+use crate::wikilink::ToWikilink;
 use chrono::Utc;
-use itertools::Itertools;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -19,24 +23,27 @@ impl ObsidianRepositoryInfo {
         &self,
         validated_config: &ValidatedConfig,
         grouped_images: &GroupedImages,
-        missing_references: &Vec<(PathBuf, String)>,
+        markdown_references_to_missing_image_files: &Vec<(PathBuf, String)>,
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = ReportWriter::new(validated_config.output_folder())?;
         self.write_execution_start(&validated_config, &writer, files_to_persist)?;
 
         self.report_frontmatter_issues(&writer)?;
-        self.write_invalid_wikilinks_table(&writer, files_to_persist)?;
+
         self.write_image_analysis(
             &validated_config,
             &writer,
             &grouped_images,
-            &missing_references,
+            &markdown_references_to_missing_image_files,
             files_to_persist,
         )?;
+
         self.write_back_populate_tables(&validated_config, &writer, files_to_persist)?;
+
         self.markdown_files
             .write_persist_reasons_table(&writer, files_to_persist)?;
+
         Ok(())
     }
 
@@ -63,11 +70,14 @@ impl ObsidianRepositoryInfo {
             writer.writeln("", MODE_DRY_RUN)?;
         }
 
+        if let Some(limit) = validated_config.file_process_limit() {
+            writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
+        }
+
         if let Some(_) = validated_config.file_process_limit() {
             let total_files = self.markdown_files.get_files_to_persist(None).len();
             let message = format!(
-                "{} {} {} {} {} {}",
-                PROCESSING,
+                "{} {} {} {} {}",
                 files_to_persist.len(),
                 OF,
                 total_files,
@@ -91,11 +101,11 @@ impl ObsidianRepositoryInfo {
             .filter_map(|info| info.frontmatter_error.as_ref().map(|err| (&info.path, err)))
             .collect();
 
-        writer.writeln(LEVEL1, "frontmatter")?;
-
         if files_with_errors.is_empty() {
             return Ok(());
         }
+
+        writer.writeln(LEVEL1, FRONTMATTER_ISSUES)?;
 
         writer.writeln(
             "",
@@ -117,108 +127,12 @@ impl ObsidianRepositoryInfo {
         Ok(())
     }
 
-    pub fn write_invalid_wikilinks_table(
-        &self,
-        writer: &ReportWriter,
-        files_to_persist: &[&MarkdownFileInfo],
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // Collect all invalid wikilinks from all files
-        let invalid_wikilinks = self
-            .markdown_files
-            .iter()
-            .flat_map(|markdown_file_info| {
-                markdown_file_info
-                    .invalid_wikilinks
-                    .iter()
-                    .filter(|wikilink| {
-                        !matches!(
-                            wikilink.reason,
-                            InvalidWikilinkReason::EmailAddress
-                                | InvalidWikilinkReason::Tag
-                                | InvalidWikilinkReason::RawHttpLink
-                        )
-                    })
-                    .map(move |wikilink| (&markdown_file_info.path, wikilink))
-            })
-            .collect::<Vec<_>>()
-            .into_iter()
-            .sorted_by(|a, b| {
-                let file_a = a.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                let file_b = b.0.file_stem().and_then(|s| s.to_str()).unwrap_or("");
-                file_a
-                    .cmp(file_b)
-                    .then(a.1.line_number.cmp(&b.1.line_number))
-            })
-            .collect::<Vec<_>>();
-
-        if invalid_wikilinks.is_empty() {
-            return Ok(());
-        }
-
-        writer.writeln(LEVEL2, "invalid wikilinks")?;
-
-        // Write header describing the count
-        writer.writeln(
-            "",
-            &format!(
-                "found {} invalid wikilinks in {} files\n",
-                invalid_wikilinks.len(),
-                invalid_wikilinks
-                    .iter()
-                    .map(|(p, _)| p)
-                    .collect::<HashSet<_>>()
-                    .len()
-            ),
-        )?;
-
-        // Prepare headers and alignments for the table
-        let headers = vec![
-            "file name",
-            "line",
-            "line text",
-            "invalid reason",
-            "source text",
-        ];
-
-        let alignments = vec![
-            ColumnAlignment::Left,
-            ColumnAlignment::Right,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ];
-
-        // Prepare rows
-        let rows: Vec<Vec<String>> = invalid_wikilinks
-            .iter()
-            .map(|(file_path, invalid_wikilink)| {
-                vec![
-                    file_path
-                        .file_stem()
-                        .and_then(|s| s.to_str())
-                        .unwrap_or("")
-                        .to_wikilink(),
-                    invalid_wikilink.line_number.to_string(),
-                    escape_pipe(&invalid_wikilink.line),
-                    invalid_wikilink.reason.to_string(),
-                    escape_brackets(&invalid_wikilink.content),
-                ]
-            })
-            .collect();
-
-        // Write the table
-        writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
-        writer.writeln("", "\n---\n")?;
-
-        Ok(())
-    }
-
     fn write_image_analysis(
         &self,
         config: &ValidatedConfig,
         writer: &ReportWriter,
         grouped_images: &GroupedImages,
-        missing_references: &[(PathBuf, String)],
+        markdown_references_to_missing_image_files: &[(PathBuf, String)],
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
@@ -241,7 +155,7 @@ impl ObsidianRepositoryInfo {
             && zero_byte_images.is_empty()
             && unreferenced_images.is_empty()
             && duplicate_groups.is_empty()
-            && missing_references.is_empty()
+            && markdown_references_to_missing_image_files.is_empty()
         {
             return Ok(());
         }
@@ -249,7 +163,7 @@ impl ObsidianRepositoryInfo {
         write_image_tables(
             config,
             writer,
-            missing_references,
+            markdown_references_to_missing_image_files,
             tiff_images,
             zero_byte_images,
             unreferenced_images,
@@ -278,6 +192,9 @@ impl ObsidianRepositoryInfo {
                 ),
             )?;
         }
+
+        // only writes if there are any
+        self.write_invalid_wikilinks_table(&writer)?;
 
         // only writes if there are any
         self.write_ambiguous_matches_table(writer)?;
@@ -366,13 +283,13 @@ impl ObsidianRepositoryInfo {
 fn write_image_tables(
     config: &ValidatedConfig,
     writer: &ReportWriter,
-    missing_references: &[(PathBuf, String)],
+    markdown_references_to_missing_image_files: &[(PathBuf, String)],
     tiff_images: &[ImageGroup],
     zero_byte_images: &[ImageGroup],
     unreferenced_images: &[ImageGroup],
     duplicate_groups: &[(&String, &Vec<ImageGroup>)],
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    write_missing_references_table(config, missing_references, writer)?;
+    write_missing_references_table(config, markdown_references_to_missing_image_files, writer)?;
 
     if !tiff_images.is_empty() {
         write_special_image_group_table(
@@ -413,21 +330,24 @@ fn write_image_tables(
 
 fn write_missing_references_table(
     config: &ValidatedConfig,
-    missing_references: &[(PathBuf, String)],
+    markdown_references_to_missing_image_files: &[(PathBuf, String)],
     writer: &ReportWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if missing_references.is_empty() {
+    if markdown_references_to_missing_image_files.is_empty() {
         return Ok(());
     }
 
     writer.writeln(LEVEL2, MISSING_IMAGE_REFERENCES)?;
-    writer.writeln_pluralized(missing_references.len(), Phrase::MissingImageReferences)?;
+    writer.writeln_pluralized(
+        markdown_references_to_missing_image_files.len(),
+        Phrase::MissingImageReferences,
+    )?;
 
     let headers = &["markdown file", "missing image reference", "action"];
 
     // Group missing references by markdown file
     let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
-    for (markdown_path, extracted_filename) in missing_references {
+    for (markdown_path, extracted_filename) in markdown_references_to_missing_image_files {
         grouped_references
             .entry(markdown_path)
             .or_default()

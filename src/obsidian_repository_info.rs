@@ -201,14 +201,18 @@ impl ObsidianRepositoryInfo {
         self.identify_ambiguous_matches();
         self.apply_back_populate_changes();
 
-        let (grouped_images, missing_references, image_operations) =
+        let (grouped_images, markdown_references_to_missing_image_files, image_operations) =
             self.analyze_images(&validated_config)?;
 
         self.process_image_reference_updates(&image_operations);
-        Ok((grouped_images, missing_references, image_operations))
+        Ok((
+            grouped_images,
+            markdown_references_to_missing_image_files,
+            image_operations,
+        ))
     }
 
-    pub(crate) fn analyze_images(
+    fn analyze_images(
         &self,
         config: &ValidatedConfig,
     ) -> Result<
@@ -218,7 +222,8 @@ impl ObsidianRepositoryInfo {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 
-        let missing_references = self.generate_missing_references()?;
+        let markdown_references_to_missing_image_files =
+            self.get_markdown_references_to_missing_image_files()?;
 
         // Get files being persisted in this run
         let files_to_persist = self
@@ -229,7 +234,7 @@ impl ObsidianRepositoryInfo {
         let mut operations = ImageOperations::default();
 
         // 0. Handle missing references first
-        for (markdown_path, missing_image) in &missing_references {
+        for (markdown_path, missing_image) in &markdown_references_to_missing_image_files {
             if files_to_persist.contains(markdown_path) {
                 operations
                     .markdown_ops
@@ -288,13 +293,17 @@ impl ObsidianRepositoryInfo {
             }
         }
 
-        Ok((grouped_images, missing_references, operations))
+        Ok((
+            grouped_images,
+            markdown_references_to_missing_image_files,
+            operations,
+        ))
     }
 
-    fn generate_missing_references(
+    fn get_markdown_references_to_missing_image_files(
         &self,
     ) -> Result<Vec<(PathBuf, String)>, Box<dyn Error + Send + Sync>> {
-        let mut missing_references = Vec::new();
+        let mut markdown_files_referencing_missing_image_files = Vec::new();
         let image_filenames: HashSet<String> = self
             .image_path_to_references_map
             .keys()
@@ -305,13 +314,13 @@ impl ObsidianRepositoryInfo {
         for markdown_file_info in self.markdown_files.iter() {
             for image_link in &markdown_file_info.image_links {
                 if !image_exists_in_set(&image_link.filename, &image_filenames) {
-                    missing_references
+                    markdown_files_referencing_missing_image_files
                         .push((markdown_file_info.path.clone(), image_link.filename.clone()));
                 }
             }
         }
 
-        Ok(missing_references)
+        Ok(markdown_files_referencing_missing_image_files)
     }
 
     pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {

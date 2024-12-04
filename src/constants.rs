@@ -58,9 +58,10 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report stuff
-pub const PROCESSING: &str = "processing";
+pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
+pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const OF: &str = "of";
-pub const THAT_NEED_UPDATES: &str = "that need updates";
+pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 
 // wikilink back populate
 pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";

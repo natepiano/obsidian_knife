@@ -95,7 +95,7 @@ impl fmt::Display for InvalidWikilinkReason {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct InvalidWikilink {
     pub content: String, // The actual problematic wikilink text
     pub reason: InvalidWikilinkReason,

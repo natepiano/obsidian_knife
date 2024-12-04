@@ -69,6 +69,9 @@ impl ReportWriter {
             writeln!(file, "| {} |", row.join(" | "))?;
         }
 
+        // there has to be a blank line after a table or it won't render
+        writeln!(file, "")?;
+
         file.flush()?;
         Ok(())
     }
