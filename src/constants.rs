@@ -136,6 +136,7 @@ impl Phrase {
     }
 }
 
+#[derive(Default)]
 pub struct DescriptionBuilder {
     parts: Vec<String>,
 }
@@ -163,8 +164,8 @@ impl DescriptionBuilder {
         self
     }
 
-    pub fn pluralize(mut self, phrase_new: Phrase) -> Self {
-        self.parts.push(format!("{}", phrase_new.pluralize()));
+    pub fn pluralize(mut self, phrase: Phrase) -> Self {
+        self.parts.push(phrase.pluralize().to_string());
         self
     }
 

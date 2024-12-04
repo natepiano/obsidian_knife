@@ -70,8 +70,7 @@ impl OutputFileWriter {
         }
 
         // there has to be a blank line after a table or it won't render
-        writeln!(file, "")?;
-        writeln!(file, "---")?;
+        writeln!(file, "\n---")?;
 
         file.flush()?;
         Ok(())

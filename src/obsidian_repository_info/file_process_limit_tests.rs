@@ -31,8 +31,7 @@ fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFileInfo> 
                 .with_fs_dates(created, modified)
                 .create(temp_dir, &format!("test_{}.md", i));
 
-            let info = get_test_markdown_file_info(file);
-            info
+            get_test_markdown_file_info(file)
         })
         .collect();
 

@@ -30,19 +30,19 @@ impl ObsidianRepositoryInfo {
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
-        self.write_execution_start(&validated_config, &writer, files_to_persist)?;
+        self.write_execution_start(validated_config, &writer, files_to_persist)?;
 
         self.write_frontmatter_issues_report(&writer)?;
 
         self.write_image_analysis(
-            &validated_config,
+            validated_config,
             &writer,
-            &grouped_images,
-            &markdown_references_to_missing_image_files,
+            grouped_images,
+            markdown_references_to_missing_image_files,
             files_to_persist,
         )?;
 
-        self.write_back_populate_tables(&validated_config, &writer, files_to_persist)?;
+        self.write_back_populate_tables(validated_config, &writer, files_to_persist)?;
 
         self.write_persist_reasons_table(&writer, files_to_persist)?;
 
@@ -76,7 +76,7 @@ impl ObsidianRepositoryInfo {
             writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
         }
 
-        if let Some(_) = validated_config.file_process_limit() {
+        if  validated_config.file_process_limit().is_some() {
             let total_files = self.markdown_files.get_files_to_persist(None).len();
             let message = format!(
                 "{} {} {} {} {}",
@@ -171,10 +171,8 @@ impl ObsidianRepositoryInfo {
             )?;
         }
 
-        // only writes if there are any
-        self.write_invalid_wikilinks_report(&writer)?;
+        self.write_invalid_wikilinks_report(writer)?;
 
-        // only writes if there are any
         self.write_ambiguous_matches_table(writer)?;
 
         let unambiguous_matches = self.markdown_files.unambiguous_matches();

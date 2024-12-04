@@ -510,7 +510,7 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
 
 fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     lazy_static! {
-        static ref WIKILINK_FINDER: regex::Regex = regex::Regex::new(r"\[\[.*?\]\]").unwrap();
+        static ref WIKILINK_FINDER: Regex = Regex::new(r"\[\[.*?\]\]").unwrap();
     }
 
     for mat in WIKILINK_FINDER.find_iter(line) {

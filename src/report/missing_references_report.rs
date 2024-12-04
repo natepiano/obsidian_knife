@@ -50,7 +50,7 @@ impl ReportDefinition<ReportContext> for MissingReferencesTable {
                     .iter()
                     .map(|group| {
                         crate::utils::escape_pipe(&crate::utils::escape_brackets(
-                            &group.path.to_string_lossy().to_string(),
+                            &group.path.to_string_lossy(),
                         ))
                     })
                     .collect::<Vec<_>>()

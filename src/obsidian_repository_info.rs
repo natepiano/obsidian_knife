@@ -192,12 +192,12 @@ impl ObsidianRepositoryInfo {
         (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
         Box<dyn Error + Send + Sync>,
     > {
-        self.find_all_back_populate_matches(&validated_config);
+        self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.apply_back_populate_changes();
 
         let (grouped_images, markdown_references_to_missing_image_files, image_operations) =
-            self.analyze_images(&validated_config)?;
+            self.analyze_images(validated_config)?;
 
         self.process_image_reference_updates(&image_operations);
         Ok((
