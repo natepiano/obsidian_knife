@@ -221,36 +221,6 @@ impl DescriptionBuilder {
 
     /// Builds the final string with all appended parts, adding a newline at the end.
     pub fn build(self) -> String {
-        let mut result = self.parts.join(" ");
-        result
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
-pub enum PhraseOld {
-    // File-related phrases
-    Files,
-
-    // Image-related phrases
-    UnreferencedImages,
-    DuplicateImages,
-
-    // compound pluralize
-    Times,
-}
-/// Pluralizes a phrase based on count at compile time
-pub const fn pluralize(count: usize, phrase: PhraseOld) -> &'static str {
-    match (count, phrase) {
-        (1, PhraseOld::Files) => "file",
-        (_, PhraseOld::Files) => "files",
-
-        (1, PhraseOld::UnreferencedImages) => "image is not referenced by any file",
-        (_, PhraseOld::UnreferencedImages) => "images are not referenced by any files",
-
-        (1, PhraseOld::DuplicateImages) => "duplicate image",
-        (_, PhraseOld::DuplicateImages) => "duplicate images",
-
-        (1, PhraseOld::Times) => "time",
-        (_, PhraseOld::Times) => "times",
+        self.parts.join(" ")
     }
 }

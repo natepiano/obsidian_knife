@@ -5,6 +5,7 @@ mod frontmatter_issues_report;
 mod incompatible_image_report;
 mod invalid_wikilink_report;
 mod missing_references_report;
+mod persist_reasons_report;
 mod unreferenced_images_report;
 
 mod report_writer;
@@ -12,14 +13,13 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::{GroupedImages, ImageGroup, ObsidianRepositoryInfo};
-use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter};
+use crate::utils::{escape_brackets, escape_pipe, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 use chrono::Utc;
 use std::error::Error;
-use std::io;
 use std::path::{Path, PathBuf};
 
 impl ObsidianRepositoryInfo {
@@ -51,130 +51,7 @@ impl ObsidianRepositoryInfo {
         self.write_back_populate_report(&writer)?;
 
         // audit of persist reasons
-        self.write_persist_reasons_table(&writer, files_to_persist)?;
-
-        Ok(())
-    }
-
-    pub fn write_persist_reasons_table(
-        &self,
-        writer: &OutputFileWriter,
-        files_to_persist: &[&MarkdownFileInfo],
-    ) -> io::Result<()> {
-        let mut rows: Vec<Vec<String>> = Vec::new();
-
-        for file in &self.markdown_files.files {
-            if !file.persist_reasons.is_empty() {
-                let file_name = file
-                    .path
-                    .file_name()
-                    .and_then(|f| f.to_str())
-                    .map(|s| s.trim_end_matches(".md"))
-                    .unwrap_or_default();
-
-                let wikilink = format!("[[{}]]", file_name);
-
-                // Count instances of BackPopulated and ImageReferencesModified
-                let back_populate_count = file.matches.unambiguous.len();
-
-                let image_refs_count = file
-                    .persist_reasons
-                    .iter()
-                    .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
-                    .count();
-
-                // Generate rows for each persist reason
-                for reason in &file.persist_reasons {
-                    let (before, after, reason_info) = match reason {
-                        PersistReason::DateCreatedUpdated { reason } => (
-                            file.date_validation_created
-                                .frontmatter_date
-                                .clone()
-                                .unwrap_or_default(),
-                            format!(
-                                "[[{}]]",
-                                file.date_validation_created
-                                    .file_system_date
-                                    .format("%Y-%m-%d")
-                            ),
-                            reason.to_string(),
-                        ),
-                        PersistReason::DateModifiedUpdated { reason } => (
-                            file.date_validation_modified
-                                .frontmatter_date
-                                .clone()
-                                .unwrap_or_default(),
-                            format!(
-                                "[[{}]]",
-                                file.date_validation_modified
-                                    .file_system_date
-                                    .format("%Y-%m-%d")
-                            ),
-                            reason.to_string(),
-                        ),
-                        PersistReason::DateCreatedFixApplied => (
-                            file.date_created_fix
-                                .date_string
-                                .clone()
-                                .unwrap_or_default(),
-                            file.date_created_fix
-                                .fix_date
-                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
-                                .unwrap_or_default(),
-                            String::new(),
-                        ),
-                        PersistReason::BackPopulated => (
-                            String::new(),
-                            String::new(),
-                            format!("{} instances", back_populate_count),
-                        ),
-                        PersistReason::ImageReferencesModified => (
-                            String::new(),
-                            String::new(),
-                            format!("{} instances", image_refs_count),
-                        ),
-                    };
-
-                    rows.push(vec![
-                        wikilink.clone(),
-                        reason.to_string(),
-                        reason_info,
-                        before,
-                        after,
-                    ]);
-                }
-            }
-        }
-
-        if !rows.is_empty() {
-            rows.sort_by(|a, b| {
-                let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
-                if file_cmp == std::cmp::Ordering::Equal {
-                    a[1].cmp(&b[1])
-                } else {
-                    file_cmp
-                }
-            });
-
-            writer.writeln(LEVEL1, "files to be updated")?;
-            writer.writeln("", "")?;
-
-            let headers = &["file", "persist reason", "info", "before", "after"];
-            let alignments = &[
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-                ColumnAlignment::Left,
-            ];
-
-            for (i, chunk) in rows.chunks(500).enumerate() {
-                if i > 0 {
-                    writer.writeln("", "")?;
-                }
-                writer.write_markdown_table(headers, chunk, Some(alignments))?;
-            }
-        }
+        self.write_persist_reasons_report(&writer)?;
 
         Ok(())
     }
@@ -208,14 +85,12 @@ impl ObsidianRepositoryInfo {
 
         if validated_config.file_process_limit().is_some() {
             let total_files = self.markdown_files.get_files_to_persist(None).len();
-            let message = format!(
-                "{} {} {} {} {}",
-                files_to_persist.len(),
-                OF,
-                total_files,
-                pluralize(total_files, PhraseOld::Files),
-                THAT_NEED_UPDATES,
-            );
+            let message = DescriptionBuilder::new()
+                .number(files_to_persist.len())
+                .text(OF)
+                .pluralize_with_count(Phrase::File(total_files))
+                .text(THAT_NEED_UPDATES)
+                .build();
             writer.writeln("", message.as_str())?;
         }
 

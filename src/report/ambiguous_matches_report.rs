@@ -13,7 +13,6 @@ struct AmbiguousMatchesTable {
     display_text: String,
     targets: HashSet<String>,
     sorted_targets: Vec<String>,
-    matches: Vec<BackPopulateMatch>,
 }
 
 impl ReportDefinition for AmbiguousMatchesTable {
@@ -205,7 +204,6 @@ impl ObsidianRepositoryInfo {
                 display_text: display_text.clone(),
                 targets,
                 sorted_targets,
-                matches: matches.clone(),
             };
 
             let report = ReportWriter::new(matches.clone());

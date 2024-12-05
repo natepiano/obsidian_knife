@@ -16,7 +16,6 @@ struct BackPopulateTable {
     display_text: String,
     total_occurrences: usize,
     file_count: usize,
-    matches: Vec<BackPopulateMatch>,
 }
 
 impl ReportDefinition for BackPopulateTable {
@@ -45,7 +44,7 @@ impl ReportDefinition for BackPopulateTable {
     }
 
     fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
-        let mut consolidated = consolidate_matches(items);
+        let consolidated = consolidate_matches(items);
         let mut table_rows = Vec::new();
 
         for m in consolidated {
@@ -165,7 +164,6 @@ impl ObsidianRepositoryInfo {
                 display_text: display_text.clone(),
                 total_occurrences,
                 file_count: file_paths.len(),
-                matches: group_matches.clone(),
             };
 
             let report = ReportWriter::new(group_matches.clone());

@@ -10,7 +10,6 @@ use std::path::{Path, PathBuf};
 
 pub struct DuplicateImagesTable {
     hash: String,
-    groups: Vec<ImageGroup>,
 }
 
 impl ReportDefinition for DuplicateImagesTable {
@@ -93,7 +92,6 @@ impl ObsidianRepositoryInfo {
 
             let table = DuplicateImagesTable {
                 hash: hash.to_string(),
-                groups: groups.to_vec(),
             };
 
             report.write(&table, writer)?;
