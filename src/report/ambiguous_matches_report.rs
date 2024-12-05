@@ -19,7 +19,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
     type Item = BackPopulateMatch;
 
     fn headers(&self) -> Vec<&str> {
-        vec!["file name", "line", COL_TEXT, COL_OCCURRENCES]
+        vec!["file name", "line", TEXT, OCCURRENCES]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {

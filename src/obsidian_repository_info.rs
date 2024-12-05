@@ -476,7 +476,7 @@ fn determine_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
     if path
         .extension()
         .and_then(|ext| ext.to_str())
-        .map_or(false, |ext| ext.eq_ignore_ascii_case(TIFF_EXTENSION))
+        .map_or(false, |ext| ext.eq_ignore_ascii_case(EXTENSION_TIFF))
     {
         ImageGroupType::TiffImage
     } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {

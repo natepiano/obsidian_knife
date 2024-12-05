@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
+use crate::EXTENSION_MARKDOWN;
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {
@@ -38,7 +39,7 @@ impl ToWikilink for String {
 
 /// Helper function to strip .md extension if present
 fn strip_md_extension(text: &str) -> &str {
-    text.strip_suffix(".md").unwrap_or(text)
+    text.strip_suffix(EXTENSION_MARKDOWN).unwrap_or(text)
 }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]

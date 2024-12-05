@@ -4,7 +4,7 @@ mod validated_config_tests;
 pub use validated_config_tests::{get_test_validated_config, get_test_validated_config_builder};
 
 use crate::utils::build_case_insensitive_word_finder;
-use crate::DEFAULT_TIMEZONE;
+use crate::{DEFAULT_TIMEZONE, EXTENSION_MARKDOWN};
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;
@@ -216,7 +216,7 @@ impl ValidatedConfig {
             };
 
             // Add .md extension if not present
-            if !filter_text.ends_with(".md") {
+            if !filter_text.ends_with(EXTENSION_MARKDOWN) {
                 format!("{}.md", filter_text)
             } else {
                 filter_text.to_string()

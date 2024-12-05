@@ -14,6 +14,8 @@ pub const YAML_TIMESTAMP: &str = "time_stamp: ";
 pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
 
 // config stuff
+// the DEFAULT_MEDIA_PATH could be a configuration parameter as it's really specific to my repo
+pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub const DEFAULT_TIMEZONE: &str = "America/New_York";
 pub const ERROR_NOT_FOUND: &str = "file not found: ";
@@ -29,78 +31,75 @@ pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
 pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
-// image stuff
-// the DEFAULT_MEDIA_PATH could be a configuration parameter as it's really specific to my setup
-pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
-pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
-pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
-pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
-pub const IMAGES_SECTION: &str = "images";
-pub const TIFF_EXTENSION: &str = "tiff";
-pub const TIFF_IMAGES: &str = "TIFF images";
-pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
-pub const ZERO_BYTE_IMAGES: &str = "zero-byte images";
 
-//markdown stuff
+//markdown outline levels
 pub const LEVEL1: &str = "#";
 pub const LEVEL2: &str = "##";
 pub const LEVEL3: &str = "###";
 pub const LEVEL4: &str = "####";
 
-// regex stuff
+// matching stuff
 pub const CLOSING_BRACKET: char = ']';
 pub const CLOSING_WIKILINK: &str = "]]";
+pub const EXTENSION_MARKDOWN: &str = ".md";
+pub const EXTENSION_TIFF: &str = "tiff";
 pub const FORWARD_SLASH: char = '/';
+pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
+pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const OPENING_BRACKET: char = '[';
 pub const OPENING_IMAGE_LINK_BRACKET: &str = "!["; // for external style "![]()"
 pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";
 pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
-// report stuff
+// report &str's
+pub const AFTER: &str = "after";
+pub const BACK_POPULATE: &str = "back populate";
+pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str = "using back_populate_file_filter config parameter: ";
+pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str ="remove it from config if you want to process all files";
+pub const BEFORE: &str = "before";
 pub const COLON: &str = ":";
 pub const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";
-pub const DUPLICATE_IMAGES_WITH_REFERENCES: &str = "duplicate images with references";
 pub const DUPLICATE: &str = "duplicate";
 pub const DUPLICATES: &str = "duplicates";
+pub const DUPLICATE_IMAGES_WITH_REFERENCES: &str = "duplicate images with references";
 pub const FILE: &str = "file";
 pub const FOUND: &str = "found";
 pub const FRONTMATTER: &str = "frontmatter";
 pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
+pub const IMAGES: &str = "images";
 pub const IN: &str = "in";
+pub const INFO: &str = "info";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const MATCHES: &str = "matches";
+pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
+pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 pub const MISSING_IMAGE: &str = "missing image";
-pub const NO_RENDER: &str = "- these won't render in obsidian";
+pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
 pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
 pub const NOT_VALID: &str = "- these are probably corrupted";
+pub const NO_RENDER: &str = "- these won't render in obsidian";
+pub const OCCURRENCES: &str = "occurrences";
 pub const OF: &str = "of";
+pub const PATH: &str = "path";
+pub const PERSIST_REASON: &str = "persist reason";
 pub const REFERENCED_BY: &str = "referenced by";
 pub const REFERENCE_REMOVED: &str = " - reference removed";
 pub const REFERENCE_WILL_BE_REMOVED: &str = " - reference will be removed";
 pub const SAMPLE: &str = "sample";
+pub const SOURCE_TEXT: &str = "source text";
+pub const TEXT: &str = "text";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 pub const TIFF: &str = "TIFF";
+pub const TIFF_IMAGES: &str = "TIFF images";
+pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
 pub const UPDATED: &str = " - updated";
+pub const WIKILINKS: &str = "wikilinks";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
 pub const WILL_BE_UPDATED: &str = " - will be updated";
+pub const WILL_REPLACE_WITH: &str = "will replace with";
 pub const ZERO_BYTE: &str = "zero-byte";
-
-// wikilink back populate
-pub const BACK_POPULATE_TABLE_HEADER_MIDDLE: &str = "in";
-pub const BACK_POPULATE_COUNT_PREFIX: &str = "back populate";
-pub const BACK_POPULATE_COUNT_SUFFIX: &str = "wikilinks";
-pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
-    "using back_populate_file_filter config parameter: ";
-pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
-    "remove it from config if you want to process all files";
-pub const COL_OCCURRENCES: &str = "occurrences";
-pub const COL_SOURCE_TEXT: &str = "source text";
-pub const COL_TEXT: &str = "text";
-pub const COL_WILL_REPLACE_WITH: &str = "will replace with";
-pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
-pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

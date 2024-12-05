@@ -25,10 +25,10 @@ impl ReportDefinition for BackPopulateTable {
         vec![
             "file name",
             "line",
-            COL_TEXT,
-            COL_OCCURRENCES,
-            COL_WILL_REPLACE_WITH,
-            COL_SOURCE_TEXT,
+            TEXT,
+            OCCURRENCES,
+            WILL_REPLACE_WITH,
+            SOURCE_TEXT,
         ]
     }
 
@@ -118,9 +118,9 @@ impl ObsidianRepositoryInfo {
 
         writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
         let header_message = DescriptionBuilder::new()
-            .text(BACK_POPULATE_COUNT_PREFIX)
+            .text(BACK_POPULATE)
             .number(self.wikilinks_sorted.len())
-            .text(BACK_POPULATE_COUNT_SUFFIX)
+            .text(WIKILINKS)
             .build();
         writer.writeln("", &header_message)?;
 

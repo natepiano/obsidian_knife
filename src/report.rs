@@ -35,7 +35,7 @@ impl ObsidianRepositoryInfo {
         self.write_execution_start(validated_config, &writer, files_to_persist)?;
         self.write_frontmatter_issues_report(&writer)?;
 
-        writer.writeln(LEVEL1, IMAGES_SECTION)?;
+        writer.writeln(LEVEL1, IMAGES)?;
         // hack just so cargo fmt doesn't expand the report call across multiple lines
         let missing_image_files = markdown_references_to_missing_image_files;
         self.write_missing_references_report(validated_config, missing_image_files, &writer)?;
@@ -51,7 +51,7 @@ impl ObsidianRepositoryInfo {
         self.write_back_populate_report(&writer)?;
 
         // audit of persist reasons
-        self.write_persist_reasons_report(&writer)?;
+        self.write_persist_reasons_report(validated_config, &writer)?;
 
         Ok(())
     }
@@ -102,7 +102,7 @@ fn write_back_populate_report_header(
     validated_config: &ValidatedConfig,
     writer: &OutputFileWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL1, BACK_POPULATE_COUNT_PREFIX)?;
+    writer.writeln(LEVEL1, BACK_POPULATE)?;
 
     //output the name of the file filter if necessary
     if let Some(filter) = validated_config.back_populate_file_filter() {
