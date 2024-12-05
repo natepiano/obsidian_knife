@@ -13,7 +13,7 @@ pub mod obsidian_repository_info_types;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
-use crate::markdown_file_info::{MarkdownFileInfo, ReplaceableMatch};
+use crate::markdown_file_info::{ImageLink, MarkdownFileInfo, ReplaceableMatch};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -116,20 +116,24 @@ impl ObsidianRepositoryInfo {
         self.markdown_files
             .process_files(config, sorted_wikilinks, ac);
     }
-
     pub fn apply_replaceable_matches(&mut self) {
-        // Only process files that have matches
+        // Only process files that have matches or missing image references
         for markdown_file in self.markdown_files.iter_mut() {
-            if markdown_file.matches.unambiguous.is_empty() {
+            if markdown_file.matches.unambiguous.is_empty()
+                && markdown_file.image_links.missing.is_empty()
+            {
                 continue;
             }
 
-            // Sort matches by line number and position (reverse position for same line)
-            let mut sorted_matches = markdown_file.matches.unambiguous.clone();
-            sorted_matches.sort_by_key(|m| (m.line_number, std::cmp::Reverse(m.position)));
+            let sorted_replaceable_matches = Self::collect_replaceable_matches(markdown_file);
+            if sorted_replaceable_matches.is_empty() {
+                continue;
+            }
 
             let mut updated_content = String::new();
             let mut current_line_num = 1;
+            let mut has_back_populate_changes = false;
+            let mut has_image_reference_changes = false;
 
             // Process line by line
             for (line_idx, line) in markdown_file.content.lines().enumerate() {
@@ -140,16 +144,24 @@ impl ObsidianRepositoryInfo {
                 }
 
                 // Collect matches for the current line
-                let line_matches: Vec<&BackPopulateMatch> = sorted_matches
+                let line_matches: Vec<&Box<dyn ReplaceableMatch>> = sorted_replaceable_matches
                     .iter()
-                    .filter(|m| m.line_number == current_line_num)
+                    .filter(|m| m.line_number() == current_line_num)
                     .collect();
 
-                // Apply matches in reverse order if there are any
+                // Apply matches if there are any
                 let mut updated_line = line.to_string();
                 if !line_matches.is_empty() {
                     updated_line =
                         apply_line_replacements(line, &line_matches, &markdown_file.path);
+                    // Track which types of changes occurred
+                    for m in &line_matches {
+                        if (**m).type_id() == std::any::TypeId::of::<BackPopulateMatch>() {
+                            has_back_populate_changes = true;
+                        } else if (**m).type_id() == std::any::TypeId::of::<ImageLink>() {
+                            has_image_reference_changes = true;
+                        }
+                    }
                 }
 
                 updated_content.push_str(&updated_line);
@@ -175,8 +187,47 @@ impl ObsidianRepositoryInfo {
 
             // Update the content and mark file as modified
             markdown_file.content = updated_content.trim_end().to_string();
-            markdown_file.mark_as_back_populated();
+
+            if has_back_populate_changes {
+                markdown_file.mark_as_back_populated();
+            }
+            if has_image_reference_changes {
+                markdown_file.mark_image_reference_as_updated();
+            }
         }
+    }
+
+    fn collect_replaceable_matches(
+        markdown_file: &MarkdownFileInfo,
+    ) -> Vec<Box<dyn ReplaceableMatch>> {
+        let mut matches = Vec::new();
+
+        // Add BackPopulateMatches
+        matches.extend(
+            markdown_file
+                .matches
+                .unambiguous
+                .iter()
+                .cloned()
+                .map(|m| Box::new(m) as Box<dyn ReplaceableMatch>),
+        );
+
+        println!("{:?}", markdown_file.image_links.missing);
+
+        // Add ImageLinks.missing
+        matches.extend(
+            markdown_file
+                .image_links
+                .missing
+                .iter()
+                .cloned()
+                .map(|m| Box::new(m) as Box<dyn ReplaceableMatch>),
+        );
+
+        // Sort by line number and reverse position
+        matches.sort_by_key(|m| (m.line_number(), std::cmp::Reverse(m.position())));
+
+        matches
     }
 
     pub fn persist(
@@ -252,7 +303,6 @@ impl ObsidianRepositoryInfo {
             .map(|f| &f.path)
             .collect();
 
-
         let markdown_references_to_missing_image_files: Vec<(PathBuf, String)> = self
             .markdown_files
             .iter()
@@ -270,12 +320,12 @@ impl ObsidianRepositoryInfo {
         // 0. Handle missing references first
         for (markdown_path, missing_image) in &markdown_references_to_missing_image_files {
             if files_to_persist.contains(markdown_path) {
-                operations
-                    .markdown_ops
-                    .push(MarkdownOperation::RemoveReference {
-                        markdown_path: markdown_path.clone(),
-                        image_path: PathBuf::from(missing_image),
-                    });
+                // operations
+                //     .markdown_ops
+                //     .push(MarkdownOperation::RemoveReference {
+                //         markdown_path: markdown_path.clone(),
+                //         image_path: PathBuf::from(missing_image),
+                //     });
             }
         }
 
@@ -395,10 +445,11 @@ pub fn execute_image_deletions(
 
 fn apply_line_replacements(
     line: &str,
-    line_matches: &[&impl ReplaceableMatch],
+    line_matches: &[&Box<dyn ReplaceableMatch>],
     file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();
+    let mut has_image_replacement = false;
 
     // Sort matches in descending order by `position`
     let mut sorted_matches = line_matches.to_vec();
@@ -424,6 +475,11 @@ fn apply_line_replacements(
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
 
+        // Track if this is an image replacement
+        if (**match_info).type_id() == std::any::TypeId::of::<ImageLink>() {
+            has_image_replacement = true;
+        }
+
         // Perform the replacement
         updated_line.replace_range(start..end, &match_info.get_replacement());
 
@@ -437,7 +493,17 @@ fn apply_line_replacements(
         }
     }
 
-    updated_line
+    // If we had any image replacements, clean up the line
+    if has_image_replacement {
+        let trimmed = updated_line.trim();
+        if trimmed.is_empty() {
+            String::new()
+        } else {
+            normalize_spaces(trimmed)
+        }
+    } else {
+        updated_line
+    }
 }
 
 fn process_special_image_group(
@@ -618,7 +684,7 @@ fn extract_alt_text(matched: &str) -> &str {
 }
 
 fn should_remove_line(line: &str) -> bool {
-    line.is_empty() || line == ":" || line.ends_with(":") || line.ends_with(": ")
+    line.is_empty()
 }
 
 fn normalize_spaces(text: &str) -> String {

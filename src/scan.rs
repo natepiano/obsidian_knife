@@ -54,7 +54,11 @@ pub fn scan_folders(
     obsidian_repository_info.wikilinks_ac = Some(ac);
     obsidian_repository_info.markdown_files = markdown_files;
 
-    partition_found_and_missing_image_references(config, &mut obsidian_repository_info, &image_files)?;
+    partition_found_and_missing_image_references(
+        config,
+        &mut obsidian_repository_info,
+        &image_files,
+    )?;
 
     Ok(obsidian_repository_info)
 }

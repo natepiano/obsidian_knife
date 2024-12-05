@@ -43,7 +43,7 @@ fn test_analyze_missing_references() {
     let today_formatted = Utc::now().format("[[%Y-%m-%d]]").to_string();
 
     let expected_content = format!(
-        "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '{}'\n---\n# Test\nSome content",
+        "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '{}'\n---\n# Test\n\nSome content",
         today_formatted
     );
     assert_eq!(updated_content, expected_content);

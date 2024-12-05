@@ -90,7 +90,7 @@ impl DateCreatedFixValidation {
         }
     }
 }
-pub trait ReplaceableMatch {
+pub trait ReplaceableMatch: std::any::Any {
     fn line_number(&self) -> usize;
     fn position(&self) -> usize;
     fn get_replacement(&self) -> String;
