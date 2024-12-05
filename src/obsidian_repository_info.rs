@@ -13,7 +13,7 @@ pub mod obsidian_repository_info_types;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file_info::{MarkdownFileInfo, ReplaceableMatch};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -335,7 +335,7 @@ impl ObsidianRepositoryInfo {
             .collect();
 
         for markdown_file_info in self.markdown_files.iter() {
-            for image_link in &markdown_file_info.image_links {
+            for image_link in &markdown_file_info.image_links.found {
                 if !image_exists_in_set(&image_link.filename, &image_filenames) {
                     markdown_files_referencing_missing_image_files
                         .push((markdown_file_info.path.clone(), image_link.filename.clone()));
@@ -407,39 +407,39 @@ pub fn execute_image_deletions(
 
 fn apply_line_replacements(
     line: &str,
-    line_matches: &[&BackPopulateMatch],
+    line_matches: &[&impl ReplaceableMatch],
     file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();
 
     // Sort matches in descending order by `position`
     let mut sorted_matches = line_matches.to_vec();
-    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position));
+    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position()));
 
     // Apply replacements in sorted (reverse) order
     for match_info in sorted_matches {
-        let start = match_info.position;
-        let end = start + match_info.found_text.len();
+        let start = match_info.position();
+        let end = start + match_info.matched_text().len();
 
         // Check for UTF-8 boundary issues
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             eprintln!(
                 "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
                 Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
-                file_path, match_info.line_number, start, end, updated_line, match_info.found_text
+                file_path, match_info.line_number(), start, end, updated_line, match_info.matched_text()
             );
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
 
         // Perform the replacement
-        updated_line.replace_range(start..end, &match_info.replacement);
+        updated_line.replace_range(start..end, &match_info.get_replacement());
 
         // Validation check after each replacement
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
             eprintln!(
                 "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
                 Current line:\n{}\n",
-                file_path, match_info.line_number, updated_line
+                file_path, match_info.line_number(), updated_line
             );
         }
     }

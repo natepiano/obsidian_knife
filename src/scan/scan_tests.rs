@@ -140,7 +140,7 @@ fn test_parallel_image_reference_collection() {
             .create(&temp_dir, &filename);
         let mut info = get_test_markdown_file_info(file_path.clone());
 
-        info.image_links = content
+        info.image_links.found = content
             .split('\n')
             .map(|s| ImageLink::new(s.to_string(), 1, 0))
             .collect();
@@ -151,6 +151,7 @@ fn test_parallel_image_reference_collection() {
     // Common filter logic
     fn has_common_image(info: &MarkdownFileInfo) -> bool {
         info.image_links
+            .found
             .iter()
             .any(|link| link.filename == "common.jpg")
     }

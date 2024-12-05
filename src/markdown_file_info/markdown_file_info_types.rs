@@ -90,6 +90,12 @@ impl DateCreatedFixValidation {
         }
     }
 }
+pub trait ReplaceableMatch {
+    fn line_number(&self) -> usize;
+    fn position(&self) -> usize;
+    fn get_replacement(&self) -> String;
+    fn matched_text(&self) -> String;
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatch {
@@ -101,6 +107,24 @@ pub struct BackPopulateMatch {
     pub position: usize,
     pub relative_path: String,
     pub replacement: String,
+}
+
+impl ReplaceableMatch for BackPopulateMatch {
+    fn line_number(&self) -> usize {
+        self.line_number
+    }
+
+    fn position(&self) -> usize {
+        self.position
+    }
+
+    fn get_replacement(&self) -> String {
+        self.replacement.clone()
+    }
+
+    fn matched_text(&self) -> String {
+        self.found_text.clone()
+    }
 }
 
 #[derive(Clone, Debug, Default)]
@@ -168,7 +192,13 @@ pub enum ImageLinkType {
     // RawHTTP,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct ImageLinks {
+    pub found: Vec<ImageLink>,    // All valid image links
+    pub missing: Vec<ImageLink>,  // References to non-existent images
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImageLink {
     pub image_link_type: ImageLinkType,
     pub line_number: usize,
@@ -211,6 +241,8 @@ impl ImageLink {
                 .split('|')
                 .next()
                 .unwrap_or("")
+                .trim() // Add trim here to remove whitespace
+                .trim_matches('\\') // Add this to remove any escape characters
                 .to_lowercase();
 
             return Self {

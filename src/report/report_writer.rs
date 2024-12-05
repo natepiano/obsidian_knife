@@ -1,29 +1,11 @@
-use crate::markdown_file_info::MarkdownFileInfo;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
-use std::collections::HashSet;
 use std::error::Error;
-use std::path::PathBuf;
 
 /// definition of the elements of a report to write out as a markdown table
 pub trait ReportDefinition<C = ()> {
     /// The type of data being displayed in the table
     type Item;
-
-    /// Get paths that should be checked against files_to_persist for filtering
-    /// Returns empty Vec if no filtering should be applied
-    /// this allows us to use our knowledge of the types in each report
-    /// to return just what is actually necessary
-    ///
-    /// So for different report types:
-    /// - For unreferenced images: return empty Vec (no filtering needed)
-    /// - For duplicate images: return paths of all referencing files
-    /// - For ambiguous matches: return the single relative_path
-    /// - For back populate matches: return the single relative_path
-    fn get_item_filter_paths(&self, _item: &Self::Item) -> Vec<PathBuf> {
-        Vec::new() // Default implementation = no filtering
-    }
-
     /// Get the table headers
     fn headers(&self) -> Vec<&str>;
 
@@ -72,7 +54,6 @@ pub trait ReportDefinition<C = ()> {
 pub struct ReportWriter<'a, T: Clone> {
     pub(crate) items: Vec<T>,
     pub(crate) validated_config: Option<&'a ValidatedConfig>,
-    pub(crate) files_to_persist: Option<&'a [&'a MarkdownFileInfo]>,
 }
 
 impl<'a, T: Clone> ReportWriter<'a, T> {
@@ -80,7 +61,6 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         Self {
             items,
             validated_config: None,
-            files_to_persist: None,
         }
     }
 
@@ -91,33 +71,6 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn with_files_to_persist(self, files: &'a [&'a MarkdownFileInfo]) -> Self {
-        Self {
-            files_to_persist: Some(files),
-            ..self
-        }
-    }
-
-    fn filter_items<B: ReportDefinition<Item = T>>(&self, report: &B) -> Vec<T> {
-        if let Some(files) = self.files_to_persist {
-            let persist_paths: HashSet<_> = files.iter().map(|f| &f.path).collect();
-
-            self.items
-                .iter()
-                .filter(|item| {
-                    let paths = report.get_item_filter_paths(item);
-                    // If no paths returned, include the item
-                    // If paths returned, all paths must be in persist_paths
-                    paths.is_empty() || paths.iter().all(|p| persist_paths.contains(p))
-                })
-                .cloned()
-                .collect()
-        } else {
-            self.items.clone()
-        }
-    }
-
     /// Write the table using the provided builder and writer
     pub fn write<B: ReportDefinition<Item = T>>(
         &self,
@@ -125,12 +78,6 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if self.items.is_empty() && report.hide_title_if_no_rows() {
-            return Ok(());
-        }
-
-        let filtered_items = self.filter_items(report);
-
-        if filtered_items.is_empty() && report.hide_title_if_no_rows() {
             return Ok(());
         }
 

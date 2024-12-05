@@ -166,7 +166,7 @@ fn scan_markdown_file(
 
     // Store results in markdown_file_info
     markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);
-    markdown_file_info.image_links = image_links;
+    markdown_file_info.image_links.found = image_links;
 
     Ok((markdown_file_info, extracted_wikilinks.valid))
 }
