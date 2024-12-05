@@ -3,6 +3,7 @@ mod incompatible_image_report;
 mod invalid_wikilink_report;
 mod missing_references_report;
 mod report_writer;
+mod unreferenced_images_report;
 
 pub use report_writer::*;
 
@@ -30,123 +31,26 @@ impl ObsidianRepositoryInfo {
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
+
         self.write_execution_start(validated_config, &writer, files_to_persist)?;
 
         self.write_frontmatter_issues_report(&writer)?;
 
-        self.write_image_analysis(
-            validated_config,
-            &writer,
-            grouped_images,
-            markdown_references_to_missing_image_files,
-            files_to_persist,
-        )?;
+        writer.writeln(LEVEL1, IMAGES_SECTION)?;
+        // hack for 1 liners
+        let missing_image_files = markdown_references_to_missing_image_files;
+        self.write_missing_references_report(validated_config, missing_image_files, &writer)?;
+        self.write_tiff_images_report(validated_config, grouped_images, &writer)?;
+        self.write_zero_byte_images_report(validated_config, grouped_images, &writer)?;
+        self.write_unreferenced_images_report(validated_config, grouped_images, &writer)?;
+
+        for (hash, group) in grouped_images.get_duplicate_groups() {
+            write_duplicate_group_table(validated_config, &writer, hash, group)?;
+        }
 
         self.write_back_populate_tables(validated_config, &writer, files_to_persist)?;
 
         self.write_persist_reasons_table(&writer, files_to_persist)?;
-
-        Ok(())
-    }
-
-    pub fn write_execution_start(
-        &self,
-        validated_config: &ValidatedConfig,
-        writer: &OutputFileWriter,
-        files_to_persist: &[&MarkdownFileInfo],
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
-        let properties = format!(
-            "{}{}\n{}{}\n",
-            YAML_TIMESTAMP,
-            timestamp,
-            YAML_APPLY_CHANGES,
-            validated_config.apply_changes(),
-        );
-
-        writer.write_properties(&properties)?;
-
-        if validated_config.apply_changes() {
-            writer.writeln("", MODE_APPLY_CHANGES)?;
-        } else {
-            writer.writeln("", MODE_DRY_RUN)?;
-        }
-
-        if let Some(limit) = validated_config.file_process_limit() {
-            writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
-        }
-
-        if validated_config.file_process_limit().is_some() {
-            let total_files = self.markdown_files.get_files_to_persist(None).len();
-            let message = format!(
-                "{} {} {} {} {}",
-                files_to_persist.len(),
-                OF,
-                total_files,
-                pluralize(total_files, PhraseOld::Files),
-                THAT_NEED_UPDATES,
-            );
-            writer.writeln("", message.as_str())?;
-        }
-
-        Ok(())
-    }
-
-    fn write_image_analysis(
-        &self,
-        config: &ValidatedConfig,
-        writer: &OutputFileWriter,
-        grouped_images: &GroupedImages,
-        markdown_references_to_missing_image_files: &[(PathBuf, String)],
-        files_to_persist: &[&MarkdownFileInfo],
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        writer.writeln(LEVEL1, SECTION_IMAGE_CLEANUP)?;
-
-        let empty_vec = Vec::new();
-
-        let tiff_images = grouped_images
-            .get(&ImageGroupType::TiffImage)
-            .unwrap_or(&empty_vec);
-        let zero_byte_images = grouped_images
-            .get(&ImageGroupType::ZeroByteImage)
-            .unwrap_or(&empty_vec);
-        let unreferenced_images = grouped_images
-            .get(&ImageGroupType::UnreferencedImage)
-            .unwrap_or(&empty_vec);
-
-        let duplicate_groups = grouped_images.get_duplicate_groups();
-
-        if tiff_images.is_empty()
-            && zero_byte_images.is_empty()
-            && unreferenced_images.is_empty()
-            && duplicate_groups.is_empty()
-            && markdown_references_to_missing_image_files.is_empty()
-        {
-            return Ok(());
-        }
-
-        self.write_missing_references_report(
-            config,
-            markdown_references_to_missing_image_files,
-            writer,
-        )?;
-
-        self.write_tiff_images_report(config, tiff_images, writer)?;
-        self.write_zero_byte_images_report(config, zero_byte_images, writer)?;
-
-        if !unreferenced_images.is_empty() {
-            write_image_group_table(
-                config,
-                writer,
-                UNREFERENCED_IMAGES,
-                unreferenced_images,
-                PhraseOld::UnreferencedImages,
-            )?;
-        }
-
-        for (hash, group) in duplicate_groups {
-            write_duplicate_group_table(config, writer, hash, group)?;
-        }
 
         Ok(())
     }
@@ -377,7 +281,51 @@ impl ObsidianRepositoryInfo {
 
         Ok(())
     }
+
+    pub fn write_execution_start(
+        &self,
+        validated_config: &ValidatedConfig,
+        writer: &OutputFileWriter,
+        files_to_persist: &[&MarkdownFileInfo],
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
+        let properties = format!(
+            "{}{}\n{}{}\n",
+            YAML_TIMESTAMP,
+            timestamp,
+            YAML_APPLY_CHANGES,
+            validated_config.apply_changes(),
+        );
+
+        writer.write_properties(&properties)?;
+
+        if validated_config.apply_changes() {
+            writer.writeln("", MODE_APPLY_CHANGES)?;
+        } else {
+            writer.writeln("", MODE_DRY_RUN)?;
+        }
+
+        if let Some(limit) = validated_config.file_process_limit() {
+            writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
+        }
+
+        if validated_config.file_process_limit().is_some() {
+            let total_files = self.markdown_files.get_files_to_persist(None).len();
+            let message = format!(
+                "{} {} {} {} {}",
+                files_to_persist.len(),
+                OF,
+                total_files,
+                pluralize(total_files, PhraseOld::Files),
+                THAT_NEED_UPDATES,
+            );
+            writer.writeln("", message.as_str())?;
+        }
+
+        Ok(())
+    }
 }
+
 fn write_duplicate_group_table(
     config: &ValidatedConfig,
     writer: &OutputFileWriter,
@@ -398,22 +346,6 @@ fn write_duplicate_group_table(
     )?;
 
     write_group_table(config, writer, groups, true, false)?;
-    Ok(())
-}
-
-fn write_image_group_table(
-    config: &ValidatedConfig,
-    writer: &OutputFileWriter,
-    group_type: &str,
-    groups: &[ImageGroup],
-    phrase: PhraseOld,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL2, group_type)?;
-
-    let description = format!("{} {}", groups.len(), pluralize(groups.len(), phrase));
-    writer.writeln("", &format!("{}\n", description))?;
-
-    write_group_table(config, writer, groups, false, true)?;
     Ok(())
 }
 

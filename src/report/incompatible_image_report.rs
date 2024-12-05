@@ -1,28 +1,27 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::obsidian_repository_info_types::ImageGroup;
+use crate::obsidian_repository_info::obsidian_repository_info_types::{
+    GroupedImages, ImageGroup, ImageGroupType,
+};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{format_references, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 
-pub enum IncompatibleImageType {
-    Tiff,
-    ZeroByte,
-}
-
-impl IncompatibleImageType {
+impl ImageGroupType {
     fn title(&self) -> &'static str {
         match self {
-            IncompatibleImageType::Tiff => TIFF,
-            IncompatibleImageType::ZeroByte => ZERO_BYTE,
+            ImageGroupType::TiffImage => TIFF,
+            ImageGroupType::ZeroByteImage => ZERO_BYTE,
+            _ => "",
         }
     }
 
     fn description(&self, count: usize) -> String {
         let (incompatible_type_string, incompatible_message) = match self {
-            IncompatibleImageType::Tiff => (TIFF, NO_RENDER),
-            IncompatibleImageType::ZeroByte => (ZERO_BYTE, NOT_VALID),
+            ImageGroupType::TiffImage => (TIFF, NO_RENDER),
+            ImageGroupType::ZeroByteImage => (ZERO_BYTE, NOT_VALID),
+            _ => ("", ""),
         };
 
         DescriptionBuilder::new()
@@ -35,15 +34,11 @@ impl IncompatibleImageType {
     }
 }
 
-pub struct IncompatibleImageReport {
-    report_type: IncompatibleImageType,
-}
-
-impl ReportDefinition for IncompatibleImageReport {
+impl ReportDefinition for ImageGroupType {
     type Item = ImageGroup;
 
     fn headers(&self) -> Vec<&str> {
-        vec!["file", "referenced by"]
+        vec![FILE, REFERENCED_BY]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
@@ -61,7 +56,7 @@ impl ReportDefinition for IncompatibleImageReport {
                 let file_link =
                     format!("[[{}]]", group.path.file_name().unwrap().to_string_lossy());
 
-                let config = config.expect("Config required for incompatible image report");
+                let config = config.expect(CONFIG_EXPECT);
 
                 let references = if group.info.markdown_file_references.is_empty() {
                     String::from("not referenced by any file")
@@ -80,11 +75,11 @@ impl ReportDefinition for IncompatibleImageReport {
     }
 
     fn title(&self) -> Option<&str> {
-        Some(self.report_type.title())
+        Some(self.title())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        self.report_type.description(items.len())
+        self.description(items.len())
     }
 
     fn level(&self) -> &'static str {
@@ -96,32 +91,49 @@ impl ObsidianRepositoryInfo {
     pub fn write_tiff_images_report(
         &self,
         config: &ValidatedConfig,
-        tiff_images: &[ImageGroup],
+        grouped_images: &GroupedImages,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(tiff_images.to_vec()).with_validated_config(config);
 
-        report.write(
-            &IncompatibleImageReport {
-                report_type: IncompatibleImageType::Tiff,
-            },
+        Self::write_incompatible_image_report(
+            config,
+            grouped_images,
             writer,
-        )
+            &ImageGroupType::TiffImage,
+        )?;
+
+        Ok(())
     }
 
     pub fn write_zero_byte_images_report(
         &self,
         config: &ValidatedConfig,
-        zero_byte_images: &[ImageGroup],
+        grouped_images: &GroupedImages,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(zero_byte_images.to_vec()).with_validated_config(config);
 
-        report.write(
-            &IncompatibleImageReport {
-                report_type: IncompatibleImageType::ZeroByte,
-            },
+        Self::write_incompatible_image_report(
+            config,
+            grouped_images,
             writer,
-        )
+            &ImageGroupType::ZeroByteImage,
+        )?;
+
+        Ok(())
+    }
+
+    fn write_incompatible_image_report(
+        config: &ValidatedConfig,
+        grouped_images: &GroupedImages,
+        writer: &OutputFileWriter,
+        group_type: &ImageGroupType,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+
+        if let Some(zero_byte_images) = grouped_images.get(group_type) {
+            let report = ReportWriter::new(zero_byte_images.to_vec()).with_validated_config(config);
+
+            report.write(group_type, writer)?;
+        };
+        Ok(())
     }
 }

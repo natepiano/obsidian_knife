@@ -35,7 +35,7 @@ pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
-pub const SECTION_IMAGE_CLEANUP: &str = "images";
+pub const IMAGES_SECTION: &str = "images";
 pub const TIFF_EXTENSION: &str = "tiff";
 pub const TIFF_IMAGES: &str = "TIFF images";
 pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
@@ -58,6 +58,8 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report stuff
+pub const CONFIG_EXPECT: &str = "Config required for incompatible image report";
+pub const FILE: &str = "file";
 pub const FOUND: &str = "found";
 pub const FRONTMATTER: &str = "frontmatter";
 pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
@@ -66,8 +68,10 @@ pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const MISSING_IMAGE: &str = "missing image";
 pub const NO_RENDER: &str = "- these won't render in obsidian";
+pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
 pub const NOT_VALID: &str = "- these are probably corrupted";
 pub const OF: &str = "of";
+pub const REFERENCED_BY: &str = "referenced by";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 pub const TIFF: &str = "TIFF";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
@@ -94,6 +98,7 @@ pub enum Phrase {
     Has(usize),
     Image(usize),
     Issue(usize),
+    Is(usize),
     Match(usize),
     Reference(usize),
     Wikilink(usize),
@@ -111,6 +116,8 @@ impl Phrase {
             Phrase::Image(_) => "images",
             Phrase::Issue(1) => "issue",
             Phrase::Issue(_) => "issues",
+            Phrase::Is(1) => "is",
+            Phrase::Is(_) => "are",
             Phrase::Match(1) => "match",
             Phrase::Match(_) => "matches",
             Phrase::Reference(1) => "reference",
@@ -128,6 +135,7 @@ impl Phrase {
             | Phrase::Has(value)
             | Phrase::Image(value)
             | Phrase::Issue(value)
+            | Phrase::Is(value)
             | Phrase::Match(value)
             | Phrase::Reference(value)
             | Phrase::Wikilink(value)
