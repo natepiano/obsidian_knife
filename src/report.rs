@@ -5,6 +5,7 @@ mod invalid_wikilink_report;
 mod missing_references_report;
 mod unreferenced_images_report;
 
+mod ambiguous_matches_report;
 mod report_writer;
 
 pub use report_writer::*;
@@ -69,85 +70,14 @@ impl ObsidianRepositoryInfo {
         }
 
         self.write_invalid_wikilinks_report(writer)?;
+        self.write_ambiguous_matches_report(writer)?;
 
-        self.write_ambiguous_matches_table(writer)?;
-
-        let unambiguous_matches = self.markdown_files.unambiguous_matches();
-
-        if !unambiguous_matches.is_empty() {
-            write_back_populate_table(
-                writer,
-                &unambiguous_matches,
-                true,
-                self.wikilinks_sorted.len(),
-            )?;
-        }
-
-        Ok(())
-    }
-
-    pub fn write_ambiguous_matches_table(
-        &self,
-        writer: &OutputFileWriter,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // Skip if no files have ambiguous matches
-        let has_ambiguous = self
-            .markdown_files
-            .iter()
-            .any(|file| !file.matches.ambiguous.is_empty());
-
-        if !has_ambiguous {
-            return Ok(());
-        }
-
-        writer.writeln(LEVEL2, MATCHES_AMBIGUOUS)?;
-
-        // Create a map to group ambiguous matches by their display text (case-insensitive)
-        let mut matches_by_text: HashMap<String, (HashSet<String>, Vec<BackPopulateMatch>)> =
-            HashMap::new();
-
-        // First pass: collect all matches and their targets
-        for markdown_file in self.markdown_files.iter() {
-            for match_info in &markdown_file.matches.ambiguous {
-                let key = match_info.found_text.to_lowercase();
-                let entry = matches_by_text
-                    .entry(key)
-                    .or_insert((HashSet::new(), Vec::new()));
-                entry.1.push(match_info.clone());
-            }
-        }
-
-        // Second pass: collect targets for each found text
-        for wikilink in &self.wikilinks_sorted {
-            if let Some(entry) = matches_by_text.get_mut(&wikilink.display_text.to_lowercase()) {
-                entry.0.insert(wikilink.target.clone());
-            }
-        }
-
-        // Convert to sorted vec for consistent output
-        let mut sorted_matches: Vec<_> = matches_by_text.into_iter().collect();
-        sorted_matches.sort_by(|(a, _), (b, _)| a.cmp(b));
-
-        // Write out each group of matches
-        for (display_text, (targets, matches)) in sorted_matches {
-            writer.writeln(
-                LEVEL3,
-                &format!("\"{}\" matches {} targets:", display_text, targets.len(),),
-            )?;
-
-            // Write out all possible targets
-            let mut sorted_targets: Vec<_> = targets.into_iter().collect();
-            sorted_targets.sort();
-            for target in sorted_targets {
-                writer.writeln(
-                    "",
-                    &format!("- \\[\\[{}|{}]]", target.to_wikilink(), display_text),
-                )?;
-            }
-
-            // Reuse existing table writing code for the matches
-            write_back_populate_table(writer, &matches, false, 0)?;
-        }
+        write_back_populate_table(
+            writer,
+            &self.markdown_files.unambiguous_matches(),
+            true,
+            self.wikilinks_sorted.len(),
+        )?;
 
         Ok(())
     }
@@ -562,7 +492,6 @@ pub fn write_back_populate_table(
         };
 
         writer.write_markdown_table(&headers, &table_rows, Some(&alignments))?;
-        writer.writeln("", "\n---")?;
     }
 
     Ok(())

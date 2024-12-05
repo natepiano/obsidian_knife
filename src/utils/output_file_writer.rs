@@ -40,6 +40,8 @@ impl OutputFileWriter {
     ) -> io::Result<()> {
         let mut file = self.file.lock().unwrap();
 
+        // markdown tables always have to have a blank line before them
+        writeln!(file, "")?;
         writeln!(file, "| {} |", headers.join(" | "))?;
 
         let separator = match alignments {

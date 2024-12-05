@@ -58,6 +58,7 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report stuff
+pub const COLON: &str = ":";
 pub const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";
 pub const DUPLICATE_IMAGES_WITH_REFERENCES: &str = "duplicate images with references";
 pub const DUPLICATE: &str = "duplicate";
@@ -69,6 +70,7 @@ pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
 pub const IN: &str = "in";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
+pub const MATCHES: &str = "matches";
 pub const MISSING_IMAGE: &str = "missing image";
 pub const NO_RENDER: &str = "- these won't render in obsidian";
 pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
@@ -109,6 +111,8 @@ pub enum Phrase {
     Is(usize),
     Match(usize),
     Reference(usize),
+    Target(usize),
+    Time(usize),
     Wikilink(usize),
     With(usize),
 }
@@ -130,6 +134,10 @@ impl Phrase {
             Phrase::Match(_) => "matches",
             Phrase::Reference(1) => "reference",
             Phrase::Reference(_) => "references",
+            Phrase::Target(1) => "target",
+            Phrase::Target(_) => "targets",
+            Phrase::Time(1) => "time",
+            Phrase::Time(_) => "times",
             Phrase::Wikilink(1) => "wikilink",
             Phrase::Wikilink(_) => "wikilinks",
             Phrase::With(1) => "with a",
@@ -146,6 +154,8 @@ impl Phrase {
             | Phrase::Is(value)
             | Phrase::Match(value)
             | Phrase::Reference(value)
+            | Phrase::Target(value)
+            | Phrase::Time(value)
             | Phrase::Wikilink(value)
             | Phrase::With(value) => *value,
         }
@@ -174,6 +184,30 @@ impl DescriptionBuilder {
         self
     }
 
+    pub fn no_space(mut self, text: &str) -> Self {
+        if !self.parts.is_empty() {
+            // If we have previous parts, directly append to the last one
+            let last = self.parts.last_mut().unwrap();
+            last.push_str(text);
+        } else {
+            // If this is the first part, just push it normally
+            self.parts.push(text.to_string());
+        }
+        self
+    }
+
+    pub fn quoted_text(mut self, text: &str) -> Self {
+        let quoted = format!("\"{}\"", text);
+        self.parts.push(quoted);
+        self
+    }
+
+    pub fn parenthetical_text(mut self, text: &str) -> Self {
+        let parenthesized = format!("({})", text);
+        self.parts.push(parenthesized);
+        self
+    }
+
     pub fn pluralize_with_count(mut self, phrase_new: Phrase) -> Self {
         self.parts
             .push(format!("{} {}", phrase_new.value(), phrase_new.pluralize()));
@@ -188,7 +222,6 @@ impl DescriptionBuilder {
     /// Builds the final string with all appended parts, adding a newline at the end.
     pub fn build(self) -> String {
         let mut result = self.parts.join(" ");
-        result.push('\n');
         result
     }
 }
