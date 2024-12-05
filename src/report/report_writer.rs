@@ -91,6 +91,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         }
     }
 
+    #[allow(dead_code)]
     pub fn with_files_to_persist(self, files: &'a [&'a MarkdownFileInfo]) -> Self {
         Self {
             files_to_persist: Some(files),

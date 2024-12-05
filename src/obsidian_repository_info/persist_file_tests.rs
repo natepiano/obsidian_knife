@@ -136,7 +136,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
         repo_info.markdown_files.push(file_info);
 
         // Run persistence
-        repo_info.persist(&config, ImageOperations::default())?;
+        repo_info.persist(ImageOperations::default())?;
 
         // Verify results
         verify_dates(&repo_info.markdown_files[0], &case)?;

@@ -101,32 +101,13 @@ impl MarkdownFiles {
             .collect()
     }
 
-    pub fn get_files_to_persist(&self, file_limit: Option<usize>) -> Vec<&MarkdownFileInfo> {
-        let files_to_persist: Vec<_> = self
-            .files
-            .iter()
-            .filter(|file_info| {
-                file_info
-                    .frontmatter
-                    .as_ref()
-                    .map_or(false, |fm| fm.needs_persist())
-            })
-            .collect();
-
-        let total_files = files_to_persist.len();
-        match file_limit {
-            Some(limit) => files_to_persist.into_iter().take(limit).collect(),
-            None => files_to_persist.into_iter().take(total_files).collect(),
-        }
-    }
-
     pub fn persist_all(
         &self,
-        file_limit: Option<usize>,
         image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         execute_image_deletions(&image_operations)?;
-        for file_info in self.get_files_to_persist(file_limit) {
+
+        for file_info in &self.files {
             file_info.persist()?;
         }
         Ok(())

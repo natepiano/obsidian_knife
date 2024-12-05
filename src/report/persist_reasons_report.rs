@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
+use crate::markdown_file_info::PersistReason;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
@@ -87,12 +87,16 @@ impl ReportDefinition for PersistReasonsTable {
         None
     }
 
-    fn description(&self, _items: &[Self::Item]) -> String {
-        String::new()
+    fn description(&self, items: &[Self::Item]) -> String {
+        DescriptionBuilder::new()
+            .number(items.len())
+            .text(UPDATE)
+            .pluralize(Phrase::Reason(items.len()))
+            .build()
     }
 
     fn level(&self) -> &'static str {
-        LEVEL1
+        LEVEL2
     }
 }
 
@@ -100,12 +104,11 @@ impl ObsidianRepositoryInfo {
     pub fn write_persist_reasons_report(
         &self,
         config: &ValidatedConfig,
-        files_to_persist: &[&MarkdownFileInfo],
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut persist_data = Vec::new();
 
-        for file in files_to_persist {
+        for file in self.markdown_files_to_persist.iter() {
             if !file.persist_reasons.is_empty() {
                 let relative_path = file
                     .path

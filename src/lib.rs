@@ -55,7 +55,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     )?;
 
     if config.apply_changes == Some(true) {
-        obsidian_repository_info.persist(&validated_config, image_operations)?;
+        obsidian_repository_info.persist(image_operations)?;
         reset_apply_changes(&mut markdown_file, &mut config)?;
     }
 

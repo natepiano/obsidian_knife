@@ -33,9 +33,9 @@ fn test_analyze_missing_references() {
     }
 
     // Run analyze
-    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
-    repo_info.process_image_reference_updates(&image_operations);
-    repo_info.persist(&config, image_operations).unwrap();
+    let (_, _, image_operations) = repo_info.analyze_repository(&config).unwrap();
+
+    repo_info.persist(image_operations).unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&md_file).unwrap();
@@ -51,9 +51,9 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repo_info = scan_folders(&config).unwrap();
 
-    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
+    let (_, _, image_operations) = repo_info.analyze_images().unwrap();
     repo_info.process_image_reference_updates(&image_operations);
-    repo_info.persist(&config, image_operations).unwrap();
+    repo_info.persist(image_operations).unwrap();
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&md_file).unwrap();
@@ -103,11 +103,10 @@ fn test_analyze_duplicates() {
         markdown_file.mark_image_reference_as_updated();
     }
 
-    // Run analyze images
-    let (_, _, image_operations) = repo_info.analyze_images(&config).unwrap();
+    // Run analyze
+    let (_, _, image_operations) = repo_info.analyze_repository(&config).unwrap();
 
-    repo_info.process_image_reference_updates(&image_operations);
-    repo_info.persist(&config, image_operations).unwrap();
+    repo_info.persist(image_operations).unwrap();
 
     // Verify one image was kept and one was deleted
     assert_ne!(
@@ -266,7 +265,7 @@ fn test_image_operation_generation() {
         let created_paths = (test_case.setup)(&temp_dir);
         let repo_info = scan_folders(&config).unwrap();
 
-        let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
+        let (_, _, operations) = repo_info.analyze_images().unwrap();
 
         let (expected_image_ops, expected_markdown_ops) = (test_case.expected_ops)(&created_paths);
 
@@ -419,7 +418,7 @@ fn test_image_reference_detection() {
     }
 
     // Run analyze to generate the image info map
-    let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
+    let (_, _, operations) = repo_info.analyze_repository(&config).unwrap();
 
     // Verify image reference detection
     let deletion_operations: Vec<_> = operations
@@ -490,7 +489,7 @@ fn test_analyze_wikilink_errors() {
     let repo_info = scan_folders(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let (_, _, operations) = repo_info.analyze_images(&config).unwrap();
+    let (_, _, operations) = repo_info.analyze_images().unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(

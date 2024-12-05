@@ -13,6 +13,7 @@ pub mod obsidian_repository_info_types;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -30,6 +31,7 @@ use std::path::{Path, PathBuf};
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
     pub markdown_files: MarkdownFiles,
+    pub markdown_files_to_persist: MarkdownFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
@@ -179,11 +181,9 @@ impl ObsidianRepositoryInfo {
 
     pub fn persist(
         &mut self,
-        config: &ValidatedConfig,
         image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.markdown_files
-            .persist_all(config.file_process_limit(), image_operations)
+        self.markdown_files_to_persist.persist_all(image_operations)
     }
 
     pub fn analyze_repository(
@@ -197,8 +197,15 @@ impl ObsidianRepositoryInfo {
         self.identify_ambiguous_matches();
         self.apply_back_populate_changes();
 
+        // we have to read all markdown_files to find anything that has changed
+        // at this point we can populate the files_to_persist (in case there is a limit)
+        self.populate_files_to_persist(validated_config.file_process_limit());
+
+        // after populating files to persist, we can use this dataset to determine whether
+        // an image can be deleted - if it's referenced in a file not persisted then we won't delete it
+        // in this pass
         let (grouped_images, markdown_references_to_missing_image_files, image_operations) =
-            self.analyze_images(validated_config)?;
+            self.analyze_images()?;
 
         self.process_image_reference_updates(&image_operations);
         Ok((
@@ -208,9 +215,29 @@ impl ObsidianRepositoryInfo {
         ))
     }
 
+    fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
+        let files_to_persist: Vec<MarkdownFileInfo> = self
+            .markdown_files
+            .iter()
+            .filter(|file_info| {
+                file_info
+                    .frontmatter
+                    .as_ref()
+                    .map_or(false, |fm| fm.needs_persist())
+            })
+            .cloned()
+            .collect();
+
+        let total_files = files_to_persist.len();
+        let count = file_limit.unwrap_or(total_files);
+
+        self.markdown_files_to_persist = MarkdownFiles {
+            files: files_to_persist.into_iter().take(count).collect(),
+        };
+    }
+
     fn analyze_images(
         &self,
-        config: &ValidatedConfig,
     ) -> Result<
         (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
         Box<dyn Error + Send + Sync>,
@@ -221,11 +248,11 @@ impl ObsidianRepositoryInfo {
         let markdown_references_to_missing_image_files =
             self.get_markdown_references_to_missing_image_files()?;
 
-        // Get files being persisted in this run
-        let files_to_persist = self
-            .markdown_files
-            .get_files_to_persist(config.file_process_limit());
-        let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
+        let files_to_persist: HashSet<_> = self
+            .markdown_files_to_persist
+            .iter()
+            .map(|f| &f.path)
+            .collect();
 
         let mut operations = ImageOperations::default();
 
@@ -328,7 +355,9 @@ impl ObsidianRepositoryInfo {
                 } => {
                     // todo - eventually we need to store these changes directly on the MarkdownFileInfo - probably
                     //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
-                    if let Some(markdown_file) = self.markdown_files.get_mut(markdown_path) {
+                    if let Some(markdown_file) =
+                        self.markdown_files_to_persist.get_mut(markdown_path)
+                    {
                         let regex = create_file_specific_image_regex(
                             image_path.file_name().unwrap().to_str().unwrap(),
                         );
@@ -342,7 +371,9 @@ impl ObsidianRepositoryInfo {
                     old_image_path,
                     new_image_path,
                 } => {
-                    if let Some(markdown_file) = self.markdown_files.get_mut(markdown_path) {
+                    if let Some(markdown_file) =
+                        self.markdown_files_to_persist.get_mut(markdown_path)
+                    {
                         let regex = create_file_specific_image_regex(
                             old_image_path.file_name().unwrap().to_str().unwrap(),
                         );

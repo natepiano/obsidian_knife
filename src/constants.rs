@@ -95,6 +95,7 @@ pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 pub const TIFF: &str = "TIFF";
 pub const TIFF_IMAGES: &str = "TIFF images";
 pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
+pub const UPDATE: &str = "update";
 pub const UPDATED: &str = " - updated";
 pub const WIKILINKS: &str = "wikilinks";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
@@ -110,6 +111,7 @@ pub enum Phrase {
     Issue(usize),
     Is(usize),
     Match(usize),
+    Reason(usize),
     Reference(usize),
     Target(usize),
     Time(usize),
@@ -132,6 +134,8 @@ impl Phrase {
             Phrase::Is(_) => "are",
             Phrase::Match(1) => "match",
             Phrase::Match(_) => "matches",
+            Phrase::Reason(1) => "reason",
+            Phrase::Reason(_) => "reasons",
             Phrase::Reference(1) => "reference",
             Phrase::Reference(_) => "references",
             Phrase::Target(1) => "target",
@@ -153,6 +157,7 @@ impl Phrase {
             | Phrase::Issue(value)
             | Phrase::Is(value)
             | Phrase::Match(value)
+            | Phrase::Reason(value)
             | Phrase::Reference(value)
             | Phrase::Target(value)
             | Phrase::Time(value)

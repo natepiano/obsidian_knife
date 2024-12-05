@@ -13,7 +13,6 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::markdown_file_info::MarkdownFileInfo;
 use crate::obsidian_repository_info::{GroupedImages, ImageGroup, ObsidianRepositoryInfo};
 use crate::utils::{escape_brackets, escape_pipe, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -31,11 +30,7 @@ impl ObsidianRepositoryInfo {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
-        let files_to_persist = self
-            .markdown_files
-            .get_files_to_persist(validated_config.file_process_limit());
-
-        self.write_execution_start(validated_config, &writer, &files_to_persist)?;
+        self.write_execution_start(validated_config, &writer)?;
         self.write_frontmatter_issues_report(&writer)?;
 
         writer.writeln(LEVEL1, IMAGES)?;
@@ -51,10 +46,10 @@ impl ObsidianRepositoryInfo {
         write_back_populate_report_header(validated_config, &writer)?;
         self.write_invalid_wikilinks_report(&writer)?;
         self.write_ambiguous_matches_report(&writer)?;
-        self.write_back_populate_report( &files_to_persist, &writer)?;
+        self.write_back_populate_report(&writer)?;
 
         // audit of persist reasons
-        self.write_persist_reasons_report(validated_config, &files_to_persist, &writer)?; // done
+        self.write_persist_reasons_report(validated_config, &writer)?; // done
 
         Ok(())
     }
@@ -63,7 +58,6 @@ impl ObsidianRepositoryInfo {
         &self,
         validated_config: &ValidatedConfig,
         writer: &OutputFileWriter,
-        files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
         let properties = format!(
@@ -87,11 +81,10 @@ impl ObsidianRepositoryInfo {
         }
 
         if validated_config.file_process_limit().is_some() {
-            let total_files = self.markdown_files.get_files_to_persist(None).len();
             let message = DescriptionBuilder::new()
-                .number(files_to_persist.len())
+                .number(self.markdown_files_to_persist.len())
                 .text(OF)
-                .pluralize_with_count(Phrase::File(total_files))
+                .pluralize_with_count(Phrase::File(self.markdown_files.len()))
                 .text(THAT_NEED_UPDATES)
                 .build();
             writer.writeln("", message.as_str())?;
