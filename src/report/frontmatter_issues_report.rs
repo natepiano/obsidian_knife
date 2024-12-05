@@ -36,8 +36,8 @@ impl ReportDefinition for FrontmatterIssuesTable {
             .collect()
     }
 
-    fn title(&self) -> Option<&str> {
-        Some(FRONTMATTER_ISSUES)
+    fn title(&self) -> Option<String> {
+        Some(FRONTMATTER_ISSUES.to_string())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {

@@ -34,8 +34,8 @@ impl ReportDefinition for UnreferencedImagesReport {
             .collect()
     }
 
-    fn title(&self) -> Option<&str> {
-        Some(UNREFERENCED_IMAGES)
+    fn title(&self) -> Option<String> {
+        Some(UNREFERENCED_IMAGES.to_string())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {

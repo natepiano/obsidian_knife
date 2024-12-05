@@ -55,8 +55,8 @@ impl ReportDefinition for InvalidWikilinksTable {
             .collect()
     }
 
-    fn title(&self) -> Option<&str> {
-        Some(INVALID_WIKILINKS)
+    fn title(&self) -> Option<String> {
+        Some(INVALID_WIKILINKS.to_string())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {

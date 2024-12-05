@@ -1,18 +1,17 @@
+mod duplicate_images_report;
 mod frontmatter_issues_report;
 mod incompatible_image_report;
 mod invalid_wikilink_report;
 mod missing_references_report;
-mod report_writer;
 mod unreferenced_images_report;
+
+mod report_writer;
 
 pub use report_writer::*;
 
 use crate::constants::*;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo, PersistReason};
-use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    GroupedImages, ImageGroup, ImageGroupType,
-};
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository_info::{GroupedImages, ImageGroup, ObsidianRepositoryInfo};
 use crate::utils::{escape_brackets, escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
@@ -31,25 +30,19 @@ impl ObsidianRepositoryInfo {
         files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
-
         self.write_execution_start(validated_config, &writer, files_to_persist)?;
-
         self.write_frontmatter_issues_report(&writer)?;
 
         writer.writeln(LEVEL1, IMAGES_SECTION)?;
-        // hack for 1 liners
+        // hack just so cargo fmt doesn't expand the report call across multiple lines
         let missing_image_files = markdown_references_to_missing_image_files;
         self.write_missing_references_report(validated_config, missing_image_files, &writer)?;
         self.write_tiff_images_report(validated_config, grouped_images, &writer)?;
         self.write_zero_byte_images_report(validated_config, grouped_images, &writer)?;
         self.write_unreferenced_images_report(validated_config, grouped_images, &writer)?;
-
-        for (hash, group) in grouped_images.get_duplicate_groups() {
-            write_duplicate_group_table(validated_config, &writer, hash, group)?;
-        }
+        self.write_duplicate_images_report(validated_config, grouped_images, &writer)?;
 
         self.write_back_populate_tables(validated_config, &writer, files_to_persist)?;
-
         self.write_persist_reasons_table(&writer, files_to_persist)?;
 
         Ok(())
@@ -324,91 +317,6 @@ impl ObsidianRepositoryInfo {
 
         Ok(())
     }
-}
-
-fn write_duplicate_group_table(
-    config: &ValidatedConfig,
-    writer: &OutputFileWriter,
-    group_hash: &str,
-    groups: &[ImageGroup],
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL2, "duplicate images with references")?;
-    writer.writeln(LEVEL3, &format!("image file hash: {}", group_hash))?;
-    writer.writeln_pluralized(groups.len(), PhraseOld::DuplicateImages)?;
-    let total_references: usize = groups
-        .iter()
-        .map(|g| g.info.markdown_file_references.len())
-        .sum();
-    let references_string = pluralize(total_references, PhraseOld::Files);
-    writer.writeln(
-        "",
-        &format!("referenced by {} {}\n", total_references, references_string),
-    )?;
-
-    write_group_table(config, writer, groups, true, false)?;
-    Ok(())
-}
-
-fn write_group_table(
-    config: &ValidatedConfig,
-    writer: &OutputFileWriter,
-    groups: &[ImageGroup],
-    is_ref_group: bool,
-    is_special_group: bool,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let headers = &["Sample", "Duplicates", "Referenced By"];
-
-    // For special groups like unreferenced images, first group by hash
-    let mut hash_groups: HashMap<String, Vec<ImageGroup>> = HashMap::new();
-    if is_special_group {
-        for group in groups {
-            hash_groups
-                .entry(group.info.hash.clone())
-                .or_default()
-                .push(group.clone());
-        }
-    } else {
-        // For regular groups (duplicates), keep as single group
-        hash_groups.insert("single".to_string(), groups.to_vec());
-    }
-
-    // Create rows for each hash group
-    let mut rows = Vec::new();
-    for group_vec in hash_groups.values() {
-        let keeper_path = if is_ref_group {
-            Some(&group_vec[0].path)
-        } else {
-            None
-        };
-
-        let sample = format!(
-            "![[{}\\|400]]",
-            group_vec[0].path.file_name().unwrap().to_string_lossy()
-        );
-
-        let duplicates = format_duplicates(config, group_vec, keeper_path, is_special_group);
-        let references = format_references(
-            config.apply_changes(),
-            config.obsidian_path(),
-            group_vec,
-            keeper_path,
-        );
-
-        rows.push(vec![sample, duplicates, references]);
-    }
-
-    writer.write_markdown_table(
-        headers,
-        &rows,
-        Some(&[
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ]),
-    )?;
-
-    writer.writeln("", "")?; // Add an empty line between tables
-    Ok(())
 }
 
 fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {

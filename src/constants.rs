@@ -58,7 +58,10 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report stuff
-pub const CONFIG_EXPECT: &str = "Config required for incompatible image report";
+pub const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";
+pub const DUPLICATE_IMAGES_WITH_REFERENCES: &str = "duplicate images with references";
+pub const DUPLICATE: &str = "duplicate";
+pub const DUPLICATES: &str = "duplicates";
 pub const FILE: &str = "file";
 pub const FOUND: &str = "found";
 pub const FRONTMATTER: &str = "frontmatter";
@@ -72,6 +75,7 @@ pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
 pub const NOT_VALID: &str = "- these are probably corrupted";
 pub const OF: &str = "of";
 pub const REFERENCED_BY: &str = "referenced by";
+pub const SAMPLE: &str = "sample";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 pub const TIFF: &str = "TIFF";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";

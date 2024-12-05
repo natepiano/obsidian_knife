@@ -74,8 +74,8 @@ impl ReportDefinition for ImageGroupType {
             .collect()
     }
 
-    fn title(&self) -> Option<&str> {
-        Some(self.title())
+    fn title(&self) -> Option<String> {
+        Some(self.title().to_string())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
@@ -94,7 +94,6 @@ impl ObsidianRepositoryInfo {
         grouped_images: &GroupedImages,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
         Self::write_incompatible_image_report(
             config,
             grouped_images,
@@ -111,7 +110,6 @@ impl ObsidianRepositoryInfo {
         grouped_images: &GroupedImages,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
         Self::write_incompatible_image_report(
             config,
             grouped_images,
@@ -128,7 +126,6 @@ impl ObsidianRepositoryInfo {
         writer: &OutputFileWriter,
         group_type: &ImageGroupType,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
         if let Some(zero_byte_images) = grouped_images.get(group_type) {
             let report = ReportWriter::new(zero_byte_images.to_vec()).with_validated_config(config);
 

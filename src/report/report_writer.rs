@@ -30,7 +30,7 @@ pub trait ReportDefinition<C = ()> {
     ) -> Vec<Vec<String>>;
 
     /// Optional table title
-    fn title(&self) -> Option<&str> {
+    fn title(&self) -> Option<String> {
         None
     }
 
@@ -84,7 +84,7 @@ impl<'a, T> ReportWriter<'a, T> {
 
         // Write title if present
         if let Some(title) = report.title() {
-            writer.writeln(report.level(), title)?;
+            writer.writeln(report.level(), &title)?;
         }
 
         // Write description if present

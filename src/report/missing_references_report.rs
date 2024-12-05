@@ -71,8 +71,8 @@ impl ReportDefinition for MissingReferencesTable {
             .collect()
     }
 
-    fn title(&self) -> Option<&str> {
-        Some(MISSING_IMAGE_REFERENCES)
+    fn title(&self) -> Option<String> {
+        Some(MISSING_IMAGE_REFERENCES.to_string())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
