@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::obsidian_repository_info_types::ImageGroup;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{format_references, ReportContext, ReportDefinition, ReportWriter};
+use crate::report::{format_references, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
@@ -39,7 +39,7 @@ pub struct IncompatibleImageReport {
     report_type: IncompatibleImageType,
 }
 
-impl ReportDefinition<ReportContext> for IncompatibleImageReport {
+impl ReportDefinition for IncompatibleImageReport {
     type Item = ImageGroup;
 
     fn headers(&self) -> Vec<&str> {
@@ -50,19 +50,25 @@ impl ReportDefinition<ReportContext> for IncompatibleImageReport {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]
     }
 
-    fn build_rows(&self, items: &[Self::Item], context: &ReportContext) -> Vec<Vec<String>> {
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        config: Option<&ValidatedConfig>,
+    ) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|group| {
                 let file_link =
                     format!("[[{}]]", group.path.file_name().unwrap().to_string_lossy());
 
+                let config = config.expect("Config required for incompatible image report");
+
                 let references = if group.info.markdown_file_references.is_empty() {
                     String::from("not referenced by any file")
                 } else {
                     format_references(
-                        context.apply_changes(),
-                        context.obsidian_path(),
+                        config.apply_changes(),
+                        config.obsidian_path(),
                         &[group.clone()],
                         None,
                     )

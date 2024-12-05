@@ -4,6 +4,7 @@ use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason, ToWikilink};
 use itertools::Itertools;
 use std::error::Error;
@@ -35,7 +36,7 @@ impl ReportDefinition for InvalidWikilinksTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: &()) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|(file_path, invalid_wikilink)| {

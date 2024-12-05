@@ -1,7 +1,6 @@
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
-use std::path::{Path, PathBuf};
 
 /// definition of the elements of a report to write out as a markdown table
 pub trait ReportDefinition<C = ()> {
@@ -24,7 +23,11 @@ pub trait ReportDefinition<C = ()> {
     ///
     /// it's slightly hacky but prevents having to dramatically alter the structure and it's
     /// readable enough
-    fn build_rows(&self, items: &[Self::Item], context: &C) -> Vec<Vec<String>>;
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        config: Option<&ValidatedConfig>,
+    ) -> Vec<Vec<String>>;
 
     /// Optional table title
     fn title(&self) -> Option<&str> {
@@ -42,59 +45,35 @@ pub trait ReportDefinition<C = ()> {
     }
 }
 
-// using this to get owned values from a ValidatedConfig to make available to
-// reports from the ReportDefinition.build_rows - avoids having all kinds of lifetime attributes set
-// in ReportWriter and ReportDefinition just to have a reference to ValidatedConfig
-#[derive(Clone)]
-pub struct ReportContext {
-    obsidian_path: PathBuf, // Owned PathBuf instead of borrowed Path
-    apply_changes: bool,
-    // Add other needed config values here
-}
-
-impl ReportContext {
-    pub fn new(config: &ValidatedConfig) -> Self {
-        Self {
-            obsidian_path: config.obsidian_path().to_path_buf(),
-            apply_changes: config.apply_changes(),
-        }
-    }
-
-    pub fn obsidian_path(&self) -> &Path {
-        &self.obsidian_path
-    }
-
-    pub fn apply_changes(&self) -> bool {
-        self.apply_changes
-    }
-}
-
 /// writes out the TableDefinition
 /// the idea is you collect all the items that will get turned into rows and pass them
 /// in to the generic Vec<T> parameter
 /// then the ReportWriter will call build_rows with the items and the context (if provided)
 /// where the definition will do the work to transform items into rows
-pub struct ReportWriter<T, C = ()> {
+///
+/// lifetime attribute required because we're storing a reference to ValidatedConfig - not owning it
+pub struct ReportWriter<'a, T> {
     pub(crate) items: Vec<T>,
-    pub(crate) context: C,
+    pub(crate) validated_config: Option<&'a ValidatedConfig>,
 }
 
-impl<T> ReportWriter<T, ()> {
+impl<'a, T> ReportWriter<'a, T> {
     pub fn new(items: Vec<T>) -> Self {
-        Self { items, context: () }
-    }
-
-    pub fn with_validated_config(self, config: &ValidatedConfig) -> ReportWriter<T, ReportContext> {
-        ReportWriter {
-            items: self.items,
-            context: ReportContext::new(config),
+        Self {
+            items,
+            validated_config: None,
         }
     }
-}
 
-impl<T, C> ReportWriter<T, C> {
+    pub fn with_validated_config(self, config: &'a ValidatedConfig) -> Self {
+        Self {
+            items: self.items,
+            validated_config: Some(config),
+        }
+    }
+
     /// Write the table using the provided builder and writer
-    pub fn write<B: ReportDefinition<C, Item = T>>(
+    pub fn write<B: ReportDefinition<Item = T>>(
         &self,
         report: &B,
         writer: &OutputFileWriter,
@@ -119,7 +98,7 @@ impl<T, C> ReportWriter<T, C> {
         // Build and write the table
         let headers = report.headers();
         let alignments = report.alignments();
-        let rows = report.build_rows(&self.items, &self.context);
+        let rows = report.build_rows(&self.items, self.validated_config);
 
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 

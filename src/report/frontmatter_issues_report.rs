@@ -2,6 +2,7 @@ use crate::constants::*;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 use std::error::Error;
 use std::path::PathBuf;
@@ -19,7 +20,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: &()) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|(file_path, error_message)| {

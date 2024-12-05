@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::obsidian_repository_info_types::ImageGroup;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{format_references, ReportContext, ReportDefinition, ReportWriter};
+use crate::report::{format_references, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
@@ -10,7 +10,7 @@ use std::path::PathBuf;
 
 pub struct MissingReferencesTable;
 
-impl ReportDefinition<ReportContext> for MissingReferencesTable {
+impl ReportDefinition for MissingReferencesTable {
     type Item = (PathBuf, String); // (markdown_path, extracted_filename)
 
     fn headers(&self) -> Vec<&str> {
@@ -25,7 +25,11 @@ impl ReportDefinition<ReportContext> for MissingReferencesTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], context: &ReportContext) -> Vec<Vec<String>> {
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        config: Option<&ValidatedConfig>,
+    ) -> Vec<Vec<String>> {
         // Group missing references by markdown file
         let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
         for (markdown_path, extracted_filename) in items {
@@ -41,11 +45,12 @@ impl ReportDefinition<ReportContext> for MissingReferencesTable {
                 });
         }
 
+        let config = config.expect("Config required for missing references report");
         grouped_references
             .iter()
             .map(|(markdown_path, image_groups)| {
                 let markdown_link =
-                    crate::report::format_wikilink(markdown_path, context.obsidian_path(), false);
+                    crate::report::format_wikilink(markdown_path, config.obsidian_path(), false);
                 let image_links = image_groups
                     .iter()
                     .map(|group| {
@@ -56,8 +61,8 @@ impl ReportDefinition<ReportContext> for MissingReferencesTable {
                     .collect::<Vec<_>>()
                     .join(", ");
                 let actions = format_references(
-                    context.apply_changes(),
-                    context.obsidian_path(),
+                    config.apply_changes(),
+                    config.obsidian_path(),
                     image_groups,
                     None,
                 );

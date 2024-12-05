@@ -76,7 +76,7 @@ impl ObsidianRepositoryInfo {
             writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
         }
 
-        if  validated_config.file_process_limit().is_some() {
+        if validated_config.file_process_limit().is_some() {
             let total_files = self.markdown_files.get_files_to_persist(None).len();
             let message = format!(
                 "{} {} {} {} {}",
