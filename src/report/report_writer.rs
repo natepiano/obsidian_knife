@@ -88,7 +88,10 @@ impl<'a, T> ReportWriter<'a, T> {
         }
 
         // Write description if present
-        writer.writeln("", &report.description(&self.items))?;
+        let description = &report.description(&self.items);
+        if description.len() > 0 {
+            writer.writeln("", &report.description(&self.items))?;
+        }
 
         // Skip empty tables unless overridden
         if self.items.is_empty() {
