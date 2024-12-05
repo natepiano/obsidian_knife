@@ -17,7 +17,7 @@ use crate::obsidian_repository_info::{GroupedImages, ImageGroup, ObsidianReposit
 use crate::utils::{escape_brackets, escape_pipe, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
-use chrono::Utc;
+use chrono::{Local, Utc};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
@@ -30,8 +30,8 @@ impl ObsidianRepositoryInfo {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
-        self.write_execution_start(validated_config, &writer)?;
-        self.write_frontmatter_issues_report(&writer)?;
+        self.write_execution_start(validated_config, &writer)?; // done
+        self.write_frontmatter_issues_report(&writer)?; // done
 
         writer.writeln(LEVEL1, IMAGES)?;
         // hack just so cargo fmt doesn't expand the report call across multiple lines
@@ -45,8 +45,8 @@ impl ObsidianRepositoryInfo {
         // back populate reports
         write_back_populate_report_header(validated_config, &writer)?;
         self.write_invalid_wikilinks_report(&writer)?;
-        self.write_ambiguous_matches_report(&writer)?;
-        self.write_back_populate_report(&writer)?;
+        self.write_ambiguous_matches_report(&writer)?; // done
+        self.write_back_populate_report(&writer)?; // done
 
         // audit of persist reasons
         self.write_persist_reasons_report(validated_config, &writer)?; // done
@@ -59,14 +59,26 @@ impl ObsidianRepositoryInfo {
         validated_config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let timestamp = Utc::now().format(FORMAT_TIME_STAMP);
-        let properties = format!(
-            "{}{}\n{}{}\n",
-            YAML_TIMESTAMP,
-            timestamp,
-            YAML_APPLY_CHANGES,
-            validated_config.apply_changes(),
-        );
+        let timestamp_utc = Utc::now().format(FORMAT_TIME_STAMP);
+        let timestamp_local = Local::now().format(FORMAT_TIME_STAMP);
+
+        let limit_string = validated_config
+            .file_process_limit()
+            .map(|value| value.to_string())
+            .unwrap_or_else(|| "None".to_string());
+
+        let dry_run = !validated_config.apply_changes();
+
+        let properties = DescriptionBuilder::new()
+            .no_space(YAML_TIMESTAMP_UTC)
+            .text_with_newline(&timestamp_utc.to_string())
+            .no_space(YAML_TIMESTAMP_LOCAL)
+            .text_with_newline(&timestamp_local.to_string())
+            .no_space(YAML_DRY_RUN)
+            .text_with_newline(&dry_run.to_string())
+            .no_space(YAML_FILE_PROCESS_LIMIT)
+            .text_with_newline(&limit_string)
+            .build();
 
         writer.write_properties(&properties)?;
 
@@ -74,10 +86,6 @@ impl ObsidianRepositoryInfo {
             writer.writeln("", MODE_APPLY_CHANGES)?;
         } else {
             writer.writeln("", MODE_DRY_RUN)?;
-        }
-
-        if let Some(limit) = validated_config.file_process_limit() {
-            writer.writeln("", format!("config.file_process_limit: {}", limit).as_str())?;
         }
 
         if validated_config.file_process_limit().is_some() {

@@ -73,6 +73,8 @@ impl ReportDefinition for InvalidWikilinksTable {
             .pluralize(Phrase::Wikilink(items.len()))
             .text(IN)
             .pluralize_with_count(Phrase::File(unique_files))
+            .text_with_newline("")
+            .no_space(YOU_HAVE_TO_FIX_THESE_YOURSELF)
             .build()
     }
 

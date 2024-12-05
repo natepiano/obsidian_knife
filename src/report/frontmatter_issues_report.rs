@@ -47,6 +47,8 @@ impl ReportDefinition for FrontmatterIssuesTable {
             .pluralize(Phrase::With(items.len()))
             .text(FRONTMATTER)
             .pluralize(Phrase::Issue(items.len()))
+            .text_with_newline("")
+            .no_space(YOU_HAVE_TO_FIX_THESE_YOURSELF)
             .build()
     }
 

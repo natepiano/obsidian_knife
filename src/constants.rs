@@ -10,8 +10,6 @@ pub const MODE_APPLY_CHANGES: &str = "changes will be applied";
 pub const MODE_DRY_RUN: &str = "dry run - no changes will be applied";
 pub const PROCESSING_DURATION: &str = "total processing time:";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
-pub const YAML_TIMESTAMP: &str = "time_stamp: ";
-pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";
 
 // config stuff
 // the DEFAULT_MEDIA_PATH could be a configuration parameter as it's really specific to my repo
@@ -74,8 +72,7 @@ pub const INFO: &str = "info";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub const MATCHES: &str = "matches";
-pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches found - these will be skipped";
-pub const MATCHES_UNAMBIGUOUS: &str = "matches found";
+pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches";
 pub const MISSING_IMAGE: &str = "missing image";
 pub const MISSING_IMAGE_REFERENCES: &str = "missing image references";
 pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
@@ -101,6 +98,11 @@ pub const WIKILINKS: &str = "wikilinks";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
 pub const WILL_BE_UPDATED: &str = " - will be updated";
 pub const WILL_REPLACE_WITH: &str = "will replace with";
+pub const YAML_DRY_RUN: &str = "dry_run: ";
+pub const YAML_FILE_PROCESS_LIMIT: &str = "file_limit: ";
+pub const YAML_TIMESTAMP_LOCAL: &str = "local_time: ";
+pub const YAML_TIMESTAMP_UTC: &str = "utc_time: ";
+pub const YOU_HAVE_TO_FIX_THESE_YOURSELF: &str = "you have to fix these yourself";
 pub const ZERO_BYTE: &str = "zero-byte";
 
 #[derive(Debug, Clone, Copy)]
@@ -176,6 +178,12 @@ impl DescriptionBuilder {
     /// Creates a new DescriptionBuilder instance.
     pub fn new() -> Self {
         Self { parts: Vec::new() }
+    }
+
+    pub fn text_with_newline(mut self, text: &str) -> Self {
+        let new_text = format!("{}{}", text, "\n");
+        self.parts.push(new_text);
+        self
     }
 
     pub fn number(mut self, number: usize) -> Self {

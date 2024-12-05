@@ -129,6 +129,8 @@ impl ReportDefinition for AmbiguousMatchesTable {
             .no_space(COLON)
             .quoted_text(&self.display_text)
             .parenthetical_text(&stats)
+            .text_with_newline("")
+            .no_space(YOU_HAVE_TO_FIX_THESE_YOURSELF)
             .build();
 
         result.push_str(&stats_message);

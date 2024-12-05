@@ -110,21 +110,13 @@ impl ObsidianRepositoryInfo {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let matches = self.markdown_files_to_persist.unambiguous_matches();
-        println!(
-            "markdown_files matches {:?}",
-            self.markdown_files.unambiguous_matches().len()
-        );
-        println!(
-            "markdown_files_to_persist matches {:?}",
-            self.markdown_files_to_persist.unambiguous_matches().len()
-        );
 
         // Skip if no matches
         if matches.is_empty() {
             return Ok(());
         }
 
-        writer.writeln(LEVEL2, MATCHES_UNAMBIGUOUS)?;
+        writer.writeln(LEVEL2, MATCHES)?;
         let header_message = DescriptionBuilder::new()
             .text(BACK_POPULATE)
             .number(self.wikilinks_sorted.len())
