@@ -38,7 +38,7 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::{fs, io};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MarkdownFileInfo {
     pub content: String,
     pub date_created_fix: DateCreatedFixValidation,

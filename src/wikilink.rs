@@ -26,7 +26,10 @@ pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
 }
 
 pub fn create_filename_wikilink(filename: &str) -> Wikilink {
-    let display_text = filename.strip_suffix(EXTENSION_MARKDOWN).unwrap_or(filename).to_string();
+    let display_text = filename
+        .strip_suffix(EXTENSION_MARKDOWN)
+        .unwrap_or(filename)
+        .to_string();
 
     Wikilink {
         display_text: display_text.clone(),

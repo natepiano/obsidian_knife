@@ -45,7 +45,7 @@ impl fmt::Display for DateValidationIssue {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct DateValidation {
     pub frontmatter_date: Option<String>,
     pub file_system_date: DateTime<Utc>,
@@ -53,7 +53,7 @@ pub struct DateValidation {
     pub operational_timezone: String,
 }
 // In markdown_file_info.rs
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,
     pub fix_date: Option<DateTime<Utc>>,
@@ -91,7 +91,7 @@ impl DateCreatedFixValidation {
     }
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Clone, Debug, Default, Clone)]
 pub struct BackPopulateMatch {
     pub found_text: String,
     pub frontmatter_line_count: usize,
@@ -103,7 +103,7 @@ pub struct BackPopulateMatch {
     pub replacement: String,
 }
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatches {
     pub ambiguous: Vec<BackPopulateMatch>,
     pub unambiguous: Vec<BackPopulateMatch>,

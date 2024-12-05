@@ -31,7 +31,6 @@ pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
 pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
-
 //markdown outline levels
 pub const LEVEL1: &str = "#";
 pub const LEVEL2: &str = "##";
@@ -55,8 +54,10 @@ pub const OPENING_WIKILINK: &str = "[[";
 // report &str's
 pub const AFTER: &str = "after";
 pub const BACK_POPULATE: &str = "back populate";
-pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str = "using back_populate_file_filter config parameter: ";
-pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str ="remove it from config if you want to process all files";
+pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
+    "using back_populate_file_filter config parameter: ";
+pub const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
+    "remove it from config if you want to process all files";
 pub const BEFORE: &str = "before";
 pub const COLON: &str = ":";
 pub const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";

@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::Path;
 
 use crate::constants::*;
-use crate::markdown_file_info::BackPopulateMatch;
+use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{
     escape_brackets, escape_pipe, highlight_matches, ReportDefinition, ReportWriter,
@@ -107,6 +107,7 @@ impl ReportDefinition for BackPopulateTable {
 impl ObsidianRepositoryInfo {
     pub fn write_back_populate_report(
         &self,
+        files_to_persist: &[&MarkdownFileInfo],
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let matches = self.markdown_files.unambiguous_matches();

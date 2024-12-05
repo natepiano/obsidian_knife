@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::markdown_file_info::PersistReason;
+use crate::markdown_file_info::{MarkdownFileInfo, PersistReason};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
@@ -15,7 +15,7 @@ pub struct PersistReasonData {
     date_created_fix: Option<(String, String)>,
     date_validation_created: Option<(String, String)>, // (before, after)
     date_validation_modified: Option<(String, String)>,
-    full_path: PathBuf,         // just for filtering
+    full_path: PathBuf, //for sorting
     image_refs_count: usize,
     parent_path: String,
     reason: PersistReason,
@@ -24,10 +24,6 @@ pub struct PersistReasonData {
 
 impl ReportDefinition for PersistReasonsTable {
     type Item = PersistReasonData;
-
-    fn get_item_filter_paths(&self, item: &PersistReasonData) -> Vec<PathBuf> {
-        vec![item.full_path.clone()]
-    }
 
     fn headers(&self) -> Vec<&str> {
         vec![FILE, PATH, PERSIST_REASON, INFO, BEFORE, AFTER]
@@ -104,26 +100,31 @@ impl ObsidianRepositoryInfo {
     pub fn write_persist_reasons_report(
         &self,
         config: &ValidatedConfig,
+        files_to_persist: &[&MarkdownFileInfo],
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut persist_data = Vec::new();
 
-        for file in &self.markdown_files.files {
+        for file in files_to_persist {
             if !file.persist_reasons.is_empty() {
-
-                let relative_path = file.path.strip_prefix(config.obsidian_path())
+                let relative_path = file
+                    .path
+                    .strip_prefix(config.obsidian_path())
                     .unwrap_or(&file.path)
                     .to_string_lossy()
                     .trim_end_matches(".md")
                     .to_string();
 
-                let file_name = file.path
+                let file_name = file
+                    .path
                     .file_stem()
                     .and_then(|f| f.to_str())
                     .unwrap_or_default();
 
                 // Get parent directory path for the relative_path column
-                let parent_path = file.path.strip_prefix(config.obsidian_path())
+                let parent_path = file
+                    .path
+                    .strip_prefix(config.obsidian_path())
                     .unwrap_or(&file.path)
                     .parent()
                     .map(|p| p.to_string_lossy().to_string())
@@ -145,7 +146,7 @@ impl ObsidianRepositoryInfo {
 
                 for reason in &file.persist_reasons {
                     let data = PersistReasonData {
-                        full_path: file.path.clone(),  // Store full path for filtering
+                        full_path: file.path.clone(), // Store full path for filtering
                         wikilink: escape_pipe(&wikilink),
                         reason: reason.clone(),
                         back_populate_count,
@@ -193,7 +194,10 @@ impl ObsidianRepositoryInfo {
         }
 
         persist_data.sort_by(|a, b| {
-            let file_cmp = a.full_path.to_string_lossy().to_lowercase()
+            let file_cmp = a
+                .full_path
+                .to_string_lossy()
+                .to_lowercase()
                 .cmp(&b.full_path.to_string_lossy().to_lowercase());
             if file_cmp == std::cmp::Ordering::Equal {
                 a.reason.to_string().cmp(&b.reason.to_string())

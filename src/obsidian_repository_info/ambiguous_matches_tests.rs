@@ -1,4 +1,3 @@
-//use crate::back_populate::identify_and_remove_ambiguous_matches;
 use crate::markdown_file_info::back_populate_tests::create_test_environment;
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
 use crate::scan::scan_folders;
@@ -381,7 +380,6 @@ Nate was here and so was Nate"#
     assert_eq!(nate_matches.len(), 2, "Should have two Nate matches");
 
     // Process ambiguous matches
-    // identify_and_remove_ambiguous_matches(&mut repo_info);
     repo_info.identify_ambiguous_matches();
 
     // Find other.md again and verify final state

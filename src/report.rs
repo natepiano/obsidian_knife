@@ -28,11 +28,14 @@ impl ObsidianRepositoryInfo {
         validated_config: &ValidatedConfig,
         grouped_images: &GroupedImages,
         markdown_references_to_missing_image_files: &Vec<(PathBuf, String)>,
-        files_to_persist: &[&MarkdownFileInfo],
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
-        self.write_execution_start(validated_config, &writer, files_to_persist)?;
+        let files_to_persist = self
+            .markdown_files
+            .get_files_to_persist(validated_config.file_process_limit());
+
+        self.write_execution_start(validated_config, &writer, &files_to_persist)?;
         self.write_frontmatter_issues_report(&writer)?;
 
         writer.writeln(LEVEL1, IMAGES)?;
@@ -48,10 +51,10 @@ impl ObsidianRepositoryInfo {
         write_back_populate_report_header(validated_config, &writer)?;
         self.write_invalid_wikilinks_report(&writer)?;
         self.write_ambiguous_matches_report(&writer)?;
-        self.write_back_populate_report(&writer)?;
+        self.write_back_populate_report( &files_to_persist, &writer)?;
 
         // audit of persist reasons
-        self.write_persist_reasons_report(validated_config, &writer)?;
+        self.write_persist_reasons_report(validated_config, &files_to_persist, &writer)?; // done
 
         Ok(())
     }

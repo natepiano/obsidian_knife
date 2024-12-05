@@ -1,9 +1,9 @@
-use std::collections::HashSet;
+use crate::markdown_file_info::MarkdownFileInfo;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::PathBuf;
-use crate::markdown_file_info::MarkdownFileInfo;
 
 /// definition of the elements of a report to write out as a markdown table
 pub trait ReportDefinition<C = ()> {
@@ -21,7 +21,7 @@ pub trait ReportDefinition<C = ()> {
     /// - For ambiguous matches: return the single relative_path
     /// - For back populate matches: return the single relative_path
     fn get_item_filter_paths(&self, _item: &Self::Item) -> Vec<PathBuf> {
-        Vec::new()  // Default implementation = no filtering
+        Vec::new() // Default implementation = no filtering
     }
 
     /// Get the table headers
@@ -80,7 +80,8 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         Self {
             items,
             validated_config: None,
-            files_to_persist: None,        }
+            files_to_persist: None,
+        }
     }
 
     pub fn with_validated_config(self, config: &'a ValidatedConfig) -> Self {

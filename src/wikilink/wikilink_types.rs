@@ -1,7 +1,7 @@
+use crate::EXTENSION_MARKDOWN;
 use serde::{Deserialize, Serialize};
 use std::cmp::PartialEq;
 use std::fmt;
-use crate::EXTENSION_MARKDOWN;
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {

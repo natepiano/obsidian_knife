@@ -48,14 +48,10 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
         obsidian_repository_info.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
-    let files_to_persist = obsidian_repository_info
-        .markdown_files
-        .get_files_to_persist(validated_config.file_process_limit());
     obsidian_repository_info.write_reports(
         &validated_config,
         &grouped_images,
         &markdown_references_to_missing_image_files,
-        &files_to_persist,
     )?;
 
     if config.apply_changes == Some(true) {
