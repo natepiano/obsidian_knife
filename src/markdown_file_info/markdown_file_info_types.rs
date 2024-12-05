@@ -194,8 +194,8 @@ pub enum ImageLinkType {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ImageLinks {
-    pub found: Vec<ImageLink>,    // All valid image links
-    pub missing: Vec<ImageLink>,  // References to non-existent images
+    pub found: Vec<ImageLink>,   // All valid image links
+    pub missing: Vec<ImageLink>, // References to non-existent images
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -205,6 +205,24 @@ pub struct ImageLink {
     pub position: usize,
     pub raw_link: String, // The full ![[image.jpg]] syntax
     pub filename: String, // Just "image.jpg"
+}
+
+impl ReplaceableMatch for ImageLink {
+    fn line_number(&self) -> usize {
+        self.line_number
+    }
+
+    fn position(&self) -> usize {
+        self.position
+    }
+
+    fn get_replacement(&self) -> String {
+        String::new() // Empty string replacement as specified
+    }
+
+    fn matched_text(&self) -> String {
+        self.raw_link.clone()
+    }
 }
 
 // todo - if we store the line and position info of the link, couldn't we automatically mark those

@@ -97,7 +97,7 @@ fn test_apply_changes() {
     repo_info.find_all_back_populate_matches(&config);
 
     // Apply the changes
-    repo_info.apply_back_populate_changes();
+    repo_info.apply_replaceable_matches();
 
     // Verify changes by checking MarkdownFileInfo content
     assert_eq!(

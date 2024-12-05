@@ -117,7 +117,7 @@ impl ObsidianRepositoryInfo {
             .process_files(config, sorted_wikilinks, ac);
     }
 
-    pub fn apply_back_populate_changes(&mut self) {
+    pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches
         for markdown_file in self.markdown_files.iter_mut() {
             if markdown_file.matches.unambiguous.is_empty() {
@@ -195,7 +195,7 @@ impl ObsidianRepositoryInfo {
     > {
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
-        self.apply_back_populate_changes();
+        self.apply_replaceable_matches();
 
         // we have to read all markdown_files to find anything that has changed
         // at this point we can populate the files_to_persist (in case there is a limit)
@@ -208,6 +208,7 @@ impl ObsidianRepositoryInfo {
             self.analyze_images()?;
 
         self.process_image_reference_updates(&image_operations);
+
         Ok((
             grouped_images,
             markdown_references_to_missing_image_files,
@@ -245,13 +246,23 @@ impl ObsidianRepositoryInfo {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 
-        let markdown_references_to_missing_image_files =
-            self.get_markdown_references_to_missing_image_files()?;
-
         let files_to_persist: HashSet<_> = self
             .markdown_files_to_persist
             .iter()
             .map(|f| &f.path)
+            .collect();
+
+
+        let markdown_references_to_missing_image_files: Vec<(PathBuf, String)> = self
+            .markdown_files
+            .iter()
+            .filter(|file| files_to_persist.contains(&file.path))
+            .flat_map(|file| {
+                file.image_links
+                    .missing
+                    .iter()
+                    .map(|link| (file.path.clone(), link.filename.clone()))
+            })
             .collect();
 
         let mut operations = ImageOperations::default();
@@ -321,29 +332,6 @@ impl ObsidianRepositoryInfo {
             markdown_references_to_missing_image_files,
             operations,
         ))
-    }
-
-    fn get_markdown_references_to_missing_image_files(
-        &self,
-    ) -> Result<Vec<(PathBuf, String)>, Box<dyn Error + Send + Sync>> {
-        let mut markdown_files_referencing_missing_image_files = Vec::new();
-        let image_filenames: HashSet<String> = self
-            .image_path_to_references_map
-            .keys()
-            .filter_map(|path| path.file_name())
-            .map(|name| name.to_string_lossy().to_lowercase())
-            .collect();
-
-        for markdown_file_info in self.markdown_files.iter() {
-            for image_link in &markdown_file_info.image_links.found {
-                if !image_exists_in_set(&image_link.filename, &image_filenames) {
-                    markdown_files_referencing_missing_image_files
-                        .push((markdown_file_info.path.clone(), image_link.filename.clone()));
-                }
-            }
-        }
-
-        Ok(markdown_files_referencing_missing_image_files)
     }
 
     pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
@@ -426,7 +414,12 @@ fn apply_line_replacements(
             eprintln!(
                 "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
                 Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
-                file_path, match_info.line_number(), start, end, updated_line, match_info.matched_text()
+                file_path,
+                match_info.line_number(),
+                start,
+                end,
+                updated_line,
+                match_info.matched_text()
             );
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
@@ -517,10 +510,6 @@ fn determine_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
     } else {
         ImageGroupType::DuplicateGroup(info.hash.clone())
     }
-}
-
-fn image_exists_in_set(image_filename: &str, image_filenames: &HashSet<String>) -> bool {
-    image_filenames.contains(&image_filename.to_lowercase())
 }
 
 fn create_file_specific_image_regex(filename: &str) -> Regex {

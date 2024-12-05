@@ -52,15 +52,45 @@ pub fn scan_folders(
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
     obsidian_repository_info.wikilinks_sorted = sorted;
     obsidian_repository_info.wikilinks_ac = Some(ac);
-
     obsidian_repository_info.markdown_files = markdown_files;
 
+    partition_found_and_missing_image_references(config, &mut obsidian_repository_info, &image_files)?;
+
+    Ok(obsidian_repository_info)
+}
+
+fn partition_found_and_missing_image_references(
+    config: &ValidatedConfig,
+    obsidian_repository_info: &mut ObsidianRepositoryInfo,
+    image_files: &Vec<PathBuf>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     // Process image info
     obsidian_repository_info.image_path_to_references_map = obsidian_repository_info
         .markdown_files
         .get_image_info_map(config, &image_files)?;
 
-    Ok(obsidian_repository_info)
+    let image_filenames: HashSet<String> = image_files
+        .iter()
+        .filter_map(|path| path.file_name())
+        .map(|name| name.to_string_lossy().to_lowercase())
+        .collect();
+
+    fn image_exists_in_set(image_filename: &str, image_filenames: &HashSet<String>) -> bool {
+        image_filenames.contains(&image_filename.to_lowercase())
+    }
+
+    // Update each markdown file's image links
+    for markdown_file in obsidian_repository_info.markdown_files.iter_mut() {
+        let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
+            .image_links
+            .found
+            .drain(..)
+            .partition(|link| image_exists_in_set(&link.filename, &image_filenames));
+
+        markdown_file.image_links.found = found;
+        markdown_file.image_links.missing = missing;
+    }
+    Ok(())
 }
 
 fn compare_wikilinks(a: &Wikilink, b: &Wikilink) -> std::cmp::Ordering {
