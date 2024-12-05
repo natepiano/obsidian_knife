@@ -10,10 +10,11 @@ mod persist_file_tests;
 mod update_modified_tests;
 
 pub mod obsidian_repository_info_types;
+pub use obsidian_repository_info_types::GroupedImages;
+pub use obsidian_repository_info_types::ImageGroup;
 
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences,
-    MarkdownOperation,
+    ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
 use crate::{
     constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles,

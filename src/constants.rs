@@ -75,10 +75,14 @@ pub const NOT_REFERENCED_BY_ANY_FILE: &str = "not referenced by any file";
 pub const NOT_VALID: &str = "- these are probably corrupted";
 pub const OF: &str = "of";
 pub const REFERENCED_BY: &str = "referenced by";
+pub const REFERENCE_REMOVED: &str = " - reference removed";
+pub const REFERENCE_WILL_BE_REMOVED: &str = " - reference will be removed";
 pub const SAMPLE: &str = "sample";
 pub const THAT_NEED_UPDATES: &str = "that need updates will be saved";
 pub const TIFF: &str = "TIFF";
+pub const UPDATED: &str = " - updated";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
+pub const WILL_BE_UPDATED: &str = " - will be updated";
 pub const ZERO_BYTE: &str = "zero-byte";
 
 // wikilink back populate

@@ -369,51 +369,28 @@ fn format_references(
     apply_changes: bool,
     obsidian_path: &Path,
     groups: &[ImageGroup],
-    keeper_path: Option<&PathBuf>,
+    _keeper_path: Option<&PathBuf>, // Can remove this parameter since it's no longer needed
 ) -> String {
-    // First, collect all references into a Vec
-    let all_references: Vec<(usize, String, &PathBuf)> = groups
+    let references: Vec<String> = groups
         .iter()
-        .flat_map(|group| {
-            group
-                .info
-                .markdown_file_references
-                .iter()
-                .enumerate()
-                .map(|(index, ref_path)| (index, ref_path.clone(), &group.path))
-                .collect::<Vec<_>>()
-        })
-        .collect();
-
-    // Then process them
-    let processed_refs: Vec<String> = all_references
-        .into_iter()
-        .map(|(index, ref_path, group_path)| {
+        .flat_map(|group| &group.info.markdown_file_references)
+        .map(|ref_path| {
             let mut link = format!(
-                "{}. {}",
-                index + 1,
-                format_wikilink(Path::new(&ref_path), obsidian_path, false)
+                "{}",
+                format_wikilink(Path::new(ref_path), obsidian_path, false)
             );
+
+            // Simpler status message - these reports only deal with removal
             if apply_changes {
-                if let Some(keeper) = keeper_path {
-                    if group_path != keeper {
-                        link.push_str(" - updated");
-                    }
-                } else {
-                    link.push_str(" - reference removed");
-                }
+                link.push_str(REFERENCE_REMOVED);
             } else {
-                if keeper_path.is_some() {
-                    link.push_str(" - will be updated");
-                } else {
-                    link.push_str(" - reference will be removed");
-                }
+                link.push_str(REFERENCE_WILL_BE_REMOVED);
             }
             link
         })
         .collect();
 
-    processed_refs.join("<br>")
+    references.join("<br>")
 }
 
 pub fn write_back_populate_table(

@@ -1,10 +1,12 @@
 use crate::constants::*;
 use crate::obsidian_repository_info::obsidian_repository_info_types::{GroupedImages, ImageGroup};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{format_duplicates, format_references, ReportDefinition, ReportWriter};
+use crate::report::{format_duplicates, format_wikilink, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
+use std::collections::HashMap;
 use std::error::Error;
+use std::path::{Path, PathBuf};
 
 pub struct DuplicateImagesTable {
     hash: String,
@@ -43,7 +45,7 @@ impl ReportDefinition for DuplicateImagesTable {
             // Duplicates column with keeper/deletion status
             format_duplicates(config, items, keeper_path, false),
             // References column with update status
-            format_references(
+            format_duplicate_references(
                 config.apply_changes(),
                 config.obsidian_path(),
                 items,
@@ -57,10 +59,10 @@ impl ReportDefinition for DuplicateImagesTable {
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        let total_references: usize = items
+        let unique_references: std::collections::HashSet<_> = items
             .iter()
-            .map(|g| g.info.markdown_file_references.len())
-            .sum();
+            .flat_map(|g| g.info.markdown_file_references.iter())
+            .collect();
 
         DescriptionBuilder::new()
             .text(FOUND)
@@ -68,7 +70,7 @@ impl ReportDefinition for DuplicateImagesTable {
             .text(DUPLICATE)
             .pluralize(Phrase::Image(items.len()))
             .text(REFERENCED_BY)
-            .pluralize_with_count(Phrase::File(total_references))
+            .pluralize_with_count(Phrase::File(unique_references.len()))
             .build()
     }
 
@@ -100,4 +102,55 @@ impl ObsidianRepositoryInfo {
 
         Ok(())
     }
+}
+
+// Add this new function specifically for duplicate images report
+fn format_duplicate_references(
+    apply_changes: bool,
+    obsidian_path: &Path,
+    groups: &[ImageGroup],
+    keeper_path: Option<&PathBuf>,
+) -> String {
+    // First collect all unique references with their paths
+    let mut unique_references: HashMap<String, Vec<&PathBuf>> = HashMap::new();
+
+    for group in groups {
+        for ref_path in &group.info.markdown_file_references {
+            unique_references
+                .entry(ref_path.clone())
+                .or_default()
+                .push(&group.path);
+        }
+    }
+
+    // Convert to Vec for sorting
+    let mut references: Vec<_> = unique_references.into_iter().collect();
+    references.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+    // Format each unique reference
+    references
+        .iter()
+        .enumerate()
+        .map(|(index, (ref_path, group_paths))| {
+            let mut link = format!(
+                "{}. {}",
+                index + 1,
+                format_wikilink(Path::new(ref_path), obsidian_path, false)
+            );
+
+            // Add status only if any of the referenced images will be updated
+            if apply_changes {
+                if let Some(keeper) = keeper_path {
+                    if group_paths.iter().any(|&path| path != keeper) {
+                        link.push_str(UPDATED);
+                    }
+                }
+            } else if keeper_path.is_some() {
+                link.push_str(WILL_BE_UPDATED);
+            }
+
+            link
+        })
+        .collect::<Vec<_>>()
+        .join("<br>")
 }
