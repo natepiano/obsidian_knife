@@ -41,10 +41,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
         // Group matches by file and line
         for match_info in items {
-            let key = (
-                match_info.relative_path.clone(),
-                match_info.line_number,
-            );
+            let key = (match_info.relative_path.clone(), match_info.line_number);
 
             let entry = line_map
                 .entry(key)

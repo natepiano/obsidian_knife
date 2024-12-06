@@ -267,7 +267,12 @@ impl MarkdownFileInfo {
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
                 .invalid
                 .into_iter()
-                .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), self.get_real_line_number(line_idx)))
+                .map(|parsed| {
+                    parsed.into_invalid_wikilink(
+                        line.to_string(),
+                        self.get_real_line_number(line_idx),
+                    )
+                })
                 .collect();
             result.invalid.extend(invalid_with_lines);
         }
