@@ -1,6 +1,8 @@
-use crate::markdown_file_info::{ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType};
-use crate::scan::{get_image_regex, process_content};
+use crate::markdown_file_info::{
+    process_content, ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType,
+};
 use crate::test_utils::TestFileBuilder;
+use crate::utils::get_image_regex;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use crate::IMAGE_EXTENSIONS;
 use regex::Regex;

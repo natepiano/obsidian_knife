@@ -15,14 +15,19 @@ mod parse_tests;
 #[cfg(test)]
 mod persist_tests;
 #[cfg(test)]
+mod process_content_tests;
+#[cfg(test)]
 mod table_handling_tests;
 
 mod markdown_file_info_types;
+
 pub use markdown_file_info_types::*;
 
 use crate::frontmatter::FrontMatter;
-use crate::utils::{read_contents_from_file, MARKDOWN_REGEX};
-use crate::wikilink::is_wikilink;
+use crate::utils::{get_image_regex, read_contents_from_file, MARKDOWN_REGEX};
+use crate::wikilink::{
+    create_filename_wikilink, extract_wikilinks, is_wikilink, ExtractedWikilinks,
+};
 use crate::wikilink::{InvalidWikilink, ToWikilink, Wikilink};
 use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
 use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
@@ -36,6 +41,7 @@ use lazy_static::lazy_static;
 use regex::Regex;
 use std::error::Error;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::{fs, io};
 
 #[derive(Debug, Clone)]
@@ -49,7 +55,7 @@ pub struct MarkdownFileInfo {
     pub frontmatter_error: Option<YamlFrontMatterError>,
     pub frontmatter_line_count: usize,
     pub image_links: ImageLinks,
-    pub invalid_wikilinks: Vec<InvalidWikilink>,
+    pub wikilinks: Wikilinks,
     pub matches: BackPopulateMatches,
     pub path: PathBuf,
     pub persist_reasons: Vec<PersistReason>,
@@ -57,6 +63,18 @@ pub struct MarkdownFileInfo {
 
 impl MarkdownFileInfo {
     pub fn new(
+        path: PathBuf,
+        operational_timezone: &str,
+    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let mut file_info = Self::create_basic(path, operational_timezone)?;
+
+        let image_regex = get_image_regex();
+        file_info.scan_content(&image_regex)?;
+
+        Ok(file_info)
+    }
+
+    pub fn create_basic(
         path: PathBuf,
         operational_timezone: &str,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
@@ -114,12 +132,33 @@ impl MarkdownFileInfo {
             frontmatter,
             frontmatter_error,
             frontmatter_line_count,
-            invalid_wikilinks: Vec::new(),
+            wikilinks: Wikilinks::default(),
             image_links: ImageLinks::default(),
             matches: BackPopulateMatches::default(),
             path,
             persist_reasons,
         })
+    }
+
+    fn scan_content(
+        &mut self,
+        image_regex: &Arc<Regex>,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let aliases = self
+            .frontmatter
+            .as_ref()
+            .and_then(|fm| fm.aliases().cloned());
+
+        // Process content in a single pass
+        let (extracted_wikilinks, image_links) =
+            process_content(&self.content, &aliases, &self.path, image_regex)?;
+
+        // Store results directly in self
+        self.wikilinks.invalid = extracted_wikilinks.invalid;
+        self.wikilinks.valid = extracted_wikilinks.valid;
+        self.image_links.found = image_links;
+
+        Ok(())
     }
 
     // Add a method to reconstruct the full markdown content
@@ -155,11 +194,6 @@ impl MarkdownFileInfo {
         }
 
         Ok(())
-    }
-
-    // Helper method to add invalid wikilinks
-    pub fn add_invalid_wikilinks(&mut self, wikilinks: Vec<InvalidWikilink>) {
-        self.invalid_wikilinks.extend(wikilinks);
     }
 
     pub fn mark_as_back_populated(&mut self) {
@@ -270,7 +304,7 @@ impl MarkdownFileInfo {
         let mut exclusion_zones = Vec::new();
 
         // Add invalid wikilinks as exclusion zones
-        for invalid_wikilink in &self.invalid_wikilinks {
+        for invalid_wikilink in &self.wikilinks.invalid {
             // Only add exclusion zone if this invalid wikilink is on the current line
             if invalid_wikilink.line == line {
                 exclusion_zones.push(invalid_wikilink.span);
@@ -538,4 +572,77 @@ fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
         && trimmed.ends_with('|')
         && trimmed.matches('|').count() > 2
         && trimmed.contains(matched_text)
+}
+
+fn process_content(
+    content: &str,
+    aliases: &Option<Vec<String>>,
+    file_path: &Path,
+    image_regex: &Arc<Regex>,
+) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
+    let mut result = ExtractedWikilinks::default();
+    let mut image_links = Vec::new();
+
+    // Add filename-based wikilink
+    let filename = file_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or_default();
+
+    let filename_wikilink = create_filename_wikilink(filename);
+    result.valid.push(filename_wikilink.clone());
+
+    // Add aliases if present
+    if let Some(alias_list) = aliases {
+        for alias in alias_list {
+            let wikilink = Wikilink {
+                display_text: alias.clone(),
+                target: filename_wikilink.target.clone(),
+                is_alias: true,
+            };
+            result.valid.push(wikilink);
+        }
+    }
+
+    // Process content line by line for both wikilinks and images
+    for (line_idx, line) in content.lines().enumerate() {
+        // Process wikilinks
+        let extracted = extract_wikilinks(line);
+        result.valid.extend(extracted.valid);
+
+        let invalid_with_lines: Vec<InvalidWikilink> = extracted
+            .invalid
+            .into_iter()
+            .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
+            .collect();
+        result.invalid.extend(invalid_with_lines);
+
+        // new only matches image patterns:
+        // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
+        // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
+        // ![alt](image.ext) -> Embedded Markdown Internal
+        // [alt](image.ext) -> Link Only Markdown Internal
+        // ![alt](https://example.com/image.ext) -> Embedded Markdown External
+        // [alt](https://example.com/image.ext) -> Link Only Markdown External
+
+        // Process image references on the same line
+        for capture in image_regex.captures_iter(line) {
+            if let Some(raw_image_link) = capture.get(0) {
+                let image_link = ImageLink::new(
+                    raw_image_link.as_str().to_string(),
+                    line_idx + 1,
+                    raw_image_link.start(),
+                );
+                match image_link.image_link_type {
+                    ImageLinkType::Wikilink(_)
+                    | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
+                        image_links.push(image_link)
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    Ok((result, image_links))
 }

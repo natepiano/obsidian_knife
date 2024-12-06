@@ -1,7 +1,7 @@
 use crate::markdown_file_info::{FileProcessingState, MarkdownFileInfo};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink::Wikilink;
-use crate::ValidatedConfig;
+use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
 
 use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
 use crate::validated_config::ValidatedConfigBuilder;
@@ -183,4 +183,55 @@ fn test_file_processing_state() {
         !state.should_skip_line(),
         "Should not skip after code block"
     );
+}
+
+#[test]
+fn test_scan_markdown_file_with_do_not_back_populate() {
+    let temp_dir = TempDir::new().unwrap();
+    let file_path = TestFileBuilder::new()
+        .with_content("# Test Content".to_string())
+        .with_custom_frontmatter(
+            r#"do_not_back_populate:
+- "test phrase"
+- "another phrase"
+"#
+            .to_string(),
+        )
+        .create(&temp_dir, "test.md");
+
+    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+
+    assert!(file_info.do_not_back_populate_regexes.is_some());
+    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert_eq!(regexes.len(), 2);
+
+    let test_line = "here is a test phrase and another phrase";
+    assert!(regexes[0].is_match(test_line));
+    assert!(regexes[1].is_match(test_line));
+}
+
+#[test]
+fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
+    let temp_dir = TempDir::new().unwrap();
+    let file_path = TestFileBuilder::new()
+        .with_aliases(vec!["First Alias".to_string(), "Second Alias".to_string()])
+        .with_custom_frontmatter(
+            r#"do_not_back_populate:
+- "exclude this"
+"#
+            .to_string(),
+        )
+        .with_content("# Test Content".to_string())
+        .create(&temp_dir, "test.md");
+
+    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+
+    assert!(file_info.do_not_back_populate_regexes.is_some());
+    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert_eq!(regexes.len(), 3);
+
+    let test_line = "First Alias and Second Alias and exclude this";
+    assert!(regexes[0].is_match(test_line));
+    assert!(regexes[1].is_match(test_line));
+    assert!(regexes[2].is_match(test_line));
 }

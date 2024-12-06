@@ -1,6 +1,12 @@
 use crate::markdown_file_info::back_populate_tests::create_test_environment;
-use crate::markdown_file_info::is_within_wikilink;
-use crate::wikilink::Wikilink;
+use crate::markdown_file_info::{is_within_wikilink, MarkdownFileInfo};
+use crate::scan::scan_folders;
+use crate::test_utils::TestFileBuilder;
+use crate::validated_config::get_test_validated_config;
+use crate::wikilink::{InvalidWikilinkReason, Wikilink};
+use crate::DEFAULT_TIMEZONE;
+use std::collections::HashSet;
+use tempfile::TempDir;
 
 #[test]
 fn test_find_matches_with_existing_wikilinks() {
@@ -99,4 +105,183 @@ fn test_is_within_wikilink() {
             pos
         );
     }
+}
+
+#[test]
+fn test_markdown_file_with_invalid_wikilinks() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let file_path = TestFileBuilder::new()
+        .with_content(
+            r#"# Test File
+[[Valid Link]]
+[[invalid|link|extra]]
+[[unmatched
+[[]]"#
+                .to_string(),
+        )
+        .create(&temp_dir, "test.md");
+
+    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let valid_wikilinks = file_info.wikilinks.valid;
+
+    // Check valid wikilinks
+    assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
+    assert!(valid_wikilinks
+        .iter()
+        .any(|w| w.display_text == "Valid Link"));
+
+    // Check invalid wikilinks
+    assert_eq!(file_info.wikilinks.invalid.len(), 3);
+
+    // Verify specific invalid wikilinks
+    let double_alias = file_info
+        .wikilinks
+        .invalid
+        .iter()
+        .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
+        .expect("Should have a double alias invalid wikilink");
+    assert_eq!(double_alias.content, "[[invalid|link|extra]]");
+
+    let unmatched = file_info
+        .wikilinks
+        .invalid
+        .iter()
+        .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
+        .expect("Should have an unmatched opening invalid wikilink");
+    assert_eq!(unmatched.content, "[[unmatched");
+
+    let empty = file_info
+        .wikilinks
+        .invalid
+        .iter()
+        .find(|w| w.reason == InvalidWikilinkReason::EmptyWikilink)
+        .expect("Should have an empty wikilink");
+    assert_eq!(empty.content, "[[]]");
+}
+
+#[test]
+fn test_markdown_file_wikilink_collection() {
+    let temp_dir = TempDir::new().unwrap();
+
+    let file_path = TestFileBuilder::new()
+        .with_aliases(vec!["Alias One".to_string(), "Second Alias".to_string()])
+        .with_content(
+            r#"# Test Note
+
+Here's a [[Simple Link]] and [[Target Page|Display Text]].
+Also linking to [[Alias One]] which is defined in frontmatter."#
+                .to_string(),
+        )
+        .create(&temp_dir, "test_note.md");
+
+    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let wikilinks = file_info.wikilinks.valid;
+
+    // Collect unique target-display pairs
+    let wikilink_pairs: HashSet<(String, String)> = wikilinks
+        .iter()
+        .map(|w| (w.target.clone(), w.display_text.clone()))
+        .collect();
+
+    // Updated assertions
+    assert!(
+        wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
+        "Should contain filename-based wikilink"
+    );
+    assert!(
+        wikilink_pairs.contains(&("test_note".to_string(), "Alias One".to_string())),
+        "Should contain first alias from frontmatter"
+    );
+    assert!(
+        wikilink_pairs.contains(&("test_note".to_string(), "Second Alias".to_string())),
+        "Should contain second alias from frontmatter"
+    );
+    assert!(
+        wikilink_pairs.contains(&("Simple Link".to_string(), "Simple Link".to_string())),
+        "Should contain simple wikilink"
+    );
+    assert!(
+        wikilink_pairs.contains(&("Target Page".to_string(), "Display Text".to_string())),
+        "Should contain aliased display text"
+    );
+    assert!(
+        wikilink_pairs.contains(&("Alias One".to_string(), "Alias One".to_string())),
+        "Should contain content wikilink to Alias One"
+    );
+
+    // note Alias One is technically a mistake on the user's part but let's deal with that
+    // with a scan to find wikilinks that target nothing
+    assert_eq!(
+        wikilink_pairs.len(),
+        6,
+        "Should have collected all unique wikilinks including content reference to Alias One"
+    );
+}
+
+#[test]
+fn test_scan_folders_wikilink_collection() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create first note using TestFileBuilder
+    TestFileBuilder::new()
+        .with_aliases(vec!["Alias One".to_string()])
+        .with_content("# Note 1\n[[Simple Link]]".to_string())
+        .create(&temp_dir, "note1.md");
+
+    // Create second note using TestFileBuilder
+    TestFileBuilder::new()
+        .with_aliases(vec!["Alias Two".to_string()])
+        .with_content("# Note 2\n[[Target|Display Text]]\n[[Simple Link]]".to_string())
+        .create(&temp_dir, "note2.md");
+
+    // Create minimal validated config
+    let config = get_test_validated_config(&temp_dir, None);
+
+    // Scan the folders
+    let repo_info = scan_folders(&config).unwrap();
+
+    // Filter for .md files only and exclude "obsidian knife output" explicitly
+    let wikilinks: HashSet<String> = repo_info
+        .markdown_files
+        .iter()
+        .filter(|file_info| file_info.path.extension().and_then(|ext| ext.to_str()) == Some("md"))
+        .flat_map(|file_info| {
+            let file_info =
+                MarkdownFileInfo::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();
+            let file_wikilinks = file_info.wikilinks.valid;
+            file_wikilinks.into_iter().map(|w| w.display_text)
+        })
+        .filter(|link| link != "obsidian knife output")
+        .collect();
+
+    // Verify expected wikilinks are present
+    assert!(wikilinks.contains("note1"), "Should contain first filename");
+    assert!(
+        wikilinks.contains("note2"),
+        "Should contain second filename"
+    );
+    assert!(
+        wikilinks.contains("Alias One"),
+        "Should contain first alias"
+    );
+    assert!(
+        wikilinks.contains("Alias Two"),
+        "Should contain second alias"
+    );
+    assert!(
+        wikilinks.contains("Simple Link"),
+        "Should contain simple link"
+    );
+    assert!(
+        wikilinks.contains("Display Text"),
+        "Should contain display text from alias"
+    );
+
+    // Verify total count
+    assert_eq!(
+        wikilinks.len(),
+        6,
+        "Should have collected all unique wikilinks"
+    );
 }

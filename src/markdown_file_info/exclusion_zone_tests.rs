@@ -13,7 +13,7 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
     let file_info = repo_info.markdown_files.first_mut().unwrap();
 
     // Add an invalid wikilink
-    file_info.invalid_wikilinks.push(InvalidWikilink {
+    file_info.wikilinks.invalid.push(InvalidWikilink {
         content: "[[invalid|link|extra]]".to_string(),
         reason: InvalidWikilinkReason::DoubleAlias,
         span: (5, 27),
@@ -33,13 +33,12 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
-    let (_, config, mut repo_info) =
-        create_test_environment(false, None, None, Some("[[test|one|two]] some text [[]]"));
+    let (_, config, mut repo_info) = create_test_environment(false, None, None, None);
 
     let markdown_file_info = repo_info.markdown_files.first_mut().unwrap();
 
     // Add multiple invalid wikilinks
-    markdown_file_info.invalid_wikilinks.extend(vec![
+    markdown_file_info.wikilinks.invalid.extend(vec![
         InvalidWikilink {
             content: "[[test|one|two]]".to_string(),
             reason: InvalidWikilinkReason::DoubleAlias,
@@ -82,7 +81,7 @@ fn test_exclusion_zones_only_matches_current_line() {
     let markdown_file_info = repo_info.markdown_files.first_mut().unwrap();
 
     // Add invalid wikilink from a different line
-    markdown_file_info.invalid_wikilinks.push(InvalidWikilink {
+    markdown_file_info.wikilinks.invalid.push(InvalidWikilink {
         content: "[[bad|link|here]]".to_string(),
         reason: InvalidWikilinkReason::DoubleAlias,
         span: (10, 26),

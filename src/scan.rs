@@ -1,27 +1,21 @@
 #[cfg(test)]
-mod process_content_tests;
-#[cfg(test)]
 mod scan_tests;
 
 use crate::{
-    constants::*, markdown_file_info::MarkdownFileInfo,
-    obsidian_repository_info::ObsidianRepositoryInfo,
+    markdown_file_info::MarkdownFileInfo, obsidian_repository_info::ObsidianRepositoryInfo,
 };
 
-use crate::markdown_file_info::{ImageLink, ImageLinkTarget, ImageLinkType};
+use crate::markdown_file_info::ImageLink;
 use crate::markdown_files::MarkdownFiles;
 use crate::utils::collect_repository_files;
 use crate::utils::Timer;
-use crate::wikilink::{
-    create_filename_wikilink, extract_wikilinks, ExtractedWikilinks, InvalidWikilink, Wikilink,
-};
+use crate::wikilink::Wikilink;
 use crate::ValidatedConfig;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::prelude::*;
-use regex::Regex;
 use std::collections::HashSet;
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
 pub fn pre_process_obsidian_folder(
@@ -125,35 +119,20 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
     (wikilinks, ac)
 }
 
-pub fn get_image_regex() -> Arc<Regex> {
-    let extensions_pattern = IMAGE_EXTENSIONS.join("|");
-    Arc::new(
-        Regex::new(&format!(
-            r"(?ix)                                     # Enable comments mode and case-insensitive
-        (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])         # Wikilink: [[image.ext]] or ![[image.ext]] or with |alt
-        |                                           # OR
-        (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))      # Markdown: [alt](image.ext) or ![alt](image.ext)
-        ",
-            extensions_pattern,
-            extensions_pattern
-        ))
-            .unwrap(),
-    )
-}
-
 fn scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let image_regex = get_image_regex();
-
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
+    // todo: just collect this at the end as you don't need to build it as you go
+    //       this will reduce thread contention i would hope
     let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
-        match scan_markdown_file(file_path, &image_regex, timezone) {
-            Ok((file_info, wikilinks)) => {
+        match MarkdownFileInfo::new(file_path.clone(), timezone) {
+            Ok(file_info) => {
+                let wikilinks = file_info.wikilinks.valid.clone();
                 markdown_files.lock().unwrap().push(file_info);
                 all_wikilinks.lock().unwrap().extend(wikilinks);
                 Ok(())
@@ -176,104 +155,4 @@ fn scan_markdown_files(
         .unwrap();
 
     Ok((markdown_files, all_wikilinks))
-}
-
-fn scan_markdown_file(
-    file_path: &PathBuf,
-    image_regex: &Arc<Regex>,
-    timezone: &str,
-) -> Result<(MarkdownFileInfo, Vec<Wikilink>), Box<dyn Error + Send + Sync>> {
-    let mut markdown_file_info = MarkdownFileInfo::new(file_path.clone(), timezone)?;
-
-    let aliases = markdown_file_info
-        .frontmatter
-        .as_ref()
-        .and_then(|fm| fm.aliases().cloned());
-
-    // Process content in a single pass
-    let (extracted_wikilinks, image_links) = process_content(
-        &markdown_file_info.content,
-        &aliases,
-        file_path,
-        image_regex,
-    )?;
-
-    // Store results in markdown_file_info
-    markdown_file_info.add_invalid_wikilinks(extracted_wikilinks.invalid);
-    markdown_file_info.image_links.found = image_links;
-
-    Ok((markdown_file_info, extracted_wikilinks.valid))
-}
-
-fn process_content(
-    content: &str,
-    aliases: &Option<Vec<String>>,
-    file_path: &Path,
-    image_regex: &Arc<Regex>,
-) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
-    let mut result = ExtractedWikilinks::default();
-    let mut image_links = Vec::new();
-
-    // Add filename-based wikilink
-    let filename = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or_default();
-
-    let filename_wikilink = create_filename_wikilink(filename);
-    result.valid.push(filename_wikilink.clone());
-
-    // Add aliases if present
-    if let Some(alias_list) = aliases {
-        for alias in alias_list {
-            let wikilink = Wikilink {
-                display_text: alias.clone(),
-                target: filename_wikilink.target.clone(),
-                is_alias: true,
-            };
-            result.valid.push(wikilink);
-        }
-    }
-
-    // Process content line by line for both wikilinks and images
-    for (line_idx, line) in content.lines().enumerate() {
-        // Process wikilinks
-        let extracted = extract_wikilinks(line);
-        result.valid.extend(extracted.valid);
-
-        let invalid_with_lines: Vec<InvalidWikilink> = extracted
-            .invalid
-            .into_iter()
-            .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
-            .collect();
-        result.invalid.extend(invalid_with_lines);
-
-        // new only matches image patterns:
-        // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
-        // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
-        // ![alt](image.ext) -> Embedded Markdown Internal
-        // [alt](image.ext) -> Link Only Markdown Internal
-        // ![alt](https://example.com/image.ext) -> Embedded Markdown External
-        // [alt](https://example.com/image.ext) -> Link Only Markdown External
-
-        // Process image references on the same line
-        for capture in image_regex.captures_iter(line) {
-            if let Some(raw_image_link) = capture.get(0) {
-                let image_link = ImageLink::new(
-                    raw_image_link.as_str().to_string(),
-                    line_idx + 1,
-                    raw_image_link.start(),
-                );
-                match image_link.image_link_type {
-                    ImageLinkType::Wikilink(_)
-                    | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
-                        image_links.push(image_link)
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    Ok((result, image_links))
 }

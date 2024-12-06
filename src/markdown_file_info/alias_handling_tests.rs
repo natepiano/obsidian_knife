@@ -1,9 +1,11 @@
 use crate::markdown_file_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::markdown_file_info::format_relative_path;
+use crate::markdown_file_info::{format_relative_path, MarkdownFileInfo};
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink::Wikilink;
+use crate::DEFAULT_TIMEZONE;
+use tempfile::TempDir;
 
 #[test]
 fn test_alias_priority() {
@@ -170,4 +172,22 @@ fn test_no_self_referential_back_population() {
         format_relative_path(&other_file_path, config.obsidian_path()),
         "Match should be in 'Other.md'"
     );
+}
+
+#[test]
+fn test_markdown_file_aliases_only() {
+    let temp_dir = TempDir::new().unwrap();
+    let file_path = TestFileBuilder::new()
+        .with_aliases(vec!["Only Alias".to_string()])
+        .with_content("# Test Content".to_string())
+        .create(&temp_dir, "test.md");
+
+    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+
+    assert!(file_info.do_not_back_populate_regexes.is_some());
+    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert_eq!(regexes.len(), 1);
+
+    let test_line = "Only Alias appears here";
+    assert!(regexes[0].is_match(test_line));
 }

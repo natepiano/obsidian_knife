@@ -1,6 +1,6 @@
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::extract_date;
-use crate::wikilink::is_wikilink;
+use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 
@@ -202,6 +202,12 @@ pub enum ImageLinkType {
     Wikilink(ImageLinkRendering),
     MarkdownLink(ImageLinkTarget, ImageLinkRendering),
     // RawHTTP,
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
+pub struct Wikilinks {
+    pub valid: Vec<Wikilink>,
+    pub invalid: Vec<InvalidWikilink>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

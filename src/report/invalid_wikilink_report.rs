@@ -98,7 +98,8 @@ impl ObsidianRepositoryInfo {
             .iter()
             .flat_map(|markdown_file_info| {
                 markdown_file_info
-                    .invalid_wikilinks
+                    .wikilinks
+                    .invalid
                     .iter()
                     .filter(|wikilink| {
                         !matches!(
