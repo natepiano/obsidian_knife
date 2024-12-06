@@ -78,7 +78,7 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let _ = create_test_files(&temp_dir, case.file_count);
         let mut repo_info = scan_folders(&config)?;
 
-        let (_, _, image_operations) = repo_info.analyze_repository(&config)?;
+        let (_, image_operations) = repo_info.analyze_repository(&config)?;
 
         // Run persistence
         repo_info.persist(image_operations)?;

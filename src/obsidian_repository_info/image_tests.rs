@@ -33,7 +33,7 @@ fn test_analyze_missing_references() {
     }
 
     // Run analyze
-    let (_, _, image_operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, image_operations) = repo_info.analyze_repository(&config).unwrap();
 
     repo_info.persist(image_operations).unwrap();
 
@@ -51,7 +51,7 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repo_info = scan_folders(&config).unwrap();
 
-    let (_, _, image_operations) = repo_info.analyze_images().unwrap();
+    let (_, image_operations) = repo_info.analyze_images().unwrap();
     repo_info.process_image_reference_updates(&image_operations);
     repo_info.persist(image_operations).unwrap();
 
@@ -104,7 +104,7 @@ fn test_analyze_duplicates() {
     }
 
     // Run analyze
-    let (_, _, image_operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, image_operations) = repo_info.analyze_repository(&config).unwrap();
 
     repo_info.persist(image_operations).unwrap();
 
@@ -265,7 +265,7 @@ fn test_image_operation_generation() {
         let created_paths = (test_case.setup)(&temp_dir);
         let repo_info = scan_folders(&config).unwrap();
 
-        let (_, _, operations) = repo_info.analyze_images().unwrap();
+        let (_, operations) = repo_info.analyze_images().unwrap();
 
         let (expected_image_ops, expected_markdown_ops) = (test_case.expected_ops)(&created_paths);
 
@@ -418,7 +418,7 @@ fn test_image_reference_detection() {
     }
 
     // Run analyze to generate the image info map
-    let (_, _, operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, operations) = repo_info.analyze_repository(&config).unwrap();
 
     // Verify image reference detection
     let deletion_operations: Vec<_> = operations
@@ -489,7 +489,7 @@ fn test_analyze_wikilink_errors() {
     let repo_info = scan_folders(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let (_, _, operations) = repo_info.analyze_images().unwrap();
+    let (_, operations) = repo_info.analyze_images().unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(

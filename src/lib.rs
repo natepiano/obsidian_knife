@@ -44,15 +44,11 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     // ANALYSIS PHASE
     let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
-    let (grouped_images, markdown_references_to_missing_image_files, image_operations) =
+    let (grouped_images, image_operations) =
         obsidian_repository_info.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
-    obsidian_repository_info.write_reports(
-        &validated_config,
-        &grouped_images,
-        &markdown_references_to_missing_image_files,
-    )?;
+    obsidian_repository_info.write_reports(&validated_config, &grouped_images)?;
 
     if config.apply_changes == Some(true) {
         obsidian_repository_info.persist(image_operations)?;

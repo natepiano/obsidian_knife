@@ -93,11 +93,21 @@ impl ObsidianRepositoryInfo {
     pub fn write_missing_references_report(
         &self,
         config: &ValidatedConfig,
-        markdown_references_to_missing_image_files: &[(PathBuf, String)],
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(markdown_references_to_missing_image_files.to_vec())
-            .with_validated_config(config);
+        // Collect missing references data in the format the report expects
+        let missing_refs: Vec<(PathBuf, String)> = self
+            .markdown_files
+            .iter()
+            .flat_map(|file| {
+                file.image_links
+                    .missing
+                    .iter()
+                    .map(|missing| (file.path.clone(), missing.filename.clone()))
+            })
+            .collect();
+
+        let report = ReportWriter::new(missing_refs).with_validated_config(config);
 
         report.write(&MissingReferencesTable, writer)
     }

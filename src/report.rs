@@ -26,7 +26,6 @@ impl ObsidianRepositoryInfo {
         &self,
         validated_config: &ValidatedConfig,
         grouped_images: &GroupedImages,
-        markdown_references_to_missing_image_files: &Vec<(PathBuf, String)>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
@@ -35,8 +34,7 @@ impl ObsidianRepositoryInfo {
 
         writer.writeln(LEVEL1, IMAGES)?;
         // hack just so cargo fmt doesn't expand the report call across multiple lines
-        let missing_image_files = markdown_references_to_missing_image_files;
-        self.write_missing_references_report(validated_config, missing_image_files, &writer)?;
+        self.write_missing_references_report(validated_config, &writer)?;
         self.write_tiff_images_report(validated_config, grouped_images, &writer)?;
         self.write_zero_byte_images_report(validated_config, grouped_images, &writer)?;
         self.write_unreferenced_images_report(validated_config, grouped_images, &writer)?;

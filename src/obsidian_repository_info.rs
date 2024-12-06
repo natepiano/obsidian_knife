@@ -13,7 +13,7 @@ pub mod obsidian_repository_info_types;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
-use crate::markdown_file_info::{ImageLink, MarkdownFileInfo, ReplaceableMatch};
+use crate::markdown_file_info::{MarkdownFileInfo, MatchType, ReplaceableMatch};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -156,10 +156,9 @@ impl ObsidianRepositoryInfo {
                         apply_line_replacements(line, &line_matches, &markdown_file.path);
                     // Track which types of changes occurred
                     for m in &line_matches {
-                        if (**m).type_id() == std::any::TypeId::of::<BackPopulateMatch>() {
-                            has_back_populate_changes = true;
-                        } else if (**m).type_id() == std::any::TypeId::of::<ImageLink>() {
-                            has_image_reference_changes = true;
+                        match m.as_ref().match_type() {
+                            MatchType::BackPopulate => has_back_populate_changes = true,
+                            MatchType::ImageReference => has_image_reference_changes = true,
                         }
                     }
                 }
@@ -212,8 +211,6 @@ impl ObsidianRepositoryInfo {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableMatch>),
         );
 
-        println!("{:?}", markdown_file.image_links.missing);
-
         // Add ImageLinks.missing
         matches.extend(
             markdown_file
@@ -240,10 +237,7 @@ impl ObsidianRepositoryInfo {
     pub fn analyze_repository(
         &mut self,
         validated_config: &ValidatedConfig,
-    ) -> Result<
-        (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
-        Box<dyn Error + Send + Sync>,
-    > {
+    ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.apply_replaceable_matches();
@@ -255,16 +249,11 @@ impl ObsidianRepositoryInfo {
         // after populating files to persist, we can use this dataset to determine whether
         // an image can be deleted - if it's referenced in a file not persisted then we won't delete it
         // in this pass
-        let (grouped_images, markdown_references_to_missing_image_files, image_operations) =
-            self.analyze_images()?;
+        let (grouped_images, image_operations) = self.analyze_images()?;
 
         self.process_image_reference_updates(&image_operations);
 
-        Ok((
-            grouped_images,
-            markdown_references_to_missing_image_files,
-            image_operations,
-        ))
+        Ok((grouped_images, image_operations))
     }
 
     fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
@@ -290,10 +279,7 @@ impl ObsidianRepositoryInfo {
 
     fn analyze_images(
         &self,
-    ) -> Result<
-        (GroupedImages, Vec<(PathBuf, String)>, ImageOperations),
-        Box<dyn Error + Send + Sync>,
-    > {
+    ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 
@@ -303,31 +289,7 @@ impl ObsidianRepositoryInfo {
             .map(|f| &f.path)
             .collect();
 
-        let markdown_references_to_missing_image_files: Vec<(PathBuf, String)> = self
-            .markdown_files
-            .iter()
-            .filter(|file| files_to_persist.contains(&file.path))
-            .flat_map(|file| {
-                file.image_links
-                    .missing
-                    .iter()
-                    .map(|link| (file.path.clone(), link.filename.clone()))
-            })
-            .collect();
-
         let mut operations = ImageOperations::default();
-
-        // 0. Handle missing references first
-        for (markdown_path, missing_image) in &markdown_references_to_missing_image_files {
-            if files_to_persist.contains(markdown_path) {
-                // operations
-                //     .markdown_ops
-                //     .push(MarkdownOperation::RemoveReference {
-                //         markdown_path: markdown_path.clone(),
-                //         image_path: PathBuf::from(missing_image),
-                //     });
-            }
-        }
 
         // 1. Handle unreferenced images - always safe to delete
         if let Some(unreferenced) = grouped_images.get(&ImageGroupType::UnreferencedImage) {
@@ -377,11 +339,7 @@ impl ObsidianRepositoryInfo {
             }
         }
 
-        Ok((
-            grouped_images,
-            markdown_references_to_missing_image_files,
-            operations,
-        ))
+        Ok((grouped_images, operations))
     }
 
     pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
@@ -476,7 +434,7 @@ fn apply_line_replacements(
         }
 
         // Track if this is an image replacement
-        if (**match_info).type_id() == std::any::TypeId::of::<ImageLink>() {
+        if match_info.as_ref().match_type() == MatchType::ImageReference {
             has_image_replacement = true;
         }
 

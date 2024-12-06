@@ -90,11 +90,19 @@ impl DateCreatedFixValidation {
         }
     }
 }
-pub trait ReplaceableMatch: std::any::Any {
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum MatchType {
+    BackPopulate,
+    ImageReference,
+}
+
+pub trait ReplaceableMatch {
     fn line_number(&self) -> usize;
     fn position(&self) -> usize;
     fn get_replacement(&self) -> String;
     fn matched_text(&self) -> String;
+    fn match_type(&self) -> MatchType;
 }
 
 #[derive(Clone, Debug, Default)]
@@ -124,6 +132,10 @@ impl ReplaceableMatch for BackPopulateMatch {
 
     fn matched_text(&self) -> String {
         self.found_text.clone()
+    }
+
+    fn match_type(&self) -> MatchType {
+        MatchType::BackPopulate
     }
 }
 
@@ -222,6 +234,10 @@ impl ReplaceableMatch for ImageLink {
 
     fn matched_text(&self) -> String {
         self.raw_link.clone()
+    }
+
+    fn match_type(&self) -> MatchType {
+        MatchType::ImageReference
     }
 }
 
