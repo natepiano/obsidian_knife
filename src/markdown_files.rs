@@ -91,11 +91,7 @@ impl MarkdownFiles {
                 }
             }
 
-            markdown_file_info.process_file_for_replaceable_content(
-                &sorted_wikilinks,
-                config,
-                ac,
-            );
+            markdown_file_info.process_file_for_replaceable_content(&sorted_wikilinks, config, ac);
         });
     }
 

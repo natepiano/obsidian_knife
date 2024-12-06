@@ -23,16 +23,16 @@ mod markdown_file_info_types;
 
 pub use markdown_file_info_types::*;
 
+use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::utils::{get_image_regex, read_contents_from_file, MARKDOWN_REGEX};
-use crate::wikilink::{
-    create_filename_wikilink, extract_wikilinks, is_wikilink, ExtractedWikilinks,
-};
-use crate::wikilink::{InvalidWikilink, ToWikilink, Wikilink};
-use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
-use crate::{CLOSING_WIKILINK, OPENING_WIKILINK};
-
 use crate::validated_config::ValidatedConfig;
+use crate::wikilink::{
+    create_filename_wikilink, extract_wikilinks, is_wikilink, ExtractedWikilinks, InvalidWikilink,
+    ToWikilink, Wikilink,
+};
+use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
+
 use aho_corasick::AhoCorasick;
 use chrono::{DateTime, NaiveDate, Utc};
 use filetime::FileTime;

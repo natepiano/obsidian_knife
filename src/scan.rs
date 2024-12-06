@@ -21,7 +21,7 @@ use std::sync::{Arc, Mutex};
 pub fn pre_scan_obsidian_repo(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
-    let _timer = Timer::new("scan_obsidian_folder");
+    let _timer = Timer::new("pre_scan_obsidian_repo");
 
     let obsidian_repository_info = pre_scan_folders(config)?;
 
@@ -39,9 +39,12 @@ pub fn pre_scan_folders(
 
     obsidian_repository_info.other_files = other_files;
 
-    // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
-    let (markdown_files, all_wikilinks) =
-        pre_scan_markdown_files(&markdown_paths, config.operational_timezone())?;
+    let markdown_files = pre_scan_markdown_files(&markdown_paths, config.operational_timezone())?;
+
+    let all_wikilinks: HashSet<Wikilink> = markdown_files
+        .iter()
+        .flat_map(|file_info| file_info.wikilinks.valid.clone())
+        .collect();
 
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
     obsidian_repository_info.wikilinks_sorted = sorted;
@@ -122,19 +125,15 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
-) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {
+) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
+
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
-    // todo: just collect this at the end as you don't need to build it as you go
-    //       this will reduce thread contention i would hope
-    let all_wikilinks = Arc::new(Mutex::new(HashSet::new()));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
         match MarkdownFileInfo::new(file_path.clone(), timezone) {
             Ok(file_info) => {
-                let wikilinks = file_info.wikilinks.valid.clone();
                 markdown_files.lock().unwrap().push(file_info);
-                all_wikilinks.lock().unwrap().extend(wikilinks);
                 Ok(())
             }
             Err(e) => {
@@ -149,10 +148,6 @@ fn pre_scan_markdown_files(
         .unwrap()
         .into_inner()
         .unwrap();
-    let all_wikilinks = Arc::try_unwrap(all_wikilinks)
-        .unwrap()
-        .into_inner()
-        .unwrap();
 
-    Ok((markdown_files, all_wikilinks))
+    Ok(markdown_files)
 }
