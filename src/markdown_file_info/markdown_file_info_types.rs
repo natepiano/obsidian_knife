@@ -108,7 +108,6 @@ pub trait ReplaceableContent {
 #[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatch {
     pub found_text: String,
-    pub frontmatter_line_count: usize,
     pub in_markdown_table: bool,
     pub line_number: usize,
     pub line_text: String,

@@ -43,7 +43,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         for match_info in items {
             let key = (
                 match_info.relative_path.clone(),
-                match_info.line_number + match_info.frontmatter_line_count,
+                match_info.line_number,
             );
 
             let entry = line_map

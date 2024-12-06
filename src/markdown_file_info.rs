@@ -267,7 +267,7 @@ impl MarkdownFileInfo {
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
                 .invalid
                 .into_iter()
-                .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
+                .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), self.get_real_line_number(line_idx)))
                 .collect();
             result.invalid.extend(invalid_with_lines);
         }
@@ -349,7 +349,6 @@ impl MarkdownFileInfo {
 
                 matches.push(BackPopulateMatch {
                     found_text: matched_text.to_string(),
-                    frontmatter_line_count: self.frontmatter_line_count,
                     line_number: self.get_real_line_number(line_idx),
                     line_text: line.to_string(),
                     position: starts_at,

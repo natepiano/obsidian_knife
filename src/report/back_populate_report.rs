@@ -197,7 +197,7 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
         let key = (match_info.relative_path.clone(), match_info.line_number);
 
         let line_info = line_map.entry(key).or_insert(LineInfo {
-            line_number: match_info.line_number + match_info.frontmatter_line_count,
+            line_number: match_info.line_number,
             line_text: match_info.line_text.clone(),
             positions: Vec::new(),
         });

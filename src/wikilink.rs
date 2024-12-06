@@ -262,7 +262,6 @@ impl WikilinkState {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: format!("[[{}|{}]]", target, content),
                         reason: InvalidWikilinkReason::EmptyWikilink,
-                        // span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
                         span: (start_pos.saturating_sub(2), end_pos),
                     })
                 } else {
