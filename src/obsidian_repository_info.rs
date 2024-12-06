@@ -9,16 +9,21 @@ mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
+mod obsidian_repository_info_new_tests;
 pub mod obsidian_repository_info_types;
+
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
+use crate::image_file_info::ImageFileInfo;
+use crate::image_files::ImageFiles;
 use crate::markdown_file_info::{MarkdownFileInfo, MatchType, ReplaceableContent};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
+use crate::utils::collect_repository_files;
 use crate::{
-    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles,
+    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles, scan,
     validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
 };
 use aho_corasick::AhoCorasick;
@@ -32,10 +37,80 @@ use std::path::{Path, PathBuf};
 pub struct ObsidianRepositoryInfo {
     pub markdown_files: MarkdownFiles,
     pub markdown_files_to_persist: MarkdownFiles,
+    pub image_files: ImageFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
+}
+
+impl ObsidianRepositoryInfo {
+    pub fn new(config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
+        let _timer = Timer::new("obsidian_repository_info_new");
+        let ignore_folders = config.ignore_folders().unwrap_or(&[]);
+
+        let repository_files = collect_repository_files(config, ignore_folders)?;
+
+        // Process markdown files
+        let markdown_files = scan::pre_scan_markdown_files(
+            &repository_files.markdown_files,
+            config.operational_timezone(),
+        )?;
+
+        // Process wikilinks
+        let all_wikilinks: HashSet<Wikilink> = markdown_files
+            .iter()
+            .flat_map(|file_info| file_info.wikilinks.valid.clone())
+            .collect();
+
+        let (sorted, ac) = scan::sort_and_build_wikilinks_ac(all_wikilinks);
+
+        // Initialize instance with defaults
+        let mut repo_info = Self {
+            markdown_files,
+            image_files: ImageFiles::new(),
+            markdown_files_to_persist: MarkdownFiles::default(),
+            image_path_to_references_map: HashMap::new(),
+            other_files: repository_files.other_files,
+            wikilinks_ac: Some(ac),
+            wikilinks_sorted: sorted,
+        };
+
+        // Get image map using existing functionality
+        repo_info.image_path_to_references_map = repo_info
+            .markdown_files
+            .get_image_info_map(config, &repository_files.image_files)?;
+
+        // Build ImageFiles from the map data
+        repo_info.image_files =
+            build_image_files_from_map(&repo_info.image_path_to_references_map)?;
+
+        Ok(repo_info)
+    }
+}
+
+fn build_image_files_from_map(
+    image_map: &HashMap<PathBuf, ImageReferences>,
+) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
+    let mut image_files = ImageFiles::new();
+
+    for (path, image_refs) in image_map {
+        let metadata = fs::metadata(path)?;
+
+        let mut file_info =
+            ImageFileInfo::new(path.clone(), image_refs.hash.clone(), metadata.len());
+
+        // Copy references from the image_refs
+        file_info.references = image_refs
+            .markdown_file_references
+            .iter()
+            .map(|s| PathBuf::from(s))
+            .collect();
+
+        image_files.push(file_info);
+    }
+
+    Ok(image_files)
 }
 
 impl ObsidianRepositoryInfo {
@@ -64,7 +139,7 @@ impl ObsidianRepositoryInfo {
         }
 
         // Process each file's matches
-        for markdown_file in &mut self.markdown_files.iter_mut() {
+        for markdown_file in &mut self.markdown_files {
             // Create a map to group matches by their lowercased found_text within this file
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
@@ -119,7 +194,7 @@ impl ObsidianRepositoryInfo {
 
     pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches or missing image references
-        for markdown_file in self.markdown_files.iter_mut() {
+        for markdown_file in &mut self.markdown_files {
             if markdown_file.matches.unambiguous.is_empty()
                 && markdown_file.image_links.missing.is_empty()
             {
@@ -514,7 +589,7 @@ fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages 
     let mut groups = GroupedImages::new();
 
     for (path_buf, image_references) in image_map {
-        let group_type = determine_group_type(path_buf, image_references);
+        let group_type = determine_image_group_type(path_buf, image_references);
         groups.add_or_update(
             group_type,
             ImageGroup {
@@ -532,7 +607,7 @@ fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages 
     groups
 }
 
-fn determine_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
+fn determine_image_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
     if path
         .extension()
         .and_then(|ext| ext.to_str())

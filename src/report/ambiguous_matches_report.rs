@@ -161,7 +161,7 @@ impl ObsidianRepositoryInfo {
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
         // First pass: collect all matches
-        for markdown_file in self.markdown_files_to_persist.iter() {
+        for markdown_file in &self.markdown_files_to_persist {
             for match_info in &markdown_file.matches.ambiguous {
                 let key = match_info.found_text.to_lowercase();
                 matches_by_text

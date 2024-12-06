@@ -34,12 +34,14 @@ pub fn pre_scan_folders(
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
     let mut obsidian_repository_info = ObsidianRepositoryInfo::default();
 
-    let (markdown_paths, image_files, other_files) =
-        collect_repository_files(config, ignore_folders)?;
+    let repository_files = collect_repository_files(config, ignore_folders)?;
 
-    obsidian_repository_info.other_files = other_files;
+    obsidian_repository_info.other_files = repository_files.other_files;
 
-    let markdown_files = pre_scan_markdown_files(&markdown_paths, config.operational_timezone())?;
+    let markdown_files = pre_scan_markdown_files(
+        &repository_files.markdown_files,
+        config.operational_timezone(),
+    )?;
 
     let all_wikilinks: HashSet<Wikilink> = markdown_files
         .iter()
@@ -54,7 +56,7 @@ pub fn pre_scan_folders(
     partition_found_and_missing_image_references(
         config,
         &mut obsidian_repository_info,
-        &image_files,
+        &repository_files.image_files,
     )?;
 
     Ok(obsidian_repository_info)
@@ -81,7 +83,7 @@ fn partition_found_and_missing_image_references(
     }
 
     // Update each markdown file's image links
-    for markdown_file in obsidian_repository_info.markdown_files.iter_mut() {
+    for markdown_file in &mut obsidian_repository_info.markdown_files {
         let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
             .image_links
             .found
@@ -106,7 +108,9 @@ fn compare_wikilinks(a: &Wikilink, b: &Wikilink) -> std::cmp::Ordering {
         })
 }
 
-fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
+pub(crate) fn sort_and_build_wikilinks_ac(
+    all_wikilinks: HashSet<Wikilink>,
+) -> (Vec<Wikilink>, AhoCorasick) {
     let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
     wikilinks.sort_unstable_by(compare_wikilinks);
 
@@ -122,7 +126,7 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
     (wikilinks, ac)
 }
 
-fn pre_scan_markdown_files(
+pub(crate) fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {

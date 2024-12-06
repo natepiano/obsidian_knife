@@ -5,6 +5,8 @@ pub mod test_utils;
 mod config;
 mod constants;
 mod frontmatter;
+mod image_file_info;
+mod image_files;
 mod markdown_file_info;
 mod markdown_files;
 mod obsidian_repository_info;

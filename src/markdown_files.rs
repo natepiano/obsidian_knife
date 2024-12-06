@@ -50,6 +50,24 @@ impl IndexMut<usize> for MarkdownFiles {
     }
 }
 
+impl<'a> IntoIterator for &'a MarkdownFiles {
+    type Item = &'a MarkdownFileInfo;
+    type IntoIter = std::slice::Iter<'a, MarkdownFileInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.files.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut MarkdownFiles {
+    type Item = &'a mut MarkdownFileInfo;
+    type IntoIter = std::slice::IterMut<'a, MarkdownFileInfo>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.files.iter_mut()
+    }
+}
+
 impl MarkdownFiles {
     pub fn new() -> Self {
         Self { files: Vec::new() }
