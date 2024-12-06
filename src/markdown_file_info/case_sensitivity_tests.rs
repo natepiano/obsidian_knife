@@ -165,7 +165,7 @@ fn test_case_sensitivity_behavior() {
         let markdown_info =
             MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
-        let matches = markdown_info.process_line_for_replaceable_content(
+        let matches = markdown_info.process_line_for_back_populate_replacements(
             case.content,
             0,
             &ac,

@@ -128,14 +128,9 @@ impl MarkdownFileInfo {
         };
 
         let image_regex = get_image_regex();
-        let aliases = file_info
-            .frontmatter
-            .as_ref()
-            .and_then(|fm| fm.aliases().cloned());
 
-        // Process content in a single pass
-        let (extracted_wikilinks, image_links) =
-            process_content(&file_info.content, &aliases, &file_info.path, &image_regex)?;
+        let extracted_wikilinks = file_info.process_wikilinks()?;
+        let image_links = file_info.process_image_links(&image_regex);
 
         // Store results directly in self
         file_info.wikilinks.invalid = extracted_wikilinks.invalid;
@@ -199,7 +194,7 @@ impl MarkdownFileInfo {
             .push(PersistReason::ImageReferencesModified);
     }
 
-    pub(crate) fn process_file_for_replaceable_content(
+    pub(crate) fn process_file_for_back_populate_replacements(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,
@@ -221,7 +216,7 @@ impl MarkdownFileInfo {
             }
 
             // Process the line and collect matches
-            let matches = self.process_line_for_replaceable_content(
+            let matches = self.process_line_for_back_populate_replacements(
                 line,
                 line_idx,
                 ac,
@@ -234,7 +229,85 @@ impl MarkdownFileInfo {
         }
     }
 
-    fn process_line_for_replaceable_content(
+    fn process_wikilinks(&self) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
+        let mut result = ExtractedWikilinks::default();
+
+        let aliases = self
+            .frontmatter
+            .as_ref()
+            .and_then(|fm| fm.aliases().cloned());
+
+        // Add filename-based wikilink
+        let filename = self
+            .path
+            .file_name()
+            .and_then(|n| n.to_str())
+            .unwrap_or_default();
+
+        let filename_wikilink = create_filename_wikilink(filename);
+        result.valid.push(filename_wikilink.clone());
+
+        // Add aliases if present
+        if let Some(alias_list) = aliases {
+            for alias in alias_list {
+                let wikilink = Wikilink {
+                    display_text: alias.clone(),
+                    target: filename_wikilink.target.clone(),
+                    is_alias: true,
+                };
+                result.valid.push(wikilink);
+            }
+        }
+
+        // Process content line by line for wikilinks
+        for (line_idx, line) in self.content.lines().enumerate() {
+            let extracted = extract_wikilinks(line);
+            result.valid.extend(extracted.valid);
+
+            let invalid_with_lines: Vec<InvalidWikilink> = extracted
+                .invalid
+                .into_iter()
+                .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
+                .collect();
+            result.invalid.extend(invalid_with_lines);
+        }
+
+        Ok(result)
+    }
+
+    // new only matches image patterns:
+    // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
+    // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
+    // ![alt](image.ext) -> Embedded Markdown Internal
+    // [alt](image.ext) -> Link Only Markdown Internal
+    // ![alt](https://example.com/image.ext) -> Embedded Markdown External
+    // [alt](https://example.com/image.ext) -> Link Only Markdown External
+    fn process_image_links(&self, image_regex: &Arc<Regex>) -> Vec<ImageLink> {
+        let mut image_links = Vec::new();
+
+        for (line_idx, line) in self.content.lines().enumerate() {
+            for capture in image_regex.captures_iter(line) {
+                if let Some(raw_image_link) = capture.get(0) {
+                    let image_link = ImageLink::new(
+                        raw_image_link.as_str().to_string(),
+                        self.get_real_line_number(line_idx),
+                        raw_image_link.start(),
+                    );
+                    match image_link.image_link_type {
+                        ImageLinkType::Wikilink(_)
+                        | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
+                            image_links.push(image_link)
+                        }
+                        _ => {}
+                    }
+                }
+            }
+        }
+
+        image_links
+    }
+
+    fn process_line_for_back_populate_replacements(
         &self,
         line: &str,
         line_idx: usize,
@@ -277,7 +350,7 @@ impl MarkdownFileInfo {
                 matches.push(BackPopulateMatch {
                     found_text: matched_text.to_string(),
                     frontmatter_line_count: self.frontmatter_line_count,
-                    line_number: line_idx + 1,
+                    line_number: self.get_real_line_number(line_idx),
                     line_text: line.to_string(),
                     position: starts_at,
                     in_markdown_table,
@@ -288,6 +361,10 @@ impl MarkdownFileInfo {
         }
 
         matches
+    }
+
+    pub fn get_real_line_number(&self, line_idx: usize) -> usize {
+        self.frontmatter_line_count + line_idx + 1
     }
 
     fn collect_exclusion_zones(&self, line: &str, config: &ValidatedConfig) -> Vec<(usize, usize)> {
@@ -564,75 +641,75 @@ fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
         && trimmed.contains(matched_text)
 }
 
-fn process_content(
-    content: &str,
-    aliases: &Option<Vec<String>>,
-    file_path: &Path,
-    image_regex: &Arc<Regex>,
-) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
-    let mut result = ExtractedWikilinks::default();
-    let mut image_links = Vec::new();
-
-    // Add filename-based wikilink
-    let filename = file_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or_default();
-
-    let filename_wikilink = create_filename_wikilink(filename);
-    result.valid.push(filename_wikilink.clone());
-
-    // Add aliases if present
-    if let Some(alias_list) = aliases {
-        for alias in alias_list {
-            let wikilink = Wikilink {
-                display_text: alias.clone(),
-                target: filename_wikilink.target.clone(),
-                is_alias: true,
-            };
-            result.valid.push(wikilink);
-        }
-    }
-
-    // Process content line by line for both wikilinks and images
-    for (line_idx, line) in content.lines().enumerate() {
-        // Process wikilinks
-        let extracted = extract_wikilinks(line);
-        result.valid.extend(extracted.valid);
-
-        let invalid_with_lines: Vec<InvalidWikilink> = extracted
-            .invalid
-            .into_iter()
-            .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
-            .collect();
-        result.invalid.extend(invalid_with_lines);
-
-        // new only matches image patterns:
-        // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
-        // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
-        // ![alt](image.ext) -> Embedded Markdown Internal
-        // [alt](image.ext) -> Link Only Markdown Internal
-        // ![alt](https://example.com/image.ext) -> Embedded Markdown External
-        // [alt](https://example.com/image.ext) -> Link Only Markdown External
-
-        // Process image references on the same line
-        for capture in image_regex.captures_iter(line) {
-            if let Some(raw_image_link) = capture.get(0) {
-                let image_link = ImageLink::new(
-                    raw_image_link.as_str().to_string(),
-                    line_idx + 1,
-                    raw_image_link.start(),
-                );
-                match image_link.image_link_type {
-                    ImageLinkType::Wikilink(_)
-                    | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
-                        image_links.push(image_link)
-                    }
-                    _ => {}
-                }
-            }
-        }
-    }
-
-    Ok((result, image_links))
-}
+// fn process_content(
+//     content: &str,
+//     aliases: &Option<Vec<String>>,
+//     file_path: &Path,
+//     image_regex: &Arc<Regex>,
+// ) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
+//     let mut result = ExtractedWikilinks::default();
+//     let mut image_links = Vec::new();
+//
+//     // Add filename-based wikilink
+//     let filename = file_path
+//         .file_name()
+//         .and_then(|n| n.to_str())
+//         .unwrap_or_default();
+//
+//     let filename_wikilink = create_filename_wikilink(filename);
+//     result.valid.push(filename_wikilink.clone());
+//
+//     // Add aliases if present
+//     if let Some(alias_list) = aliases {
+//         for alias in alias_list {
+//             let wikilink = Wikilink {
+//                 display_text: alias.clone(),
+//                 target: filename_wikilink.target.clone(),
+//                 is_alias: true,
+//             };
+//             result.valid.push(wikilink);
+//         }
+//     }
+//
+//     // Process content line by line for both wikilinks and images
+//     for (line_idx, line) in content.lines().enumerate() {
+//         // Process wikilinks
+//         let extracted = extract_wikilinks(line);
+//         result.valid.extend(extracted.valid);
+//
+//         let invalid_with_lines: Vec<InvalidWikilink> = extracted
+//             .invalid
+//             .into_iter()
+//             .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
+//             .collect();
+//         result.invalid.extend(invalid_with_lines);
+//
+//         // new only matches image patterns:
+//         // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
+//         // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
+//         // ![alt](image.ext) -> Embedded Markdown Internal
+//         // [alt](image.ext) -> Link Only Markdown Internal
+//         // ![alt](https://example.com/image.ext) -> Embedded Markdown External
+//         // [alt](https://example.com/image.ext) -> Link Only Markdown External
+//
+//         // Process image references on the same line
+//         for capture in image_regex.captures_iter(line) {
+//             if let Some(raw_image_link) = capture.get(0) {
+//                 let image_link = ImageLink::new(
+//                     raw_image_link.as_str().to_string(),
+//                     line_idx + 1,
+//                     raw_image_link.start(),
+//                 );
+//                 match image_link.image_link_type {
+//                     ImageLinkType::Wikilink(_)
+//                     | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
+//                         image_links.push(image_link)
+//                     }
+//                     _ => {}
+//                 }
+//             }
+//         }
+//     }
+//
+//     Ok((result, image_links))
+// }

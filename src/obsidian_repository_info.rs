@@ -116,6 +116,7 @@ impl ObsidianRepositoryInfo {
         self.markdown_files
             .process_files_for_back_populate_matches(config, sorted_wikilinks, ac);
     }
+
     pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches or missing image references
         for markdown_file in self.markdown_files.iter_mut() {
@@ -126,18 +127,23 @@ impl ObsidianRepositoryInfo {
             }
 
             let sorted_replaceable_matches = Self::collect_replaceable_matches(markdown_file);
+
             if sorted_replaceable_matches.is_empty() {
                 continue;
             }
 
             let mut updated_content = String::new();
-            let mut current_line_num = 1;
+            let mut content_line_number = 1;
             let mut has_back_populate_changes = false;
             let mut has_image_reference_changes = false;
 
             // Process line by line
-            for (line_idx, line) in markdown_file.content.lines().enumerate() {
-                if current_line_num != line_idx + 1 {
+            for (zero_based_idx, line) in markdown_file.content.lines().enumerate() {
+                let current_content_line = zero_based_idx + 1;
+                let absolute_line_number =
+                    current_content_line + markdown_file.frontmatter_line_count;
+
+                if content_line_number != current_content_line {
                     updated_content.push_str(line);
                     updated_content.push('\n');
                     continue;
@@ -146,7 +152,7 @@ impl ObsidianRepositoryInfo {
                 // Collect matches for the current line
                 let line_matches: Vec<&Box<dyn ReplaceableContent>> = sorted_replaceable_matches
                     .iter()
-                    .filter(|m| m.line_number() == current_line_num)
+                    .filter(|m| m.line_number() == absolute_line_number)
                     .collect();
 
                 // Apply matches if there are any
@@ -165,7 +171,7 @@ impl ObsidianRepositoryInfo {
 
                 updated_content.push_str(&updated_line);
                 updated_content.push('\n');
-                current_line_num += 1;
+                content_line_number += 1;
             }
 
             // Final validation check

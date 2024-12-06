@@ -34,7 +34,6 @@ fn test_analyze_missing_references() {
 
     // Run analyze
     let (_, image_operations) = repo_info.analyze_repository(&config).unwrap();
-
     repo_info.persist(image_operations).unwrap();
 
     // Verify the markdown file was updated

@@ -126,7 +126,6 @@ fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
-
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
 

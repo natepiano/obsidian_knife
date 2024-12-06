@@ -1,12 +1,9 @@
 use crate::markdown_file_info::{
-    process_content, ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType,
+    ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFileInfo,
 };
 use crate::test_utils::TestFileBuilder;
 use crate::utils::get_image_regex;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
-use crate::IMAGE_EXTENSIONS;
-use regex::Regex;
-use std::sync::Arc;
 use tempfile::TempDir;
 
 fn assert_contains_wikilink(
@@ -25,22 +22,10 @@ fn assert_contains_wikilink(
     );
 }
 
-fn create_image_regex() -> Arc<Regex> {
-    let extensions_pattern = IMAGE_EXTENSIONS.join("|");
-    Arc::new(
-        Regex::new(&format!(
-            r"(!\[(?:[^\]]*)\]\([^)]+\)|!\[\[([^\]]+\.(?:{}))(?:\|[^\]]+)?\]\])",
-            extensions_pattern
-        ))
-        .unwrap(),
-    )
-}
-
 #[test]
 fn test_process_content_with_aliases() {
     let content = "# Test\nHere's a [[Regular Link]] and [[Target|Display Text]]";
     let aliases = Some(vec!["Alias One".to_string(), "Alias Two".to_string()]);
-    let image_regex = create_image_regex();
 
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
@@ -48,8 +33,9 @@ fn test_process_content_with_aliases() {
         .with_aliases(aliases.as_ref().unwrap_or(&Vec::new()).clone())
         .create(&temp_dir, "test file.md");
 
-    let (extracted, image_links) =
-        process_content(content, &aliases, &file_path, &image_regex).unwrap();
+    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let extracted = file_info.process_wikilinks().unwrap();
+    let image_links = file_info.process_image_links(&get_image_regex());
 
     // Verify expected wikilinks
     assert_contains_wikilink(&extracted.valid, "test file", None, false);
@@ -71,15 +57,15 @@ fn test_process_content_with_aliases() {
 #[test]
 fn test_process_content_with_invalid() {
     let content = "Some [[good link]] and [[bad|link|extra]] here\n[[unmatched";
-    let image_regex = create_image_regex();
 
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let (extracted, image_links) =
-        process_content(content, &None, &file_path, &image_regex).unwrap();
+    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let extracted = file_info.process_wikilinks().unwrap();
+    let image_links = file_info.process_image_links(&get_image_regex());
 
     // Check valid wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
@@ -124,15 +110,15 @@ fn test_process_content_with_invalid() {
 #[test]
 fn test_process_content_with_empty() {
     let content = "Test [[]] here\nAnd [[|]] there";
-    let image_regex = create_image_regex();
 
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let (extracted, image_links) =
-        process_content(content, &None, &file_path, &image_regex).unwrap();
+    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let extracted = file_info.process_wikilinks().unwrap();
+    let image_links = file_info.process_image_links(&get_image_regex());
 
     assert_eq!(
         extracted.invalid.len(),
@@ -161,15 +147,15 @@ fn test_process_content_with_empty() {
 #[test]
 fn test_process_content_with_images() {
     let content = "# Test\n![[image.png]]\nHere's a [[link]] and ![[another.jpg]]";
-    let image_regex = create_image_regex();
 
     let temp_dir = TempDir::new().unwrap();
     let file_path = TestFileBuilder::new()
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let (extracted, image_links) =
-        process_content(content, &None, &file_path, &image_regex).unwrap();
+    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let extracted = file_info.process_wikilinks().unwrap();
+    let image_links = file_info.process_image_links(&get_image_regex());
 
     // Check wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false);

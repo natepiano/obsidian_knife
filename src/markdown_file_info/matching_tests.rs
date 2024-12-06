@@ -33,7 +33,7 @@ fn test_find_matches_with_existing_wikilinks() {
     );
 
     // Verify that the matches are at the expected positions
-    let expected_lines = vec![1, 2, 2, 5];
+    let expected_lines = vec![5, 6, 6, 9];
     let actual_lines: Vec<usize> = matches.unambiguous.iter().map(|m| m.line_number).collect();
     assert_eq!(
         actual_lines, expected_lines,
