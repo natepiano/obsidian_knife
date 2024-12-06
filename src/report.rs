@@ -175,7 +175,7 @@ fn format_references(
 ) -> String {
     let references: Vec<String> = groups
         .iter()
-        .flat_map(|group| &group.info.markdown_file_references)
+        .flat_map(|group| &group.image_references.markdown_file_references)
         .map(|ref_path| {
             let mut link = format!(
                 "{}",

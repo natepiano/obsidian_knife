@@ -58,7 +58,7 @@ impl ReportDefinition for ImageGroupType {
 
                 let config = config.expect(CONFIG_EXPECT);
 
-                let references = if group.info.markdown_file_references.is_empty() {
+                let references = if group.image_references.markdown_file_references.is_empty() {
                     String::from("not referenced by any file")
                 } else {
                     format_references(

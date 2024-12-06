@@ -60,7 +60,7 @@ impl ReportDefinition for DuplicateImagesTable {
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_references: std::collections::HashSet<_> = items
             .iter()
-            .flat_map(|g| g.info.markdown_file_references.iter())
+            .flat_map(|g| g.image_references.markdown_file_references.iter())
             .collect();
 
         DescriptionBuilder::new()
@@ -113,7 +113,7 @@ fn format_duplicate_references(
     let mut unique_references: HashMap<String, Vec<&PathBuf>> = HashMap::new();
 
     for group in groups {
-        for ref_path in &group.info.markdown_file_references {
+        for ref_path in &group.image_references.markdown_file_references {
             unique_references
                 .entry(ref_path.clone())
                 .or_default()

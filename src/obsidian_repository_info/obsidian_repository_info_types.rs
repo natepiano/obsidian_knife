@@ -43,7 +43,7 @@ pub struct ImageReferences {
 #[derive(Clone, Debug)]
 pub struct ImageGroup {
     pub path: PathBuf,
-    pub info: ImageReferences,
+    pub image_references: ImageReferences,
 }
 
 #[derive(Default, Debug)]

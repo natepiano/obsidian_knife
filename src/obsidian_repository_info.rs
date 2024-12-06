@@ -321,7 +321,7 @@ impl ObsidianRepositoryInfo {
             if let Some(keeper) = duplicate_group.first() {
                 for duplicate in duplicate_group.iter().skip(1) {
                     let can_delete = duplicate
-                        .info
+                        .image_references
                         .markdown_file_references
                         .iter()
                         .all(|path| files_to_persist.contains(&PathBuf::from(path)));
@@ -331,7 +331,7 @@ impl ObsidianRepositoryInfo {
                             .push(ImageOperation::Delete(duplicate.path.clone()));
 
                         // Add operations to update references to point to keeper
-                        for ref_path in &duplicate.info.markdown_file_references {
+                        for ref_path in &duplicate.image_references.markdown_file_references {
                             operations
                                 .markdown_ops
                                 .push(MarkdownOperation::UpdateReference {
@@ -482,13 +482,13 @@ fn process_special_image_group(
     operations: &mut ImageOperations,
 ) {
     for group in group_images {
-        if group.info.markdown_file_references.is_empty() {
+        if group.image_references.markdown_file_references.is_empty() {
             operations
                 .image_ops
                 .push(ImageOperation::Delete(group.path.clone()));
         } else {
             let can_delete = group
-                .info
+                .image_references
                 .markdown_file_references
                 .iter()
                 .all(|path| files_to_persist.contains(&PathBuf::from(path)));
@@ -497,7 +497,7 @@ fn process_special_image_group(
                     .image_ops
                     .push(ImageOperation::Delete(group.path.clone()));
                 // Add operations to remove references
-                for ref_path in &group.info.markdown_file_references {
+                for ref_path in &group.image_references.markdown_file_references {
                     operations
                         .markdown_ops
                         .push(MarkdownOperation::RemoveReference {
@@ -519,7 +519,7 @@ fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages 
             group_type,
             ImageGroup {
                 path: path_buf.clone(),
-                info: image_references.clone(),
+                image_references: image_references.clone(),
             },
         );
     }
