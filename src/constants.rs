@@ -50,6 +50,7 @@ pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
 // report &str's
+pub const ACTION: &str = "action";
 pub const AFTER: &str = "after";
 pub const BACK_POPULATE: &str = "back populate";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
@@ -71,6 +72,7 @@ pub const IN: &str = "in";
 pub const INFO: &str = "info";
 pub const INVALID: &str = "invalid";
 pub const INVALID_WIKILINKS: &str = "invalid wikilinks";
+pub const LINE: &str = "line";
 pub const MATCHES: &str = "matches";
 pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches";
 pub const MISSING_IMAGE: &str = "missing image";
