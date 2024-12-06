@@ -24,15 +24,15 @@ impl ImageFiles {
     pub fn iter_mut(&mut self) -> IterMut<'_, ImageFileInfo> {
         self.files.iter_mut()
     }
-
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.files.is_empty()
     }
-
+    #[allow(dead_code)]
     pub fn len(&self) -> usize {
         self.files.len()
     }
-
+    #[allow(dead_code)]
     pub fn get(&self, path: &PathBuf) -> Option<&ImageFileInfo> {
         self.files.iter().find(|f| f.path == *path)
     }

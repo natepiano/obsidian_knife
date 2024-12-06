@@ -11,7 +11,7 @@ mod markdown_file_info;
 mod markdown_files;
 mod obsidian_repository_info;
 mod report;
-mod scan;
+// mod scan;
 mod utils;
 mod validated_config;
 mod wikilink;

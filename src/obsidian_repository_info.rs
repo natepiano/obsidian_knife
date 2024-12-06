@@ -12,6 +12,8 @@ mod persist_file_tests;
 mod update_modified_tests;
 
 pub mod obsidian_repository_info_types;
+#[cfg(test)]
+mod scan_tests;
 
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
@@ -24,15 +26,17 @@ use crate::obsidian_repository_info::obsidian_repository_info_types::{
 };
 use crate::utils::collect_repository_files;
 use crate::{
-    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles, scan,
+    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles,
     validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
 };
-use aho_corasick::AhoCorasick;
+use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
 pub struct ObsidianRepositoryInfo {
@@ -54,7 +58,7 @@ impl ObsidianRepositoryInfo {
         let repository_files = collect_repository_files(config, ignore_folders)?;
 
         // Process markdown files
-        let markdown_files = scan::pre_scan_markdown_files(
+        let markdown_files = pre_scan_markdown_files(
             &repository_files.markdown_files,
             config.operational_timezone(),
         )?;
@@ -65,7 +69,7 @@ impl ObsidianRepositoryInfo {
             .flat_map(|file_info| file_info.wikilinks.valid.clone())
             .collect();
 
-        let (sorted, ac) = scan::sort_and_build_wikilinks_ac(all_wikilinks);
+        let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
 
         // Initialize instance with defaults
         let mut repo_info = Self {
@@ -133,6 +137,52 @@ fn build_image_files_from_map(
     }
 
     Ok(image_files)
+}
+
+fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
+    let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
+    // uses
+    wikilinks.sort_unstable();
+
+    let mut patterns = Vec::with_capacity(wikilinks.len());
+    patterns.extend(wikilinks.iter().map(|w| w.display_text.as_str()));
+
+    let ac = AhoCorasickBuilder::new()
+        .ascii_case_insensitive(true)
+        .match_kind(MatchKind::LeftmostLongest)
+        .build(&patterns)
+        .expect("Failed to build Aho-Corasick automaton for wikilinks");
+
+    (wikilinks, ac)
+}
+
+fn pre_scan_markdown_files(
+    markdown_paths: &[PathBuf],
+    timezone: &str,
+) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
+    // Use Arc<Mutex<...>> for safe shared collection
+    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
+
+    markdown_paths.par_iter().try_for_each(|file_path| {
+        match MarkdownFileInfo::new(file_path.clone(), timezone) {
+            Ok(file_info) => {
+                markdown_files.lock().unwrap().push(file_info);
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("Error processing file {:?}: {}", file_path, e);
+                Err(e)
+            }
+        }
+    })?;
+
+    // Extract data from Arc<Mutex<...>>
+    let markdown_files = Arc::try_unwrap(markdown_files)
+        .unwrap()
+        .into_inner()
+        .unwrap();
+
+    Ok(markdown_files)
 }
 
 impl ObsidianRepositoryInfo {
