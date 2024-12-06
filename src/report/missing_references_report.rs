@@ -1,8 +1,8 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::obsidian_repository_info_types::ImageGroup;
+use crate::obsidian_repository_info::obsidian_repository_info_types::{ImageGroup, ImageReferences};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
-use crate::report::{format_references, ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::report::{format_references, format_wikilink, ReportDefinition, ReportWriter};
+use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
 use std::error::Error;
@@ -11,15 +11,16 @@ use std::path::PathBuf;
 pub struct MissingReferencesTable;
 
 impl ReportDefinition for MissingReferencesTable {
-    type Item = (PathBuf, String); // (markdown_path, extracted_filename)
+    type Item = (PathBuf, String, usize); // (markdown_path, extracted_filename)
 
     fn headers(&self) -> Vec<&str> {
-        vec!["markdown file", "missing image reference", "action"]
+        vec![FILE, LINE, MISSING_IMAGE_REFERENCES, ACTION]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
             ColumnAlignment::Left,
+            ColumnAlignment::Right,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
         ]
@@ -30,43 +31,41 @@ impl ReportDefinition for MissingReferencesTable {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        // Group missing references by markdown file
-        let mut grouped_references: HashMap<&PathBuf, Vec<ImageGroup>> = HashMap::new();
-        for (markdown_path, extracted_filename) in items {
+        let mut grouped_references: HashMap<(&PathBuf, usize), Vec<ImageGroup>> = HashMap::new();  // Changed key to include line number
+
+        for (markdown_path, extracted_filename, line_number) in items {
             grouped_references
-                .entry(markdown_path)
+                .entry((markdown_path, *line_number))
                 .or_default()
                 .push(ImageGroup {
                     path: PathBuf::from(extracted_filename),
-                    info: crate::obsidian_repository_info::obsidian_repository_info_types::ImageReferences {
+                    info: ImageReferences {
                         hash: String::new(),
                         markdown_file_references: vec![markdown_path.to_string_lossy().to_string()],
                     },
                 });
         }
 
-        let config = config.expect("Config required for missing references report");
+        let config = config.expect(CONFIG_EXPECT);
         grouped_references
             .iter()
-            .map(|(markdown_path, image_groups)| {
-                let markdown_link =
-                    crate::report::format_wikilink(markdown_path, config.obsidian_path(), false);
+            .map(|((markdown_path, line_number), image_groups)| {
+                let markdown_link = crate::report::format_wikilink(markdown_path, config.obsidian_path(), false);
                 let image_links = image_groups
                     .iter()
                     .map(|group| {
-                        crate::utils::escape_pipe(&crate::utils::escape_brackets(
+                        escape_pipe(&crate::utils::escape_brackets(
                             &group.path.to_string_lossy(),
                         ))
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
-                let actions = format_references(
-                    config.apply_changes(),
-                    config.obsidian_path(),
-                    image_groups,
-                    None,
-                );
-                vec![markdown_link, image_links, actions]
+                let action = if config.apply_changes() {
+                    "reference removed"
+                } else {
+                    "reference will be removed"
+                };
+                vec![markdown_link, line_number.to_string(), image_links, action.to_string()]
             })
             .collect()
     }
@@ -96,14 +95,14 @@ impl ObsidianRepositoryInfo {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Collect missing references data in the format the report expects
-        let missing_refs: Vec<(PathBuf, String)> = self
-            .markdown_files
+        let missing_refs: Vec<(PathBuf, String, usize)> = self  // Changed to include line number
+            .markdown_files_to_persist
             .iter()
             .flat_map(|file| {
                 file.image_links
                     .missing
                     .iter()
-                    .map(|missing| (file.path.clone(), missing.filename.clone()))
+                    .map(|missing| (file.path.clone(), missing.filename.clone(), missing.line_number))
             })
             .collect();
 
