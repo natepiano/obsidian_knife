@@ -5,11 +5,12 @@ mod file_process_limit_tests;
 #[cfg(test)]
 mod image_tests;
 #[cfg(test)]
+mod obsidian_repository_info_new_tests;
+#[cfg(test)]
 mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-mod obsidian_repository_info_new_tests;
 pub mod obsidian_repository_info_types;
 
 pub use obsidian_repository_info_types::GroupedImages;
@@ -17,7 +18,7 @@ pub use obsidian_repository_info_types::ImageGroup;
 
 use crate::image_file_info::ImageFileInfo;
 use crate::image_files::ImageFiles;
-use crate::markdown_file_info::{MarkdownFileInfo, MatchType, ReplaceableContent};
+use crate::markdown_file_info::{ImageLink, MarkdownFileInfo, MatchType, ReplaceableContent};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -39,6 +40,7 @@ pub struct ObsidianRepositoryInfo {
     pub markdown_files_to_persist: MarkdownFiles,
     pub image_files: ImageFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
+    #[allow(dead_code)]
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
@@ -80,6 +82,26 @@ impl ObsidianRepositoryInfo {
         repo_info.image_path_to_references_map = repo_info
             .markdown_files
             .get_image_info_map(config, &repository_files.image_files)?;
+
+        // Validate and partition image references
+        let image_filenames: HashSet<String> = repository_files
+            .image_files
+            .iter()
+            .filter_map(|path| path.file_name())
+            .map(|name| name.to_string_lossy().to_lowercase())
+            .collect();
+
+        // Update each markdown file's image links
+        for markdown_file in &mut repo_info.markdown_files {
+            let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
+                .image_links
+                .found
+                .drain(..)
+                .partition(|link| image_filenames.contains(&link.filename.to_lowercase()));
+
+            markdown_file.image_links.found = found;
+            markdown_file.image_links.missing = missing;
+        }
 
         // Build ImageFiles from the map data
         repo_info.image_files =

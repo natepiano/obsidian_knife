@@ -24,6 +24,7 @@ pub use utils::Timer;
 use crate::config::Config;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file_info::MarkdownFileInfo;
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
@@ -45,7 +46,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let validated_config = config.validate()?;
 
     // ANALYSIS PHASE
-    let mut obsidian_repository_info = scan::pre_scan_obsidian_repo(&validated_config)?;
+    let mut obsidian_repository_info = ObsidianRepositoryInfo::new(&validated_config)?;
     let (grouped_images, image_operations) =
         obsidian_repository_info.analyze_repository(&validated_config)?;
 

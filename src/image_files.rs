@@ -16,10 +16,11 @@ impl ImageFiles {
         self.files.push(file);
     }
 
+    #[allow(dead_code)]
     pub fn iter(&self) -> Iter<'_, ImageFileInfo> {
         self.files.iter()
     }
-
+    #[allow(dead_code)]
     pub fn iter_mut(&mut self) -> IterMut<'_, ImageFileInfo> {
         self.files.iter_mut()
     }
@@ -36,6 +37,7 @@ impl ImageFiles {
         self.files.iter().find(|f| f.path == *path)
     }
 
+    #[allow(dead_code)]
     pub fn get_mut(&mut self, path: &PathBuf) -> Option<&mut ImageFileInfo> {
         self.files.iter_mut().find(|f| f.path == *path)
     }

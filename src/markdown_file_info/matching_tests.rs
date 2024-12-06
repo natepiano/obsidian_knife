@@ -1,6 +1,6 @@
 use crate::markdown_file_info::back_populate_tests::create_test_environment;
 use crate::markdown_file_info::{is_within_wikilink, MarkdownFileInfo};
-use crate::scan::pre_scan_folders;
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::get_test_validated_config;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
@@ -239,7 +239,7 @@ fn test_scan_folders_wikilink_collection() {
     let config = get_test_validated_config(&temp_dir, None);
 
     // Scan the folders
-    let repo_info = pre_scan_folders(&config).unwrap();
+    let repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
     // Filter for .md files only and exclude "obsidian knife output" explicitly
     let wikilinks: HashSet<String> = repo_info

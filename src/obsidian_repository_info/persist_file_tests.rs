@@ -1,6 +1,5 @@
 use super::*;
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::scan::pre_scan_folders;
 use crate::test_utils::{eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -130,7 +129,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
-        let mut repo_info = pre_scan_folders(&config)?;
+        let mut repo_info = ObsidianRepositoryInfo::new(&config)?;
         let file_info = get_test_markdown_file_info(file_path);
 
         repo_info.markdown_files.push(file_info);

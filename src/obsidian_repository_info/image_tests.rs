@@ -1,7 +1,7 @@
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageOperation, MarkdownOperation,
 };
-use crate::scan::pre_scan_folders;
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::{eastern_midnight, TestFileBuilder};
 use crate::validated_config::get_test_validated_config_builder;
 use chrono::Utc;
@@ -27,7 +27,7 @@ fn test_analyze_missing_references() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test.md");
 
-    let mut repo_info = pre_scan_folders(&config).unwrap();
+    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
     if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file) {
         markdown_file.mark_image_reference_as_updated();
     }
@@ -48,7 +48,7 @@ fn test_analyze_missing_references() {
     assert_eq!(updated_content, expected_content);
 
     // Second analyze pass to verify idempotency
-    let mut repo_info = pre_scan_folders(&config).unwrap();
+    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
     let (_, image_operations) = repo_info.analyze_images().unwrap();
     repo_info.process_image_reference_updates(&image_operations);
@@ -93,7 +93,7 @@ fn test_analyze_duplicates() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "doc2.md");
 
-    let mut repo_info = pre_scan_folders(&config).unwrap();
+    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
     if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
         markdown_file.mark_image_reference_as_updated();
@@ -262,7 +262,7 @@ fn test_image_operation_generation() {
         fs::create_dir_all(config.output_folder()).unwrap();
 
         let created_paths = (test_case.setup)(&temp_dir);
-        let repo_info = pre_scan_folders(&config).unwrap();
+        let repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
         let (_, operations) = repo_info.analyze_images().unwrap();
 
@@ -407,7 +407,7 @@ fn test_image_reference_detection() {
         .create(&temp_dir, "doc2.md");
 
     // Scan the repository
-    let mut repo_info = pre_scan_folders(&config).unwrap();
+    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
     if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
         markdown_file.mark_image_reference_as_updated();
@@ -485,7 +485,7 @@ fn test_analyze_wikilink_errors() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test_file.md");
 
-    let repo_info = pre_scan_folders(&config).unwrap();
+    let repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
     let (_, operations) = repo_info.analyze_images().unwrap();

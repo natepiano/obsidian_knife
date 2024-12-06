@@ -1,5 +1,5 @@
 use crate::markdown_file_info::MarkdownFileInfo;
-use crate::scan::pre_scan_folders;
+use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config_builder;
 use chrono::{TimeZone, Utc};
@@ -76,7 +76,7 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         // Create test files
         let _ = create_test_files(&temp_dir, case.file_count);
-        let mut repo_info = pre_scan_folders(&config)?;
+        let mut repo_info = ObsidianRepositoryInfo::new(&config)?;
 
         let (_, image_operations) = repo_info.analyze_repository(&config)?;
 
