@@ -199,7 +199,7 @@ impl MarkdownFileInfo {
             .push(PersistReason::ImageReferencesModified);
     }
 
-    pub(crate) fn process_file_for_back_populate_matches(
+    pub(crate) fn process_file_for_replaceable_content(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,

@@ -91,7 +91,7 @@ impl MarkdownFiles {
                 }
             }
 
-            markdown_file_info.process_file_for_back_populate_matches(
+            markdown_file_info.process_file_for_replaceable_content(
                 &sorted_wikilinks,
                 config,
                 ac,
