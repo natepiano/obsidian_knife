@@ -66,18 +66,6 @@ impl MarkdownFileInfo {
         path: PathBuf,
         operational_timezone: &str,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let mut file_info = Self::create_basic(path, operational_timezone)?;
-
-        let image_regex = get_image_regex();
-        file_info.scan_content(&image_regex)?;
-
-        Ok(file_info)
-    }
-
-    pub fn create_basic(
-        path: PathBuf,
-        operational_timezone: &str,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let full_content = read_contents_from_file(&path)?;
 
         let yaml_result = find_yaml_section(&full_content);
@@ -123,7 +111,7 @@ impl MarkdownFileInfo {
             .as_ref()
             .and_then(|fm| fm.get_do_not_back_populate_regexes());
 
-        Ok(MarkdownFileInfo {
+        let mut file_info = MarkdownFileInfo {
             content,
             date_created_fix,
             do_not_back_populate_regexes,
@@ -137,28 +125,24 @@ impl MarkdownFileInfo {
             matches: BackPopulateMatches::default(),
             path,
             persist_reasons,
-        })
-    }
+        };
 
-    fn scan_content(
-        &mut self,
-        image_regex: &Arc<Regex>,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let aliases = self
+        let image_regex = get_image_regex();
+        let aliases = file_info
             .frontmatter
             .as_ref()
             .and_then(|fm| fm.aliases().cloned());
 
         // Process content in a single pass
         let (extracted_wikilinks, image_links) =
-            process_content(&self.content, &aliases, &self.path, image_regex)?;
+            process_content(&file_info.content, &aliases, &file_info.path, &image_regex)?;
 
         // Store results directly in self
-        self.wikilinks.invalid = extracted_wikilinks.invalid;
-        self.wikilinks.valid = extracted_wikilinks.valid;
-        self.image_links.found = image_links;
+        file_info.wikilinks.invalid = extracted_wikilinks.invalid;
+        file_info.wikilinks.valid = extracted_wikilinks.valid;
+        file_info.image_links.found = image_links;
 
-        Ok(())
+        Ok(file_info)
     }
 
     // Add a method to reconstruct the full markdown content
@@ -215,7 +199,7 @@ impl MarkdownFileInfo {
             .push(PersistReason::ImageReferencesModified);
     }
 
-    pub(crate) fn process_file(
+    pub(crate) fn process_file_for_back_populate_matches(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,
@@ -237,14 +221,20 @@ impl MarkdownFileInfo {
             }
 
             // Process the line and collect matches
-            let matches = self.process_line(line, line_idx, ac, sorted_wikilinks, config);
+            let matches = self.process_line_for_replaceable_content(
+                line,
+                line_idx,
+                ac,
+                sorted_wikilinks,
+                config,
+            );
 
             // Store matches instead of accumulating for return
             self.matches.unambiguous.extend(matches);
         }
     }
 
-    fn process_line(
+    fn process_line_for_replaceable_content(
         &self,
         line: &str,
         line_idx: usize,

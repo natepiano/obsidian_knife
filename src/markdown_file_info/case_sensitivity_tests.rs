@@ -2,7 +2,7 @@ use crate::markdown_file_info::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
 use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
-use crate::scan::scan_folders;
+use crate::scan::pre_scan_folders;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
 
@@ -112,7 +112,7 @@ fn test_case_insensitive_targets() {
         .create(&temp_dir, "test1.md");
 
     // Scan folders to populate repo_info
-    let mut repo_info = scan_folders(&config).unwrap();
+    let mut repo_info = pre_scan_folders(&config).unwrap();
 
     // Process files to find matches
     repo_info.find_all_back_populate_matches(&config);
@@ -165,7 +165,13 @@ fn test_case_sensitivity_behavior() {
         let markdown_info =
             MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
 
-        let matches = markdown_info.process_line(case.content, 0, &ac, &[&wikilink], &config);
+        let matches = markdown_info.process_line_for_replaceable_content(
+            case.content,
+            0,
+            &ac,
+            &[&wikilink],
+            &config,
+        );
 
         assert_eq!(
             matches.len(),

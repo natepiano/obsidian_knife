@@ -43,7 +43,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let validated_config = config.validate()?;
 
     // ANALYSIS PHASE
-    let mut obsidian_repository_info = scan::pre_process_obsidian_folder(&validated_config)?;
+    let mut obsidian_repository_info = scan::pre_scan_obsidian_repo(&validated_config)?;
     let (grouped_images, image_operations) =
         obsidian_repository_info.analyze_repository(&validated_config)?;
 

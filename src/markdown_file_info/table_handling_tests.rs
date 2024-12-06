@@ -144,7 +144,13 @@ fn test_process_line_table_escaping_combined() {
             .with_content(line.to_string())
             .create(&temp_dir, "test.md");
 
-        let matches = markdown_info.process_line(line, 0, &ac, &wikilink_refs, &config);
+        let matches = markdown_info.process_line_for_replaceable_content(
+            line,
+            0,
+            &ac,
+            &wikilink_refs,
+            &config,
+        );
 
         assert_eq!(
             matches.len(),

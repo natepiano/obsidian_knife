@@ -13,7 +13,7 @@ pub mod obsidian_repository_info_types;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
-use crate::markdown_file_info::{MarkdownFileInfo, MatchType, ReplaceableMatch};
+use crate::markdown_file_info::{MarkdownFileInfo, MatchType, ReplaceableContent};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -114,7 +114,7 @@ impl ObsidianRepositoryInfo {
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
 
         self.markdown_files
-            .process_files(config, sorted_wikilinks, ac);
+            .process_files_for_back_populate_matches(config, sorted_wikilinks, ac);
     }
     pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches or missing image references
@@ -144,7 +144,7 @@ impl ObsidianRepositoryInfo {
                 }
 
                 // Collect matches for the current line
-                let line_matches: Vec<&Box<dyn ReplaceableMatch>> = sorted_replaceable_matches
+                let line_matches: Vec<&Box<dyn ReplaceableContent>> = sorted_replaceable_matches
                     .iter()
                     .filter(|m| m.line_number() == current_line_num)
                     .collect();
@@ -198,7 +198,7 @@ impl ObsidianRepositoryInfo {
 
     fn collect_replaceable_matches(
         markdown_file: &MarkdownFileInfo,
-    ) -> Vec<Box<dyn ReplaceableMatch>> {
+    ) -> Vec<Box<dyn ReplaceableContent>> {
         let mut matches = Vec::new();
 
         // Add BackPopulateMatches
@@ -208,7 +208,7 @@ impl ObsidianRepositoryInfo {
                 .unambiguous
                 .iter()
                 .cloned()
-                .map(|m| Box::new(m) as Box<dyn ReplaceableMatch>),
+                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
         // Add ImageLinks.missing
@@ -218,7 +218,7 @@ impl ObsidianRepositoryInfo {
                 .missing
                 .iter()
                 .cloned()
-                .map(|m| Box::new(m) as Box<dyn ReplaceableMatch>),
+                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
         // Sort by line number and reverse position
@@ -342,6 +342,8 @@ impl ObsidianRepositoryInfo {
         Ok((grouped_images, operations))
     }
 
+    // todo - eventually we need to store these changes directly on the MarkdownFileInfo - probably
+    //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
     pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
         for op in &operations.markdown_ops {
             match op {
@@ -349,16 +351,17 @@ impl ObsidianRepositoryInfo {
                     markdown_path,
                     image_path,
                 } => {
-                    // todo - eventually we need to store these changes directly on the MarkdownFileInfo - probably
-                    //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
                     if let Some(markdown_file) =
                         self.markdown_files_to_persist.get_mut(markdown_path)
                     {
                         let regex = create_file_specific_image_regex(
                             image_path.file_name().unwrap().to_str().unwrap(),
                         );
-                        markdown_file.content =
-                            process_content(&markdown_file.content, &regex, None);
+                        markdown_file.content = process_content_for_image_reference_updates(
+                            &markdown_file.content,
+                            &regex,
+                            None,
+                        );
                         markdown_file.mark_image_reference_as_updated();
                     }
                 }
@@ -373,8 +376,11 @@ impl ObsidianRepositoryInfo {
                         let regex = create_file_specific_image_regex(
                             old_image_path.file_name().unwrap().to_str().unwrap(),
                         );
-                        markdown_file.content =
-                            process_content(&markdown_file.content, &regex, Some(new_image_path));
+                        markdown_file.content = process_content_for_image_reference_updates(
+                            &markdown_file.content,
+                            &regex,
+                            Some(new_image_path),
+                        );
                         markdown_file.mark_image_reference_as_updated();
                     }
                 }
@@ -403,7 +409,7 @@ pub fn execute_image_deletions(
 
 fn apply_line_replacements(
     line: &str,
-    line_matches: &[&Box<dyn ReplaceableMatch>],
+    line_matches: &[&Box<dyn ReplaceableContent>],
     file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();
@@ -545,17 +551,23 @@ fn create_file_specific_image_regex(filename: &str) -> Regex {
     .unwrap()
 }
 
-fn process_content(content: &str, regex: &Regex, new_path: Option<&Path>) -> String {
+fn process_content_for_image_reference_updates(
+    content: &str,
+    regex: &Regex,
+    new_path: Option<&Path>,
+) -> String {
     let mut in_frontmatter = false;
     content
         .lines()
-        .map(|line| process_line(line, regex, new_path, &mut in_frontmatter))
+        .map(|line| {
+            process_line_for_image_reference_updates(line, regex, new_path, &mut in_frontmatter)
+        })
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>()
         .join("\n")
 }
 
-fn process_line(
+fn process_line_for_image_reference_updates(
     line: &str,
     regex: &Regex,
     new_path: Option<&Path>,

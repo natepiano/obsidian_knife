@@ -97,7 +97,7 @@ pub enum MatchType {
     ImageReference,
 }
 
-pub trait ReplaceableMatch {
+pub trait ReplaceableContent {
     fn line_number(&self) -> usize;
     fn position(&self) -> usize;
     fn get_replacement(&self) -> String;
@@ -117,7 +117,7 @@ pub struct BackPopulateMatch {
     pub replacement: String,
 }
 
-impl ReplaceableMatch for BackPopulateMatch {
+impl ReplaceableContent for BackPopulateMatch {
     fn line_number(&self) -> usize {
         self.line_number
     }
@@ -225,7 +225,7 @@ pub struct ImageLink {
     pub filename: String, // Just "image.jpg"
 }
 
-impl ReplaceableMatch for ImageLink {
+impl ReplaceableContent for ImageLink {
     fn line_number(&self) -> usize {
         self.line_number
     }

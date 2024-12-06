@@ -18,17 +18,17 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-pub fn pre_process_obsidian_folder(
+pub fn pre_scan_obsidian_repo(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let _timer = Timer::new("scan_obsidian_folder");
 
-    let obsidian_repository_info = scan_folders(config)?;
+    let obsidian_repository_info = pre_scan_folders(config)?;
 
     Ok(obsidian_repository_info)
 }
 
-pub fn scan_folders(
+pub fn pre_scan_folders(
     config: &ValidatedConfig,
 ) -> Result<ObsidianRepositoryInfo, Box<dyn Error + Send + Sync>> {
     let ignore_folders = config.ignore_folders().unwrap_or(&[]);
@@ -41,7 +41,7 @@ pub fn scan_folders(
 
     // Get markdown files info and accumulate all_wikilinks from scan_markdown_files
     let (markdown_files, all_wikilinks) =
-        scan_markdown_files(&markdown_paths, config.operational_timezone())?;
+        pre_scan_markdown_files(&markdown_paths, config.operational_timezone())?;
 
     let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
     obsidian_repository_info.wikilinks_sorted = sorted;
@@ -119,7 +119,7 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
     (wikilinks, ac)
 }
 
-fn scan_markdown_files(
+fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<(MarkdownFiles, HashSet<Wikilink>), Box<dyn Error + Send + Sync>> {

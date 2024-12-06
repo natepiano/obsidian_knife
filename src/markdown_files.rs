@@ -76,7 +76,7 @@ impl MarkdownFiles {
         self.files.par_iter()
     }
 
-    pub fn process_files(
+    pub fn process_files_for_back_populate_matches(
         &mut self,
         config: &ValidatedConfig,
         sorted_wikilinks: Vec<&Wikilink>,
@@ -91,7 +91,11 @@ impl MarkdownFiles {
                 }
             }
 
-            markdown_file_info.process_file(&sorted_wikilinks, config, ac);
+            markdown_file_info.process_file_for_back_populate_matches(
+                &sorted_wikilinks,
+                config,
+                ac,
+            );
         });
     }
 
