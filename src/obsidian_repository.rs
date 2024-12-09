@@ -103,7 +103,8 @@ impl ObsidianRepository {
 
         // find the ones where the markdown file has them listed in its image_links
         // these are "found", otherwise they are "missing"
-        // missing will get handled by apply_replaceable_matches where it deletes things line by line
+        // missing will get handled by apply_replaceable_matches where it deletes missing references
+        // along with updating back populate matches
         for markdown_file in &mut repo_info.markdown_files {
             let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
                 .image_links
