@@ -55,8 +55,10 @@ we are in the middle of this large refactoring
 ### Implementation Steps
 1. **Implement Parallel Processing**
    - introduce identify_image_reference_replacements which should correctly mark image_links so that an updated apply_replaceable_matches will include them for replacement in line by line replacement
+     - notice that we're already identifying incompatible images in identify_image_reference_replacements and are collecting them in collect_replaceable_matches  so we should validate that these ones are actually getting replaced - probably with a new test
+     - if they're getting replaced we need to be able to disable MarkdownOperation and see that this still works
    - update tests to stop using MarkdownOperation and instead look at the outcome - similar to missing references tests
-   - compare that the apply_replaceable_matches has actually already done the MarkdownOperations that have been requested and if so we can remove MarkdownOperation entirely - but we have to handle tiff, zerobyte, duplicate and missing all correctly
+   - compare that the apply_replaceable_matches has actually already done the MarkdownOperations that have been requested and if so we can remove MarkdownOperation entirely
 
 2. **Testing Framework**
    - Create any additional tests
@@ -68,7 +70,7 @@ we are in the middle of this large refactoring
    - Update any dependent code to use new ImageLink states
    - Final pass of tests with only new implementation
 
-4. ** Move to using ImageFile **
+4. **continue move to using ImageFile**
    - we created ImageFile earlier in the process and in theory it should have the information necessary so we don't
    - have to use grouped images anymore - is that possible?
    - let's try to add new analysis methods using ImageFiles/ImageFile

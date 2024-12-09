@@ -379,7 +379,7 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
-        // Add ImageLinks.missing
+        // Add ImageLinks.ImageLinkState::Incompatible
         matches.extend(
             markdown_file
                 .image_links
@@ -455,6 +455,8 @@ impl ObsidianRepository {
             .image_files
             .files_in_state(|state| matches!(state, ImageFileState::Incompatible { .. }));
 
+        // match tiff/zero_byte image files to image_links that refer to them so we can mark the image_link as incompatible
+        // the image_link will then be collected as a ReplaceableContent match which happens in the next step
         for image_file in incompatible.files {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
                 for markdown_file in &mut self.markdown_files.files {
@@ -509,7 +511,7 @@ impl ObsidianRepository {
 
         let mut operations = ImageOperations::default();
 
-        // uses new ImageFiles / ImageFile approach
+        // 1. uses new ImageFiles / ImageFile approach for unreferenced images
         for unreferenced_image_file in self
             .image_files
             .files_in_state(|state| matches!(state, ImageFileState::Unreferenced))
