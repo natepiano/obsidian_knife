@@ -1,4 +1,4 @@
-use crate::image_file::ImageState;
+use crate::image_file::{ImageState, IncompatibilityReason};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
@@ -140,7 +140,9 @@ date_modified: 2024-01-01
     if let Some(zero_byte) = repository.image_files.get(&zero_byte_path) {
         assert_eq!(
             zero_byte.image_state,
-            ImageState::ZeroByte,
+            ImageState::Incompatible {
+                reason: IncompatibilityReason::ZeroByte
+            },
             "Zero-byte file should have ZeroByte state"
         );
     } else {
@@ -151,7 +153,9 @@ date_modified: 2024-01-01
     if let Some(tiff) = repository.image_files.get(&tiff_path) {
         assert_eq!(
             tiff.image_state,
-            ImageState::Tiff,
+            ImageState::Incompatible {
+                reason: IncompatibilityReason::TiffFormat
+            },
             "TIFF file should have Tiff state"
         );
     } else {

@@ -40,11 +40,18 @@ impl ImageFileType {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum ImageState {
-    Tiff,
-    ZeroByte,
+    Incompatible {
+        reason: IncompatibilityReason,
+    },
     Unreferenced,
     #[default]
     DuplicateCandidate,
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub enum IncompatibilityReason {
+    TiffFormat,
+    ZeroByte,
 }
 
 impl ImageFile {
@@ -60,9 +67,15 @@ impl ImageFile {
             .unwrap_or_else(|| ImageFileType::Other("unknown".to_string()));
 
         let initial_state = if matches!(file_type, ImageFileType::Tiff) {
-            ImageState::Tiff
+            ImageState::Incompatible {
+                reason: IncompatibilityReason::TiffFormat,
+            }
         } else if size == 0 {
-            ImageState::ZeroByte
+            ImageState::Incompatible {
+                reason: IncompatibilityReason::ZeroByte,
+            }
+        } else if image_refs.markdown_file_references.is_empty() {
+            ImageState::Unreferenced
         } else {
             ImageState::DuplicateCandidate
         };

@@ -194,6 +194,46 @@ fn test_image_operation_generation() {
             expected_ops: expect_delete_remove_reference(),
         },
         ImageTestCase {
+            name: "multiple_zero_byte_images_single_file",
+            setup: |temp_dir| {
+                let test_date = eastern_midnight(2024, 1, 15);
+                // Create multiple empty images
+                let img_path1 = TestFileBuilder::new()
+                    .with_content(vec![])
+                    .create(temp_dir, "empty1.jpg");
+                let img_path2 = TestFileBuilder::new()
+                    .with_content(vec![])
+                    .create(temp_dir, "empty2.jpg");
+
+                // Create single markdown file referencing both images
+                let md_file = TestFileBuilder::new()
+                    .with_content("# Doc\n![[empty1.jpg]]\n![[empty2.jpg]]".to_string())
+                    .with_matching_dates(test_date)
+                    .with_fs_dates(test_date, test_date)
+                    .create(temp_dir, "test.md");
+
+                vec![img_path1, img_path2, md_file]
+            },
+            expected_ops: |paths| {
+                (
+                    vec![
+                        ImageOperation::Delete(paths[0].clone()),
+                        ImageOperation::Delete(paths[1].clone()),
+                    ],
+                    vec![
+                        MarkdownOperation::RemoveReference {
+                            markdown_path: paths[2].clone(),
+                            image_path: paths[0].clone(),
+                        },
+                        MarkdownOperation::RemoveReference {
+                            markdown_path: paths[2].clone(),
+                            image_path: paths[1].clone(),
+                        },
+                    ],
+                )
+            },
+        },
+        ImageTestCase {
             name: "tiff_images",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
