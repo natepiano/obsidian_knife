@@ -48,10 +48,9 @@ pub enum ImageState {
 }
 
 impl ImageFile {
-//    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
-pub fn new(path: PathBuf, hash: String, image_refs: &ImageReferences) -> Self {
-
-    let metadata = fs::metadata(&path).expect("Failed to get metadata");
+    //    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
+    pub fn new(path: PathBuf, hash: String, image_refs: &ImageReferences) -> Self {
+        let metadata = fs::metadata(&path).expect("Failed to get metadata");
         let size = metadata.len();
 
         let file_type = path

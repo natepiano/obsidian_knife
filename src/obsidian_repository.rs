@@ -126,12 +126,7 @@ fn build_image_files_from_map(
     let mut image_files = ImageFiles::new();
 
     for (path, image_refs) in image_map {
-
-        let file_info = ImageFile::new(
-            path.clone(),
-            image_refs.hash.clone(),
-            image_refs,
-        );
+        let file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), image_refs);
 
         image_files.push(file_info);
     }

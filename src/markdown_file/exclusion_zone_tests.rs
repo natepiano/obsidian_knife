@@ -55,8 +55,7 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
         },
     ]);
 
-    let zones =
-        markdown_file.collect_exclusion_zones("[[test|one|two]] some text [[]]", &config);
+    let zones = markdown_file.collect_exclusion_zones("[[test|one|two]] some text [[]]", &config);
 
     assert_eq!(zones.len(), 2, "Should have two exclusion zones");
     assert!(

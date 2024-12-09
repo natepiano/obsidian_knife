@@ -147,7 +147,8 @@ fn test_no_self_referential_back_population() {
         "Should not find matches on page's own name"
     );
 
-    let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repository);
+    let other_file_path =
+        create_markdown_test_file(&temp_dir, "Other.md", content, &mut repository);
 
     repository.find_all_back_populate_matches(&config);
 

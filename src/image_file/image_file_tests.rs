@@ -1,7 +1,7 @@
 use super::*;
+use crate::test_utils::TestFileBuilder;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use crate::test_utils::TestFileBuilder;
 
 #[test]
 fn test_image_file_type_from_extension() {
@@ -38,11 +38,41 @@ fn test_create_image_file() {
     let temp_dir = TempDir::new().unwrap();
 
     let test_cases = vec![
-        ("image1.jpg", "hash1", vec![0xFF, 0xD8, 0xFF, 0xE0], ImageFileType::Jpeg, ImageState::DuplicateCandidate),
-        ("image2.png", "hash2", vec![0x89, 0x50, 0x4E, 0x47], ImageFileType::Png, ImageState::DuplicateCandidate),
-        ("image3.tiff", "hash3", vec![0x4D, 0x4D, 0x00, 0x2A], ImageFileType::Tiff, ImageState::Tiff),
-        ("image4.jpg", "hash4", vec![], ImageFileType::Jpeg, ImageState::ZeroByte),
-        ("image5", "hash5", vec![0x00, 0x01, 0x02, 0x03], ImageFileType::Other("unknown".to_string()), ImageState::DuplicateCandidate),
+        (
+            "image1.jpg",
+            "hash1",
+            vec![0xFF, 0xD8, 0xFF, 0xE0],
+            ImageFileType::Jpeg,
+            ImageState::DuplicateCandidate,
+        ),
+        (
+            "image2.png",
+            "hash2",
+            vec![0x89, 0x50, 0x4E, 0x47],
+            ImageFileType::Png,
+            ImageState::DuplicateCandidate,
+        ),
+        (
+            "image3.tiff",
+            "hash3",
+            vec![0x4D, 0x4D, 0x00, 0x2A],
+            ImageFileType::Tiff,
+            ImageState::Tiff,
+        ),
+        (
+            "image4.jpg",
+            "hash4",
+            vec![],
+            ImageFileType::Jpeg,
+            ImageState::ZeroByte,
+        ),
+        (
+            "image5",
+            "hash5",
+            vec![0x00, 0x01, 0x02, 0x03],
+            ImageFileType::Other("unknown".to_string()),
+            ImageState::DuplicateCandidate,
+        ),
     ];
 
     for (filename, hash, content, expected_type, expected_state) in test_cases {
@@ -132,11 +162,7 @@ fn test_image_state_transitions() {
     let tiff_path = TestFileBuilder::new()
         .with_content(vec![0x4D, 0x4D, 0x00, 0x2A])
         .create(&temp_dir, "test.tiff");
-    let tiff_image = ImageFile::new(
-        tiff_path,
-        "hash1".to_string(),
-        &ImageReferences::default(),
-    );
+    let tiff_image = ImageFile::new(tiff_path, "hash1".to_string(), &ImageReferences::default());
     assert_eq!(tiff_image.image_state, ImageState::Tiff);
 
     let zero_byte_path = TestFileBuilder::new()
@@ -160,11 +186,7 @@ fn test_image_state_transitions() {
     assert_eq!(normal_image.image_state, ImageState::DuplicateCandidate);
 
     // Test transition to Unreferenced
-    let mut info = ImageFile::new(
-        normal_path,
-        "hash".to_string(),
-        &ImageReferences::default(),
-    );
+    let mut info = ImageFile::new(normal_path, "hash".to_string(), &ImageReferences::default());
     info.mark_as_unreferenced();
     assert_eq!(info.image_state, ImageState::Unreferenced);
 }
