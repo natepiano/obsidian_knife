@@ -96,8 +96,8 @@ impl ObsidianRepository {
         let invalid_wikilinks: Vec<(PathBuf, InvalidWikilink)> = self
             .markdown_files
             .iter()
-            .flat_map(|markdown_file_info| {
-                markdown_file_info
+            .flat_map(|markdown_file| {
+                markdown_file
                     .wikilinks
                     .invalid
                     .iter()
@@ -109,7 +109,7 @@ impl ObsidianRepository {
                                 | InvalidWikilinkReason::RawHttpLink
                         )
                     })
-                    .map(move |wikilink| (markdown_file_info.path.clone(), (*wikilink).clone()))
+                    .map(move |wikilink| (markdown_file.path.clone(), (*wikilink).clone()))
             })
             .collect::<Vec<_>>()
             .into_iter()

@@ -25,14 +25,14 @@ fn test_analyze_missing_references() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test.md");
 
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
-    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file) {
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file) {
         markdown_file.mark_image_reference_as_updated();
     }
 
     // Run analyze
-    let (_, image_operations) = repo_info.analyze_repository(&config).unwrap();
-    repo_info.persist(image_operations).unwrap();
+    let (_, image_operations) = repository.analyze_repository(&config).unwrap();
+    repository.persist(image_operations).unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&md_file).unwrap();
@@ -46,11 +46,11 @@ fn test_analyze_missing_references() {
     assert_eq!(updated_content, expected_content);
 
     // Second analyze pass to verify idempotency
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    let (_, image_operations) = repo_info.analyze_images().unwrap();
-    repo_info.process_image_reference_updates(&image_operations);
-    repo_info.persist(image_operations).unwrap();
+    let (_, image_operations) = repository.analyze_images().unwrap();
+    repository.process_image_reference_updates(&image_operations);
+    repository.persist(image_operations).unwrap();
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&md_file).unwrap();
@@ -91,19 +91,19 @@ fn test_analyze_duplicates() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "doc2.md");
 
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file1) {
         markdown_file.mark_image_reference_as_updated();
     }
-    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file2) {
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file2) {
         markdown_file.mark_image_reference_as_updated();
     }
 
     // Run analyze
-    let (_, image_operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, image_operations) = repository.analyze_repository(&config).unwrap();
 
-    repo_info.persist(image_operations).unwrap();
+    repository.persist(image_operations).unwrap();
 
     // Verify one image was kept and one was deleted
     assert_ne!(
@@ -239,20 +239,20 @@ fn test_image_operation_generation() {
         fs::create_dir_all(config.output_folder()).unwrap();
 
         let created_paths = (test_case.setup)(&temp_dir);
-        let mut repo_info = ObsidianRepository::new(&config).unwrap();
+        let mut repository = ObsidianRepository::new(&config).unwrap();
 
         // Mark files for persistence
         // all markdown files need marking for persistence in this test so this is fine
         for path in &created_paths {
             if path.extension().map_or(false, |ext| ext == "md") {
-                if let Some(markdown_file) = repo_info.markdown_files.get_mut(path) {
+                if let Some(markdown_file) = repository.markdown_files.get_mut(path) {
                     markdown_file.mark_image_reference_as_updated();
                 }
             }
         }
-        repo_info.populate_files_to_persist(None);
+        repository.populate_files_to_persist(None);
 
-        let (_, operations) = repo_info.analyze_images().unwrap();
+        let (_, operations) = repository.analyze_images().unwrap();
 
         let (expected_image_ops, expected_markdown_ops) = (test_case.expected_ops)(&created_paths);
 
@@ -442,17 +442,17 @@ fn test_image_reference_detection() {
         .create(&temp_dir, "doc2.md");
 
     // Scan the repository
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file1) {
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file1) {
         markdown_file.mark_image_reference_as_updated();
     }
-    if let Some(markdown_file) = repo_info.markdown_files.get_mut(&md_file2) {
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file2) {
         markdown_file.mark_image_reference_as_updated();
     }
 
     // Run analyze to generate the image info map
-    let (_, operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, operations) = repository.analyze_repository(&config).unwrap();
 
     // Verify image reference detection
     let deletion_operations: Vec<_> = operations
@@ -478,7 +478,7 @@ fn test_image_reference_detection() {
     }
 
     // Verify the image references map
-    let image_refs = &repo_info.image_path_to_references_map;
+    let image_refs = &repository.image_path_to_references_map;
 
     // Check Image1.jpg references (root directory)
     let image1_refs = image_refs.get(&img_path1).unwrap();
@@ -520,10 +520,10 @@ fn test_analyze_wikilink_errors() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test_file.md");
 
-    let repo_info = ObsidianRepository::new(&config).unwrap();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let (_, operations) = repo_info.analyze_images().unwrap();
+    let (_, operations) = repository.analyze_images().unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(
@@ -563,13 +563,13 @@ fn test_handle_missing_references() {
         .create(&temp_dir, "test_doc.md");
 
     // Initialize the repository info
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run the analysis
-    let (_, operations) = repo_info.analyze_repository(&config).unwrap();
+    let (_, operations) = repository.analyze_repository(&config).unwrap();
 
     // Verify that the missing references are handled correctly
-    let markdown_file = &repo_info.markdown_files.get_mut(&md_file).unwrap();
+    let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
     let missing_references = &markdown_file.image_links.missing;
     assert_eq!(
         missing_references.len(),
@@ -583,7 +583,7 @@ fn test_handle_missing_references() {
         "No image operations should be created for missing references"
     );
 
-    // Verify that the markdown_file_info.content does not have the references anymore
+    // Verify that the MarkdownFile.content does not have the references anymore
     assert!(
         !&markdown_file.content.contains("![[missing_image1.jpg]]")
             && !&markdown_file.content.contains("![[missing_image2.jpg]]"),

@@ -9,20 +9,20 @@ fn test_should_create_match_in_table() {
     let (temp_dir, config, _) = create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
-    let markdown_file_info =
+    let markdown_file =
         MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();
 
     // Test simple table cell match
-    assert!(markdown_file_info.should_create_match("| Test Link | description |", 2, "Test Link",));
+    assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
 
     // Test match in table with existing wikilinks
-    assert!(markdown_file_info.should_create_match("| Test Link | [[Other]] |", 2, "Test Link",));
+    assert!(markdown_file.should_create_match("| Test Link | [[Other]] |", 2, "Test Link",));
 }
 
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, config, mut repo_info) = create_test_environment(true, None, None, None);
+    let (temp_dir, config, mut repository) = create_test_environment(true, None, None, None);
 
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
@@ -46,18 +46,18 @@ fn test_back_populate_content() {
             .create(&temp_dir, "test.md");
 
         // Clear previous markdown files and add new one
-        repo_info.markdown_files.clear();
+        repository.markdown_files.clear();
         let mut markdown_info =
             MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
         markdown_info.content = content.to_string(); // Explicitly set content
         markdown_info.matches.unambiguous = matches.clone();
-        repo_info.markdown_files.push(markdown_info);
+        repository.markdown_files.push(markdown_info);
 
         // Apply back-populate changes
-        repo_info.apply_replaceable_matches();
+        repository.apply_replaceable_matches();
 
         // Add more debug info
-        if let Some(file) = repo_info.markdown_files.iter().find(|f| f.path == file) {
+        if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
             for match_info in &matches {
                 assert!(
                     file.content.contains(&match_info.replacement),
@@ -88,15 +88,15 @@ fn test_process_line_table_escaping_combined() {
     ];
 
     // Initialize environment with custom wikilinks
-    let (temp_dir, config, repo_info) =
+    let (temp_dir, config, repository) =
         create_test_environment(false, None, Some(wikilinks.clone()), None);
 
     // Compile the wikilinks
-    let sorted_wikilinks = &repo_info.wikilinks_sorted;
+    let sorted_wikilinks = &repository.wikilinks_sorted;
 
     let ac = build_aho_corasick(sorted_wikilinks);
 
-    let markdown_info = repo_info.markdown_files.first().unwrap();
+    let markdown_info = repository.markdown_files.first().unwrap();
 
     // Define test cases with different table formats and expected replacements
     let test_cases = vec![

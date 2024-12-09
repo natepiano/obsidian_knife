@@ -46,15 +46,15 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let validated_config = config.validate()?;
 
     // ANALYSIS PHASE
-    let mut obsidian_repository_info = ObsidianRepository::new(&validated_config)?;
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
     let (grouped_images, image_operations) =
-        obsidian_repository_info.analyze_repository(&validated_config)?;
+        obsidian_repository.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
-    obsidian_repository_info.write_reports(&validated_config, &grouped_images)?;
+    obsidian_repository.write_reports(&validated_config, &grouped_images)?;
 
     if config.apply_changes == Some(true) {
-        obsidian_repository_info.persist(image_operations)?;
+        obsidian_repository.persist(image_operations)?;
         reset_apply_changes(&mut markdown_file, &mut config)?;
     }
 

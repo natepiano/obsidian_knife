@@ -55,12 +55,12 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
     let (_temp_dir, config) = setup_test_repo();
 
     // Create repository info using new method
-    let repo_info = ObsidianRepository::new(&config)?;
+    let repository = ObsidianRepository::new(&config)?;
 
     // Verify both structures contain same information
-    for (path, image_refs) in &repo_info.image_path_to_references_map {
+    for (path, image_refs) in &repository.image_path_to_references_map {
         // Find corresponding ImageFile
-        let image_file = repo_info
+        let image_file = repository
             .image_files
             .get(path)
             .expect("Image in map should exist in image_files");
@@ -88,8 +88,8 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
 
     // Verify all images are accounted for
     assert_eq!(
-        repo_info.image_path_to_references_map.len(),
-        repo_info.image_files.len(),
+        repository.image_path_to_references_map.len(),
+        repository.image_files.len(),
         "Number of images should match between old and new structures"
     );
 
@@ -102,10 +102,10 @@ fn test_new_handles_empty_repo() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let config = get_validated_config(&temp_dir);
 
-    let repo_info = ObsidianRepository::new(&config)?;
+    let repository = ObsidianRepository::new(&config)?;
 
-    assert!(repo_info.image_files.is_empty());
-    assert!(repo_info.image_path_to_references_map.is_empty());
+    assert!(repository.image_files.is_empty());
+    assert!(repository.image_path_to_references_map.is_empty());
 
     Ok(())
 }
@@ -134,10 +134,10 @@ date_modified: 2024-01-01
         .with_content(md_content.as_bytes().to_vec())
         .create(&temp_dir, "special_images.md");
 
-    let repo_info = ObsidianRepository::new(&config)?;
+    let repository = ObsidianRepository::new(&config)?;
 
     // Check zero-byte file
-    if let Some(zero_byte) = repo_info.image_files.get(&zero_byte_path) {
+    if let Some(zero_byte) = repository.image_files.get(&zero_byte_path) {
         assert_eq!(
             zero_byte.image_state,
             ImageState::ZeroByte,
@@ -148,7 +148,7 @@ date_modified: 2024-01-01
     }
 
     // Check TIFF file
-    if let Some(tiff) = repo_info.image_files.get(&tiff_path) {
+    if let Some(tiff) = repository.image_files.get(&tiff_path) {
         assert_eq!(
             tiff.image_state,
             ImageState::Tiff,

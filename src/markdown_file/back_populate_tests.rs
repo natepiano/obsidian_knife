@@ -3,7 +3,7 @@ use crate::obsidian_repository::ObsidianRepository;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
 
-use crate::test_utils::{get_test_markdown_file_info, parse_datetime, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file, parse_datetime, TestFileBuilder};
 use crate::validated_config::ValidatedConfigBuilder;
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
@@ -39,7 +39,7 @@ pub(crate) fn create_test_environment(
         .build()
         .unwrap();
 
-    let mut repo_info = ObsidianRepository::default();
+    let mut repository = ObsidianRepository::default();
 
     // Create test file using TestFileBuilder but WITHOUT frontmatter
     let file_path = TestFileBuilder::new()
@@ -52,37 +52,37 @@ pub(crate) fn create_test_environment(
         .create(&temp_dir, "test.md");
 
     let markdown_info = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
-    repo_info.markdown_files.push(markdown_info);
+    repository.markdown_files.push(markdown_info);
 
     // Set up wikilinks
     if let Some(wikilinks) = wikilinks {
-        repo_info.wikilinks_sorted = wikilinks;
+        repository.wikilinks_sorted = wikilinks;
     } else {
-        repo_info.wikilinks_sorted = vec![Wikilink {
+        repository.wikilinks_sorted = vec![Wikilink {
             display_text: "Test Link".to_string(),
             target: "Test Link".to_string(),
             is_alias: false,
         }];
     }
 
-    repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
+    repository.wikilinks_ac = Some(build_aho_corasick(&repository.wikilinks_sorted));
 
-    (temp_dir, config, repo_info)
+    (temp_dir, config, repository)
 }
 
 pub fn create_markdown_test_file(
     temp_dir: &TempDir,
     file_name: &str,
     content: &str,
-    repo_info: &mut ObsidianRepository,
+    repository: &mut ObsidianRepository,
 ) -> PathBuf {
     let file_path = temp_dir.path().join(file_name);
     let mut file = File::create(&file_path).unwrap();
     write!(file, "{}", content).unwrap();
 
-    let markdown_file_info = get_test_markdown_file_info(file_path.clone());
+    let markdown_file = get_test_markdown_file(file_path.clone());
 
-    repo_info.markdown_files.push(markdown_file_info);
+    repository.markdown_files.push(markdown_file);
 
     file_path
 }
@@ -90,18 +90,18 @@ pub fn create_markdown_test_file(
 #[test]
 fn test_apply_changes() {
     let initial_content = "This is Test Link in a sentence.";
-    let (_temp_dir, config, mut repo_info) =
+    let (_temp_dir, config, mut repository) =
         create_test_environment(true, None, None, Some(initial_content));
 
     // First find the matches
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Apply the changes
-    repo_info.apply_replaceable_matches();
+    repository.apply_replaceable_matches();
 
     // Verify changes by checking MarkdownFile content
     assert_eq!(
-        repo_info.markdown_files[0].content,
+        repository.markdown_files[0].content,
         "This is [[Test Link]] in a sentence."
     );
 }

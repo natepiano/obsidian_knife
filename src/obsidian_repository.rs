@@ -52,7 +52,7 @@ pub struct ObsidianRepository {
 
 impl ObsidianRepository {
     pub fn new(config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("obsidian_repository_info_new");
+        let _timer = Timer::new("obsidian_repository_new");
         let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
         let repository_files = collect_repository_files(config, ignore_folders)?;
@@ -72,7 +72,7 @@ impl ObsidianRepository {
         let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
 
         // Initialize instance with defaults
-        let mut repo_info = Self {
+        let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::new(),
             markdown_files_to_persist: MarkdownFiles::default(),
@@ -83,14 +83,14 @@ impl ObsidianRepository {
         };
 
         // Get image map using existing functionality
-        repo_info.image_path_to_references_map = repo_info
+        repository.image_path_to_references_map = repository
             .markdown_files
             .get_image_info_map(config, &repository_files.image_files)?;
 
         // Build the new ImageFiles struct from the map data
         // this is new but things may change as we go continue with the refactoring to use image_files
-        repo_info.image_files =
-            build_image_files_from_map(&repo_info.image_path_to_references_map)?;
+        repository.image_files =
+            build_image_files_from_map(&repository.image_path_to_references_map)?;
 
         // Validate and partition image references into found and missing
         // first get the distinct, lowercase list for comparison
@@ -105,7 +105,7 @@ impl ObsidianRepository {
         // these are "found", otherwise they are "missing"
         // missing will get handled by apply_replaceable_matches where it deletes missing references
         // along with updating back populate matches
-        for markdown_file in &mut repo_info.markdown_files {
+        for markdown_file in &mut repository.markdown_files {
             let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
                 .image_links
                 .found
@@ -116,7 +116,7 @@ impl ObsidianRepository {
             markdown_file.image_links.missing = missing;
         }
 
-        Ok(repo_info)
+        Ok(repository)
     }
 }
 
@@ -126,12 +126,10 @@ fn build_image_files_from_map(
     let mut image_files = ImageFiles::new();
 
     for (path, image_refs) in image_map {
-        let metadata = fs::metadata(path)?;
 
         let file_info = ImageFile::new(
             path.clone(),
             image_refs.hash.clone(),
-            metadata.len(),
             image_refs,
         );
 

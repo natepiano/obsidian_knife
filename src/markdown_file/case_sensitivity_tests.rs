@@ -111,14 +111,14 @@ fn test_case_insensitive_targets() {
         .with_content("# Sample Document\nAmazon is huge\namazon is also huge") // Changed from "Test Document"
         .create(&temp_dir, "test1.md");
 
-    // Scan folders to populate repo_info
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
+    // Scan folders to populate repository
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Process files to find matches
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Find our test file
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -132,10 +132,10 @@ fn test_case_insensitive_targets() {
     );
 
     // Get ambiguous matches
-    repo_info.identify_ambiguous_matches();
+    repository.identify_ambiguous_matches();
 
     // Find our test file again after ambiguous matching
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -152,11 +152,11 @@ fn test_case_insensitive_targets() {
 #[test]
 fn test_case_sensitivity_behavior() {
     // Initialize test environment without specific wikilinks
-    let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
+    let (temp_dir, config, mut repository) = create_test_environment(false, None, None, None);
 
     for case in get_case_sensitivity_test_cases() {
         let file_path =
-            create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repo_info);
+            create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repository);
 
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;

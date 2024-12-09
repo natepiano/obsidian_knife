@@ -2,7 +2,7 @@ use super::*;
 use crate::frontmatter::FrontMatter;
 
 use crate::test_utils::{
-    assert_test_case, eastern_midnight, get_test_markdown_file_info, TestFileBuilder,
+    assert_test_case, eastern_midnight, get_test_markdown_file, TestFileBuilder,
 };
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::DEFAULT_TIMEZONE;
@@ -306,7 +306,7 @@ fn test_date_created_fix_integration() {
             .create(&temp_dir, "test1.md");
 
         // Create MarkdownFile from the test file
-        let markdown_info = get_test_markdown_file_info(file_path);
+        let markdown_info = get_test_markdown_file(file_path);
 
         // Verify the DateCreatedFixValidation state
         assert_test_case(

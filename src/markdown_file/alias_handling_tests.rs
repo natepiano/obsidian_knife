@@ -2,7 +2,7 @@ use crate::markdown_file::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
 use crate::markdown_file::{format_relative_path, MarkdownFile};
-use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
 use crate::wikilink::Wikilink;
 use crate::DEFAULT_TIMEZONE;
 use tempfile::TempDir;
@@ -58,7 +58,7 @@ fn test_alias_priority() {
 
 #[test]
 fn test_no_matches_for_frontmatter_aliases() {
-    let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
+    let (temp_dir, config, mut repository) = create_test_environment(false, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
@@ -66,9 +66,9 @@ fn test_no_matches_for_frontmatter_aliases() {
         is_alias: true,
     };
 
-    repo_info.wikilinks_sorted.clear();
-    repo_info.wikilinks_sorted.push(wikilink);
-    repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
+    repository.wikilinks_sorted.clear();
+    repository.wikilinks_sorted.push(wikilink);
+    repository.wikilinks_ac = Some(build_aho_corasick(&repository.wikilinks_sorted));
 
     let content = "Will is mentioned here but should not be replaced";
     let file_path = TestFileBuilder::new()
@@ -76,14 +76,14 @@ fn test_no_matches_for_frontmatter_aliases() {
         .with_content(content.to_string())
         .create(&temp_dir, "Will.md");
 
-    repo_info
+    repository
         .markdown_files
-        .push(get_test_markdown_file_info(file_path));
+        .push(get_test_markdown_file(file_path));
 
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Get total matches
-    let total_matches: usize = repo_info
+    let total_matches: usize = repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -100,14 +100,14 @@ fn test_no_matches_for_frontmatter_aliases() {
         .with_content(content.to_string())
         .create(&temp_dir, "Other.md");
 
-    repo_info
+    repository
         .markdown_files
-        .push(get_test_markdown_file_info(other_file_path));
+        .push(get_test_markdown_file(other_file_path));
 
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Get total matches after adding other file
-    let total_matches: usize = repo_info
+    let total_matches: usize = repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -118,7 +118,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
 #[test]
 fn test_no_self_referential_back_population() {
-    let (temp_dir, config, mut repo_info) = create_test_environment(false, None, None, None);
+    let (temp_dir, config, mut repository) = create_test_environment(false, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
@@ -126,17 +126,17 @@ fn test_no_self_referential_back_population() {
         is_alias: true,
     };
 
-    repo_info.wikilinks_sorted.clear();
-    repo_info.wikilinks_sorted.push(wikilink);
-    repo_info.wikilinks_ac = Some(build_aho_corasick(&repo_info.wikilinks_sorted));
+    repository.wikilinks_sorted.clear();
+    repository.wikilinks_sorted.push(wikilink);
+    repository.wikilinks_ac = Some(build_aho_corasick(&repository.wikilinks_sorted));
 
     let content = "Will is mentioned here but should not be replaced";
-    create_markdown_test_file(&temp_dir, "Will.md", content, &mut repo_info);
+    create_markdown_test_file(&temp_dir, "Will.md", content, &mut repository);
 
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Get total matches
-    let total_matches: usize = repo_info
+    let total_matches: usize = repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -147,12 +147,12 @@ fn test_no_self_referential_back_population() {
         "Should not find matches on page's own name"
     );
 
-    let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repo_info);
+    let other_file_path = create_markdown_test_file(&temp_dir, "Other.md", content, &mut repository);
 
-    repo_info.find_all_back_populate_matches(&config);
+    repository.find_all_back_populate_matches(&config);
 
     // Get total matches after adding other file
-    let total_matches: usize = repo_info
+    let total_matches: usize = repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -161,7 +161,7 @@ fn test_no_self_referential_back_population() {
     assert_eq!(total_matches, 1, "Should find match on other pages");
 
     // Find the file with matches and check its path
-    let file_with_matches = repo_info
+    let file_with_matches = repository
         .markdown_files
         .iter()
         .find(|file| !file.matches.unambiguous.is_empty())

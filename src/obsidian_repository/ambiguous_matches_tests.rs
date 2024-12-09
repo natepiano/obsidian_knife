@@ -6,11 +6,11 @@ use crate::wikilink::Wikilink;
 
 #[test]
 fn test_identify_ambiguous_matches() {
-    let (temp_dir, config, mut repo_info) =
+    let (temp_dir, config, mut repository) =
         create_test_environment(false, None, Some(vec![]), None);
 
     // Set up aliases that make "Ed" ambiguous
-    repo_info.wikilinks_sorted = vec![
+    repository.wikilinks_sorted = vec![
         Wikilink {
             display_text: "Ed".to_string(),
             target: "Ed Barnes".to_string(),
@@ -69,13 +69,13 @@ fn test_identify_ambiguous_matches() {
         in_markdown_table: false,
     }];
 
-    repo_info.markdown_files.push(test_file2);
-    repo_info.markdown_files.push(test_file);
+    repository.markdown_files.push(test_file2);
+    repository.markdown_files.push(test_file);
 
-    repo_info.identify_ambiguous_matches();
+    repository.identify_ambiguous_matches();
 
     // Find test1.md to check its matches
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -96,7 +96,7 @@ fn test_identify_ambiguous_matches() {
     assert_eq!(ambiguous_match.line_text, "Ed wrote this");
 
     // Verify unambiguous match for "Unique" remains unchanged
-    let test_file2 = repo_info
+    let test_file2 = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test2.md"))
@@ -135,11 +135,11 @@ fn test_truly_ambiguous_targets() {
         .create(&temp_dir, "Amazon (river).md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config);
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+    repository.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -157,10 +157,10 @@ fn test_truly_ambiguous_targets() {
     );
 
     // Process ambiguous matches
-    repo_info.identify_ambiguous_matches();
+    repository.identify_ambiguous_matches();
 
     // Find test1.md again and verify final state
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -219,11 +219,11 @@ Amazon is ambiguous"#,
         .create(&temp_dir, "test1.md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config);
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+    repository.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -254,10 +254,10 @@ Amazon is ambiguous"#,
     assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
 
     // Process ambiguous matches
-    repo_info.identify_ambiguous_matches();
+    repository.identify_ambiguous_matches();
 
     // Find test1.md again and verify final state
-    let test_file = repo_info
+    let test_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -339,11 +339,11 @@ Nate was here and so was Nate"#
         .create(&temp_dir, "Nathan Dye.md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepository::new(&config).unwrap();
-    repo_info.find_all_back_populate_matches(&config);
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+    repository.find_all_back_populate_matches(&config);
 
     // Find other.md and verify initial state
-    let other_file = repo_info
+    let other_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("other.md"))
@@ -378,10 +378,10 @@ Nate was here and so was Nate"#
     assert_eq!(nate_matches.len(), 2, "Should have two Nate matches");
 
     // Process ambiguous matches
-    repo_info.identify_ambiguous_matches();
+    repository.identify_ambiguous_matches();
 
     // Find other.md again and verify final state
-    let other_file = repo_info
+    let other_file = repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("other.md"))

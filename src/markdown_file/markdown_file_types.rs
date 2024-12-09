@@ -52,7 +52,7 @@ pub struct DateValidation {
     pub issue: Option<DateValidationIssue>,
     pub operational_timezone: String,
 }
-// In markdown_file_info.rs
+// In markdown_file.rs
 #[derive(Debug, Clone)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,

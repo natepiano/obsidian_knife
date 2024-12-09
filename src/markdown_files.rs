@@ -98,16 +98,16 @@ impl MarkdownFiles {
         sorted_wikilinks: Vec<&Wikilink>,
         ac: &AhoCorasick,
     ) {
-        self.par_iter_mut().for_each(|markdown_file_info| {
+        self.par_iter_mut().for_each(|markdown_file| {
             if !cfg!(test) {
                 if let Some(filter) = config.back_populate_file_filter() {
-                    if !markdown_file_info.path.ends_with(filter) {
+                    if !markdown_file.path.ends_with(filter) {
                         return;
                     }
                 }
             }
 
-            markdown_file_info.process_file_for_back_populate_replacements(
+            markdown_file.process_file_for_back_populate_replacements(
                 &sorted_wikilinks,
                 config,
                 ac,
@@ -150,14 +150,14 @@ impl MarkdownFiles {
             cache_instance
         }));
 
-        // map of markdown_file_info paths to list of image link file names on that markdown file
+        // map of markdown_file paths to list of image link file names on that markdown file
         // to_lowercase() for comparisons
         let markdown_refs: HashMap<String, HashSet<String>> = self
             .par_iter()
             .filter(|file_info| !file_info.image_links.found.is_empty())
-            .map(|markdown_file_info| {
-                let path = markdown_file_info.path.to_string_lossy().to_string();
-                let images: HashSet<_> = markdown_file_info
+            .map(|markdown_file| {
+                let path = markdown_file.path.to_string_lossy().to_string();
+                let images: HashSet<_> = markdown_file
                     .image_links
                     .found
                     .iter()
@@ -167,7 +167,7 @@ impl MarkdownFiles {
             })
             .collect();
 
-        // Process each image file - for each, find all the markdown_file_info's that have
+        // Process each image file - for each, find all the markdown_file's that have
         // image links that reference that image - using to_lowercase() for comparisons
         let image_info_map: HashMap<_, _> = image_files
             .par_iter()

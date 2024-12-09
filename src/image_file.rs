@@ -2,6 +2,7 @@
 mod image_file_tests;
 
 use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
+use std::fs;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -47,7 +48,12 @@ pub enum ImageState {
 }
 
 impl ImageFile {
-    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
+//    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
+pub fn new(path: PathBuf, hash: String, image_refs: &ImageReferences) -> Self {
+
+    let metadata = fs::metadata(&path).expect("Failed to get metadata");
+        let size = metadata.len();
+
         let file_type = path
             .extension()
             .and_then(|ext| ext.to_str())

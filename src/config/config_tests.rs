@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
-use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{DEFAULT_TIMEZONE, ERROR_NOT_FOUND};
 use std::fs;
@@ -59,7 +59,7 @@ output_folder: output"#;
         .with_custom_frontmatter(yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let mut markdown_file = get_test_markdown_file_info(config_path.clone());
+    let mut markdown_file = get_test_markdown_file(config_path.clone());
     let mut config = Config::from_frontmatter(markdown_file.frontmatter.clone().unwrap()).unwrap();
 
     // Validate initial values
@@ -85,7 +85,7 @@ output_folder: output"#;
     markdown_file.persist().unwrap();
 
     // Verify all fields after update
-    let new_markdown_file = get_test_markdown_file_info(config_path.clone());
+    let new_markdown_file = get_test_markdown_file(config_path.clone());
     let new_config = Config::from_frontmatter(new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.apply_changes, Some(false));
@@ -116,7 +116,7 @@ cleanup_image_files: true"#;
         .with_custom_frontmatter(yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let markdown_file = get_test_markdown_file_info(config_path);
+    let markdown_file = get_test_markdown_file(config_path);
     let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(config.obsidian_path, "~/Documents/brain");
@@ -148,7 +148,7 @@ invalid: yaml: content:
         .with_content(invalid_yaml.to_string())
         .create(&temp_dir, "config.md");
 
-    let markdown_file = get_test_markdown_file_info(config_path);
+    let markdown_file = get_test_markdown_file(config_path);
     let result = Config::from_frontmatter(markdown_file.frontmatter.unwrap_or_default());
 
     assert!(result.is_err());
@@ -179,7 +179,7 @@ apply_changes: false"#;
 fn test_process_config_with_valid_setup() {
     let (_temp_dir, config_path) = create_test_environment();
 
-    let markdown_file = get_test_markdown_file_info(config_path);
+    let markdown_file = get_test_markdown_file(config_path);
     let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
 
     let validated_config = config.validate().unwrap();

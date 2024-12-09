@@ -1,6 +1,6 @@
 use super::*;
 use crate::markdown_file::MarkdownFile;
-use crate::test_utils::{eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{eastern_midnight, get_test_markdown_file, TestFileBuilder};
 use crate::validated_config::get_test_validated_config;
 use chrono::{DateTime, NaiveDate, Utc};
 use filetime::FileTime;
@@ -129,16 +129,16 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
-        let mut repo_info = ObsidianRepository::new(&config)?;
-        let file_info = get_test_markdown_file_info(file_path);
+        let mut repository = ObsidianRepository::new(&config)?;
+        let file_info = get_test_markdown_file(file_path);
 
-        repo_info.markdown_files.push(file_info);
+        repository.markdown_files.push(file_info);
 
         // Run persistence
-        repo_info.persist(ImageOperations::default())?;
+        repository.persist(ImageOperations::default())?;
 
         // Verify results
-        verify_dates(&repo_info.markdown_files[0], &case)?;
+        verify_dates(&repository.markdown_files[0], &case)?;
     }
 
     Ok(())

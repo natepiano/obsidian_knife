@@ -29,6 +29,6 @@ pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, 5, 0, 0).unwrap()
 }
 
-pub fn get_test_markdown_file_info(path: PathBuf) -> MarkdownFile {
+pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile {
     MarkdownFile::new(path, DEFAULT_TIMEZONE).unwrap()
 }

@@ -1,6 +1,6 @@
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
 use crate::validated_config::get_test_validated_config_builder;
 use chrono::{TimeZone, Utc};
 use std::error::Error;
@@ -30,7 +30,7 @@ fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFile> {
                 .with_fs_dates(created, modified)
                 .create(temp_dir, &format!("test_{}.md", i));
 
-            get_test_markdown_file_info(file)
+            get_test_markdown_file(file)
         })
         .collect();
 
@@ -76,15 +76,15 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         // Create test files
         let _ = create_test_files(&temp_dir, case.file_count);
-        let mut repo_info = ObsidianRepository::new(&config)?;
+        let mut repository = ObsidianRepository::new(&config)?;
 
-        let (_, image_operations) = repo_info.analyze_repository(&config)?;
+        let (_, image_operations) = repository.analyze_repository(&config)?;
 
         // Run persistence
-        repo_info.persist(image_operations)?;
+        repository.persist(image_operations)?;
 
         // Verify files were actually processed by checking their content
-        let processed_count = repo_info
+        let processed_count = repository
             .markdown_files_to_persist
             .iter()
             .take(case.expected_processed)

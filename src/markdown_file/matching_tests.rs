@@ -16,14 +16,14 @@ fn test_find_matches_with_existing_wikilinks() {
            This don't match either\n\
            But this Test Link should match";
 
-    let (_temp_dir, config, mut repo_info) =
+    let (_temp_dir, config, mut repository) =
         create_test_environment(false, None, None, Some(content));
 
-    // Find matches - this now stores them in repo_info.markdown_files
-    repo_info.find_all_back_populate_matches(&config);
+    // Find matches - this now stores them in repository.markdown_files
+    repository.find_all_back_populate_matches(&config);
 
     // Get all matches from the first (and only) file
-    let matches = &repo_info.markdown_files[0].matches;
+    let matches = &repository.markdown_files[0].matches;
 
     // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
     assert_eq!(
@@ -57,14 +57,14 @@ fn test_overlapping_wikilink_matches() {
         },
     ];
 
-    let (_temp_dir, config, mut repo_info) =
+    let (_temp_dir, config, mut repository) =
         create_test_environment(false, None, Some(wikilinks), Some(content));
 
-    // Find matches - this now stores them in repo_info.markdown_files
-    repo_info.find_all_back_populate_matches(&config);
+    // Find matches - this now stores them in repository.markdown_files
+    repository.find_all_back_populate_matches(&config);
 
     // Get matches from the first (and only) file
-    let matches = &repo_info.markdown_files[0].matches;
+    let matches = &repository.markdown_files[0].matches;
 
     assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
     assert_eq!(
@@ -239,10 +239,10 @@ fn test_scan_folders_wikilink_collection() {
     let config = get_test_validated_config(&temp_dir, None);
 
     // Scan the folders
-    let repo_info = ObsidianRepository::new(&config).unwrap();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Filter for .md files only and exclude "obsidian knife output" explicitly
-    let wikilinks: HashSet<String> = repo_info
+    let wikilinks: HashSet<String> = repository
         .markdown_files
         .iter()
         .filter(|file_info| file_info.path.extension().and_then(|ext| ext.to_str()) == Some("md"))

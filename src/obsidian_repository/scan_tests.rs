@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
+use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
 use crate::utils::CachedImageInfo;
 use crate::validated_config::get_test_validated_config;
 
@@ -22,7 +22,7 @@ fn test_parallel_image_reference_collection() {
         let file_path = TestFileBuilder::new()
             .with_content(content.clone())
             .create(&temp_dir, &filename);
-        let mut info = get_test_markdown_file_info(file_path.clone());
+        let mut info = get_test_markdown_file(file_path.clone());
 
         info.image_links.found = content
             .split('\n')
@@ -99,10 +99,10 @@ fn test_wikilink_sorting_with_aliases() {
     let config = get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
-    let repo_info = ObsidianRepository::new(&config).unwrap();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find the wikilinks for "tomatoes" in the sorted list
-    let tomatoes_wikilinks: Vec<_> = repo_info
+    let tomatoes_wikilinks: Vec<_> = repository
         .wikilinks_sorted
         .iter()
         .filter(|w| w.display_text.eq_ignore_ascii_case("tomatoes"))
@@ -122,7 +122,7 @@ fn test_wikilink_sorting_with_aliases() {
     );
 
     // Add test for total ordering property
-    let sorted = repo_info.wikilinks_sorted;
+    let sorted = repository.wikilinks_sorted;
     for i in 1..sorted.len() {
         let comparison = sorted[i - 1]
             .display_text
