@@ -87,6 +87,11 @@ impl ObsidianRepository {
             .markdown_files
             .get_image_info_map(config, &repository_files.image_files)?;
 
+        // Build the new ImageFiles struct from the map data
+        // this is new but things may change as we go continue with the refactoring to use image_files
+        repo_info.image_files =
+            build_image_files_from_map(&repo_info.image_path_to_references_map)?;
+
         // Validate and partition image references into found and missing
         // first get the distinct, lowercase list for comparison
         let image_filenames: HashSet<String> = repository_files
@@ -110,10 +115,6 @@ impl ObsidianRepository {
             markdown_file.image_links.missing = missing;
         }
 
-        // Build ImageFiles from the map data
-        repo_info.image_files =
-            build_image_files_from_map(&repo_info.image_path_to_references_map)?;
-
         Ok(repo_info)
     }
 }
@@ -126,14 +127,12 @@ fn build_image_files_from_map(
     for (path, image_refs) in image_map {
         let metadata = fs::metadata(path)?;
 
-        let mut file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), metadata.len());
-
-        // Copy references from the image_refs
-        file_info.references = image_refs
-            .markdown_file_references
-            .iter()
-            .map(|s| PathBuf::from(s))
-            .collect();
+        let file_info = ImageFile::new(
+            path.clone(),
+            image_refs.hash.clone(),
+            metadata.len(),
+            image_refs,
+        );
 
         image_files.push(file_info);
     }

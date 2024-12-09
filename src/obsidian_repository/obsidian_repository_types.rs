@@ -34,7 +34,7 @@ pub enum ImageGroupType {
     DuplicateGroup(String), // String is the hash value
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ImageReferences {
     pub hash: String,
     pub markdown_file_references: Vec<String>,

@@ -4,14 +4,13 @@ current files needed (to start)
 - image_file
 - image_files
 
-
 # Obsidian Knife Image Management Refactoring Plan
 
 ## Goals
 1. Eliminate duplicate image processing logic
 2. Move image processing upstream to be part of line-by-line parsing and updating
    - specifically we want to get away from using MarkdownOperation and removing/replacing image references based on a whole page match
-   - but rather replace them similar to how we replace missing image links where we have the position and line information
+   - and instead we wish to process them line by line, similar to how we replace missing image links where we have the position and line information
    - the intent is to move things upstream
 3. Create cleaner, more maintainable image management system
 4. Improve performance by reducing redundant operations

@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod image_file_tests;
 
+use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -46,7 +47,7 @@ pub enum ImageState {
 }
 
 impl ImageFile {
-    pub fn new(path: PathBuf, hash: String, size: u64) -> Self {
+    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
         let file_type = path
             .extension()
             .and_then(|ext| ext.to_str())
@@ -61,10 +62,17 @@ impl ImageFile {
             ImageState::DuplicateCandidate
         };
 
+        // Copy references from the image_refs
+        let references = image_refs
+            .markdown_file_references
+            .iter()
+            .map(|s| PathBuf::from(s))
+            .collect();
+
         ImageFile {
             path,
             hash,
-            references: Vec::new(),
+            references,
             size,
             file_type,
             image_state: initial_state,

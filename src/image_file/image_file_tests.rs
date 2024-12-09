@@ -73,7 +73,12 @@ fn test_create_image_file_info() {
 
     for (filename, hash, size, expected_type, expected_state) in test_cases {
         let path = PathBuf::from(filename);
-        let info = ImageFile::new(path.clone(), hash.to_string(), size);
+        let info = ImageFile::new(
+            path.clone(),
+            hash.to_string(),
+            size,
+            &ImageReferences::default(),
+        );
 
         assert_eq!(info.path, path);
         assert_eq!(info.hash, hash);
@@ -86,7 +91,12 @@ fn test_create_image_file_info() {
 
 #[test]
 fn test_equality_and_cloning() {
-    let original = ImageFile::new(PathBuf::from("test.jpg"), "testhash".to_string(), 100);
+    let original = ImageFile::new(
+        PathBuf::from("test.jpg"),
+        "testhash".to_string(),
+        100,
+        &ImageReferences::default(),
+    );
 
     let cloned = original.clone();
     assert_eq!(original, cloned, "Cloned ImageFile should equal original");
@@ -96,6 +106,7 @@ fn test_equality_and_cloning() {
         PathBuf::from("different.jpg"),
         "differenthash".to_string(),
         200,
+        &ImageReferences::default(),
     );
     assert_ne!(
         original, different,
@@ -105,7 +116,12 @@ fn test_equality_and_cloning() {
 
 #[test]
 fn test_image_file_info_debug() {
-    let info = ImageFile::new(PathBuf::from("test.jpg"), "testhash".to_string(), 100);
+    let info = ImageFile::new(
+        PathBuf::from("test.jpg"),
+        "testhash".to_string(),
+        100,
+        &ImageReferences::default(),
+    );
 
     let debug_str = format!("{:?}", info);
     assert!(
@@ -125,17 +141,37 @@ fn test_image_file_info_debug() {
 #[test]
 fn test_image_state_transitions() {
     // Test initial states
-    let tiff_image = ImageFile::new(PathBuf::from("test.tiff"), "hash1".to_string(), 100);
+    let tiff_image = ImageFile::new(
+        PathBuf::from("test.tiff"),
+        "hash1".to_string(),
+        100,
+        &ImageReferences::default(),
+    );
     assert_eq!(tiff_image.image_state, ImageState::Tiff);
 
-    let zero_byte_image = ImageFile::new(PathBuf::from("test.jpg"), "hash2".to_string(), 0);
+    let zero_byte_image = ImageFile::new(
+        PathBuf::from("test.jpg"),
+        "hash2".to_string(),
+        0,
+        &ImageReferences::default(),
+    );
     assert_eq!(zero_byte_image.image_state, ImageState::ZeroByte);
 
-    let normal_image = ImageFile::new(PathBuf::from("test.png"), "hash3".to_string(), 100);
+    let normal_image = ImageFile::new(
+        PathBuf::from("test.png"),
+        "hash3".to_string(),
+        100,
+        &ImageReferences::default(),
+    );
     assert_eq!(normal_image.image_state, ImageState::DuplicateCandidate);
 
     // Test transition to Unreferenced
-    let mut info = ImageFile::new(PathBuf::from("test.png"), "hash".to_string(), 100);
+    let mut info = ImageFile::new(
+        PathBuf::from("test.png"),
+        "hash".to_string(),
+        100,
+        &ImageReferences::default(),
+    );
     info.mark_as_unreferenced();
     assert_eq!(info.image_state, ImageState::Unreferenced);
 }
