@@ -154,12 +154,12 @@ impl MarkdownFiles {
         // to_lowercase() for comparisons
         let markdown_refs: HashMap<String, HashSet<String>> = self
             .par_iter()
-            .filter(|file_info| !file_info.image_links.found.is_empty())
+            .filter(|file_info| !file_info.image_links.links.is_empty())
             .map(|markdown_file| {
                 let path = markdown_file.path.to_string_lossy().to_string();
                 let images: HashSet<_> = markdown_file
                     .image_links
-                    .found
+                    .links
                     .iter()
                     .map(|link| link.filename.to_lowercase())
                     .collect();

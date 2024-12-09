@@ -135,7 +135,7 @@ impl MarkdownFile {
         // Store results directly in self
         file_info.wikilinks.invalid = extracted_wikilinks.invalid;
         file_info.wikilinks.valid = extracted_wikilinks.valid;
-        file_info.image_links.found = image_links;
+        file_info.image_links.links = image_links;
 
         Ok(file_info)
     }

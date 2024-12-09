@@ -101,11 +101,13 @@ impl ObsidianRepository {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Collect missing references data in the format the report expects
-        let missing_refs: Vec<(PathBuf, String, usize)> = self // Changed to include line number
+        let missing_refs: Vec<(PathBuf, String, usize)> = self
             .markdown_files_to_persist
             .iter()
             .flat_map(|file| {
-                file.image_links.missing.iter().map(|missing| {
+                // Collect missing links into a local variable
+                let missing_links: Vec<_> = file.image_links.missing().links;
+                missing_links.into_iter().map(move |missing| {
                     (
                         file.path.clone(),
                         missing.filename.clone(),

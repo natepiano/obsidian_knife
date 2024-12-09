@@ -611,7 +611,7 @@ fn test_handle_missing_references() {
 
     // Verify that the missing references are handled correctly
     let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
-    let missing_references = &markdown_file.image_links.missing;
+    let missing_references = &markdown_file.image_links.missing();
     assert_eq!(
         missing_references.len(),
         2,

@@ -5,6 +5,7 @@ use crate::obsidian_repository::extract_relative_path;
 use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
+use std::ops::Deref;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -214,12 +215,67 @@ pub struct Wikilinks {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ImageLinks {
-    pub found: Vec<ImageLink>,   // All valid image links
-    pub missing: Vec<ImageLink>, // References to non-existent images
+    pub links: Vec<ImageLink>,
+
 }
 
-#[derive(Debug, Clone, PartialEq)]
+impl ImageLinks {
+    pub fn iter(&self) -> impl Iterator<Item = &ImageLink> {
+        self.links.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ImageLink> {
+        self.links.iter_mut()
+    }
+}
+
+impl Deref for ImageLinks {
+    type Target = Vec<ImageLink>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.links
+    }
+}
+
+impl<'a> IntoIterator for &'a ImageLinks {
+    type Item = &'a ImageLink;
+    type IntoIter = std::slice::Iter<'a, ImageLink>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.links.iter()
+    }
+}
+
+impl<'a> IntoIterator for &'a mut ImageLinks {
+    type Item = &'a mut ImageLink;
+    type IntoIter = std::slice::IterMut<'a, ImageLink>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.links.iter_mut()
+    }
+}
+
+impl FromIterator<ImageLink> for ImageLinks {
+    fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
+        ImageLinks {
+            links: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl ImageLinks {
+    pub fn missing(&self) -> ImageLinks {
+        self.links
+            .iter()
+            .filter(|image_link| image_link.state == ImageLinkState::Missing)
+            .cloned()
+            .collect()
+    }
+}
+
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum ImageLinkState {
+    #[default]
     Found,   // Image exists and is valid
     Missing, // Image doesn't exist
     Duplicate {
@@ -385,7 +441,7 @@ impl ImageLink {
             relative_path,
             alt_text,
             size_parameter,
-            state: ImageLinkState::Found,
+            state: ImageLinkState::default(),
             image_link_type,
         }
     }
