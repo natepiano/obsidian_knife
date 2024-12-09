@@ -573,7 +573,11 @@ fn test_handle_missing_references() {
     // Verify that the missing references are handled correctly
     let markdown_file = &repo_info.markdown_files.get_mut(&md_file).unwrap();
     let missing_references = &markdown_file.image_links.missing;
-    assert_eq!(missing_references.len(), 2, "Expected two missing image references");
+    assert_eq!(
+        missing_references.len(),
+        2,
+        "Expected two missing image references"
+    );
 
     // Verify that no image operations were created for the missing references
     assert!(
@@ -583,7 +587,8 @@ fn test_handle_missing_references() {
 
     // Verify that the markdown_file_info.content does not have the references anymore
     assert!(
-        !&markdown_file.content.contains("![[missing_image1.jpg]]") && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
+        !&markdown_file.content.contains("![[missing_image1.jpg]]")
+            && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
         "MarkdownFileInfo content should not contain missing references"
     );
 

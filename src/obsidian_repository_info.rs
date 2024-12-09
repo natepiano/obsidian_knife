@@ -18,7 +18,7 @@ mod scan_tests;
 pub use obsidian_repository_info_types::GroupedImages;
 pub use obsidian_repository_info_types::ImageGroup;
 
-use crate::image_file_info::ImageFileInfo;
+use crate::image_file::ImageFile;
 use crate::image_files::ImageFiles;
 use crate::markdown_file_info::{ImageLink, MarkdownFileInfo, MatchType, ReplaceableContent};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
@@ -126,8 +126,7 @@ fn build_image_files_from_map(
     for (path, image_refs) in image_map {
         let metadata = fs::metadata(path)?;
 
-        let mut file_info =
-            ImageFileInfo::new(path.clone(), image_refs.hash.clone(), metadata.len());
+        let mut file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), metadata.len());
 
         // Copy references from the image_refs
         file_info.references = image_refs
@@ -398,8 +397,9 @@ impl ObsidianRepositoryInfo {
         self.identify_ambiguous_matches();
         self.apply_replaceable_matches();
 
-        // we have to read all markdown_files to find anything that has changed
-        // at this point we can populate the files_to_persist (in case there is a limit)
+        // after checking for all backpopulate matches and references to nonexistent files
+        // and then applying replacement matches,
+        // mark either all files - or the file_process_limit count files - as to be persisted
         self.populate_files_to_persist(validated_config.file_process_limit());
 
         // after populating files to persist, we can use this dataset to determine whether

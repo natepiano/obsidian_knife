@@ -37,12 +37,12 @@ current files needed (to start)
 ## Remaining Steps
 
 ### Phase 3: Core Logic Migration
-1. Enhance ImageFileInfo - ✓
+1. Enhance ImageFileInfo
    - Move classification logic from determine_image_group_type
    - Add state management methods
    - Add methods for reference tracking
 
-2. Create parallel implementation - ✓
+2. Create parallel implementation
    - Add new analysis methods using ImageFiles/ImageFileInfo
    - Ensure feature parity with existing implementation
    - Use ImageState from ImageFileInfo to drive the grouping
@@ -51,7 +51,7 @@ current files needed (to start)
    - if different match arms use the same logic that can be parameterized, make a new fn
    - Run both implementations for comparison testing
 
-3. Add comprehensive tests - ✓
+3. Add comprehensive tests
    - Compare results between implementations
    - Test edge cases and special scenarios
    - Verify no functionality loss

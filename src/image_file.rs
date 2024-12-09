@@ -1,10 +1,10 @@
 #[cfg(test)]
-mod image_file_info_tests;
+mod image_file_tests;
 
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, PartialEq)]
-pub struct ImageFileInfo {
+pub struct ImageFile {
     pub path: PathBuf,
     pub hash: String,
     pub references: Vec<PathBuf>,
@@ -36,15 +36,16 @@ impl ImageFileType {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub enum ImageState {
     Tiff,
     ZeroByte,
     Unreferenced,
+    #[default]
     DuplicateCandidate,
 }
 
-impl ImageFileInfo {
+impl ImageFile {
     pub fn new(path: PathBuf, hash: String, size: u64) -> Self {
         let file_type = path
             .extension()
@@ -60,7 +61,7 @@ impl ImageFileInfo {
             ImageState::DuplicateCandidate
         };
 
-        ImageFileInfo {
+        ImageFile {
             path,
             hash,
             references: Vec::new(),

@@ -1,4 +1,4 @@
-use crate::image_file_info::ImageState;
+use crate::image_file::ImageState;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
