@@ -1,7 +1,7 @@
 current files needed (to start)
-- obsidian_repository_info
-- obsidian_repository_info_types
-- image_file_info
+- obsidian_repository
+- obsidian_repository_types
+- image_file
 - image_files
 
 
@@ -16,7 +16,6 @@ current files needed (to start)
 3. Create cleaner, more maintainable image management system
 4. Improve performance by reducing redundant operations
 
-
 ## not to forget:
 - use existing APIs and fn's rather than imagining new ones that don't exist
 - don't create duplicative code on match arms that are essentially doing the same thing
@@ -24,28 +23,28 @@ current files needed (to start)
 ## Completed Steps
 
 ### Phase 1: Foundation ✓
-- Created image_file_info.rs with new types
-- Added ImageFileInfo struct and related types
-- Added tests in image_file_info_tests.rs
+- Created image_file.rs with new types
+- Added ImageFile struct and related types
+- Added tests in image_file_tests.rs
 
 ### Phase 2: Basic Structure ✓
 - Created ImageFiles struct for managing collections
-- Modified ObsidianRepositoryInfo to support new structures
-- Updated ObsidianRepositoryInfo::new()
+- Modified ObsidianRepository to support new structures
+- Updated ObsidianRepository::new()
 - Added support for both old and new structures
 
 ## Remaining Steps
 
 ### Phase 3: Core Logic Migration
-1. Enhance ImageFileInfo
+1. Enhance ImageFile
    - Move classification logic from determine_image_group_type
    - Add state management methods
    - Add methods for reference tracking
 
 2. Create parallel implementation
-   - Add new analysis methods using ImageFiles/ImageFileInfo
+   - Add new analysis methods using ImageFiles/ImageFile
    - Ensure feature parity with existing implementation
-   - Use ImageState from ImageFileInfo to drive the grouping
+   - Use ImageState from ImageFile to drive the grouping
    - let ImageFiles handle the collection management
    - convert to the existing types (GroupedImages, ImageOperations) only at the end
    - if different match arms use the same logic that can be parameterized, make a new fn
@@ -63,14 +62,14 @@ current files needed (to start)
    - Consider if there are any performance implications
 
 ### Phase 4: Transition
-1. Start using new implementation in ObsidianRepositoryInfo
+1. Start using new implementation in ObsidianRepository
 2. Deprecate but maintain old methods during transition
 3. Update all dependent code to use new types
 4. Add migration tests to verify behavior consistency
 
 5. to be planned / designed - move MarkdownOperations for update reference and remove reference to occur upstream
-   should an ImageLink referring to a local file have a ImageFileInfo created for it if it's not a missing file? 
-   we've already scanned for MarkdownFileInfo and assembled all of its image links but how do we connect through to the actual file itself?
+   should an ImageLink referring to a local file have a ImageFile created for it if it's not a missing file? 
+   we've already scanned for MarkdownFile and assembled all of its image links but how do we connect through to the actual file itself?
 
 ### Phase 5: Cleanup
 1. Remove deprecated types and methods:
