@@ -2,6 +2,7 @@ use crate::image_file::{ImageFile, ImageFileState};
 
 #[cfg(test)]
 use std::path::PathBuf;
+use std::slice::Iter;
 
 #[derive(Default, Debug)]
 pub struct ImageFiles {
@@ -34,9 +35,9 @@ impl ImageFiles {
     }
 
     // #[allow(dead_code)]
-    // pub fn iter(&self) -> Iter<'_, ImageFile> {
-    //     self.files.iter()
-    // }
+    pub fn iter(&self) -> Iter<'_, ImageFile> {
+        self.files.iter()
+    }
     // #[allow(dead_code)]
     // pub fn iter_mut(&mut self) -> IterMut<'_, ImageFile> {
     //     self.files.iter_mut()
