@@ -20,13 +20,13 @@ pub use obsidian_repository_info_types::ImageGroup;
 
 use crate::image_file::ImageFile;
 use crate::image_files::ImageFiles;
-use crate::markdown_file_info::{ImageLink, MarkdownFileInfo, MatchType, ReplaceableContent};
+use crate::markdown_file::{ImageLink, MarkdownFile, MatchType, ReplaceableContent};
 use crate::obsidian_repository_info::obsidian_repository_info_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
 use crate::utils::collect_repository_files;
 use crate::{
-    constants::*, markdown_file_info::BackPopulateMatch, markdown_files::MarkdownFiles,
+    constants::*, markdown_file::BackPopulateMatch, markdown_files::MarkdownFiles,
     validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
 };
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
@@ -166,7 +166,7 @@ fn pre_scan_markdown_files(
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
-        match MarkdownFileInfo::new(file_path.clone(), timezone) {
+        match MarkdownFile::new(file_path.clone(), timezone) {
             Ok(file_info) => {
                 markdown_files.lock().unwrap().push(file_info);
                 Ok(())
@@ -352,7 +352,7 @@ impl ObsidianRepositoryInfo {
     }
 
     fn collect_replaceable_matches(
-        markdown_file: &MarkdownFileInfo,
+        markdown_file: &MarkdownFile,
     ) -> Vec<Box<dyn ReplaceableContent>> {
         let mut matches = Vec::new();
 
@@ -413,7 +413,7 @@ impl ObsidianRepositoryInfo {
     }
 
     fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
-        let files_to_persist: Vec<MarkdownFileInfo> = self
+        let files_to_persist: Vec<MarkdownFile> = self
             .markdown_files
             .iter()
             .filter(|file_info| {
@@ -498,7 +498,7 @@ impl ObsidianRepositoryInfo {
         Ok((grouped_images, operations))
     }
 
-    // todo - eventually we need to store these changes directly on the MarkdownFileInfo - probably
+    // todo - eventually we need to store these changes directly on the MarkdownFile - probably
     //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
     pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
         for op in &operations.markdown_ops {

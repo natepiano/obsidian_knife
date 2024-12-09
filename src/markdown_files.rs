@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
 use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
@@ -18,11 +18,11 @@ use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
-    pub(crate) files: Vec<MarkdownFileInfo>,
+    pub(crate) files: Vec<MarkdownFile>,
 }
 
 impl Deref for MarkdownFiles {
-    type Target = Vec<MarkdownFileInfo>;
+    type Target = Vec<MarkdownFile>;
 
     fn deref(&self) -> &Self::Target {
         &self.files
@@ -37,7 +37,7 @@ impl DerefMut for MarkdownFiles {
 
 // Add these implementations after the MarkdownFiles struct definition
 impl Index<usize> for MarkdownFiles {
-    type Output = MarkdownFileInfo;
+    type Output = MarkdownFile;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.files[index]
@@ -51,8 +51,8 @@ impl IndexMut<usize> for MarkdownFiles {
 }
 
 impl<'a> IntoIterator for &'a MarkdownFiles {
-    type Item = &'a MarkdownFileInfo;
-    type IntoIter = std::slice::Iter<'a, MarkdownFileInfo>;
+    type Item = &'a MarkdownFile;
+    type IntoIter = std::slice::Iter<'a, MarkdownFile>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.files.iter()
@@ -60,8 +60,8 @@ impl<'a> IntoIterator for &'a MarkdownFiles {
 }
 
 impl<'a> IntoIterator for &'a mut MarkdownFiles {
-    type Item = &'a mut MarkdownFileInfo;
-    type IntoIter = std::slice::IterMut<'a, MarkdownFileInfo>;
+    type Item = &'a mut MarkdownFile;
+    type IntoIter = std::slice::IterMut<'a, MarkdownFile>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.files.iter_mut()
@@ -73,24 +73,24 @@ impl MarkdownFiles {
         Self { files: Vec::new() }
     }
 
-    pub fn push(&mut self, file: MarkdownFileInfo) {
+    pub fn push(&mut self, file: MarkdownFile) {
         // Note: now takes &mut self
         self.files.push(file);
     }
 
-    pub fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFileInfo> {
+    pub fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
         self.iter_mut().find(|file| file.path == path)
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &MarkdownFileInfo> {
+    pub fn iter(&self) -> impl Iterator<Item = &MarkdownFile> {
         self.files.iter()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MarkdownFileInfo> {
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MarkdownFile> {
         self.files.iter_mut()
     }
 
-    pub fn par_iter(&self) -> impl ParallelIterator<Item = &MarkdownFileInfo> {
+    pub fn par_iter(&self) -> impl ParallelIterator<Item = &MarkdownFile> {
         self.files.par_iter()
     }
 

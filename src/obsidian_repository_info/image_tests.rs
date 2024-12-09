@@ -589,7 +589,7 @@ fn test_handle_missing_references() {
     assert!(
         !&markdown_file.content.contains("![[missing_image1.jpg]]")
             && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
-        "MarkdownFileInfo content should not contain missing references"
+        "MarkdownFile content should not contain missing references"
     );
 
     // verify needs persist has been activated

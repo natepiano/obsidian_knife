@@ -1,5 +1,5 @@
 use crate::frontmatter::FrontMatter;
-use crate::markdown_file_info::extract_date;
+use crate::markdown_file::extract_date;
 use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;

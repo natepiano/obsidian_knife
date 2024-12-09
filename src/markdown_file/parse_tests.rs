@@ -1,4 +1,4 @@
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -63,7 +63,7 @@ fn test_frontmatter_line_counting() {
 
     for (content, expected_frontmatter_lines) in test_cases {
         let file_path = create_test_file(content, temp_dir.path());
-        let markdown_file = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+        let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
         assert_eq!(
             markdown_file.frontmatter_line_count, expected_frontmatter_lines,
             "Failed for content:\n{}",

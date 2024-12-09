@@ -1,4 +1,4 @@
-use crate::markdown_file_info::{FileProcessingState, MarkdownFileInfo};
+use crate::markdown_file::{FileProcessingState, MarkdownFile};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
@@ -51,7 +51,7 @@ pub(crate) fn create_test_environment(
         )
         .create(&temp_dir, "test.md");
 
-    let markdown_info = MarkdownFileInfo::new(file_path, config.operational_timezone()).unwrap();
+    let markdown_info = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
     repo_info.markdown_files.push(markdown_info);
 
     // Set up wikilinks
@@ -99,7 +99,7 @@ fn test_apply_changes() {
     // Apply the changes
     repo_info.apply_replaceable_matches();
 
-    // Verify changes by checking MarkdownFileInfo content
+    // Verify changes by checking MarkdownFile content
     assert_eq!(
         repo_info.markdown_files[0].content,
         "This is [[Test Link]] in a sentence."
@@ -199,7 +199,7 @@ fn test_scan_markdown_file_with_do_not_back_populate() {
         )
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();
@@ -224,7 +224,7 @@ fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();

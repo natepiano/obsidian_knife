@@ -1,7 +1,7 @@
 mod assert_utils;
 mod test_file_builder;
 
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::DEFAULT_TIMEZONE;
 use chrono::{DateTime, TimeZone, Utc};
 use std::path::PathBuf;
@@ -29,6 +29,6 @@ pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
     Utc.with_ymd_and_hms(year, month, day, 5, 0, 0).unwrap()
 }
 
-pub fn get_test_markdown_file_info(path: PathBuf) -> MarkdownFileInfo {
-    MarkdownFileInfo::new(path, DEFAULT_TIMEZONE).unwrap()
+pub fn get_test_markdown_file_info(path: PathBuf) -> MarkdownFile {
+    MarkdownFile::new(path, DEFAULT_TIMEZONE).unwrap()
 }

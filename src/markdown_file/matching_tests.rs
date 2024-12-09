@@ -1,5 +1,5 @@
-use crate::markdown_file_info::back_populate_tests::create_test_environment;
-use crate::markdown_file_info::{is_within_wikilink, MarkdownFileInfo};
+use crate::markdown_file::back_populate_tests::create_test_environment;
+use crate::markdown_file::{is_within_wikilink, MarkdownFile};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::get_test_validated_config;
@@ -122,7 +122,7 @@ fn test_markdown_file_with_invalid_wikilinks() {
         )
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
     let valid_wikilinks = file_info.wikilinks.valid;
 
     // Check valid wikilinks
@@ -175,7 +175,7 @@ Also linking to [[Alias One]] which is defined in frontmatter."#
         )
         .create(&temp_dir, "test_note.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
     let wikilinks = file_info.wikilinks.valid;
 
     // Collect unique target-display pairs
@@ -247,8 +247,7 @@ fn test_scan_folders_wikilink_collection() {
         .iter()
         .filter(|file_info| file_info.path.extension().and_then(|ext| ext.to_str()) == Some("md"))
         .flat_map(|file_info| {
-            let file_info =
-                MarkdownFileInfo::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();
+            let file_info = MarkdownFile::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();
             let file_wikilinks = file_info.wikilinks.valid;
             file_wikilinks.into_iter().map(|w| w.display_text)
         })

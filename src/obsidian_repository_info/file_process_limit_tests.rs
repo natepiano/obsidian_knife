@@ -1,4 +1,4 @@
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config_builder;
@@ -14,10 +14,10 @@ struct ProcessLimitTestCase {
     expected_processed: usize,
 }
 
-fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFileInfo> {
+fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFile> {
     let base_date = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
 
-    let files: Vec<MarkdownFileInfo> = (0..count)
+    let files: Vec<MarkdownFile> = (0..count)
         .map(|i| {
             let created = base_date + chrono::Duration::days(i as i64);
             let modified = created + chrono::Duration::hours(1);

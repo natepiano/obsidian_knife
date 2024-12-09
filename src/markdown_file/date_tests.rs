@@ -305,7 +305,7 @@ fn test_date_created_fix_integration() {
             .with_date_created_fix(case.date_created_fix.clone())
             .create(&temp_dir, "test1.md");
 
-        // Create MarkdownFileInfo from the test file
+        // Create MarkdownFile from the test file
         let markdown_info = get_test_markdown_file_info(file_path);
 
         // Verify the DateCreatedFixValidation state

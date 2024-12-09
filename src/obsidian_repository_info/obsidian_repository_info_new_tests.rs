@@ -59,7 +59,7 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
 
     // Verify both structures contain same information
     for (path, image_refs) in &repo_info.image_path_to_references_map {
-        // Find corresponding ImageFileInfo
+        // Find corresponding ImageFile
         let image_file = repo_info
             .image_files
             .get(path)
@@ -79,7 +79,7 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
         assert_eq!(
             refs_count,
             file_refs_count,
-            "Reference count mismatch for {}: map has {}, ImageFileInfo has {}",
+            "Reference count mismatch for {}: map has {}, ImageFile has {}",
             path.display(),
             refs_count,
             file_refs_count

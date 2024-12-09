@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::markdown_file_info::PersistReason;
+use crate::markdown_file::PersistReason;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};

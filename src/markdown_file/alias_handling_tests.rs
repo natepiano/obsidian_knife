@@ -1,7 +1,7 @@
-use crate::markdown_file_info::back_populate_tests::{
+use crate::markdown_file::back_populate_tests::{
     build_aho_corasick, create_markdown_test_file, create_test_environment,
 };
-use crate::markdown_file_info::{format_relative_path, MarkdownFileInfo};
+use crate::markdown_file::{format_relative_path, MarkdownFile};
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::wikilink::Wikilink;
 use crate::DEFAULT_TIMEZONE;
@@ -182,7 +182,7 @@ fn test_markdown_file_aliases_only() {
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
     assert!(file_info.do_not_back_populate_regexes.is_some());
     let regexes = file_info.do_not_back_populate_regexes.unwrap();

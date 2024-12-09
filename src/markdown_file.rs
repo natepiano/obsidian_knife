@@ -19,9 +19,9 @@ mod process_content_tests;
 #[cfg(test)]
 mod table_handling_tests;
 
-mod markdown_file_info_types;
+mod markdown_file_types;
 
-pub use markdown_file_info_types::*;
+pub use markdown_file_types::*;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
@@ -45,7 +45,7 @@ use std::sync::Arc;
 use std::{fs, io};
 
 #[derive(Debug, Clone)]
-pub struct MarkdownFileInfo {
+pub struct MarkdownFile {
     pub content: String,
     pub date_created_fix: DateCreatedFixValidation,
     pub date_validation_created: DateValidation,
@@ -61,7 +61,7 @@ pub struct MarkdownFileInfo {
     pub persist_reasons: Vec<PersistReason>,
 }
 
-impl MarkdownFileInfo {
+impl MarkdownFile {
     pub fn new(
         path: PathBuf,
         operational_timezone: &str,
@@ -111,7 +111,7 @@ impl MarkdownFileInfo {
             .as_ref()
             .and_then(|fm| fm.get_do_not_back_populate_regexes());
 
-        let mut file_info = MarkdownFileInfo {
+        let mut file_info = MarkdownFile {
             content,
             date_created_fix,
             do_not_back_populate_regexes,

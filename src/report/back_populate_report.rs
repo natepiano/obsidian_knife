@@ -3,7 +3,7 @@ use std::error::Error;
 use std::path::Path;
 
 use crate::constants::*;
-use crate::markdown_file_info::BackPopulateMatch;
+use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{
     escape_brackets, escape_pipe, highlight_matches, ReportDefinition, ReportWriter,

@@ -7,7 +7,7 @@ mod constants;
 mod frontmatter;
 mod image_file;
 mod image_files;
-mod markdown_file_info;
+mod markdown_file;
 mod markdown_files;
 mod obsidian_repository_info;
 mod report;
@@ -23,7 +23,7 @@ pub use utils::Timer;
 
 use crate::config::Config;
 use crate::frontmatter::FrontMatter;
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
@@ -36,7 +36,7 @@ use utils::expand_tilde;
 pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     let expanded_path = expand_tilde(config_path);
 
-    let mut markdown_file = MarkdownFileInfo::new(expanded_path, DEFAULT_TIMEZONE)?;
+    let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
         Config::from_frontmatter(frontmatter.clone())?
     } else {
@@ -62,7 +62,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 }
 
 fn reset_apply_changes(
-    markdown_file: &mut MarkdownFileInfo,
+    markdown_file: &mut MarkdownFile,
     config: &mut Config,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     // this whole thing is a bit of a code smell

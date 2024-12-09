@@ -3,7 +3,7 @@ use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::utils::CachedImageInfo;
 use crate::validated_config::get_test_validated_config;
 
-use crate::markdown_file_info::{ImageLink, MarkdownFileInfo};
+use crate::markdown_file::{ImageLink, MarkdownFile};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -33,7 +33,7 @@ fn test_parallel_image_reference_collection() {
     }
 
     // Common filter logic
-    fn has_common_image(info: &MarkdownFileInfo) -> bool {
+    fn has_common_image(info: &MarkdownFile) -> bool {
         info.image_links
             .found
             .iter()
@@ -41,14 +41,14 @@ fn test_parallel_image_reference_collection() {
     }
 
     // Helper functions using shared filter
-    fn process_parallel(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
+    fn process_parallel(files: &HashMap<PathBuf, MarkdownFile>) -> Vec<PathBuf> {
         files
             .par_iter()
             .filter_map(|(path, info)| has_common_image(info).then(|| path.clone()))
             .collect()
     }
 
-    fn process_sequential(files: &HashMap<PathBuf, MarkdownFileInfo>) -> Vec<PathBuf> {
+    fn process_sequential(files: &HashMap<PathBuf, MarkdownFile>) -> Vec<PathBuf> {
         files
             .iter()
             .filter_map(|(path, info)| {

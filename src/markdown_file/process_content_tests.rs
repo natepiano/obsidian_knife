@@ -1,5 +1,5 @@
-use crate::markdown_file_info::{
-    ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFileInfo,
+use crate::markdown_file::{
+    ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFile,
 };
 use crate::test_utils::TestFileBuilder;
 use crate::utils::get_image_regex;
@@ -33,7 +33,7 @@ fn test_process_content_with_aliases() {
         .with_aliases(aliases.as_ref().unwrap_or(&Vec::new()).clone())
         .create(&temp_dir, "test file.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
     let image_links = file_info.process_image_links(&get_image_regex());
 
@@ -63,7 +63,7 @@ fn test_process_content_with_invalid() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
     let image_links = file_info.process_image_links(&get_image_regex());
 
@@ -116,7 +116,7 @@ fn test_process_content_with_empty() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
     let image_links = file_info.process_image_links(&get_image_regex());
 
@@ -153,7 +153,7 @@ fn test_process_content_with_images() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFileInfo::new(file_path, "UTC").unwrap();
+    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
     let image_links = file_info.process_image_links(&get_image_regex());
 

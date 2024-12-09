@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::markdown_file_info::BackPopulateMatch;
+use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::report::{escape_pipe, highlight_matches, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};

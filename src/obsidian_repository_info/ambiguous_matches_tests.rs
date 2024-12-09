@@ -1,5 +1,5 @@
-use crate::markdown_file_info::back_populate_tests::create_test_environment;
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::markdown_file::back_populate_tests::create_test_environment;
+use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
 use crate::obsidian_repository_info::ObsidianRepositoryInfo;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
@@ -38,7 +38,7 @@ fn test_identify_ambiguous_matches() {
         .create(&temp_dir, "test2.md");
 
     // Set up initial matches in test1.md
-    let mut test_file = MarkdownFileInfo::new(
+    let mut test_file = MarkdownFile::new(
         temp_dir.path().join("test1.md"),
         config.operational_timezone(),
     )
@@ -54,7 +54,7 @@ fn test_identify_ambiguous_matches() {
     }];
 
     // Set up initial matches in test2.md
-    let mut test_file2 = MarkdownFileInfo::new(
+    let mut test_file2 = MarkdownFile::new(
         temp_dir.path().join("test2.md"),
         config.operational_timezone(),
     )

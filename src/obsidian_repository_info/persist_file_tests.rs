@@ -1,5 +1,5 @@
 use super::*;
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::test_utils::{eastern_midnight, get_test_markdown_file_info, TestFileBuilder};
 use crate::validated_config::get_test_validated_config;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -44,7 +44,7 @@ fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) ->
 }
 
 fn verify_dates(
-    info: &MarkdownFileInfo,
+    info: &MarkdownFile,
     case: &PersistenceTestCase,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(frontmatter) = &info.frontmatter {

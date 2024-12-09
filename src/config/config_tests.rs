@@ -1,6 +1,6 @@
 use crate::config::Config;
 use crate::frontmatter::FrontMatter;
-use crate::markdown_file_info::MarkdownFileInfo;
+use crate::markdown_file::MarkdownFile;
 use crate::test_utils::{get_test_markdown_file_info, TestFileBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::{DEFAULT_TIMEZONE, ERROR_NOT_FOUND};
@@ -126,7 +126,7 @@ cleanup_image_files: true"#;
 #[test]
 fn test_config_file_not_found() {
     let nonexistent_path = PathBuf::from("nonexistent/config.md");
-    let result = MarkdownFileInfo::new(nonexistent_path.clone(), DEFAULT_TIMEZONE);
+    let result = MarkdownFile::new(nonexistent_path.clone(), DEFAULT_TIMEZONE);
 
     assert!(result.is_err());
     assert!(result.unwrap_err().to_string().contains(&format!(

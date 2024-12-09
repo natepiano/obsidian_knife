@@ -1,5 +1,5 @@
-use crate::markdown_file_info::back_populate_tests::{build_aho_corasick, create_test_environment};
-use crate::markdown_file_info::{BackPopulateMatch, MarkdownFileInfo};
+use crate::markdown_file::back_populate_tests::{build_aho_corasick, create_test_environment};
+use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
 
@@ -10,7 +10,7 @@ fn test_should_create_match_in_table() {
     let file_path = temp_dir.path().join("test.md");
 
     let markdown_file_info =
-        MarkdownFileInfo::new(file_path.clone(), config.operational_timezone()).unwrap();
+        MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();
 
     // Test simple table cell match
     assert!(markdown_file_info.should_create_match("| Test Link | description |", 2, "Test Link",));
@@ -48,7 +48,7 @@ fn test_back_populate_content() {
         // Clear previous markdown files and add new one
         repo_info.markdown_files.clear();
         let mut markdown_info =
-            MarkdownFileInfo::new(file.clone(), config.operational_timezone()).unwrap();
+            MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
         markdown_info.content = content.to_string(); // Explicitly set content
         markdown_info.matches.unambiguous = matches.clone();
         repo_info.markdown_files.push(markdown_info);

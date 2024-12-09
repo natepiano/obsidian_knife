@@ -89,10 +89,7 @@ fn test_equality_and_cloning() {
     let original = ImageFile::new(PathBuf::from("test.jpg"), "testhash".to_string(), 100);
 
     let cloned = original.clone();
-    assert_eq!(
-        original, cloned,
-        "Cloned ImageFileInfo should equal original"
-    );
+    assert_eq!(original, cloned, "Cloned ImageFile should equal original");
 
     // Test inequality
     let different = ImageFile::new(
@@ -102,7 +99,7 @@ fn test_equality_and_cloning() {
     );
     assert_ne!(
         original, different,
-        "Different ImageFileInfo instances should not be equal"
+        "Different ImageFile instances should not be equal"
     );
 }
 
