@@ -244,7 +244,7 @@ fn test_image_operation_generation() {
         let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
 
         // Mark files for persistence
-        // for now all markdown files need marking for persistence in this test so this is fine
+        // all markdown files need marking for persistence in this test so this is fine
         for path in &created_paths {
             if path.extension().map_or(false, |ext| ext == "md") {
                 if let Some(markdown_file) = repo_info.markdown_files.get_mut(path) {
