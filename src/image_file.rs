@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod image_file_tests;
 
+use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 use std::fs;
 use std::path::PathBuf;
-use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
@@ -95,9 +95,5 @@ impl ImageFile {
             file_type,
             image_state: initial_state,
         }
-    }
-
-    pub fn mark_as_unreferenced(&mut self) {
-        self.image_state = ImageFileState::Unreferenced;
     }
 }

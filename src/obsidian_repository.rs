@@ -18,9 +18,11 @@ pub mod obsidian_repository_types;
 pub use obsidian_repository_types::GroupedImages;
 pub use obsidian_repository_types::ImageGroup;
 
-use crate::image_file::ImageFile;
+use crate::image_file::{ImageFile, ImageFileState};
 use crate::image_files::ImageFiles;
-use crate::markdown_file::{ImageLink, ImageLinkState, MarkdownFile, MatchType, ReplaceableContent};
+use crate::markdown_file::{
+    ImageLink, ImageLinkState, MarkdownFile, MatchType, ReplaceableContent,
+};
 use crate::obsidian_repository::obsidian_repository_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -112,7 +114,8 @@ impl ObsidianRepository {
                 .drain(..)
                 .partition(|link| image_filenames.contains(&link.filename.to_lowercase()));
 
-            let missing = missing.into_iter()
+            let missing = missing
+                .into_iter()
                 .map(|mut link| {
                     link.state = ImageLinkState::Missing;
                     link
@@ -269,7 +272,6 @@ impl ObsidianRepository {
     pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches or missing image references
         for markdown_file in &mut self.markdown_files {
-
             if markdown_file.matches.unambiguous.is_empty()
                 && markdown_file.image_links.missing.is_empty()
             {
@@ -377,6 +379,19 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
+        // Add ImageLinks.missing
+        matches.extend(
+            markdown_file
+                .image_links
+                .found
+                .iter()
+                .filter(|image_link| {
+                    matches!(image_link.state, ImageLinkState::Incompatible { .. })
+                })
+                .cloned()
+                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
+        );
+
         // Sort by line number and reverse position
         matches.sort_by_key(|m| (m.line_number(), std::cmp::Reverse(m.position())));
 
@@ -396,16 +411,17 @@ impl ObsidianRepository {
     ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
+        self.identify_image_reference_replacements();
         self.apply_replaceable_matches();
 
-        // after checking for all backpopulate matches and references to nonexistent files
+        // after checking for all back populate matches and references to nonexistent files
         // and then applying replacement matches,
         // mark either all files - or the file_process_limit count files - as to be persisted
         self.populate_files_to_persist(validated_config.file_process_limit());
 
         // after populating files to persist, we can use this dataset to determine whether
-        // an image can be deleted - if it's referenced in a file not persisted then we won't delete it
-        // in this pass
+        // an image can be deleted - if it's referenced in a file that won't be persisted
+        // then we won't delete it in this pass
         let (grouped_images, image_operations) = self.analyze_images()?;
 
         self.process_image_reference_updates(&image_operations);
@@ -434,6 +450,51 @@ impl ObsidianRepository {
         };
     }
 
+    fn identify_image_reference_replacements(&mut self) {
+        let incompatible = self
+            .image_files
+            .files_in_state(|state| matches!(state, ImageFileState::Incompatible { .. }));
+
+        for image_file in incompatible.files {
+            if let ImageFileState::Incompatible { reason } = &image_file.image_state {
+                for markdown_file in &mut self.markdown_files.files {
+                    if let Some(image_link) =
+                        markdown_file.image_links.found.iter_mut().find(|link| {
+                            link.filename == image_file.path.file_name().unwrap().to_str().unwrap()
+                        })
+                    {
+                        image_link.state = ImageLinkState::Incompatible {
+                            reason: reason.clone(),
+                        };
+                    }
+                }
+            }
+        }
+
+        let grouped_images = group_images(&self.image_path_to_references_map);
+
+        // Handle duplicate groups
+        for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
+            if let Some(keeper) = duplicate_group.first() {
+                for duplicate in duplicate_group.iter().skip(1) {
+                    // Update ImageLink states in files to be persisted
+                    for markdown_file in &mut self.markdown_files.files {
+                        if let Some(image_link) =
+                            markdown_file.image_links.found.iter_mut().find(|link| {
+                                link.filename
+                                    == duplicate.path.file_name().unwrap().to_str().unwrap()
+                            })
+                        {
+                            image_link.state = ImageLinkState::Duplicate {
+                                keeper_path: keeper.path.clone(),
+                            };
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     fn analyze_images(
         &self,
     ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
@@ -448,13 +509,14 @@ impl ObsidianRepository {
 
         let mut operations = ImageOperations::default();
 
-        // 1. Handle unreferenced images - always safe to delete
-        if let Some(unreferenced) = grouped_images.get(&ImageGroupType::UnreferencedImage) {
-            for group in unreferenced {
-                operations
-                    .image_ops
-                    .push(ImageOperation::Delete(group.path.clone()));
-            }
+        // uses new ImageFiles / ImageFile approach
+        for unreferenced_image_file in self
+            .image_files
+            .files_in_state(|state| matches!(state, ImageFileState::Unreferenced))
+        {
+            operations
+                .image_ops
+                .push(ImageOperation::Delete(unreferenced_image_file.path.clone()))
         }
 
         // 2. Handle zero byte images
@@ -569,7 +631,6 @@ fn apply_line_replacements(
     line_matches: &[&Box<dyn ReplaceableContent>],
     file_path: &PathBuf,
 ) -> String {
-
     let mut updated_line = line.to_string();
     let mut has_image_replacement = false;
 

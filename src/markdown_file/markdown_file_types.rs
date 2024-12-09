@@ -1,11 +1,11 @@
 use crate::frontmatter::FrontMatter;
+use crate::image_file::IncompatibilityReason;
 use crate::markdown_file::extract_date;
+use crate::obsidian_repository::extract_relative_path;
 use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;
-use crate::image_file::IncompatibilityReason;
-use crate::obsidian_repository::extract_relative_path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -220,14 +220,14 @@ pub struct ImageLinks {
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum ImageLinkState {
-    Found,  // Image exists and is valid
-    Missing,  // Image doesn't exist
+    Found,   // Image exists and is valid
+    Missing, // Image doesn't exist
     Duplicate {
-        keeper_path: PathBuf,  // Path to the image we should reference instead
+        keeper_path: PathBuf, // Path to the image we should reference instead
     },
     Incompatible {
-        reason: IncompatibilityReason,  // Why the referenced image should be removed
-    }
+        reason: IncompatibilityReason, // Why the referenced image should be removed
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -238,7 +238,7 @@ pub struct ImageLink {
     pub filename: String, // Just "image.jpg"
     pub relative_path: String,
     pub alt_text: String,
-    pub size_parameter: Option<String>,  // Added to handle |400 style parameters
+    pub size_parameter: Option<String>, // Added to handle |400 style parameters
     pub state: ImageLinkState,
     pub image_link_type: ImageLinkType,
 }
@@ -265,31 +265,27 @@ impl ReplaceableContent for ImageLink {
                 let new_relative = format!("{}/{}", self.relative_path, new_name);
 
                 match &self.image_link_type {
-                    ImageLinkType::Wikilink(rendering) => {
-                        match rendering {
-                            ImageLinkRendering::Embedded => {
-                                match &self.size_parameter {
-                                    Some(size) => format!("![[{}|{}]]", new_relative, size),
-                                    None => format!("![[{}]]", new_relative),
-                                }
-                            },
-                            ImageLinkRendering::LinkOnly => format!("[[{}]]", new_relative),
-                        }
+                    ImageLinkType::Wikilink(rendering) => match rendering {
+                        ImageLinkRendering::Embedded => match &self.size_parameter {
+                            Some(size) => format!("![[{}|{}]]", new_relative, size),
+                            None => format!("![[{}]]", new_relative),
+                        },
+                        ImageLinkRendering::LinkOnly => format!("[[{}]]", new_relative),
                     },
                     ImageLinkType::MarkdownLink(target, rendering) => {
                         match (target, rendering) {
                             (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
                                 format!("![{}]({})", self.alt_text, new_relative)
-                            },
+                            }
                             (ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly) => {
                                 format!("[{}]({})", self.alt_text, new_relative)
-                            },
+                            }
                             (ImageLinkTarget::External, _) => {
                                 // We shouldn't get here for duplicate handling as we don't process external images
                                 self.matched_text.clone()
-                            },
+                            }
                         }
-                    },
+                    }
                 }
             }
         }
@@ -334,7 +330,12 @@ impl ImageLink {
                 .nth(1)
                 .map(|s| s.trim_end_matches("]]").to_string());
 
-            (filename, ImageLinkType::Wikilink(rendering), String::new(), size_parameter)
+            (
+                filename,
+                ImageLinkType::Wikilink(rendering),
+                String::new(),
+                size_parameter,
+            )
         } else if raw_link.ends_with(")") {
             // Markdown style
             let rendering = if raw_link.starts_with("!") {
@@ -363,9 +364,17 @@ impl ImageLink {
                 url.to_lowercase()
             };
 
-            (filename, ImageLinkType::MarkdownLink(location, rendering), alt_text, None)
+            (
+                filename,
+                ImageLinkType::MarkdownLink(location, rendering),
+                alt_text,
+                None,
+            )
         } else {
-            panic!("Invalid image link format passed to ImageLink::new(): {}", raw_link);
+            panic!(
+                "Invalid image link format passed to ImageLink::new(): {}",
+                raw_link
+            );
         };
 
         Self {
