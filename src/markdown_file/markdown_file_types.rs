@@ -3,6 +3,9 @@ use crate::markdown_file::extract_date;
 use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
+use std::path::PathBuf;
+use crate::image_file::IncompatibilityReason;
+use crate::obsidian_repository::extract_relative_path;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -216,12 +219,28 @@ pub struct ImageLinks {
 }
 
 #[derive(Debug, Clone, PartialEq)]
+pub enum ImageLinkState {
+    Found,  // Image exists and is valid
+    Missing,  // Image doesn't exist
+    Duplicate {
+        keeper_path: PathBuf,  // Path to the image we should reference instead
+    },
+    Incompatible {
+        reason: IncompatibilityReason,  // Why the referenced image should be removed
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
 pub struct ImageLink {
-    pub image_link_type: ImageLinkType,
-    pub line_number: usize,
+    pub matched_text: String, // The full ![[image.jpg]] syntax
     pub position: usize,
-    pub raw_link: String, // The full ![[image.jpg]] syntax
+    pub line_number: usize,
     pub filename: String, // Just "image.jpg"
+    pub relative_path: String,
+    pub alt_text: String,
+    pub size_parameter: Option<String>,  // Added to handle |400 style parameters
+    pub state: ImageLinkState,
+    pub image_link_type: ImageLinkType,
 }
 
 impl ReplaceableContent for ImageLink {
@@ -234,11 +253,50 @@ impl ReplaceableContent for ImageLink {
     }
 
     fn get_replacement(&self) -> String {
-        String::new() // Empty string replacement as specified
+        match &self.state {
+            ImageLinkState::Found => self.matched_text.clone(),
+            ImageLinkState::Missing => String::new(),
+            ImageLinkState::Incompatible { .. } => String::new(),
+            ImageLinkState::Duplicate { keeper_path } => {
+                let new_name = keeper_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or_default();
+                let new_relative = format!("{}/{}", self.relative_path, new_name);
+
+                match &self.image_link_type {
+                    ImageLinkType::Wikilink(rendering) => {
+                        match rendering {
+                            ImageLinkRendering::Embedded => {
+                                match &self.size_parameter {
+                                    Some(size) => format!("![[{}|{}]]", new_relative, size),
+                                    None => format!("![[{}]]", new_relative),
+                                }
+                            },
+                            ImageLinkRendering::LinkOnly => format!("[[{}]]", new_relative),
+                        }
+                    },
+                    ImageLinkType::MarkdownLink(target, rendering) => {
+                        match (target, rendering) {
+                            (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
+                                format!("![{}]({})", self.alt_text, new_relative)
+                            },
+                            (ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly) => {
+                                format!("[{}]({})", self.alt_text, new_relative)
+                            },
+                            (ImageLinkTarget::External, _) => {
+                                // We shouldn't get here for duplicate handling as we don't process external images
+                                self.matched_text.clone()
+                            },
+                        }
+                    },
+                }
+            }
+        }
     }
 
     fn matched_text(&self) -> String {
-        self.raw_link.clone()
+        self.matched_text.clone()
     }
 
     fn match_type(&self) -> MatchType {
@@ -246,27 +304,14 @@ impl ReplaceableContent for ImageLink {
     }
 }
 
-// todo - if we store the line and position info of the link, couldn't we automatically mark those
-//        exclusion zones - then we'd have to store all of them - right now we don't store all because
-//        we don't want them to be considered for reference processing (for example, external links)
-//        but instead we could store all and just filter out the ones we want to consider for image reference checking
-//        probably just a bool on ImageLink that says "check_image_reference"
-
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
-        // // Handle Raw HTTP style: starts with http:// or https://
-        // if raw_link.starts_with("http://") || raw_link.starts_with("https://") {
-        //     let filename = raw_link.rsplit('/').next().unwrap_or("").to_lowercase();
-        //     return Self {
-        //         image_link_type: ImageLinkType::RawHTTP,
-        //         raw_link,
-        //         filename,
-        //     };
-        // }
+        let relative_path = extract_relative_path(&raw_link);
 
-        // Handle Wikilink style: [[image.png]] or ![[image.png]]
-        if raw_link.ends_with("]]") {
+        // Determine link type and rendering first
+        let (filename, image_link_type, alt_text, size_parameter) = if raw_link.ends_with("]]") {
+            // Wikilink style
             let rendering = if raw_link.starts_with("!") {
                 ImageLinkRendering::Embedded
             } else {
@@ -280,30 +325,31 @@ impl ImageLink {
                 .split('|')
                 .next()
                 .unwrap_or("")
-                .trim() // Add trim here to remove whitespace
-                .trim_matches('\\') // Add this to remove any escape characters
+                .trim()
+                .trim_matches('\\')
                 .to_lowercase();
 
-            return Self {
-                image_link_type: ImageLinkType::Wikilink(rendering),
-                line_number,
-                position,
-                raw_link,
-                filename,
-            };
-        }
+            let size_parameter = raw_link
+                .split('|')
+                .nth(1)
+                .map(|s| s.trim_end_matches("]]").to_string());
 
-        // Handle Markdown style: ![alt](image.png) or [alt](image.png)
-        if raw_link.ends_with(")") {
+            (filename, ImageLinkType::Wikilink(rendering), String::new(), size_parameter)
+        } else if raw_link.ends_with(")") {
+            // Markdown style
             let rendering = if raw_link.starts_with("!") {
                 ImageLinkRendering::Embedded
             } else {
                 ImageLinkRendering::LinkOnly
             };
 
-            // Extract the URL part between () brackets
-            let start = raw_link.find("](").map(|i| i + 2).unwrap_or(0);
-            let url = &raw_link[start..raw_link.len() - 1];
+            let alt_text = raw_link
+                .find("](")
+                .map(|alt_end| raw_link[2..alt_end].to_string())
+                .unwrap_or_default();
+
+            let url_start = raw_link.find("](").map(|i| i + 2).unwrap_or(0);
+            let url = &raw_link[url_start..raw_link.len() - 1];
 
             let location = if url.starts_with("http://") || url.starts_with("https://") {
                 ImageLinkTarget::External
@@ -317,19 +363,21 @@ impl ImageLink {
                 url.to_lowercase()
             };
 
-            return Self {
-                image_link_type: ImageLinkType::MarkdownLink(location, rendering),
-                line_number,
-                position,
-                raw_link,
-                filename,
-            };
-        }
+            (filename, ImageLinkType::MarkdownLink(location, rendering), alt_text, None)
+        } else {
+            panic!("Invalid image link format passed to ImageLink::new(): {}", raw_link);
+        };
 
-        // Invalid/unrecognized format
-        panic!(
-            "Invalid image link format passed to ImageLink::new(): {}",
-            raw_link
-        );
+        Self {
+            matched_text: raw_link,
+            position,
+            line_number,
+            filename,
+            relative_path,
+            alt_text,
+            size_parameter,
+            state: ImageLinkState::Found,
+            image_link_type,
+        }
     }
 }

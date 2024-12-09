@@ -45,7 +45,7 @@ fn test_create_image_file() {
             vec![0xFF, 0xD8, 0xFF, 0xE0],
             vec!["note1.md", "note2.md"],
             ImageFileType::Jpeg,
-            ImageState::DuplicateCandidate,
+            ImageFileState::DuplicateCandidate,
         ),
         // PNG with no references
         (
@@ -54,7 +54,7 @@ fn test_create_image_file() {
             vec![0x89, 0x50, 0x4E, 0x47],
             vec![],
             ImageFileType::Png,
-            ImageState::Unreferenced,
+            ImageFileState::Unreferenced,
         ),
         // TIFF file (should be incompatible regardless of references)
         (
@@ -63,7 +63,7 @@ fn test_create_image_file() {
             vec![0x4D, 0x4D, 0x00, 0x2A],
             vec!["note3.md"],
             ImageFileType::Tiff,
-            ImageState::Incompatible {
+            ImageFileState::Incompatible {
                 reason: IncompatibilityReason::TiffFormat,
             },
         ),
@@ -74,7 +74,7 @@ fn test_create_image_file() {
             vec![],
             vec!["note4.md"],
             ImageFileType::Jpeg,
-            ImageState::Incompatible {
+            ImageFileState::Incompatible {
                 reason: IncompatibilityReason::ZeroByte,
             },
         ),
@@ -85,7 +85,7 @@ fn test_create_image_file() {
             vec![0x00, 0x01, 0x02, 0x03],
             vec!["note5.md"],
             ImageFileType::Other("unknown".to_string()),
-            ImageState::DuplicateCandidate,
+            ImageFileState::DuplicateCandidate,
         ),
     ];
 
@@ -123,7 +123,7 @@ fn test_incompatible_states() {
     let tiff_image = ImageFile::new(tiff_path, "hash1".to_string(), &tiff_refs);
     assert!(matches!(
         tiff_image.image_state,
-        ImageState::Incompatible {
+        ImageFileState::Incompatible {
             reason: IncompatibilityReason::TiffFormat
         }
     ));
@@ -139,7 +139,7 @@ fn test_incompatible_states() {
     let zero_byte_image = ImageFile::new(zero_byte_path, "hash2".to_string(), &zero_byte_refs);
     assert!(matches!(
         zero_byte_image.image_state,
-        ImageState::Incompatible {
+        ImageFileState::Incompatible {
             reason: IncompatibilityReason::ZeroByte
         }
     ));
@@ -155,7 +155,7 @@ fn test_reference_state_determination() {
     // Test with no references
     let empty_refs = ImageReferences::default();
     let unreferenced = ImageFile::new(path.clone(), "hash1".to_string(), &empty_refs);
-    assert_eq!(unreferenced.image_state, ImageState::Unreferenced);
+    assert_eq!(unreferenced.image_state, ImageFileState::Unreferenced);
 
     // Test with references
     let mut refs_with_content = ImageReferences::default();
@@ -163,7 +163,7 @@ fn test_reference_state_determination() {
         .markdown_file_references
         .push("note.md".to_string());
     let referenced = ImageFile::new(path, "hash2".to_string(), &refs_with_content);
-    assert_eq!(referenced.image_state, ImageState::DuplicateCandidate);
+    assert_eq!(referenced.image_state, ImageFileState::DuplicateCandidate);
 }
 
 #[test]

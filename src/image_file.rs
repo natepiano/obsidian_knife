@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod image_file_tests;
 
-use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 use std::fs;
 use std::path::PathBuf;
+use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
@@ -12,7 +12,7 @@ pub struct ImageFile {
     pub references: Vec<PathBuf>,
     pub size: u64,
     pub file_type: ImageFileType,
-    pub image_state: ImageState,
+    pub image_state: ImageFileState,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -39,7 +39,7 @@ impl ImageFileType {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-pub enum ImageState {
+pub enum ImageFileState {
     Incompatible {
         reason: IncompatibilityReason,
     },
@@ -67,17 +67,17 @@ impl ImageFile {
             .unwrap_or_else(|| ImageFileType::Other("unknown".to_string()));
 
         let initial_state = if matches!(file_type, ImageFileType::Tiff) {
-            ImageState::Incompatible {
+            ImageFileState::Incompatible {
                 reason: IncompatibilityReason::TiffFormat,
             }
         } else if size == 0 {
-            ImageState::Incompatible {
+            ImageFileState::Incompatible {
                 reason: IncompatibilityReason::ZeroByte,
             }
         } else if image_refs.markdown_file_references.is_empty() {
-            ImageState::Unreferenced
+            ImageFileState::Unreferenced
         } else {
-            ImageState::DuplicateCandidate
+            ImageFileState::DuplicateCandidate
         };
 
         // Copy references from the image_refs
@@ -98,6 +98,6 @@ impl ImageFile {
     }
 
     pub fn mark_as_unreferenced(&mut self) {
-        self.image_state = ImageState::Unreferenced;
+        self.image_state = ImageFileState::Unreferenced;
     }
 }

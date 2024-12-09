@@ -5,19 +5,22 @@ current files needed (to start)
 - image_files
 
 # Obsidian Knife Image Management Refactoring Plan
+we are in the middle of this large refactoring
 
 ## Goals
 1. Eliminate duplicate image processing logic
 2. Move image processing upstream to be part of line-by-line parsing and updating
-   - specifically we want to get away from using MarkdownOperation and removing/replacing image references based on a whole page match
-   - and instead we wish to process them line by line, similar to how we replace missing image links where we have the position and line information
-   - the intent is to move things upstream
+   - Replace whole-page MarkdownOperation pattern with line-level processing
+   - Process images during file scan, marking for different types of replacements
+   Use ImageLink and ReplaceableContent for all image updates
 3. Create cleaner, more maintainable image management system
 4. Improve performance by reducing redundant operations
 
 ## not to forget:
 - use existing APIs and fn's rather than imagining new ones that don't exist
 - don't create duplicative code on match arms that are essentially doing the same thing
+- ImageLink already implements ReplaceableContent - extend this rather than creating new types
+- Use the same patterns as missing image handling for the Tiff, ZeroByte and Duplicate image reference cases
 
 ## Completed Steps
 
@@ -31,6 +34,63 @@ current files needed (to start)
 - Modified ObsidianRepository to support new structures
 - Updated ObsidianRepository::new()
 - Added support for both old and new structures
+
+# Next Phases
+
+## Phase 3: Parallel Implementation
+
+### Structure Changes
+#### Keep ✓
+- `ImageFile`, `ImageFiles`, `ImageFileType`
+- `ImageLinks`, `ImageLink`
+- `GroupedImages`, `ImageGroup`, `ImageGroupType`
+
+#### Modify ✓
+- `ImageLink`: Add new states for duplicate/incompatible 
+- `ReplaceableContent` implementation on `ImageLink`: Handle new states
+
+#### Remove - not yet
+- `ImageReferenceUpdate`
+- `ImageOperations`, `MarkdownOperation`, `ImageOperation`
+
+### Implementation Steps
+1. **Implement Parallel Processing**
+   - Create temporary struct to hold both old and new operation results
+   - Process images using both current MarkdownOperation approach and new ImageLink states
+   - Add comparison function to validate identical results
+   - Add logging to identify any discrepancies
+
+2. **Testing Framework**
+   - Create test files with various image scenarios
+   - Add tests comparing outputs from both approaches
+   - Test corner cases: empty files, multiple references, nested paths
+   - Validate file content changes match exactly
+
+3. **Migration**
+   - Once validation passes, remove old MarkdownOperation code path
+   - Update any dependent code to use new ImageLink states
+   - Final pass of tests with only new implementation
+
+## Phase 4: Documentation & Clean Up
+
+1. **Documentation Updates**
+   - Update documentation to reflect new approach
+   - Document new ImageLink states and their handling
+   - Update examples and usage patterns
+
+2. **Code Cleanup**
+   - Remove temporary comparison code
+   - Remove unused imports and dead code
+   - Final review of error handling and edge cases
+
+3. **Final Verification**
+   - Verify all test cases still pass
+   - Confirm no regressions in functionality
+   - Validate performance metrics
+
+--- 
+
+the original plan
 
 ## Remaining Steps
 

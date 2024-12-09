@@ -9,18 +9,18 @@ mod obsidian_repository_tests;
 #[cfg(test)]
 mod persist_file_tests;
 #[cfg(test)]
+mod scan_tests;
+#[cfg(test)]
 mod update_modified_tests;
 
 pub mod obsidian_repository_types;
-#[cfg(test)]
-mod scan_tests;
 
 pub use obsidian_repository_types::GroupedImages;
 pub use obsidian_repository_types::ImageGroup;
 
 use crate::image_file::ImageFile;
 use crate::image_files::ImageFiles;
-use crate::markdown_file::{ImageLink, MarkdownFile, MatchType, ReplaceableContent};
+use crate::markdown_file::{ImageLink, ImageLinkState, MarkdownFile, MatchType, ReplaceableContent};
 use crate::obsidian_repository::obsidian_repository_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
@@ -111,6 +111,13 @@ impl ObsidianRepository {
                 .found
                 .drain(..)
                 .partition(|link| image_filenames.contains(&link.filename.to_lowercase()));
+
+            let missing = missing.into_iter()
+                .map(|mut link| {
+                    link.state = ImageLinkState::Missing;
+                    link
+                })
+                .collect();
 
             markdown_file.image_links.found = found;
             markdown_file.image_links.missing = missing;
@@ -262,6 +269,7 @@ impl ObsidianRepository {
     pub fn apply_replaceable_matches(&mut self) {
         // Only process files that have matches or missing image references
         for markdown_file in &mut self.markdown_files {
+
             if markdown_file.matches.unambiguous.is_empty()
                 && markdown_file.image_links.missing.is_empty()
             {
@@ -561,6 +569,7 @@ fn apply_line_replacements(
     line_matches: &[&Box<dyn ReplaceableContent>],
     file_path: &PathBuf,
 ) -> String {
+
     let mut updated_line = line.to_string();
     let mut has_image_replacement = false;
 
@@ -771,7 +780,7 @@ fn remove_image_reference(line: &str, regex: &Regex) -> String {
 }
 
 // for deletion, we need the path to the file
-fn extract_relative_path(matched: &str) -> String {
+pub fn extract_relative_path(matched: &str) -> String {
     if !matched.contains(FORWARD_SLASH) {
         return DEFAULT_MEDIA_PATH.to_string();
     }

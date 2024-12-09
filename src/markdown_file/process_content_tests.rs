@@ -249,6 +249,7 @@ fn test_image_link_types() {
             .unwrap_or_else(|| panic!("Failed to get capture group for: {}", case.input))
             .as_str();
 
+        // Add line number 1 and position 0 as test defaults
         let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0);
 
         assert_eq!(
