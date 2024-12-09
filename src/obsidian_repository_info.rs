@@ -87,7 +87,8 @@ impl ObsidianRepositoryInfo {
             .markdown_files
             .get_image_info_map(config, &repository_files.image_files)?;
 
-        // Validate and partition image references
+        // Validate and partition image references into found and missing
+        // first get the distinct, lowercase list for comparison
         let image_filenames: HashSet<String> = repository_files
             .image_files
             .iter()
@@ -95,7 +96,9 @@ impl ObsidianRepositoryInfo {
             .map(|name| name.to_string_lossy().to_lowercase())
             .collect();
 
-        // Update each markdown file's image links
+        // find the ones where the markdown file has them listed in its image_links
+        // these are "found", otherwise they are "missing"
+        // missing will get handled by apply_replaceable_matches where it deletes things line by line
         for markdown_file in &mut repo_info.markdown_files {
             let (found, missing): (Vec<ImageLink>, Vec<ImageLink>) = markdown_file
                 .image_links
@@ -455,12 +458,12 @@ impl ObsidianRepositoryInfo {
 
         // 2. Handle zero byte images
         if let Some(zero_byte) = grouped_images.get(&ImageGroupType::ZeroByteImage) {
-            process_special_image_group(zero_byte, &files_to_persist, &mut operations);
+            process_zero_byte_and_tiff_images(zero_byte, &files_to_persist, &mut operations);
         }
 
         // 3. Handle TIFF images - same logic as zero byte
         if let Some(tiff_images) = grouped_images.get(&ImageGroupType::TiffImage) {
-            process_special_image_group(tiff_images, &files_to_persist, &mut operations);
+            process_zero_byte_and_tiff_images(tiff_images, &files_to_persist, &mut operations);
         }
 
         // 4. Handle duplicate groups
@@ -623,7 +626,7 @@ fn apply_line_replacements(
     }
 }
 
-fn process_special_image_group(
+fn process_zero_byte_and_tiff_images(
     group_images: &[ImageGroup],
     files_to_persist: &HashSet<&PathBuf>,
     operations: &mut ImageOperations,

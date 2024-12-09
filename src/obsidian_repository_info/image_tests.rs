@@ -138,27 +138,6 @@ struct ImageTestCase {
 fn test_image_operation_generation() {
     let test_cases = vec![
         ImageTestCase {
-            name: "missing_references",
-            setup: |temp_dir| {
-                let test_date = eastern_midnight(2024, 1, 15);
-                let md_file = TestFileBuilder::new()
-                    .with_content("# Test\n![[missing.jpg]]\nSome content".to_string())
-                    .with_matching_dates(test_date)
-                    .with_fs_dates(test_date, test_date)
-                    .create(temp_dir, "test1.md");
-                vec![md_file]
-            },
-            expected_ops: |paths| {
-                (
-                    vec![],
-                    vec![MarkdownOperation::RemoveReference {
-                        markdown_path: paths[0].clone(),
-                        image_path: PathBuf::from("missing.jpg"),
-                    }],
-                )
-            },
-        },
-        ImageTestCase {
             name: "duplicate_images",
             setup: |temp_dir| {
                 let test_date = eastern_midnight(2024, 1, 15);
@@ -262,63 +241,121 @@ fn test_image_operation_generation() {
         fs::create_dir_all(config.output_folder()).unwrap();
 
         let created_paths = (test_case.setup)(&temp_dir);
-        let repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+        let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+
+        // Mark files for persistence
+        // for now all markdown files need marking for persistence in this test so this is fine
+        for path in &created_paths {
+            if path.extension().map_or(false, |ext| ext == "md") {
+                if let Some(markdown_file) = repo_info.markdown_files.get_mut(path) {
+                    markdown_file.mark_image_reference_as_updated();
+                }
+            }
+        }
+        repo_info.populate_files_to_persist(None);
 
         let (_, operations) = repo_info.analyze_images().unwrap();
 
         let (expected_image_ops, expected_markdown_ops) = (test_case.expected_ops)(&created_paths);
 
-        for (actual, expected) in operations.image_ops.iter().zip(expected_image_ops.iter()) {
-            match (actual, expected) {
+        // Validate image operations
+        assert_eq!(
+            operations.image_ops.len(),
+            expected_image_ops.len(),
+            "Test case '{}': Expected {} image ops but got {} - Expected: {:?}, Actual: {:?}",
+            test_case.name,
+            expected_image_ops.len(),
+            operations.image_ops.len(),
+            expected_image_ops,
+            operations.image_ops
+        );
+
+        for i in 0..expected_image_ops.len() {
+            match (&operations.image_ops[i], &expected_image_ops[i]) {
                 (ImageOperation::Delete(actual_path), ImageOperation::Delete(expected_path)) => {
                     assert_eq!(
                         actual_path.as_path(),
                         expected_path.as_path(),
-                        "Test case '{}': Delete operation paths don't match",
-                        test_case.name
+                        "Test case '{}': Delete operation paths don't match at index {}",
+                        test_case.name,
+                        i
                     );
                 }
             }
         }
 
-        for (i, (actual, expected)) in operations
-            .markdown_ops
-            .iter()
-            .zip(expected_markdown_ops.iter())
-            .enumerate()
-        {
-            assert!(
-                matches!(actual, MarkdownOperation::RemoveReference { .. })
-                    == matches!(expected, MarkdownOperation::RemoveReference { .. })
-                    && matches!(actual, MarkdownOperation::UpdateReference { .. })
-                        == matches!(expected, MarkdownOperation::UpdateReference { .. }),
-                "Test case '{}': Operation type mismatch at position {}",
-                test_case.name,
-                i
-            );
+        // Validate markdown operations
+        assert_eq!(
+            operations.markdown_ops.len(),
+            expected_markdown_ops.len(),
+            "Test case '{}': Expected {} markdown ops but got {} - Expected: {:?}, Actual: {:?}",
+            test_case.name,
+            expected_markdown_ops.len(),
+            operations.markdown_ops.len(),
+            expected_markdown_ops,
+            operations.markdown_ops
+        );
 
-            match (actual, expected) {
+        for i in 0..expected_markdown_ops.len() {
+            match (&operations.markdown_ops[i], &expected_markdown_ops[i]) {
                 (
-                    MarkdownOperation::RemoveReference { markdown_path: actual_md, image_path: actual_img },
-                    MarkdownOperation::RemoveReference { markdown_path: expected_md, image_path: expected_img }
+                    MarkdownOperation::RemoveReference {
+                        markdown_path: actual_md,
+                        image_path: actual_img,
+                    },
+                    MarkdownOperation::RemoveReference {
+                        markdown_path: expected_md,
+                        image_path: expected_img,
+                    },
                 ) => {
-                    assert_eq!(actual_md.as_path(), expected_md.as_path(),
-                               "Test case '{}': RemoveReference markdown paths don't match", test_case.name);
-                    assert_eq!(actual_img.as_path(), expected_img.as_path(),
-                               "Test case '{}': RemoveReference image paths don't match", test_case.name);
-                },
+                    assert_eq!(
+                        actual_md.as_path(),
+                        expected_md.as_path(),
+                        "Test case '{}': RemoveReference markdown paths don't match",
+                        test_case.name
+                    );
+                    assert_eq!(
+                        actual_img.as_path(),
+                        expected_img.as_path(),
+                        "Test case '{}': RemoveReference image paths don't match",
+                        test_case.name
+                    );
+                }
                 (
-                    MarkdownOperation::UpdateReference { markdown_path: actual_md, old_image_path: actual_old, new_image_path: actual_new },
-                    MarkdownOperation::UpdateReference { markdown_path: expected_md, old_image_path: expected_old, new_image_path: expected_new }
+                    MarkdownOperation::UpdateReference {
+                        markdown_path: actual_md,
+                        old_image_path: actual_old,
+                        new_image_path: actual_new,
+                    },
+                    MarkdownOperation::UpdateReference {
+                        markdown_path: expected_md,
+                        old_image_path: expected_old,
+                        new_image_path: expected_new,
+                    },
                 ) => {
-                    assert_eq!(actual_md.as_path(), expected_md.as_path(),
-                               "Test case '{}': UpdateReference markdown paths don't match", test_case.name);
-                    assert_eq!(actual_old.as_path(), expected_old.as_path(),
-                               "Test case '{}': UpdateReference old image paths don't match", test_case.name);
-                    assert_eq!(actual_new.as_path(), expected_new.as_path(),
-                               "Test case '{}': UpdateReference new image paths don't match", test_case.name);
-                },
-                _ => panic!("Test case '{}': Mismatched operation types - this should have been caught by the type check", test_case.name)
+                    assert_eq!(
+                        actual_md.as_path(),
+                        expected_md.as_path(),
+                        "Test case '{}': UpdateReference markdown paths don't match",
+                        test_case.name
+                    );
+                    assert_eq!(
+                        actual_old.as_path(),
+                        expected_old.as_path(),
+                        "Test case '{}': UpdateReference old image paths don't match",
+                        test_case.name
+                    );
+                    assert_eq!(
+                        actual_new.as_path(),
+                        expected_new.as_path(),
+                        "Test case '{}': UpdateReference new image paths don't match",
+                        test_case.name
+                    );
+                }
+                _ => panic!(
+                    "Test case '{}': Mismatched operation types at index {}",
+                    test_case.name, i
+                ),
             }
         }
     }
@@ -506,4 +543,53 @@ fn test_analyze_wikilink_errors() {
         final_content.contains("![[[[Some File]]]]"),
         "Content with invalid wikilinks should not be modified"
     );
+}
+
+#[test]
+fn test_handle_missing_references() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+    fs::create_dir_all(config.output_folder()).unwrap();
+
+    let test_date = eastern_midnight(2024, 1, 15);
+
+    // Create markdown files with references to non-existent images
+    let md_content = r#"# Test Document
+![[missing_image1.jpg]]
+![[missing_image2.jpg]]
+"#;
+    let md_file = TestFileBuilder::new()
+        .with_content(md_content.to_string())
+        .with_matching_dates(test_date)
+        .create(&temp_dir, "test_doc.md");
+
+    // Initialize the repository info
+    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+
+    // Run the analysis
+    let (_, operations) = repo_info.analyze_repository(&config).unwrap();
+
+    // Verify that the missing references are handled correctly
+    let markdown_file = &repo_info.markdown_files.get_mut(&md_file).unwrap();
+    let missing_references = &markdown_file.image_links.missing;
+    assert_eq!(missing_references.len(), 2, "Expected two missing image references");
+
+    // Verify that no image operations were created for the missing references
+    assert!(
+        operations.image_ops.is_empty(),
+        "No image operations should be created for missing references"
+    );
+
+    // Verify that the markdown_file_info.content does not have the references anymore
+    assert!(
+        !&markdown_file.content.contains("![[missing_image1.jpg]]") && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
+        "MarkdownFileInfo content should not contain missing references"
+    );
+
+    // verify needs persist has been activated
+    assert!(
+        &markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
+        "needs persist should better well be true, boyo"
+    )
 }
