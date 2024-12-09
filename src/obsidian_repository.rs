@@ -5,23 +5,23 @@ mod file_process_limit_tests;
 #[cfg(test)]
 mod image_tests;
 #[cfg(test)]
-mod obsidian_repository_info_new_tests;
+mod obsidian_repository_tests;
 #[cfg(test)]
 mod persist_file_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-pub mod obsidian_repository_info_types;
+pub mod obsidian_repository_types;
 #[cfg(test)]
 mod scan_tests;
 
-pub use obsidian_repository_info_types::GroupedImages;
-pub use obsidian_repository_info_types::ImageGroup;
+pub use obsidian_repository_types::GroupedImages;
+pub use obsidian_repository_types::ImageGroup;
 
 use crate::image_file::ImageFile;
 use crate::image_files::ImageFiles;
 use crate::markdown_file::{ImageLink, MarkdownFile, MatchType, ReplaceableContent};
-use crate::obsidian_repository_info::obsidian_repository_info_types::{
+use crate::obsidian_repository::obsidian_repository_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
 use crate::utils::collect_repository_files;
@@ -39,7 +39,7 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(Default)]
-pub struct ObsidianRepositoryInfo {
+pub struct ObsidianRepository {
     pub markdown_files: MarkdownFiles,
     pub markdown_files_to_persist: MarkdownFiles,
     pub image_files: ImageFiles,
@@ -50,7 +50,7 @@ pub struct ObsidianRepositoryInfo {
     pub wikilinks_sorted: Vec<Wikilink>,
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn new(config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let _timer = Timer::new("obsidian_repository_info_new");
         let ignore_folders = config.ignore_folders().unwrap_or(&[]);
@@ -187,7 +187,7 @@ fn pre_scan_markdown_files(
     Ok(markdown_files)
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn identify_ambiguous_matches(&mut self) {
         // Create target and display_text maps as before...
         let mut target_map: HashMap<String, String> = HashMap::new();

@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -57,7 +57,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_frontmatter_issues_report(
         &self,
         writer: &OutputFileWriter,

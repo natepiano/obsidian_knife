@@ -1,5 +1,5 @@
 use crate::markdown_file::{FileProcessingState, MarkdownFile};
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
 
@@ -28,7 +28,7 @@ pub(crate) fn create_test_environment(
     do_not_back_populate: Option<Vec<String>>,
     wikilinks: Option<Vec<Wikilink>>,
     initial_content: Option<&str>,
-) -> (TempDir, ValidatedConfig, ObsidianRepositoryInfo) {
+) -> (TempDir, ValidatedConfig, ObsidianRepository) {
     let temp_dir = TempDir::new().unwrap();
 
     let config = ValidatedConfigBuilder::default()
@@ -39,7 +39,7 @@ pub(crate) fn create_test_environment(
         .build()
         .unwrap();
 
-    let mut repo_info = ObsidianRepositoryInfo::default();
+    let mut repo_info = ObsidianRepository::default();
 
     // Create test file using TestFileBuilder but WITHOUT frontmatter
     let file_path = TestFileBuilder::new()
@@ -74,7 +74,7 @@ pub fn create_markdown_test_file(
     temp_dir: &TempDir,
     file_name: &str,
     content: &str,
-    repo_info: &mut ObsidianRepositoryInfo,
+    repo_info: &mut ObsidianRepository,
 ) -> PathBuf {
     let file_path = temp_dir.path().join(file_name);
     let mut file = File::create(&file_path).unwrap();

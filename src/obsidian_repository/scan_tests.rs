@@ -4,7 +4,7 @@ use crate::utils::CachedImageInfo;
 use crate::validated_config::get_test_validated_config;
 
 use crate::markdown_file::{ImageLink, MarkdownFile};
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -99,7 +99,7 @@ fn test_wikilink_sorting_with_aliases() {
     let config = get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
-    let repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+    let repo_info = ObsidianRepository::new(&config).unwrap();
 
     // Find the wikilinks for "tomatoes" in the sorted list
     let tomatoes_wikilinks: Vec<_> = repo_info
@@ -157,13 +157,13 @@ fn test_cache_file_cleanup() {
         let config = get_test_validated_config(&temp_dir, None);
 
         // First scan - creates cache with the image
-        let _ = ObsidianRepositoryInfo::new(&config).unwrap();
+        let _ = ObsidianRepository::new(&config).unwrap();
 
         // Delete the image file
         std::fs::remove_file(temp_dir.path().join("test.png")).unwrap();
 
         // Second scan - should detect the deleted image
-        let _ = ObsidianRepositoryInfo::new(&config).unwrap();
+        let _ = ObsidianRepository::new(&config).unwrap();
 
         // Verify cache was cleaned up
         let cache_content = std::fs::read_to_string(&cache_path).unwrap();

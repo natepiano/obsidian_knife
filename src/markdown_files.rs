@@ -4,10 +4,8 @@ use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
-use crate::obsidian_repository_info::execute_image_deletions;
-use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    ImageOperations, ImageReferences,
-};
+use crate::obsidian_repository::execute_image_deletions;
+use crate::obsidian_repository::obsidian_repository_types::{ImageOperations, ImageReferences};
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};

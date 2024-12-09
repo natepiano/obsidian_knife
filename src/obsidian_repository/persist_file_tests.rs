@@ -129,7 +129,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
-        let mut repo_info = ObsidianRepositoryInfo::new(&config)?;
+        let mut repo_info = ObsidianRepository::new(&config)?;
         let file_info = get_test_markdown_file_info(file_path);
 
         repo_info.markdown_files.push(file_info);

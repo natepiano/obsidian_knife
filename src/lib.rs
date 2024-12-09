@@ -9,7 +9,7 @@ mod image_file;
 mod image_files;
 mod markdown_file;
 mod markdown_files;
-mod obsidian_repository_info;
+mod obsidian_repository;
 mod report;
 // mod scan;
 mod utils;
@@ -24,7 +24,7 @@ pub use utils::Timer;
 use crate::config::Config;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
@@ -46,7 +46,7 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
     let validated_config = config.validate()?;
 
     // ANALYSIS PHASE
-    let mut obsidian_repository_info = ObsidianRepositoryInfo::new(&validated_config)?;
+    let mut obsidian_repository_info = ObsidianRepository::new(&validated_config)?;
     let (grouped_images, image_operations) =
         obsidian_repository_info.analyze_repository(&validated_config)?;
 

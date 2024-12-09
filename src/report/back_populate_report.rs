@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{
     escape_brackets, escape_pipe, highlight_matches, ReportDefinition, ReportWriter,
 };
@@ -104,7 +104,7 @@ impl ReportDefinition for BackPopulateTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_back_populate_report(
         &self,
         writer: &OutputFileWriter,

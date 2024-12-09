@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{escape_pipe, highlight_matches, ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -140,7 +140,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_ambiguous_matches_report(
         &self,
         writer: &OutputFileWriter,

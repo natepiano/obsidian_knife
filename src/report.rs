@@ -13,7 +13,7 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::obsidian_repository_info::{GroupedImages, ImageGroup, ObsidianRepositoryInfo};
+use crate::obsidian_repository::{GroupedImages, ImageGroup, ObsidianRepository};
 use crate::utils::{escape_brackets, escape_pipe, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
@@ -21,7 +21,7 @@ use chrono::{Local, Utc};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_reports(
         &self,
         validated_config: &ValidatedConfig,

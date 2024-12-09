@@ -1,8 +1,6 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::obsidian_repository_info_types::{
-    ImageGroup, ImageReferences,
-};
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::obsidian_repository_types::{ImageGroup, ImageReferences};
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -96,7 +94,7 @@ impl ReportDefinition for MissingReferencesTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_missing_references_report(
         &self,
         config: &ValidatedConfig,

@@ -1,6 +1,6 @@
 use crate::markdown_file::back_populate_tests::create_test_environment;
 use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
 
@@ -135,7 +135,7 @@ fn test_truly_ambiguous_targets() {
         .create(&temp_dir, "Amazon (river).md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+    let mut repo_info = ObsidianRepository::new(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
@@ -219,7 +219,7 @@ Amazon is ambiguous"#,
         .create(&temp_dir, "test1.md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+    let mut repo_info = ObsidianRepository::new(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config);
 
     // Find test1.md and verify initial state
@@ -339,7 +339,7 @@ Nate was here and so was Nate"#
         .create(&temp_dir, "Nathan Dye.md");
 
     // Let scan_folders find all the files and process them
-    let mut repo_info = ObsidianRepositoryInfo::new(&config).unwrap();
+    let mut repo_info = ObsidianRepository::new(&config).unwrap();
     repo_info.find_all_back_populate_matches(&config);
 
     // Find other.md and verify initial state

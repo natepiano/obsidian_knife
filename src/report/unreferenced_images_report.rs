@@ -1,8 +1,8 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::obsidian_repository_info_types::{
+use crate::obsidian_repository::obsidian_repository_types::{
     GroupedImages, ImageGroup, ImageGroupType,
 };
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -51,7 +51,7 @@ impl ReportDefinition for UnreferencedImagesReport {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_unreferenced_images_report(
         &self,
         config: &ValidatedConfig,

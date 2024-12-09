@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
 use crate::utils::escape_brackets;
 use crate::utils::escape_pipe;
@@ -83,7 +83,7 @@ impl ReportDefinition for InvalidWikilinksTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_invalid_wikilinks_report(
         &self,
         writer: &OutputFileWriter,

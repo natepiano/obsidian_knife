@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::markdown_file::PersistReason;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
@@ -100,7 +100,7 @@ impl ReportDefinition for PersistReasonsTable {
     }
 }
 
-impl ObsidianRepositoryInfo {
+impl ObsidianRepository {
     pub fn write_persist_reasons_report(
         &self,
         config: &ValidatedConfig,

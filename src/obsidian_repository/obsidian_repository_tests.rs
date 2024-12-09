@@ -1,5 +1,5 @@
 use crate::image_file::ImageState;
-use crate::obsidian_repository_info::ObsidianRepositoryInfo;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
 use std::error::Error;
@@ -55,7 +55,7 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
     let (_temp_dir, config) = setup_test_repo();
 
     // Create repository info using new method
-    let repo_info = ObsidianRepositoryInfo::new(&config)?;
+    let repo_info = ObsidianRepository::new(&config)?;
 
     // Verify both structures contain same information
     for (path, image_refs) in &repo_info.image_path_to_references_map {
@@ -102,7 +102,7 @@ fn test_new_handles_empty_repo() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let config = get_validated_config(&temp_dir);
 
-    let repo_info = ObsidianRepositoryInfo::new(&config)?;
+    let repo_info = ObsidianRepository::new(&config)?;
 
     assert!(repo_info.image_files.is_empty());
     assert!(repo_info.image_path_to_references_map.is_empty());
@@ -134,7 +134,7 @@ date_modified: 2024-01-01
         .with_content(md_content.as_bytes().to_vec())
         .create(&temp_dir, "special_images.md");
 
-    let repo_info = ObsidianRepositoryInfo::new(&config)?;
+    let repo_info = ObsidianRepository::new(&config)?;
 
     // Check zero-byte file
     if let Some(zero_byte) = repo_info.image_files.get(&zero_byte_path) {
