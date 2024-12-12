@@ -1,5 +1,6 @@
 use crate::markdown_file::MarkdownFile;
-use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
+use crate::test_utils;
+use crate::test_utils::TestFileBuilder;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -14,7 +15,7 @@ fn test_parse_content_separation() {
         .with_content("This is the actual content")
         .create(&temp_dir, "with_fm.md");
 
-    let mfi = get_test_markdown_file(file_with_fm);
+    let mfi = test_utils::get_test_markdown_file(file_with_fm);
     assert_eq!(mfi.content.trim(), "This is the actual content");
 
     // Test 2: File with no frontmatter
@@ -22,7 +23,7 @@ fn test_parse_content_separation() {
         .with_content("Pure content\nNo frontmatter")
         .create(&temp_dir, "no_fm.md");
 
-    let mfi = get_test_markdown_file(file_no_fm);
+    let mfi = test_utils::get_test_markdown_file(file_no_fm);
     assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
 
     // Test 3: File with --- separators in content
@@ -32,7 +33,7 @@ fn test_parse_content_separation() {
         .with_content(content)
         .create(&temp_dir, "with_separators.md");
 
-    let mfi = get_test_markdown_file(file_with_separators);
+    let mfi = test_utils::get_test_markdown_file(file_with_separators);
     assert_eq!(mfi.content.trim(), content);
 }
 

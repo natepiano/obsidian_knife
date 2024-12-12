@@ -1,4 +1,4 @@
-use crate::utils::build_case_insensitive_word_finder;
+use crate::utils;
 use crate::yaml_frontmatter_struct;
 use chrono::{DateTime, Datelike, Utc};
 use regex::Regex;
@@ -106,7 +106,7 @@ impl FrontMatter {
 
         // if we have values then return them along with their regexes
         if !do_not_populate.is_empty() {
-            build_case_insensitive_word_finder(&Some(do_not_populate))
+            utils::build_case_insensitive_word_finder(&Some(do_not_populate))
         } else {
             // we got nothing from valid frontmatter
             None

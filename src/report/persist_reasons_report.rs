@@ -2,7 +2,8 @@ use crate::constants::*;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
-use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
+use crate::utils;
+use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 use std::path::PathBuf;
@@ -150,7 +151,7 @@ impl ObsidianRepository {
                 for reason in &file.persist_reasons {
                     let data = PersistReasonData {
                         full_path: file.path.clone(), // Store full path for filtering
-                        wikilink: escape_pipe(&wikilink),
+                        wikilink: utils::escape_pipe(&wikilink),
                         reason: reason.clone(),
                         back_populate_count,
                         image_refs_count,

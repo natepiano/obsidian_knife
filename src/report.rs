@@ -14,7 +14,7 @@ pub use report_writer::*;
 
 use crate::constants::*;
 use crate::obsidian_repository::{GroupedImages, ImageGroup, ObsidianRepository};
-use crate::utils::{escape_brackets, escape_pipe, OutputFileWriter};
+use crate::utils::{OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 use chrono::{Local, Utc};

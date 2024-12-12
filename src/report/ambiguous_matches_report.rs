@@ -1,13 +1,14 @@
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{escape_pipe, highlight_matches, ReportDefinition, ReportWriter};
+use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::Path;
+use crate::{report, utils};
 
 struct AmbiguousMatchesTable {
     display_text: String,
@@ -59,12 +60,12 @@ impl ReportDefinition for AmbiguousMatchesTable {
                 .unwrap_or_default();
 
             let highlighted_line =
-                highlight_matches(&line_text, &positions, self.display_text.len());
+                report::highlight_matches(&line_text, &positions, self.display_text.len());
 
             rows.push(vec![
                 file_stem.to_string(),
                 line_number.to_string(),
-                escape_pipe(&highlighted_line),
+                utils::escape_pipe(&highlighted_line),
                 positions.len().to_string(),
             ]);
         }

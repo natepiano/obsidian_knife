@@ -2,7 +2,8 @@ use crate::constants::*;
 use crate::obsidian_repository::obsidian_repository_types::{ImageGroup, ImageReferences};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
-use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
+use crate::utils;
+use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
 use std::error::Error;
@@ -55,7 +56,7 @@ impl ReportDefinition for MissingReferencesTable {
                 let image_links = image_groups
                     .iter()
                     .map(|group| {
-                        escape_pipe(&crate::utils::escape_brackets(
+                        utils::escape_pipe(&crate::utils::escape_brackets(
                             &group.path.to_string_lossy(),
                         ))
                     })

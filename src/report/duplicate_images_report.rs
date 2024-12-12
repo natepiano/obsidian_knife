@@ -1,7 +1,8 @@
 use crate::constants::*;
 use crate::obsidian_repository::obsidian_repository_types::{GroupedImages, ImageGroup};
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{format_duplicates, format_wikilink, ReportDefinition, ReportWriter};
+use crate::report;
+use crate::report::{ ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
@@ -42,7 +43,7 @@ impl ReportDefinition for DuplicateImagesTable {
                 items[0].path.file_name().unwrap().to_string_lossy()
             ),
             // Duplicates column with keeper/deletion status
-            format_duplicates(config, items, keeper_path, false),
+            report::format_duplicates(config, items, keeper_path, false),
             // References column with update status
             format_duplicate_references(
                 config.apply_changes(),
@@ -133,7 +134,7 @@ fn format_duplicate_references(
             let mut link = format!(
                 "{}. {}",
                 index + 1,
-                format_wikilink(Path::new(ref_path), obsidian_path, false)
+                report::format_wikilink(Path::new(ref_path), obsidian_path, false)
             );
 
             // Add status only if any of the referenced images will be updated

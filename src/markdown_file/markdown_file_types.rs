@@ -1,8 +1,7 @@
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
-use crate::markdown_file::extract_date;
-use crate::obsidian_repository::extract_relative_path;
-use crate::wikilink::{is_wikilink, InvalidWikilink, Wikilink};
+use crate::{markdown_file, obsidian_repository,wikilink};
+use crate::wikilink::{InvalidWikilink, Wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::ops::Deref;
@@ -73,8 +72,8 @@ impl DateCreatedFixValidation {
             .and_then(|fm| fm.date_created_fix().cloned());
 
         let parsed_date = date_string.as_ref().and_then(|date_str| {
-            let date = if is_wikilink(Some(date_str)) {
-                extract_date(date_str)
+            let date = if wikilink::is_wikilink(Some(date_str)) {
+                markdown_file::extract_date(date_str)
             } else {
                 date_str.trim().trim_matches('"')
             };
@@ -359,7 +358,7 @@ impl ReplaceableContent for ImageLink {
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
-        let relative_path = extract_relative_path(&raw_link);
+        let relative_path = obsidian_repository::extract_relative_path(&raw_link);
 
         // Determine link type and rendering first
         let (filename, image_link_type, alt_text, size_parameter) = if raw_link.ends_with("]]") {

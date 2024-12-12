@@ -24,7 +24,7 @@ use crate::markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableC
 use crate::obsidian_repository::obsidian_repository_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
 };
-use crate::utils::collect_repository_files;
+use crate::utils;
 use crate::{
     constants::*, markdown_file::BackPopulateMatch, markdown_files::MarkdownFiles,
     validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
@@ -55,7 +55,7 @@ impl ObsidianRepository {
         let _timer = Timer::new("obsidian_repository_new");
         let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
-        let repository_files = collect_repository_files(config, ignore_folders)?;
+        let repository_files = utils::collect_repository_files(config, ignore_folders)?;
 
         // Process markdown files
         let markdown_files = pre_scan_markdown_files(

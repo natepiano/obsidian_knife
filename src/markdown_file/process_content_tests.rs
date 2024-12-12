@@ -2,7 +2,7 @@ use crate::markdown_file::{
     ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFile,
 };
 use crate::test_utils::TestFileBuilder;
-use crate::utils::get_image_regex;
+use crate::utils;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use tempfile::TempDir;
 
@@ -35,7 +35,7 @@ fn test_process_content_with_aliases() {
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
-    let image_links = file_info.process_image_links(&get_image_regex());
+    let image_links = file_info.process_image_links(&utils::get_image_regex());
 
     // Verify expected wikilinks
     assert_contains_wikilink(&extracted.valid, "test file", None, false);
@@ -65,7 +65,7 @@ fn test_process_content_with_invalid() {
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
-    let image_links = file_info.process_image_links(&get_image_regex());
+    let image_links = file_info.process_image_links(&utils::get_image_regex());
 
     // Check valid wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
@@ -118,7 +118,7 @@ fn test_process_content_with_empty() {
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
-    let image_links = file_info.process_image_links(&get_image_regex());
+    let image_links = file_info.process_image_links(&utils::get_image_regex());
 
     assert_eq!(
         extracted.invalid.len(),
@@ -155,7 +155,7 @@ fn test_process_content_with_images() {
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
     let extracted = file_info.process_wikilinks().unwrap();
-    let image_links = file_info.process_image_links(&get_image_regex());
+    let image_links = file_info.process_image_links(&utils::get_image_regex());
 
     // Check wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false);
@@ -237,7 +237,7 @@ fn test_image_link_types() {
         ),
     ];
 
-    let image_regex = get_image_regex();
+    let image_regex = utils::get_image_regex();
 
     for case in test_cases.iter() {
         let captures = image_regex

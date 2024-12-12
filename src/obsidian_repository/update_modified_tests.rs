@@ -1,5 +1,6 @@
 use super::*;
-use crate::test_utils::{eastern_midnight, get_test_markdown_file, TestFileBuilder};
+use crate::test_utils;
+use crate::test_utils::TestFileBuilder;
 use chrono::{Datelike, Utc};
 use tempfile::TempDir;
 
@@ -8,7 +9,7 @@ use tempfile::TempDir;
 fn test_update_modified_dates_changes_frontmatter() {
     let temp_dir = TempDir::new().unwrap();
 
-    let base_date = eastern_midnight(2024, 1, 15);
+    let base_date = test_utils::eastern_midnight(2024, 1, 15);
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
@@ -19,7 +20,7 @@ fn test_update_modified_dates_changes_frontmatter() {
         .create(&temp_dir, "test1.md");
 
     let mut repository = ObsidianRepository::default();
-    let mut markdown_file = get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
     markdown_file.mark_image_reference_as_updated();
 
     repository.markdown_files.push(markdown_file);
@@ -54,7 +55,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let temp_dir = TempDir::new().unwrap();
 
     // Set January 15th, 2024 as the base date
-    let base_date = eastern_midnight(2024, 1, 15);
+    let base_date = test_utils::eastern_midnight(2024, 1, 15);
 
     // Create two files
     let file_path1 = TestFileBuilder::new()
@@ -73,7 +74,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .create(&temp_dir, "test2.md");
 
     let mut repository = ObsidianRepository::default();
-    let mut markdown_file1 = get_test_markdown_file(file_path1.clone());
+    let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1.clone());
 
     // Only update the first file
     markdown_file1.mark_image_reference_as_updated();
@@ -81,7 +82,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     repository.markdown_files.push(markdown_file1);
     repository
         .markdown_files
-        .push(get_test_markdown_file(file_path2.clone()));
+        .push(test_utils::get_test_markdown_file(file_path2.clone()));
 
     let file1 = &repository.markdown_files[0];
     let file2 = &repository.markdown_files[1];

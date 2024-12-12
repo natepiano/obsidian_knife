@@ -5,9 +5,8 @@ use std::path::Path;
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{
-    escape_brackets, escape_pipe, highlight_matches, ReportDefinition, ReportWriter,
-};
+use crate::{report, utils};
+use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
@@ -52,7 +51,7 @@ impl ReportDefinition for BackPopulateTable {
             let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
             for line_info in m.line_info {
-                let highlighted_line = highlight_matches(
+                let highlighted_line = report::highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
                     self.display_text.len(),
@@ -61,16 +60,16 @@ impl ReportDefinition for BackPopulateTable {
                 let replacement = if m.in_markdown_table {
                     m.replacement.clone()
                 } else {
-                    escape_pipe(&m.replacement)
+                    utils::escape_pipe(&m.replacement)
                 };
 
                 table_rows.push(vec![
                     file_stem.to_wikilink(),
                     line_info.line_number.to_string(),
-                    escape_pipe(&highlighted_line),
+                    utils::escape_pipe(&highlighted_line),
                     line_info.positions.len().to_string(),
                     replacement.clone(),
-                    escape_brackets(&replacement),
+                    utils::escape_brackets(&replacement),
                 ]);
             }
         }

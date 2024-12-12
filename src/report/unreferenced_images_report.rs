@@ -4,7 +4,8 @@ use crate::obsidian_repository::obsidian_repository_types::{
 };
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
-use crate::utils::{escape_pipe, ColumnAlignment, OutputFileWriter};
+use crate::utils;
+use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 
@@ -26,7 +27,7 @@ impl ReportDefinition for UnreferencedImagesReport {
             .iter()
             .map(|group| {
                 let file_name = group.path.file_name().unwrap().to_string_lossy();
-                let sample = escape_pipe(format!("![[{}|400]]", file_name).as_str());
+                let sample = utils::escape_pipe(format!("![[{}|400]]", file_name).as_str());
                 let file_link = format!("[[{}]]", file_name);
 
                 vec![sample, file_link]

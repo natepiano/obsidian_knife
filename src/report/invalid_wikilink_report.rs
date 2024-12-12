@@ -1,8 +1,7 @@
 use crate::constants::*;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
-use crate::utils::escape_brackets;
-use crate::utils::escape_pipe;
+use crate::utils;
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason, ToWikilink};
@@ -47,9 +46,9 @@ impl ReportDefinition for InvalidWikilinksTable {
                         .unwrap_or("")
                         .to_wikilink(),
                     invalid_wikilink.line_number.to_string(),
-                    escape_pipe(&invalid_wikilink.line),
+                    utils::escape_pipe(&invalid_wikilink.line),
                     invalid_wikilink.reason.to_string(),
-                    escape_brackets(&invalid_wikilink.content),
+                    utils::escape_brackets(&invalid_wikilink.content),
                 ]
             })
             .collect()

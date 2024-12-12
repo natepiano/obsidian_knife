@@ -1,10 +1,7 @@
 #[cfg(test)]
-mod validated_config_tests;
-#[cfg(test)]
-pub use validated_config_tests::{get_test_validated_config, get_test_validated_config_builder};
+pub(crate) mod validated_config_tests;
 
-use crate::utils::build_case_insensitive_word_finder;
-use crate::{DEFAULT_TIMEZONE, EXTENSION_MARKDOWN};
+use crate::{utils, DEFAULT_TIMEZONE, EXTENSION_MARKDOWN};
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;
@@ -125,7 +122,7 @@ impl ValidatedConfigBuilder {
             if !validated.is_empty() {
                 self.do_not_back_populate = Some(Some(validated.clone()));
                 self.do_not_back_populate_regexes = Some(Some(
-                    build_case_insensitive_word_finder(&Some(validated)).unwrap(),
+                    utils::build_case_insensitive_word_finder(&Some(validated)).unwrap(),
                 ));
             } else {
                 self.do_not_back_populate = Some(None);

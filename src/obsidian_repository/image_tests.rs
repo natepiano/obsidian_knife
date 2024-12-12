@@ -1,7 +1,8 @@
 use crate::obsidian_repository::obsidian_repository_types::{ImageOperation, MarkdownOperation};
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils::{eastern_midnight, TestFileBuilder};
-use crate::validated_config::get_test_validated_config_builder;
+use crate::test_utils;
+use crate::test_utils::TestFileBuilder;
+use crate::validated_config::validated_config_tests;
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
@@ -11,12 +12,12 @@ use tempfile::TempDir;
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
     // Create a markdown file that references a non-existent image
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
     let md_file = TestFileBuilder::new()
         .with_content(
             "# Test\n![[missing.jpg]]\nSome content\n![Another](also_missing.jpg)".to_string(),
@@ -65,7 +66,7 @@ fn test_analyze_missing_references() {
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_duplicates() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
 
     fs::create_dir_all(config.output_folder()).unwrap();
@@ -80,7 +81,7 @@ fn test_analyze_duplicates() {
         .create(&temp_dir, "image2.jpg");
 
     // Create markdown files referencing both images
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
     let md_file1 = TestFileBuilder::new()
         .with_content("# Doc1\n![[image1.jpg]]".to_string())
         .with_matching_dates(test_date)
@@ -139,7 +140,7 @@ fn test_image_operation_generation() {
         ImageTestCase {
             name: "duplicate_images",
             setup: |temp_dir| {
-                let test_date = eastern_midnight(2024, 1, 15);
+                let test_date = test_utils::eastern_midnight(2024, 1, 15);
                 // Create duplicate images
                 let img_content = vec![0xFF, 0xD8, 0xFF, 0xE0];
                 let img_path1 = TestFileBuilder::new()
@@ -177,7 +178,7 @@ fn test_image_operation_generation() {
         ImageTestCase {
             name: "zero_byte_images",
             setup: |temp_dir| {
-                let test_date = eastern_midnight(2024, 1, 15);
+                let test_date = test_utils::eastern_midnight(2024, 1, 15);
                 // Create empty image
                 let img_path = TestFileBuilder::new()
                     .with_content(vec![])
@@ -197,7 +198,7 @@ fn test_image_operation_generation() {
         ImageTestCase {
             name: "multiple_zero_byte_images_single_file",
             setup: |temp_dir| {
-                let test_date = eastern_midnight(2024, 1, 15);
+                let test_date = test_utils::eastern_midnight(2024, 1, 15);
                 // Create multiple empty images
                 let img_path1 = TestFileBuilder::new()
                     .with_content(vec![])
@@ -237,7 +238,7 @@ fn test_image_operation_generation() {
         ImageTestCase {
             name: "tiff_images",
             setup: |temp_dir| {
-                let test_date = eastern_midnight(2024, 1, 15);
+                let test_date = test_utils::eastern_midnight(2024, 1, 15);
                 // Create TIFF image with minimal valid header
                 let img_path = TestFileBuilder::new()
                     .with_content(vec![0x4D, 0x4D, 0x00, 0x2A]) // TIFF header
@@ -275,7 +276,7 @@ fn test_image_operation_generation() {
 
     for test_case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let mut builder = get_test_validated_config_builder(&temp_dir);
+        let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
         let config = builder.apply_changes(true).build().unwrap();
         fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -417,12 +418,12 @@ fn expect_delete_remove_reference(
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_image_reference_detection() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
     // Test date for consistent file timestamps
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
     // Create nested directory structure
     let nested_paths = [
@@ -549,12 +550,12 @@ fn test_image_reference_detection() {
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
     // Create a markdown file with a wikilink as a path (invalid)
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
     let md_file = TestFileBuilder::new()
         .with_content("# Test\n![[[[Some File]]]]".to_string())
         .with_matching_dates(test_date)
@@ -587,11 +588,11 @@ fn test_analyze_wikilink_errors() {
 #[test]
 fn test_handle_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = get_test_validated_config_builder(&temp_dir);
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
     // Create markdown files with references to non-existent images
     let md_content = r#"# Test Document

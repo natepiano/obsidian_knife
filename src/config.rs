@@ -3,10 +3,9 @@ mod config_tests;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
-use crate::utils::expand_tilde;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
 use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::yaml_frontmatter_struct;
+use crate::{utils, yaml_frontmatter_struct};
 use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
@@ -48,14 +47,14 @@ impl Config {
             .do_not_back_populate(self.do_not_back_populate.clone())
             .file_process_limit(self.file_process_limit)
             .ignore_folders(self.ignore_folders.clone())
-            .obsidian_path(expand_tilde(&self.obsidian_path))
+            .obsidian_path(utils::expand_tilde(&self.obsidian_path))
             .operational_timezone(
                 self.operational_timezone
                     .clone()
                     .unwrap_or_else(|| DEFAULT_TIMEZONE.to_string()),
             )
             .output_folder(
-                expand_tilde(&self.obsidian_path).join(
+                utils::expand_tilde(&self.obsidian_path).join(
                     self.output_folder
                         .as_deref()
                         .unwrap_or(DEFAULT_OUTPUT_FOLDER),

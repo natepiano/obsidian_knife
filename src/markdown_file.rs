@@ -25,24 +25,24 @@ pub use markdown_file_types::*;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
-use crate::utils::{get_image_regex, read_contents_from_file, MARKDOWN_REGEX};
+use crate::utils;
+use crate::utils::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::{
-    create_filename_wikilink, extract_wikilinks, is_wikilink, ExtractedWikilinks, InvalidWikilink,
-    ToWikilink, Wikilink,
-};
-use crate::yaml_frontmatter::{find_yaml_section, YamlFrontMatter, YamlFrontMatterError};
+use crate::wikilink;
+use crate::wikilink::{ExtractedWikilinks, InvalidWikilink, ToWikilink, Wikilink};
+use crate::yaml_frontmatter;
+use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
 
 use aho_corasick::AhoCorasick;
 use chrono::{DateTime, NaiveDate, Utc};
 use filetime::FileTime;
 use itertools::Itertools;
-use lazy_static::lazy_static;
 use regex::Regex;
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
+
 
 #[derive(Debug, Clone)]
 pub struct MarkdownFile {
@@ -66,9 +66,9 @@ impl MarkdownFile {
         path: PathBuf,
         operational_timezone: &str,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let full_content = read_contents_from_file(&path)?;
+        let full_content = utils::read_contents_from_file(&path)?;
 
-        let yaml_result = find_yaml_section(&full_content);
+        let yaml_result = yaml_frontmatter::find_yaml_section(&full_content);
         let frontmatter_line_count = match &yaml_result {
             Ok(Some((yaml_section, _))) => yaml_section.lines().count() + 2,
             _ => 0,
@@ -127,7 +127,7 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        let image_regex = get_image_regex();
+        let image_regex = utils::get_image_regex();
 
         let extracted_wikilinks = file_info.process_wikilinks()?;
         let image_links = file_info.process_image_links(&image_regex);
@@ -244,7 +244,7 @@ impl MarkdownFile {
             .and_then(|n| n.to_str())
             .unwrap_or_default();
 
-        let filename_wikilink = create_filename_wikilink(filename);
+        let filename_wikilink = wikilink::create_filename_wikilink(filename);
         result.valid.push(filename_wikilink.clone());
 
         // Add aliases if present
@@ -261,7 +261,7 @@ impl MarkdownFile {
 
         // Process content line by line for wikilinks
         for (line_idx, line) in self.content.lines().enumerate() {
-            let extracted = extract_wikilinks(line);
+            let extracted = wikilink::extract_wikilinks(line);
             result.valid.extend(extracted.valid);
 
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
@@ -428,7 +428,7 @@ impl MarkdownFile {
             }
         }
 
-        !is_within_wikilink(line, absolute_start)
+        !wikilink::is_within_wikilink(line, absolute_start)
     }
 }
 
@@ -444,7 +444,7 @@ fn get_date_validation_issue(
     };
 
     // Check if the date string is a valid wikilink
-    if !is_wikilink(Some(date_str)) {
+    if !wikilink::is_wikilink(Some(date_str)) {
         return Some(DateValidationIssue::InvalidWikilink);
     }
 
@@ -530,7 +530,7 @@ fn get_date_validations(
 // Extracts the date string from a possible wikilink format
 fn extract_date(date_str: &str) -> &str {
     let date_str = date_str.trim();
-    if is_wikilink(Some(date_str)) {
+    if wikilink::is_wikilink(Some(date_str)) {
         date_str
             .trim_start_matches(OPENING_WIKILINK)
             .trim_end_matches(CLOSING_WIKILINK)
@@ -613,23 +613,6 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
     })
 }
 
-fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
-    lazy_static! {
-        static ref WIKILINK_FINDER: Regex = Regex::new(r"\[\[.*?\]\]").unwrap();
-    }
-
-    for mat in WIKILINK_FINDER.find_iter(line) {
-        let content_start = mat.start() + 2; // Start of link content, after "[["
-        let content_end = mat.end() - 2; // End of link content, before "\]\]"
-
-        // Return true only if the byte_position falls within the link content
-        if byte_position >= content_start && byte_position < content_end {
-            return true;
-        }
-    }
-    false
-}
-
 fn format_relative_path(path: &Path, base_path: &Path) -> String {
     path.strip_prefix(base_path)
         .unwrap_or(path)
@@ -644,76 +627,3 @@ fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
         && trimmed.matches('|').count() > 2
         && trimmed.contains(matched_text)
 }
-
-// fn process_content(
-//     content: &str,
-//     aliases: &Option<Vec<String>>,
-//     file_path: &Path,
-//     image_regex: &Arc<Regex>,
-// ) -> Result<(ExtractedWikilinks, Vec<ImageLink>), Box<dyn Error + Send + Sync>> {
-//     let mut result = ExtractedWikilinks::default();
-//     let mut image_links = Vec::new();
-//
-//     // Add filename-based wikilink
-//     let filename = file_path
-//         .file_name()
-//         .and_then(|n| n.to_str())
-//         .unwrap_or_default();
-//
-//     let filename_wikilink = create_filename_wikilink(filename);
-//     result.valid.push(filename_wikilink.clone());
-//
-//     // Add aliases if present
-//     if let Some(alias_list) = aliases {
-//         for alias in alias_list {
-//             let wikilink = Wikilink {
-//                 display_text: alias.clone(),
-//                 target: filename_wikilink.target.clone(),
-//                 is_alias: true,
-//             };
-//             result.valid.push(wikilink);
-//         }
-//     }
-//
-//     // Process content line by line for both wikilinks and images
-//     for (line_idx, line) in content.lines().enumerate() {
-//         // Process wikilinks
-//         let extracted = extract_wikilinks(line);
-//         result.valid.extend(extracted.valid);
-//
-//         let invalid_with_lines: Vec<InvalidWikilink> = extracted
-//             .invalid
-//             .into_iter()
-//             .map(|parsed| parsed.into_invalid_wikilink(line.to_string(), line_idx + 1))
-//             .collect();
-//         result.invalid.extend(invalid_with_lines);
-//
-//         // new only matches image patterns:
-//         // ![[image.ext]] or ![[image.ext|alt]] -> Embedded Wikilink
-//         // [[image.ext]] or [[image.ext|alt]] -> Link Only Wikilink
-//         // ![alt](image.ext) -> Embedded Markdown Internal
-//         // [alt](image.ext) -> Link Only Markdown Internal
-//         // ![alt](https://example.com/image.ext) -> Embedded Markdown External
-//         // [alt](https://example.com/image.ext) -> Link Only Markdown External
-//
-//         // Process image references on the same line
-//         for capture in image_regex.captures_iter(line) {
-//             if let Some(raw_image_link) = capture.get(0) {
-//                 let image_link = ImageLink::new(
-//                     raw_image_link.as_str().to_string(),
-//                     line_idx + 1,
-//                     raw_image_link.start(),
-//                 );
-//                 match image_link.image_link_type {
-//                     ImageLinkType::Wikilink(_)
-//                     | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
-//                         image_links.push(image_link)
-//                     }
-//                     _ => {}
-//                 }
-//             }
-//         }
-//     }
-//
-//     Ok((result, image_links))
-// }

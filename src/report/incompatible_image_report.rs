@@ -3,7 +3,8 @@ use crate::obsidian_repository::obsidian_repository_types::{
     GroupedImages, ImageGroup, ImageGroupType,
 };
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{format_references, ReportDefinition, ReportWriter};
+use crate::report;
+use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
@@ -61,7 +62,7 @@ impl ReportDefinition for ImageGroupType {
                 let references = if group.image_references.markdown_file_references.is_empty() {
                     String::from("not referenced by any file")
                 } else {
-                    format_references(
+                    report::format_references(
                         config.apply_changes(),
                         config.obsidian_path(),
                         &[group.clone()],

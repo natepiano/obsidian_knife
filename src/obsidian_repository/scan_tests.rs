@@ -1,10 +1,12 @@
 use crate::constants::*;
-use crate::test_utils::{get_test_markdown_file, TestFileBuilder};
+use crate::test_utils::TestFileBuilder;
 use crate::utils::CachedImageInfo;
-use crate::validated_config::get_test_validated_config;
 
 use crate::markdown_file::{ImageLink, MarkdownFile};
 use crate::obsidian_repository::ObsidianRepository;
+use crate::test_utils;
+use crate::validated_config::validated_config_tests;
+
 use std::collections::HashMap;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -22,7 +24,7 @@ fn test_parallel_image_reference_collection() {
         let file_path = TestFileBuilder::new()
             .with_content(content.clone())
             .create(&temp_dir, &filename);
-        let mut info = get_test_markdown_file(file_path.clone());
+        let mut info = test_utils::get_test_markdown_file(file_path.clone());
 
         info.image_links.links = content
             .split('\n')
@@ -96,7 +98,7 @@ fn test_wikilink_sorting_with_aliases() {
         .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
         .create(&temp_dir, "other.md");
 
-    let config = get_test_validated_config(&temp_dir, None);
+    let config = validated_config_tests::get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
     let repository = ObsidianRepository::new(&config).unwrap();
@@ -154,7 +156,7 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
-        let config = get_test_validated_config(&temp_dir, None);
+        let config = validated_config_tests::get_test_validated_config(&temp_dir, None);
 
         // First scan - creates cache with the image
         let _ = ObsidianRepository::new(&config).unwrap();

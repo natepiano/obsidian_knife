@@ -3,7 +3,8 @@ use crate::obsidian_repository::ObsidianRepository;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
 
-use crate::test_utils::{get_test_markdown_file, parse_datetime, TestFileBuilder};
+use crate::test_utils;
+use crate::test_utils::TestFileBuilder;
 use crate::validated_config::ValidatedConfigBuilder;
 use aho_corasick::AhoCorasick;
 use aho_corasick::{AhoCorasickBuilder, MatchKind};
@@ -43,7 +44,7 @@ pub(crate) fn create_test_environment(
 
     // Create test file using TestFileBuilder but WITHOUT frontmatter
     let file_path = TestFileBuilder::new()
-        .with_matching_dates(parse_datetime("2024-01-02 00:00:00"))
+        .with_matching_dates(test_utils::parse_datetime("2024-01-02 00:00:00"))
         .with_content(
             initial_content
                 .unwrap_or("Initial test content")
@@ -80,7 +81,7 @@ pub fn create_markdown_test_file(
     let mut file = File::create(&file_path).unwrap();
     write!(file, "{}", content).unwrap();
 
-    let markdown_file = get_test_markdown_file(file_path.clone());
+    let markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
     repository.markdown_files.push(markdown_file);
 

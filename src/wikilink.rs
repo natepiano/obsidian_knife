@@ -16,6 +16,8 @@ use crate::{
 use crate::utils::RAW_HTTP_REGEX;
 use std::iter::Peekable;
 use std::str::CharIndices;
+use lazy_static::lazy_static;
+use regex::Regex;
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
@@ -384,4 +386,21 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
         Some(c) => c == expected,
         None => false,
     }
+}
+
+pub(crate) fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
+    lazy_static! {
+        static ref WIKILINK_FINDER: Regex = Regex::new(r"\[\[.*?\]\]").unwrap();
+    }
+
+    for mat in WIKILINK_FINDER.find_iter(line) {
+        let content_start = mat.start() + 2; // Start of link content, after "[["
+        let content_end = mat.end() - 2; // End of link content, before "\]\]"
+
+        // Return true only if the byte_position falls within the link content
+        if byte_position >= content_start && byte_position < content_end {
+            return true;
+        }
+    }
+    false
 }

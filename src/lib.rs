@@ -11,7 +11,6 @@ mod markdown_file;
 mod markdown_files;
 mod obsidian_repository;
 mod report;
-// mod scan;
 mod utils;
 mod validated_config;
 mod wikilink;
@@ -29,12 +28,11 @@ use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
 use std::path::PathBuf;
-use utils::expand_tilde;
 
 // lib was separated from main so it could be incorporated into integration tests
 // such as config_tests.rs - but that's not happening so...
 pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let expanded_path = expand_tilde(config_path);
+    let expanded_path = utils::expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {

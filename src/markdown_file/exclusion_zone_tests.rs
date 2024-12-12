@@ -1,9 +1,9 @@
-use crate::markdown_file::back_populate_tests::create_test_environment;
+use crate::markdown_file::back_populate_tests;
 use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason};
 
 #[test]
 fn test_collect_exclusion_zones_with_invalid_wikilinks() {
-    let (_, config, mut repository) = create_test_environment(
+    let (_, config, mut repository) = back_populate_tests::create_test_environment(
         false,
         None,
         None,
@@ -33,7 +33,7 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
-    let (_, config, mut repository) = create_test_environment(false, None, None, None);
+    let (_, config, mut repository) = back_populate_tests::create_test_environment(false, None, None, None);
 
     let markdown_file = repository.markdown_files.first_mut().unwrap();
 
@@ -70,7 +70,7 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_only_matches_current_line() {
-    let (_, config, mut repository) = create_test_environment(
+    let (_, config, mut repository) = back_populate_tests::create_test_environment(
         false,
         None,
         None,

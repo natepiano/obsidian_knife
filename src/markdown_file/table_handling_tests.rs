@@ -1,4 +1,4 @@
-use crate::markdown_file::back_populate_tests::{build_aho_corasick, create_test_environment};
+use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
@@ -6,7 +6,7 @@ use crate::wikilink::Wikilink;
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, config, _) = create_test_environment(false, None, None, None);
+    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
     let markdown_file =
@@ -22,7 +22,7 @@ fn test_should_create_match_in_table() {
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, config, mut repository) = create_test_environment(true, None, None, None);
+    let (temp_dir, config, mut repository) = back_populate_tests::create_test_environment(true, None, None, None);
 
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
@@ -89,12 +89,12 @@ fn test_process_line_table_escaping_combined() {
 
     // Initialize environment with custom wikilinks
     let (temp_dir, config, repository) =
-        create_test_environment(false, None, Some(wikilinks.clone()), None);
+        back_populate_tests::create_test_environment(false, None, Some(wikilinks.clone()), None);
 
     // Compile the wikilinks
     let sorted_wikilinks = &repository.wikilinks_sorted;
 
-    let ac = build_aho_corasick(sorted_wikilinks);
+    let ac = back_populate_tests::build_aho_corasick(sorted_wikilinks);
 
     let markdown_info = repository.markdown_files.first().unwrap();
 

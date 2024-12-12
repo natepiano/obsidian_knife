@@ -4,7 +4,6 @@ use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
-use crate::obsidian_repository::execute_image_deletions;
 use crate::obsidian_repository::obsidian_repository_types::{ImageOperations, ImageReferences};
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
@@ -13,6 +12,7 @@ use std::error::Error;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use crate::obsidian_repository;
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
@@ -125,7 +125,7 @@ impl MarkdownFiles {
         &self,
         image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        execute_image_deletions(&image_operations)?;
+        obsidian_repository::execute_image_deletions(&image_operations)?;
 
         for file_info in &self.files {
             file_info.persist()?;
