@@ -18,8 +18,7 @@ pub mod obsidian_repository_types;
 pub use obsidian_repository_types::GroupedImages;
 pub use obsidian_repository_types::ImageGroup;
 
-use crate::image_file::{ImageFile, ImageFileState};
-use crate::image_files::ImageFiles;
+use crate::image_file::{ImageFile,ImageFiles, ImageFileState};
 use crate::markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent};
 use crate::obsidian_repository::obsidian_repository_types::{
     ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
@@ -74,7 +73,7 @@ impl ObsidianRepository {
         // Initialize instance with defaults
         let mut repository = Self {
             markdown_files,
-            image_files: ImageFiles::new(),
+            image_files: ImageFiles::default(),
             markdown_files_to_persist: MarkdownFiles::default(),
             image_path_to_references_map: HashMap::new(),
             other_files: repository_files.other_files,
@@ -130,7 +129,7 @@ fn pre_scan_markdown_files(
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
     // Use Arc<Mutex<...>> for safe shared collection
-    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new(Vec::new())));
+    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
         match MarkdownFile::new(file_path.clone(), timezone) {

@@ -6,7 +6,6 @@ mod config;
 mod constants;
 mod frontmatter;
 mod image_file;
-mod image_files;
 mod markdown_file;
 mod markdown_files;
 mod obsidian_repository;

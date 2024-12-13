@@ -1,4 +1,4 @@
-use crate::image_file::{ImageFileState, IncompatibilityReason};
+use crate::image_file::{ImageFile, ImageFiles, ImageFileState, IncompatibilityReason};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
@@ -50,6 +50,10 @@ fn get_validated_config(temp_dir: &TempDir) -> ValidatedConfig {
         .unwrap()
 }
 
+pub fn find_image_file<'a>(files: &'a ImageFiles, path: &'a PathBuf) -> Option<&'a ImageFile> {
+    files.files.iter().find(|f| f.path == *path)
+}
+
 #[test]
 fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> {
     let (_temp_dir, config) = setup_test_repo();
@@ -59,10 +63,8 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
 
     // Verify both structures contain same information
     for (path, image_refs) in &repository.image_path_to_references_map {
-        // Find corresponding ImageFile
-        let image_file = repository
-            .image_files
-            .get(path)
+
+        let image_file = find_image_file(&repository.image_files, path)
             .expect("Image in map should exist in image_files");
 
         // Verify hash matches
@@ -136,31 +138,38 @@ date_modified: 2024-01-01
 
     let repository = ObsidianRepository::new(&config)?;
 
-    // Check zero-byte file
-    if let Some(zero_byte) = repository.image_files.get(&zero_byte_path) {
-        assert_eq!(
-            zero_byte.image_state,
-            ImageFileState::Incompatible {
-                reason: IncompatibilityReason::ZeroByte
-            },
-            "Zero-byte file should have ZeroByte state"
-        );
-    } else {
-        panic!("Expected to find zero-byte file at {:?}", zero_byte_path);
+    fn assert_incompatible_image_state(
+        files: &ImageFiles,
+        path: &PathBuf,
+        expected_reason: IncompatibilityReason,
+        message: &str,
+    ) {
+        if let Some(image) = find_image_file(files, path) {
+            assert_eq!(
+                image.image_state,
+                ImageFileState::Incompatible {
+                    reason: expected_reason
+                },
+                "{}", message
+            );
+        } else {
+            panic!("Expected to find file at {:?}", path);
+        }
     }
 
-    // Check TIFF file
-    if let Some(tiff) = repository.image_files.get(&tiff_path) {
-        assert_eq!(
-            tiff.image_state,
-            ImageFileState::Incompatible {
-                reason: IncompatibilityReason::TiffFormat
-            },
-            "TIFF file should have Tiff state"
-        );
-    } else {
-        panic!("Expected to find TIFF file at {:?}", tiff_path);
-    }
+    assert_incompatible_image_state(
+        &repository.image_files,
+        &zero_byte_path,
+        IncompatibilityReason::ZeroByte,
+        "Zero-byte file should have ZeroByte state"
+    );
+
+    assert_incompatible_image_state(
+        &repository.image_files,
+        &tiff_path,
+        IncompatibilityReason::TiffFormat,
+        "TIFF file should have Tiff state"
+    );
 
     Ok(())
 }

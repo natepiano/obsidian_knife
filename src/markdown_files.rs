@@ -10,60 +10,14 @@ use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
+use vecollect::collection;
 
 #[derive(Debug, Default)]
+#[collection(field="files")]
 pub struct MarkdownFiles {
     pub(crate) files: Vec<MarkdownFile>,
-}
-
-impl Deref for MarkdownFiles {
-    type Target = Vec<MarkdownFile>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.files
-    }
-}
-
-impl DerefMut for MarkdownFiles {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.files
-    }
-}
-
-// Add these implementations after the MarkdownFiles struct definition
-impl Index<usize> for MarkdownFiles {
-    type Output = MarkdownFile;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.files[index]
-    }
-}
-
-impl IndexMut<usize> for MarkdownFiles {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.files[index]
-    }
-}
-
-impl<'a> IntoIterator for &'a MarkdownFiles {
-    type Item = &'a MarkdownFile;
-    type IntoIter = std::slice::Iter<'a, MarkdownFile>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.files.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut MarkdownFiles {
-    type Item = &'a mut MarkdownFile;
-    type IntoIter = std::slice::IterMut<'a, MarkdownFile>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.files.iter_mut()
-    }
 }
 
 impl MarkdownFiles {
@@ -71,25 +25,9 @@ impl MarkdownFiles {
         Self { files }
     }
 
-    pub fn push(&mut self, file: MarkdownFile) {
-        // Note: now takes &mut self
-        self.files.push(file);
-    }
-
+    // todo - can you get rid of this after you finish the image refactoring?
     pub fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
         self.iter_mut().find(|file| file.path == path)
-    }
-
-    pub fn iter(&self) -> impl Iterator<Item = &MarkdownFile> {
-        self.files.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut MarkdownFile> {
-        self.files.iter_mut()
-    }
-
-    pub fn par_iter(&self) -> impl ParallelIterator<Item = &MarkdownFile> {
-        self.files.par_iter()
     }
 
     pub fn process_files_for_back_populate_matches(

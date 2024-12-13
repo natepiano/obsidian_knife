@@ -5,6 +5,29 @@ use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
 use std::fs;
 use std::path::PathBuf;
 
+use vecollect::collection;
+
+#[derive(Default, Debug)]
+#[collection(field="files")]
+pub struct ImageFiles {
+    pub(crate) files: Vec<ImageFile>,
+}
+
+impl ImageFiles {
+
+    pub fn files_in_state<F>(&self, predicate: F) -> ImageFiles
+    where
+        F: Fn(&ImageFileState) -> bool,
+    {
+        self.files
+            .iter()
+            .filter(|image_file| predicate(&image_file.image_state))
+            .cloned()
+            .collect()
+    }
+}
+
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
     pub path: PathBuf,

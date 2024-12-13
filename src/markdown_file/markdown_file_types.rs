@@ -4,8 +4,8 @@ use crate::wikilink::{InvalidWikilink, Wikilink};
 use crate::{markdown_file, obsidian_repository, wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
-use std::ops::Deref;
 use std::path::PathBuf;
+use vecollect::collection;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -213,52 +213,9 @@ pub struct Wikilinks {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
+#[collection(field="links")]
 pub struct ImageLinks {
     pub links: Vec<ImageLink>,
-}
-
-impl ImageLinks {
-    pub fn iter(&self) -> impl Iterator<Item = &ImageLink> {
-        self.links.iter()
-    }
-
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut ImageLink> {
-        self.links.iter_mut()
-    }
-}
-
-impl Deref for ImageLinks {
-    type Target = Vec<ImageLink>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.links
-    }
-}
-
-impl<'a> IntoIterator for &'a ImageLinks {
-    type Item = &'a ImageLink;
-    type IntoIter = std::slice::Iter<'a, ImageLink>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.links.iter()
-    }
-}
-
-impl<'a> IntoIterator for &'a mut ImageLinks {
-    type Item = &'a mut ImageLink;
-    type IntoIter = std::slice::IterMut<'a, ImageLink>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.links.iter_mut()
-    }
-}
-
-impl FromIterator<ImageLink> for ImageLinks {
-    fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
-        ImageLinks {
-            links: iter.into_iter().collect(),
-        }
-    }
 }
 
 impl ImageLinks {
