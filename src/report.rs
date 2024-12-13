@@ -13,11 +13,11 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::ObsidianRepository;
 use crate::obsidian_repository::obsidian_repository_types::{GroupedImages, ImageGroup};
 use crate::utils::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
+use crate::ObsidianRepository;
 use chrono::{Local, Utc};
 use std::error::Error;
 use std::path::{Path, PathBuf};

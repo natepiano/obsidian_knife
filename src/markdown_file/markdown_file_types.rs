@@ -1,12 +1,12 @@
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
+use crate::utils::{EnumFilter, VecEnumFilter};
 use crate::wikilink::{InvalidWikilink, Wikilink};
 use crate::{markdown_file, obsidian_repository, wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;
 use vecollect::collection;
-use crate::utils::{EnumFilter, VecEnumFilter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -221,7 +221,7 @@ pub struct ImageLinks {
 
 impl ImageLinks {
     pub fn missing(&self) -> ImageLinks {
-        self.filter_by_variant(|state| { matches!(state, ImageLinkState::Missing)})
+        self.filter_by_variant(|state| matches!(state, ImageLinkState::Missing))
     }
 }
 

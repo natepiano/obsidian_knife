@@ -23,7 +23,7 @@ use crate::{
     markdown_files::MarkdownFiles,
     obsidian_repository::obsidian_repository_types::{
         GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
-        ImageReferences, MarkdownOperation,
+        ImageReferences,
     },
     utils,
     utils::VecEnumFilter,
@@ -34,7 +34,7 @@ use crate::{
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use regex::Regex;
+// use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
@@ -237,11 +237,17 @@ impl ObsidianRepository {
     }
 
     pub fn apply_replaceable_matches(&mut self) {
-        // Only process files that have matches or missing image references
         for markdown_file in &mut self.markdown_files {
-            if markdown_file.matches.unambiguous.is_empty()
-                && markdown_file.image_links.missing().is_empty()
-            {
+            let has_replaceable_image_links = markdown_file.image_links.links.iter().any(|link| {
+                matches!(
+                    link.state,
+                    ImageLinkState::Missing
+                        | ImageLinkState::Duplicate { .. }
+                        | ImageLinkState::Incompatible { .. }
+                )
+            });
+
+            if markdown_file.matches.unambiguous.is_empty() && !has_replaceable_image_links {
                 continue;
             }
 
@@ -274,11 +280,10 @@ impl ObsidianRepository {
                     .filter(|m| m.line_number() == absolute_line_number)
                     .collect();
 
-                // Apply matches if there are any
-                let mut updated_line = line.to_string();
                 if !line_matches.is_empty() {
-                    updated_line =
+                    let updated_line =
                         apply_line_replacements(line, &line_matches, &markdown_file.path);
+
                     // Track which types of changes occurred
                     for m in &line_matches {
                         match m.as_ref().match_type() {
@@ -286,27 +291,16 @@ impl ObsidianRepository {
                             MatchType::ImageReference => has_image_reference_changes = true,
                         }
                     }
+
+                    if !updated_line.is_empty() {
+                        updated_content.push_str(&updated_line);
+                        updated_content.push('\n');
+                    }
+                } else {
+                    updated_content.push_str(line);
+                    updated_content.push('\n');
                 }
-
-                updated_content.push_str(&updated_line);
-                updated_content.push('\n');
                 content_line_number += 1;
-            }
-
-            // Final validation check
-            if updated_content.contains("[[[")
-                || updated_content.contains("]]]")
-                || updated_content.matches("[[").count() != updated_content.matches("]]").count()
-            {
-                eprintln!(
-                    "Unintended pattern detected in file '{}'.\nContent has mismatched or unexpected nesting.\nFull content:\n{}",
-                    markdown_file.path.display(),
-                    updated_content.escape_debug()
-                );
-                panic!(
-                    "Unintended nesting or malformed brackets detected in file '{}'. Please check the content above for any hidden or misplaced patterns.",
-                    markdown_file.path.display(),
-                );
             }
 
             // Update the content and mark file as modified
@@ -336,21 +330,18 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
-        // Add ImageLinks.missing
+        // Add the image link states that need replacement
         matches.extend(
             markdown_file
                 .image_links
-                .missing()
-                .iter()
-                .cloned()
-                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
-        );
-
-        // Add ImageLinks.ImageLinkState::Incompatible
-        matches.extend(
-            markdown_file
-                .image_links
-                .filter_by_variant(|state| {matches!(state, ImageLinkState::Incompatible { .. })})
+                .filter_by_variant(|state| {
+                    matches!(
+                        state,
+                        ImageLinkState::Incompatible { .. }
+                            | ImageLinkState::Duplicate { .. }
+                            | ImageLinkState::Missing
+                    )
+                })
                 .iter()
                 .cloned()
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
@@ -388,7 +379,7 @@ impl ObsidianRepository {
         // then we won't delete it in this pass
         let (grouped_images, image_operations) = self.analyze_images()?;
 
-        self.process_image_reference_updates(&image_operations);
+        // self.process_image_reference_updates(&image_operations);
 
         Ok((grouped_images, image_operations))
     }
@@ -415,7 +406,6 @@ impl ObsidianRepository {
     }
 
     fn identify_image_reference_replacements(&mut self) {
-
         // first handle missing references
         let image_filenames: HashSet<String> = self
             .image_files
@@ -443,10 +433,11 @@ impl ObsidianRepository {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
                 let image_file_name = image_file.path.file_name().unwrap().to_str().unwrap();
                 for markdown_file in &mut self.markdown_files {
-                    if let Some(image_link) =
-                        markdown_file.image_links.links.iter_mut().find(|link| {
-                            link.filename == image_file_name
-                        })
+                    if let Some(image_link) = markdown_file
+                        .image_links
+                        .links
+                        .iter_mut()
+                        .find(|link| link.filename == image_file_name)
                     {
                         image_link.state = ImageLinkState::Incompatible {
                             reason: reason.clone(),
@@ -466,10 +457,10 @@ impl ObsidianRepository {
                     let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
                     // Update ImageLink states in files to be persisted
                     for markdown_file in &mut self.markdown_files {
-                        if let Some(image_link) =
-                            markdown_file.image_links.links.iter_mut().find(|link| {
-                                link.filename == duplicate_file_name
-                            })
+                        if let Some(image_link) = markdown_file
+                            .image_links
+                            .iter_mut()
+                            .find(|link| link.filename == duplicate_file_name)
                         {
                             image_link.state = ImageLinkState::Duplicate {
                                 keeper_path: keeper.path.clone(),
@@ -517,7 +508,7 @@ impl ObsidianRepository {
 
         // 4. Handle duplicate groups
         for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
-            if let Some(keeper) = duplicate_group.first() {
+            if duplicate_group.first().is_some() {
                 for duplicate in duplicate_group.iter().skip(1) {
                     let can_delete = duplicate
                         .image_references
@@ -528,69 +519,12 @@ impl ObsidianRepository {
                         operations
                             .image_ops
                             .push(ImageOperation::Delete(duplicate.path.clone()));
-
-                        // Add operations to update references to point to keeper
-                        for ref_path in &duplicate.image_references.markdown_file_references {
-                            operations
-                                .markdown_ops
-                                .push(MarkdownOperation::UpdateReference {
-                                    markdown_path: PathBuf::from(ref_path),
-                                    old_image_path: duplicate.path.clone(),
-                                    new_image_path: keeper.path.clone(),
-                                });
-                        }
                     }
                 }
             }
         }
 
         Ok((grouped_images, operations))
-    }
-
-    // todo - eventually we need to store these changes directly on the MarkdownFile - probably
-    //        with an updated version of BackPopulateMatch that becomes generic as a Replacement or something like that
-    pub fn process_image_reference_updates(&mut self, operations: &ImageOperations) {
-        for op in &operations.markdown_ops {
-            match op {
-                MarkdownOperation::RemoveReference {
-                    markdown_path,
-                    image_path,
-                } => {
-                    if let Some(markdown_file) =
-                        self.markdown_files_to_persist.get_mut(markdown_path)
-                    {
-                        let regex = create_file_specific_image_regex(
-                            image_path.file_name().unwrap().to_str().unwrap(),
-                        );
-                        markdown_file.content = process_content_for_image_reference_updates(
-                            &markdown_file.content,
-                            &regex,
-                            None,
-                        );
-                        markdown_file.mark_image_reference_as_updated();
-                    }
-                }
-                MarkdownOperation::UpdateReference {
-                    markdown_path,
-                    old_image_path,
-                    new_image_path,
-                } => {
-                    if let Some(markdown_file) =
-                        self.markdown_files_to_persist.get_mut(markdown_path)
-                    {
-                        let regex = create_file_specific_image_regex(
-                            old_image_path.file_name().unwrap().to_str().unwrap(),
-                        );
-                        markdown_file.content = process_content_for_image_reference_updates(
-                            &markdown_file.content,
-                            &regex,
-                            Some(new_image_path),
-                        );
-                        markdown_file.mark_image_reference_as_updated();
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -695,15 +629,7 @@ fn process_zero_byte_and_tiff_images(
                 operations
                     .image_ops
                     .push(ImageOperation::Delete(group.path.clone()));
-                // Add operations to remove references
-                for ref_path in &group.image_references.markdown_file_references {
-                    operations
-                        .markdown_ops
-                        .push(MarkdownOperation::RemoveReference {
-                            markdown_path: PathBuf::from(ref_path),
-                            image_path: group.path.clone(),
-                        });
-                }
+
             }
         }
     }
@@ -747,85 +673,6 @@ fn determine_image_group_type(path: &Path, info: &ImageReferences) -> ImageGroup
     }
 }
 
-fn create_file_specific_image_regex(filename: &str) -> Regex {
-    Regex::new(&format!(
-        r"(!?\[.*?\]\([^)]*{}(?:\|[^)]*)?\)|!\[\[[^]\n]*{}(?:\|[^\]]*?)?\]\])",
-        regex::escape(filename),
-        regex::escape(filename),
-    ))
-    .unwrap()
-}
-
-fn process_content_for_image_reference_updates(
-    content: &str,
-    regex: &Regex,
-    new_path: Option<&Path>,
-) -> String {
-    let mut in_frontmatter = false;
-    content
-        .lines()
-        .map(|line| {
-            process_line_for_image_reference_updates(line, regex, new_path, &mut in_frontmatter)
-        })
-        .filter(|line| !line.is_empty())
-        .collect::<Vec<_>>()
-        .join("\n")
-}
-
-fn process_line_for_image_reference_updates(
-    line: &str,
-    regex: &Regex,
-    new_path: Option<&Path>,
-    in_frontmatter: &mut bool,
-) -> String {
-    if line == "---" {
-        *in_frontmatter = !*in_frontmatter;
-        return line.to_string();
-    }
-    if *in_frontmatter {
-        return line.to_string();
-    }
-
-    match new_path {
-        Some(new_path) => replace_image_reference(line, regex, new_path),
-        None => remove_image_reference(line, regex),
-    }
-}
-
-fn replace_image_reference(line: &str, regex: &Regex, new_path: &Path) -> String {
-    regex
-        .replace_all(line, |caps: &regex::Captures| {
-            let matched = caps.get(0).unwrap().as_str();
-            let relative_path = extract_relative_path(matched);
-            let new_name = new_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or_default();
-            let new_relative = format!("{}/{}", relative_path, new_name);
-
-            if matched.starts_with(OPENING_IMAGE_WIKILINK_BRACKET) {
-                format!("![[{}]]", new_relative)
-            } else {
-                let alt_text = extract_alt_text(matched);
-                format!("![{}]({})", alt_text, new_relative)
-            }
-        })
-        .into_owned()
-}
-
-fn remove_image_reference(line: &str, regex: &Regex) -> String {
-    let processed = regex.replace_all(line, "");
-    let cleaned = processed.trim();
-
-    if should_remove_line(cleaned) {
-        String::new()
-    } else if regex.find(line).is_none() {
-        processed.into_owned()
-    } else {
-        normalize_spaces(processed.trim())
-    }
-}
-
 // for deletion, we need the path to the file
 pub fn extract_relative_path(matched: &str) -> String {
     if !matched.contains(FORWARD_SLASH) {
@@ -845,21 +692,6 @@ pub fn extract_relative_path(matched: &str) -> String {
     } else {
         DEFAULT_MEDIA_PATH.to_string()
     }
-}
-
-fn extract_alt_text(matched: &str) -> &str {
-    if matched.starts_with(OPENING_IMAGE_LINK_BRACKET) {
-        matched
-            .find(CLOSING_BRACKET)
-            .map(|alt_end| &matched[2..alt_end])
-            .unwrap_or(IMAGE_ALT_TEXT_DEFAULT)
-    } else {
-        IMAGE_ALT_TEXT_DEFAULT
-    }
-}
-
-fn should_remove_line(line: &str) -> bool {
-    line.is_empty()
 }
 
 fn normalize_spaces(text: &str) -> String {

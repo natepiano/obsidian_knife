@@ -54,31 +54,23 @@ we are in the middle of this large refactoring
 
 ### Implementation Steps
 1. **Implement Parallel Processing**
-   - introduce identify_image_reference_replacements which should correctly mark image_links so that an updated apply_replaceable_matches will include them for replacement in line by line replacement
-     - notice that we're already identifying incompatible images in identify_image_reference_replacements and are collecting them in collect_replaceable_matches  so we should validate that these ones are actually getting replaced - probably with a new test
-     - if they're getting replaced we need to be able to disable MarkdownOperation and see that this still works
-   - update tests to stop using MarkdownOperation and instead look at the outcome - similar to missing references tests
-   - compare that the apply_replaceable_matches has actually already done the MarkdownOperations that have been requested and if so we can remove MarkdownOperation entirely
+   - we have tests that validate the outcomes of replacements - done
+   - introduce identify_image_reference_replacements which should correctly mark image_links so that an updated apply_replaceable_matches will include them for replacement in line by line replacement - done
+   - we need to make sure that duplicate images are also getting added to collect_replaceable_matches - done
+   - comment out process_image_reference_updates and make sure tests pass - i.e., that apply_replaceable_matches has actually already done the MarkdownOperations that have been requested and if so we can remove MarkdownOperation entirely - done
 
-2. **Testing Framework**
-   - Create any additional tests
-   - Test corner cases: empty files, multiple references, nested paths
-   - Validate file content changes match exactly
-
-3. **Migration**
-   - Once validation passes, remove old MarkdownOperation code path
-   - Update any dependent code to use new ImageLink states
-   - Final pass of tests with only new implementation
+2. **Migration**
+   - Once validation passes, remove old MarkdownOperation code path - Done
+   - Update any dependent code to use new ImageLink states - Done
+   - Final pass of tests with only new implementation - Done
 
 4. **continue move to using ImageFile**
    - we created ImageFile earlier in the process and in theory it should have the information necessary so we don't
    - have to use grouped images anymore - is that possible?
-   - let's try to add new analysis methods using ImageFiles/ImageFile
+   - let's look at the current call flow along with ImageFiles/ImageFile and see what can be refactored
    - Ensure feature parity with existing implementation
    - Use ImageState from ImageFile to drive the grouping
    - let ImageFiles handle the collection management
-   - if different match arms use the same logic that can be parameterized, make a new fn
-   - Run both implementations for comparison testing
 
 ## Phase 4: Documentation & Clean Up
 
