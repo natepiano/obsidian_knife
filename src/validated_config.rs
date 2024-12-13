@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub(crate) mod validated_config_tests;
 
-use crate::{utils, DEFAULT_TIMEZONE, EXTENSION_MARKDOWN};
+use crate::{utils, DEFAULT_TIMEZONE, MARKDOWN_SUFFIX};
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;
@@ -213,7 +213,7 @@ impl ValidatedConfig {
             };
 
             // Add .md extension if not present
-            if !filter_text.ends_with(EXTENSION_MARKDOWN) {
+            if !filter_text.ends_with(MARKDOWN_SUFFIX) {
                 format!("{}.md", filter_text)
             } else {
                 filter_text.to_string()

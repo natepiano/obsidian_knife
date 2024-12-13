@@ -33,7 +33,8 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
-    let (_, config, mut repository) = back_populate_tests::create_test_environment(false, None, None, None);
+    let (_, config, mut repository) =
+        back_populate_tests::create_test_environment(false, None, None, None);
 
     let markdown_file = repository.markdown_files.first_mut().unwrap();
 

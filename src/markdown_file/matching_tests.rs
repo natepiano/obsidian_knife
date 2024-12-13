@@ -1,11 +1,11 @@
 use crate::markdown_file::back_populate_tests;
-use crate::wikilink;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::validated_config_tests;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use crate::DEFAULT_TIMEZONE;
+use crate::{wikilink, MARKDOWN_EXTENSION};
 use std::collections::HashSet;
 use tempfile::TempDir;
 
@@ -246,7 +246,9 @@ fn test_scan_folders_wikilink_collection() {
     let wikilinks: HashSet<String> = repository
         .markdown_files
         .iter()
-        .filter(|file_info| file_info.path.extension().and_then(|ext| ext.to_str()) == Some("md"))
+        .filter(|file_info| {
+            file_info.path.extension().and_then(|ext| ext.to_str()) == Some(MARKDOWN_EXTENSION)
+        })
         .flat_map(|file_info| {
             let file_info = MarkdownFile::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();
             let file_wikilinks = file_info.wikilinks.valid;

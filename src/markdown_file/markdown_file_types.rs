@@ -1,7 +1,7 @@
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
-use crate::{markdown_file, obsidian_repository,wikilink};
 use crate::wikilink::{InvalidWikilink, Wikilink};
+use crate::{markdown_file, obsidian_repository, wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::ops::Deref;
@@ -215,7 +215,6 @@ pub struct Wikilinks {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct ImageLinks {
     pub links: Vec<ImageLink>,
-
 }
 
 impl ImageLinks {
@@ -275,7 +274,7 @@ impl ImageLinks {
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum ImageLinkState {
     #[default]
-    Found,   // Image exists and is valid
+    Found, // Image exists and is valid
     Missing, // Image doesn't exist
     Duplicate {
         keeper_path: PathBuf, // Path to the image we should reference instead

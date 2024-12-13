@@ -14,10 +14,10 @@ use crate::{
 };
 
 use crate::utils::RAW_HTTP_REGEX;
-use std::iter::Peekable;
-use std::str::CharIndices;
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::iter::Peekable;
+use std::str::CharIndices;
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
@@ -29,7 +29,7 @@ pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
 
 pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     let display_text = filename
-        .strip_suffix(EXTENSION_MARKDOWN)
+        .strip_suffix(MARKDOWN_SUFFIX)
         .unwrap_or(filename)
         .to_string();
 

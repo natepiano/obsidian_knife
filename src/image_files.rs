@@ -30,18 +30,10 @@ impl ImageFiles {
         Self { files: Vec::new() }
     }
 
-    pub fn push(&mut self, file: ImageFile) {
-        self.files.push(file);
-    }
-
     // #[allow(dead_code)]
     pub fn iter(&self) -> Iter<'_, ImageFile> {
         self.files.iter()
     }
-    // #[allow(dead_code)]
-    // pub fn iter_mut(&mut self) -> IterMut<'_, ImageFile> {
-    //     self.files.iter_mut()
-    // }
 
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
@@ -55,11 +47,6 @@ impl ImageFiles {
     pub fn get(&self, path: &PathBuf) -> Option<&ImageFile> {
         self.files.iter().find(|f| f.path == *path)
     }
-
-    // #[allow(dead_code)]
-    // pub fn get_mut(&mut self, path: &PathBuf) -> Option<&mut ImageFile> {
-    //     self.files.iter_mut().find(|f| f.path == *path)
-    // }
 
     pub fn files_in_state<F>(&self, predicate: F) -> ImageFiles
     where

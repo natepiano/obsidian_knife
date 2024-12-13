@@ -1,8 +1,8 @@
 use crate::obsidian_repository::obsidian_repository_types::{ImageOperation, MarkdownOperation};
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::validated_config_tests;
+use crate::{test_utils, MARKDOWN_EXTENSION};
 use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
@@ -286,7 +286,10 @@ fn test_image_operation_generation() {
         // Mark files for persistence
         // all markdown files need marking for persistence in this test so this is fine
         for path in &created_paths {
-            if path.extension().map_or(false, |ext| ext == "md") {
+            if path
+                .extension()
+                .map_or(false, |ext| ext == MARKDOWN_EXTENSION)
+            {
                 if let Some(markdown_file) = repository.markdown_files.get_mut(path) {
                     markdown_file.mark_image_reference_as_updated();
                 }

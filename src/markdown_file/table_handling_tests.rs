@@ -1,12 +1,14 @@
 use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
+use crate::markdown_files::MarkdownFiles;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;
 
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, None, None);
+    let (temp_dir, config, _) =
+        back_populate_tests::create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
     let markdown_file =
@@ -22,7 +24,8 @@ fn test_should_create_match_in_table() {
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, config, mut repository) = back_populate_tests::create_test_environment(true, None, None, None);
+    let (temp_dir, config, mut repository) =
+        back_populate_tests::create_test_environment(true, None, None, None);
 
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
@@ -38,37 +41,42 @@ fn test_back_populate_content() {
         "Table content replacement",
     )];
 
-    for (content, matches, description) in test_cases {
-        // Create the test file using TestFileBuilder and ensure content is set
-        let file = TestFileBuilder::new()
-            .with_content(content.to_string())
-            .with_title("test".to_string())
-            .create(&temp_dir, "test.md");
+    test_cases
+        .into_iter()
+        .for_each(|(content, matches, description)| {
+            // Create and populate the test file
+            let file = TestFileBuilder::new()
+                .with_content(content.to_string())
+                .with_title("test".to_string())
+                .create(&temp_dir, "test.md");
 
-        // Clear previous markdown files and add new one
-        repository.markdown_files.clear();
-        let mut markdown_info =
-            MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
-        markdown_info.content = content.to_string(); // Explicitly set content
-        markdown_info.matches.unambiguous = matches.clone();
-        repository.markdown_files.push(markdown_info);
+            // Prepare markdown info and repository state
+            let markdown_info = {
+                let mut markdown_info =
+                    MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
+                markdown_info.content = content.to_string();
+                markdown_info.matches.unambiguous = matches.clone();
+                markdown_info
+            };
 
-        // Apply back-populate changes
-        repository.apply_replaceable_matches();
+            repository.markdown_files = MarkdownFiles::new(vec![markdown_info]);
 
-        // Add more debug info
-        if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
-            for match_info in &matches {
-                assert!(
-                    file.content.contains(&match_info.replacement),
-                    "Failed for: {}\nReplacement '{}' not found in content:\n{}",
-                    description,
-                    match_info.replacement,
-                    file.content
-                );
+            // Apply back-populate changes
+            repository.apply_replaceable_matches();
+
+            // Validate replacements
+            if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
+                matches.iter().for_each(|match_info| {
+                    assert!(
+                        file.content.contains(&match_info.replacement),
+                        "Failed for: {}\nReplacement '{}' not found in content:\n{}",
+                        description,
+                        match_info.replacement,
+                        file.content
+                    );
+                });
             }
-        }
-    }
+        });
 }
 
 #[test]

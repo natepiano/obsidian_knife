@@ -8,26 +8,24 @@ use crate::DEFAULT_TIMEZONE;
 use chrono::TimeZone;
 use tempfile::TempDir;
 
+// into_iter() consumes the array and yields owned values
+// filter_map filters out none values and unwraps Some values in one step
 fn create_frontmatter(
     date_modified: &Option<String>,
     date_created: &Option<String>,
 ) -> FrontMatter {
-    let mut yaml_parts = vec![];
-
-    if let Some(modified) = date_modified {
-        let modified_str = format!("date_modified: \"{}\"", modified);
-        yaml_parts.push(modified_str);
-    }
-    if let Some(created) = date_created {
-        let created_str = format!("date_created: \"{}\"", created);
-        yaml_parts.push(created_str);
-    }
-    if yaml_parts.len() == 1 {
-        yaml_parts.push("title: test".to_string());
-    }
-    //  yaml_parts.push("---\n".to_string());
-
-    let yaml = yaml_parts.join("\n");
+    let yaml = [
+        date_modified
+            .as_ref()
+            .map(|modified| format!("date_modified: \"{}\"", modified)),
+        date_created
+            .as_ref()
+            .map(|created| format!("date_created: \"{}\"", created)),
+    ]
+    .into_iter()
+    .filter_map(|part| part)
+    .collect::<Vec<_>>()
+    .join("\n");
 
     FrontMatter::from_yaml_str(&yaml).unwrap()
 }

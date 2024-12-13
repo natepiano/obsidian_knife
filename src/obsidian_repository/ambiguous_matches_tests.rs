@@ -115,7 +115,8 @@ fn test_identify_ambiguous_matches() {
 
 #[test]
 fn test_truly_ambiguous_targets() {
-    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
+    let (temp_dir, config, _) =
+        back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
 
     // Create the test files using TestFileBuilder
     TestFileBuilder::new()
@@ -184,7 +185,8 @@ fn test_truly_ambiguous_targets() {
 
 #[test]
 fn test_mixed_case_and_truly_ambiguous() {
-    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
+    let (temp_dir, config, _) =
+        back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
 
     // Create test files for case variations
     TestFileBuilder::new()
@@ -306,7 +308,8 @@ Amazon is ambiguous"#,
 // so in this case we are creating a more realistic test that has a mix of ambiguous and unambiguous
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
-    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
+    let (temp_dir, config, _) =
+        back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
 
     // Create the files using TestFileBuilder
     TestFileBuilder::new()

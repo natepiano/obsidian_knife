@@ -99,15 +99,13 @@ impl ObsidianRepository {
 fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-    let mut image_files = ImageFiles::new();
-
-    for (path, image_refs) in image_map {
-        let file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), image_refs);
-
-        image_files.push(file_info);
-    }
-
-    Ok(image_files)
+    image_map
+        .iter()
+        .map(|(path, image_refs)| {
+            let file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), image_refs);
+            Ok(file_info)
+        })
+        .collect()
 }
 
 fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
@@ -132,7 +130,7 @@ fn pre_scan_markdown_files(
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
     // Use Arc<Mutex<...>> for safe shared collection
-    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new()));
+    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::new(Vec::new())));
 
     markdown_paths.par_iter().try_for_each(|file_path| {
         match MarkdownFile::new(file_path.clone(), timezone) {
@@ -769,7 +767,7 @@ fn determine_image_group_type(path: &Path, info: &ImageReferences) -> ImageGroup
     if path
         .extension()
         .and_then(|ext| ext.to_str())
-        .map_or(false, |ext| ext.eq_ignore_ascii_case(EXTENSION_TIFF))
+        .map_or(false, |ext| ext.eq_ignore_ascii_case(TIFF_EXTENSION))
     {
         ImageGroupType::TiffImage
     } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {

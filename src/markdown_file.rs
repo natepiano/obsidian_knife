@@ -43,7 +43,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::{fs, io};
 
-
 #[derive(Debug, Clone)]
 pub struct MarkdownFile {
     pub content: String,

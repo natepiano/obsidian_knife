@@ -1,4 +1,4 @@
-use crate::ValidatedConfig;
+use crate::{ValidatedConfig, DS_STORE, MARKDOWN_EXTENSION};
 use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
@@ -86,32 +86,27 @@ pub fn collect_repository_files(
                 return Ok(());
             }
 
-            let mut subdirs = Vec::new();
-            for entry in fs::read_dir(&dir)? {
-                let entry = entry?;
-                let path = entry.path();
-
-                if path.file_name().and_then(|s| s.to_str()) == Some(".DS_Store") {
-                    continue;
-                }
-
-                if entry.file_type()?.is_dir() {
-                    subdirs.push(path);
-                    continue;
-                }
-
-                match path
-                    .extension()
-                    .and_then(|s| s.to_str())
-                    .map(|s| s.to_lowercase())
-                {
-                    Some(ext) if ext == "md" => md_files.lock().unwrap().push(path),
-                    Some(ext) if IMAGE_EXTENSIONS.contains(&ext.as_str()) => {
-                        img_files.lock().unwrap().push(path)
+            let subdirs: Vec<PathBuf> = fs::read_dir(&dir)?
+                .filter_map(|entry| entry.ok().map(|e| e.path()))
+                .filter(|path| path.file_name().and_then(|s| s.to_str()) != Some(DS_STORE))
+                .inspect(|path| {
+                    if let Some(ext) = path
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .map(|s| s.to_lowercase())
+                    {
+                        let mutex = if ext == MARKDOWN_EXTENSION {
+                            &*md_files
+                        } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
+                            &*img_files
+                        } else {
+                            &*other_files
+                        };
+                        mutex.lock().unwrap().push(path.clone());
                     }
-                    _ => other_files.lock().unwrap().push(path),
-                }
-            }
+                })
+                .filter(|path| path.is_dir())
+                .collect();
 
             if !subdirs.is_empty() {
                 visit_dirs(subdirs, ignore_folders, md_files, img_files, other_files)?;

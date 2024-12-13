@@ -35,14 +35,18 @@ pub const LEVEL2: &str = "##";
 pub const LEVEL3: &str = "###";
 pub const LEVEL4: &str = "####";
 
+// files and extensions
+pub const DS_STORE: &str = ".DS_Store";
+pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
+pub const MARKDOWN_EXTENSION: &str = "md";
+pub const MARKDOWN_SUFFIX: &str = ".md";
+pub const TIFF_EXTENSION: &str = "tiff";
+
 // matching stuff
 pub const CLOSING_BRACKET: char = ']';
 pub const CLOSING_WIKILINK: &str = "]]";
-pub const EXTENSION_MARKDOWN: &str = ".md";
-pub const EXTENSION_TIFF: &str = "tiff";
 pub const FORWARD_SLASH: char = '/';
 pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
-pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const OPENING_BRACKET: char = '[';
 pub const OPENING_IMAGE_LINK_BRACKET: &str = "!["; // for external style "![]()"
 pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";

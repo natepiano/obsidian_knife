@@ -5,11 +5,11 @@ use std::path::Path;
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::{report, utils};
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
+use crate::{report, utils};
 
 struct BackPopulateTable {
     display_text: String,

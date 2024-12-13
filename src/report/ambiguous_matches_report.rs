@@ -5,10 +5,10 @@ use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
+use crate::{report, utils};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::path::Path;
-use crate::{report, utils};
 
 struct AmbiguousMatchesTable {
     display_text: String,

@@ -97,7 +97,8 @@ pub(crate) fn verify_match(
 #[test]
 fn test_case_insensitive_targets() {
     // Create test environment
-    let (temp_dir, config, _) = back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
+    let (temp_dir, config, _) =
+        back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
 
     // Create test files with case variations using TestFileBuilder
     TestFileBuilder::new()
@@ -150,11 +151,16 @@ fn test_case_insensitive_targets() {
 #[test]
 fn test_case_sensitivity_behavior() {
     // Initialize test environment without specific wikilinks
-    let (temp_dir, config, mut repository) = back_populate_tests::create_test_environment(false, None, None, None);
+    let (temp_dir, config, mut repository) =
+        back_populate_tests::create_test_environment(false, None, None, None);
 
     for case in get_case_sensitivity_test_cases() {
-        let file_path =
-            back_populate_tests::create_markdown_test_file(&temp_dir, "test.md", case.content, &mut repository);
+        let file_path = back_populate_tests::create_markdown_test_file(
+            &temp_dir,
+            "test.md",
+            case.content,
+            &mut repository,
+        );
 
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;

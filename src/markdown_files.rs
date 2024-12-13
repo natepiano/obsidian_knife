@@ -4,6 +4,7 @@ use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
+use crate::obsidian_repository;
 use crate::obsidian_repository::obsidian_repository_types::{ImageOperations, ImageReferences};
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
@@ -12,7 +13,6 @@ use std::error::Error;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
-use crate::obsidian_repository;
 
 #[derive(Debug, Default)]
 pub struct MarkdownFiles {
@@ -67,8 +67,8 @@ impl<'a> IntoIterator for &'a mut MarkdownFiles {
 }
 
 impl MarkdownFiles {
-    pub fn new() -> Self {
-        Self { files: Vec::new() }
+    pub fn new(files: Vec<MarkdownFile>) -> Self {
+        Self { files }
     }
 
     pub fn push(&mut self, file: MarkdownFile) {

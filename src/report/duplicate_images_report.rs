@@ -2,9 +2,10 @@ use crate::constants::*;
 use crate::obsidian_repository::obsidian_repository_types::{GroupedImages, ImageGroup};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report;
-use crate::report::{ ReportDefinition, ReportWriter};
+use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
+use itertools::Itertools;
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::{Path, PathBuf};
@@ -110,21 +111,26 @@ fn format_duplicate_references(
     groups: &[ImageGroup],
     keeper_path: Option<&PathBuf>,
 ) -> String {
-    // First collect all unique references with their paths
-    let mut unique_references: HashMap<String, Vec<&PathBuf>> = HashMap::new();
-
-    for group in groups {
-        for ref_path in &group.image_references.markdown_file_references {
-            unique_references
-                .entry(ref_path.clone())
-                .or_default()
-                .push(&group.path);
-        }
-    }
-
-    // Convert to Vec for sorting
-    let mut references: Vec<_> = unique_references.into_iter().collect();
-    references.sort_by(|(a, _), (b, _)| a.cmp(b));
+    // collect and sort unique references with their paths
+    let references: Vec<_> = groups
+        .iter()
+        .flat_map(|group| {
+            group
+                .image_references
+                .markdown_file_references
+                .iter()
+                .map(move |ref_path| (ref_path.clone(), &group.path))
+        })
+        .fold(
+            HashMap::<String, Vec<&PathBuf>>::new(),
+            |mut acc, (ref_path, group_path)| {
+                acc.entry(ref_path).or_default().push(group_path);
+                acc
+            },
+        )
+        .into_iter()
+        .sorted_by(|(a, _), (b, _)| a.cmp(b))
+        .collect();
 
     // Format each unique reference
     references
