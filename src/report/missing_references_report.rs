@@ -107,7 +107,7 @@ impl ObsidianRepository {
             .iter()
             .flat_map(|file| {
                 // Collect missing links into a local variable
-                let missing_links: Vec<_> = file.image_links.missing().links;
+                let missing_links= file.image_links.missing();
                 missing_links.into_iter().map(move |missing| {
                     (
                         file.path.clone(),

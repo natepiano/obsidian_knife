@@ -350,11 +350,8 @@ impl ObsidianRepository {
         matches.extend(
             markdown_file
                 .image_links
-                .links
+                .filter_by_variant(|state| {matches!(state, ImageLinkState::Incompatible { .. })})
                 .iter()
-                .filter(|image_link| {
-                    matches!(image_link.state, ImageLinkState::Incompatible { .. })
-                })
                 .cloned()
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
@@ -418,14 +415,6 @@ impl ObsidianRepository {
     }
 
     fn identify_image_reference_replacements(&mut self) {
-        // todo: bug - ImageLinks are in found or missing vectors
-        //             but each imagelink state also has a Found/Missing variant
-        //             it seems to me that ImageLinks found and missing could just be removed
-        //             and we can just have files similar to how we have markdown_files
-        //             this would have us remove markdown_files_to_persist at the repo level and just maybe filter where they have persist_reasons wherever we need them
-        //             for image links it seems to me that it's an optional replace reason rather than an ImageLinkState - and one of them can be "non-existent-image
-        //             then "found" just becomes "files" and we can just have helper methods on ImageFiles and MarkdownFiles to return images and files lists as appropriate
-        //             similar to what we started with image_files "files_in_state" - which allows to return an ImageFiles or a MarkdownFiles for further iteration
 
         // first handle missing references
         let image_filenames: HashSet<String> = self
@@ -434,31 +423,6 @@ impl ObsidianRepository {
             .filter_map(|image_file| image_file.path.file_name())
             .map(|name| name.to_string_lossy().to_lowercase())
             .collect();
-
-        // find the ones where the markdown file has them listed in its image_links
-        // these are "found", otherwise they are "missing"
-        // missing will get handled by apply_replaceable_matches where it deletes missing references
-        // along with updating back populate matches, etc.
-        // for markdown_file in &mut self.markdown_files {
-        //     let missing: Vec<ImageLink> = markdown_file
-        //         .image_links
-        //         .found
-        //         .iter() // Use `iter()` to avoid consuming the original Vec
-        //         .filter(|link| !image_filenames.contains(&link.filename.to_lowercase()))
-        //         .cloned() // If `ImageLink` needs to be owned
-        //         .collect();
-        //
-        //     let missing = missing
-        //         .into_iter()
-        //         .map(|mut link| {
-        //             link.state = ImageLinkState::Missing;
-        //             link
-        //         })
-        //         .collect();
-        //
-        //    // markdown_file.image_links.found = found;
-        //    // markdown_file.image_links.missing = missing;
-        // }
 
         for markdown_file in &mut self.markdown_files {
             for link in markdown_file.image_links.links.iter_mut() {
@@ -477,10 +441,11 @@ impl ObsidianRepository {
         // the image_link will then be collected as a ReplaceableContent match which happens in the next step
         for image_file in incompatible.files {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
+                let image_file_name = image_file.path.file_name().unwrap().to_str().unwrap();
                 for markdown_file in &mut self.markdown_files {
                     if let Some(image_link) =
                         markdown_file.image_links.links.iter_mut().find(|link| {
-                            link.filename == image_file.path.file_name().unwrap().to_str().unwrap()
+                            link.filename == image_file_name
                         })
                     {
                         image_link.state = ImageLinkState::Incompatible {
@@ -498,12 +463,12 @@ impl ObsidianRepository {
         for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
             if let Some(keeper) = duplicate_group.first() {
                 for duplicate in duplicate_group.iter().skip(1) {
+                    let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
                     // Update ImageLink states in files to be persisted
                     for markdown_file in &mut self.markdown_files {
                         if let Some(image_link) =
                             markdown_file.image_links.links.iter_mut().find(|link| {
-                                link.filename
-                                    == duplicate.path.file_name().unwrap().to_str().unwrap()
+                                link.filename == duplicate_file_name
                             })
                         {
                             image_link.state = ImageLinkState::Duplicate {
