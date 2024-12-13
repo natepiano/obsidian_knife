@@ -1,6 +1,6 @@
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
-use crate::utils::{EnumFilter, VecEnumFilter};
+use crate::utils::EnumFilter;
 use crate::wikilink::{InvalidWikilink, Wikilink};
 use crate::{markdown_file, obsidian_repository, wikilink};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
@@ -217,12 +217,6 @@ pub struct Wikilinks {
 #[collection(field = "links")]
 pub struct ImageLinks {
     pub links: Vec<ImageLink>,
-}
-
-impl ImageLinks {
-    pub fn missing(&self) -> ImageLinks {
-        self.filter_by_variant(|state| matches!(state, ImageLinkState::Missing))
-    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

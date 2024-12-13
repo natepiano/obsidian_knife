@@ -22,8 +22,7 @@ use crate::{
     markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent},
     markdown_files::MarkdownFiles,
     obsidian_repository::obsidian_repository_types::{
-        GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
-        ImageReferences,
+        GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences,
     },
     utils,
     utils::VecEnumFilter,
@@ -34,7 +33,6 @@ use crate::{
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-// use regex::Regex;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
@@ -102,10 +100,27 @@ impl ObsidianRepository {
 fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
+    // Count occurrences of each hash so we know how many duplicates there are
+    // we can create ImageFiles with this reference count new can classify it accordingly
+    let hash_counts: HashMap<String, usize> =
+        image_map
+            .values()
+            .map(|refs| &refs.hash)
+            .fold(HashMap::new(), |mut acc, hash| {
+                *acc.entry(hash.clone()).or_insert(0) += 1;
+                acc
+            });
+
     image_map
         .iter()
         .map(|(path, image_refs)| {
-            let file_info = ImageFile::new(path.clone(), image_refs.hash.clone(), image_refs);
+            let duplicate_reference_count = hash_counts.get(&image_refs.hash).copied().unwrap_or(0);
+            let file_info = ImageFile::new(
+                path.clone(),
+                image_refs.hash.clone(),
+                image_refs,
+                duplicate_reference_count,
+            );
             Ok(file_info)
         })
         .collect()
@@ -334,7 +349,7 @@ impl ObsidianRepository {
         matches.extend(
             markdown_file
                 .image_links
-                .filter_by_variant(|state| {
+                .filter_by_predicate(|state| {
                     matches!(
                         state,
                         ImageLinkState::Incompatible { .. }
@@ -363,7 +378,7 @@ impl ObsidianRepository {
     pub fn analyze_repository(
         &mut self,
         validated_config: &ValidatedConfig,
-    ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
+    ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
@@ -377,11 +392,9 @@ impl ObsidianRepository {
         // after populating files to persist, we can use this dataset to determine whether
         // an image can be deleted - if it's referenced in a file that won't be persisted
         // then we won't delete it in this pass
-        let (grouped_images, image_operations) = self.analyze_images()?;
+        let image_operations = self.analyze_images()?;
 
-        // self.process_image_reference_updates(&image_operations);
-
-        Ok((grouped_images, image_operations))
+        Ok(image_operations)
     }
 
     fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
@@ -423,7 +436,7 @@ impl ObsidianRepository {
         }
 
         // next handle incompatible image references
-        let incompatible = self.image_files.filter_by_variant(|image_file_state| {
+        let incompatible = self.image_files.filter_by_predicate(|image_file_state| {
             matches!(image_file_state, ImageFileState::Incompatible { .. })
         });
 
@@ -474,7 +487,7 @@ impl ObsidianRepository {
 
     fn analyze_images(
         &self,
-    ) -> Result<(GroupedImages, ImageOperations), Box<dyn Error + Send + Sync>> {
+    ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 
@@ -489,7 +502,7 @@ impl ObsidianRepository {
         // 1. uses new ImageFiles / ImageFile approach for unreferenced images
         for unreferenced_image_file in self
             .image_files
-            .filter_by_variant(|state| matches!(state, ImageFileState::Unreferenced))
+            .filter_by_variant(ImageFileState::Unreferenced)
         {
             operations
                 .image_ops
@@ -524,7 +537,7 @@ impl ObsidianRepository {
             }
         }
 
-        Ok((grouped_images, operations))
+        Ok(operations)
     }
 }
 
@@ -629,7 +642,6 @@ fn process_zero_byte_and_tiff_images(
                 operations
                     .image_ops
                     .push(ImageOperation::Delete(group.path.clone()));
-
             }
         }
     }

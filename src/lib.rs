@@ -44,11 +44,10 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     // ANALYSIS PHASE
     let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
-    let (grouped_images, image_operations) =
-        obsidian_repository.analyze_repository(&validated_config)?;
+    let image_operations = obsidian_repository.analyze_repository(&validated_config)?;
 
     // REPORTING PHASE
-    obsidian_repository.write_reports(&validated_config, &grouped_images)?;
+    obsidian_repository.write_reports(&validated_config)?;
 
     if config.apply_changes == Some(true) {
         obsidian_repository.persist(image_operations)?;

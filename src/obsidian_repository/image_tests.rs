@@ -1,6 +1,8 @@
+use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::obsidian_repository_types::ImageOperation;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
+use crate::utils::VecEnumFilter;
 use crate::validated_config::validated_config_tests;
 use crate::{test_utils, MARKDOWN_EXTENSION};
 use chrono::Utc;
@@ -32,7 +34,7 @@ fn test_analyze_missing_references() {
     }
 
     // Run analyze
-    let (_, image_operations) = repository.analyze_repository(&config).unwrap();
+    let image_operations = repository.analyze_repository(&config).unwrap();
 
     repository.persist(image_operations).unwrap();
 
@@ -50,7 +52,7 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    let (_, image_operations) = repository.analyze_images().unwrap();
+    let image_operations = repository.analyze_images().unwrap();
     // repository.process_image_reference_updates(&image_operations);
     repository.persist(image_operations).unwrap();
 
@@ -244,8 +246,8 @@ fn test_image_replacement_outcomes() {
             }
         }
 
-        let (_, operations) = repository.analyze_repository(&config).unwrap();
-        repository.persist(operations).unwrap();
+        let image_operations = repository.analyze_repository(&config).unwrap();
+        repository.persist(image_operations).unwrap();
 
         (test_case.verify)(&created_paths, &repository);
     }
@@ -331,10 +333,10 @@ fn test_image_reference_detection() {
     }
 
     // Run analyze to generate the image info map
-    let (_, operations) = repository.analyze_repository(&config).unwrap();
+    let image_operations = repository.analyze_repository(&config).unwrap();
 
     // Verify image reference detection
-    let deletion_operations: Vec<_> = operations
+    let deletion_operations: Vec<_> = image_operations
         .image_ops
         .iter()
         .filter(|op| matches!(op, ImageOperation::Delete(_)))
@@ -402,11 +404,11 @@ fn test_analyze_wikilink_errors() {
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let (_, operations) = repository.analyze_images().unwrap();
+    let image_operations = repository.analyze_images().unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(
-        operations.image_ops.is_empty(),
+        image_operations.image_ops.is_empty(),
         "No image operations should be created for wikilink paths"
     );
 
@@ -441,11 +443,13 @@ fn test_handle_missing_references() {
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run the analysis
-    let (_, operations) = repository.analyze_repository(&config).unwrap();
+    let image_operations = repository.analyze_repository(&config).unwrap();
 
     // Verify that the missing references are handled correctly
     let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
-    let missing_references = &markdown_file.image_links.missing();
+    let missing_references = &markdown_file
+        .image_links
+        .filter_by_variant(ImageLinkState::Missing);
     assert_eq!(
         missing_references.len(),
         2,
@@ -454,7 +458,7 @@ fn test_handle_missing_references() {
 
     // Verify that no image operations were created for the missing references
     assert!(
-        operations.image_ops.is_empty(),
+        image_operations.image_ops.is_empty(),
         "No image operations should be created for missing references"
     );
 

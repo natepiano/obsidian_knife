@@ -13,20 +13,18 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::obsidian_repository::obsidian_repository_types::{GroupedImages, ImageGroup};
 use crate::utils::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 use crate::ObsidianRepository;
 use chrono::{Local, Utc};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 impl ObsidianRepository {
     pub fn write_reports(
         &self,
         validated_config: &ValidatedConfig,
-        grouped_images: &GroupedImages,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
@@ -36,10 +34,11 @@ impl ObsidianRepository {
         writer.writeln(LEVEL1, IMAGES)?;
         // hack just so cargo fmt doesn't expand the report call across multiple lines
         self.write_missing_references_report(validated_config, &writer)?;
-        self.write_tiff_images_report(validated_config, grouped_images, &writer)?;
-        self.write_zero_byte_images_report(validated_config, grouped_images, &writer)?;
-        self.write_unreferenced_images_report(validated_config, grouped_images, &writer)?;
-        self.write_duplicate_images_report(validated_config, grouped_images, &writer)?;
+        self.write_tiff_images_report(validated_config, &writer)?;
+        self.write_zero_byte_images_report(validated_config, &writer)?;
+
+        self.write_unreferenced_images_report(validated_config, &writer)?;
+        self.write_duplicate_images_report(validated_config, &writer)?;
 
         // back populate reports
         write_back_populate_report_header(validated_config, &writer)?;
@@ -130,70 +129,6 @@ fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -
         path.file_stem().unwrap_or_default().to_string_lossy()
     };
     format!("[[{}\\|{}]]", relative_path.display(), display_name)
-}
-
-fn format_duplicates(
-    config: &ValidatedConfig,
-    groups: &[ImageGroup],
-    keeper_path: Option<&PathBuf>,
-    is_special_group: bool,
-) -> String {
-    groups
-        .iter()
-        .enumerate()
-        .map(|(i, group)| {
-            let mut link = format!(
-                "{}. {}",
-                i + 1,
-                format_wikilink(&group.path, config.obsidian_path(), true)
-            );
-            if config.apply_changes() {
-                if is_special_group {
-                    // For special files (zero byte, tiff, unreferenced), always delete
-                    link.push_str(" - deleted");
-                } else {
-                    // For duplicate groups
-                    if let Some(keeper) = keeper_path {
-                        if &group.path == keeper {
-                            link.push_str(" - kept");
-                        } else {
-                            link.push_str(" - deleted");
-                        }
-                    }
-                }
-            }
-            link
-        })
-        .collect::<Vec<_>>()
-        .join("<br>")
-}
-
-fn format_references(
-    apply_changes: bool,
-    obsidian_path: &Path,
-    groups: &[ImageGroup],
-    _keeper_path: Option<&PathBuf>, // Can remove this parameter since it's no longer needed
-) -> String {
-    let references: Vec<String> = groups
-        .iter()
-        .flat_map(|group| &group.image_references.markdown_file_references)
-        .map(|ref_path| {
-            let mut link = format!(
-                "{}",
-                format_wikilink(Path::new(ref_path), obsidian_path, false)
-            );
-
-            // Simpler status message - these reports only deal with removal
-            if apply_changes {
-                link.push_str(REFERENCE_REMOVED);
-            } else {
-                link.push_str(REFERENCE_WILL_BE_REMOVED);
-            }
-            link
-        })
-        .collect();
-
-    references.join("<br>")
 }
 
 // Helper function to highlight all instances of a pattern in text

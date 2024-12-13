@@ -12,7 +12,18 @@ where
     T: EnumFilter + Clone,
     Self: Deref<Target = Vec<T>> + FromIterator<T>,
 {
-    fn filter_by_variant<F>(&self, filter: F) -> Self
+    /// Filter items directly by matching against a specific variant.
+    fn filter_by_variant(&self, variant: T::EnumType) -> Self
+    where
+        T::EnumType: PartialEq,
+    {
+        self.iter()
+            .filter(|item| item.as_enum() == &variant)
+            .cloned()
+            .collect()
+    }
+
+    fn filter_by_predicate<F>(&self, filter: F) -> Self
     where
         F: Fn(&T::EnumType) -> bool,
     {

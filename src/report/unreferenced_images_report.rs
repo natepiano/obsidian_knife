@@ -1,18 +1,17 @@
 use crate::constants::*;
-use crate::obsidian_repository::obsidian_repository_types::{
-    GroupedImages, ImageGroup, ImageGroupType,
-};
+use crate::image_file::ImageFile;
+use crate::image_file::ImageFileState;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 
 pub struct UnreferencedImagesReport;
 
 impl ReportDefinition for UnreferencedImagesReport {
-    type Item = ImageGroup;
+    type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {
         vec!["sample", "file"]
@@ -25,8 +24,8 @@ impl ReportDefinition for UnreferencedImagesReport {
     fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         items
             .iter()
-            .map(|group| {
-                let file_name = group.path.file_name().unwrap().to_string_lossy();
+            .map(|image| {
+                let file_name = image.path.file_name().unwrap().to_string_lossy();
                 let sample = utils::escape_pipe(format!("![[{}|400]]", file_name).as_str());
                 let file_link = format!("[[{}]]", file_name);
 
@@ -56,14 +55,17 @@ impl ObsidianRepository {
     pub fn write_unreferenced_images_report(
         &self,
         config: &ValidatedConfig,
-        grouped_images: &GroupedImages,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(unreferenced_images) = grouped_images.get(&ImageGroupType::UnreferencedImage) {
+        let unreferenced_images = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
+
+        if !unreferenced_images.is_empty() {
             let report =
-                ReportWriter::new(unreferenced_images.to_vec()).with_validated_config(config);
+                ReportWriter::new(unreferenced_images.to_owned()).with_validated_config(config);
             report.write(&UnreferencedImagesReport, writer)?;
-        };
+        }
 
         Ok(())
     }

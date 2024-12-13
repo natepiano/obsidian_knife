@@ -57,12 +57,15 @@ impl ImageFileType {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub enum ImageFileState {
+    #[default]
+    Valid,
     Incompatible {
         reason: IncompatibilityReason,
     },
     Unreferenced,
-    #[default]
-    DuplicateCandidate,
+    Duplicate {
+        hash: String,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -73,7 +76,12 @@ pub enum IncompatibilityReason {
 
 impl ImageFile {
     //    pub fn new(path: PathBuf, hash: String, size: u64, image_refs: &ImageReferences) -> Self {
-    pub fn new(path: PathBuf, hash: String, image_refs: &ImageReferences) -> Self {
+    pub fn new(
+        path: PathBuf,
+        hash: String,
+        image_refs: &ImageReferences,
+        duplicate_reference_count: usize,
+    ) -> Self {
         let metadata = fs::metadata(&path).expect("Failed to get metadata");
         let size = metadata.len();
 
@@ -93,8 +101,10 @@ impl ImageFile {
             }
         } else if image_refs.markdown_file_references.is_empty() {
             ImageFileState::Unreferenced
+        } else if duplicate_reference_count > 1 {
+            ImageFileState::Duplicate { hash: hash.clone() }
         } else {
-            ImageFileState::DuplicateCandidate
+            ImageFileState::Valid
         };
 
         // Copy references from the image_refs

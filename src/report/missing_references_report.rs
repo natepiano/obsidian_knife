@@ -1,9 +1,10 @@
 use crate::constants::*;
+use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::obsidian_repository_types::{ImageGroup, ImageReferences};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
 use std::collections::HashMap;
 use std::error::Error;
@@ -107,7 +108,7 @@ impl ObsidianRepository {
             .iter()
             .flat_map(|file| {
                 // Collect missing links into a local variable
-                let missing_links = file.image_links.missing();
+                let missing_links = file.image_links.filter_by_variant(ImageLinkState::Missing);
                 missing_links.into_iter().map(move |missing| {
                     (
                         file.path.clone(),
