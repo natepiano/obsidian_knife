@@ -4,12 +4,14 @@ mod output_file_writer;
 mod regex_utils;
 mod sha256_cache;
 mod timer;
+mod vec_enum_filter;
 
 pub use file_utils::*;
 pub use output_file_writer::*;
 pub use regex_utils::*;
 pub use sha256_cache::*;
 pub use timer::Timer;
+pub use vec_enum_filter::{EnumFilter, VecEnumFilter};
 
 // Helper function to escape pipes in Markdown strings
 pub fn escape_pipe(text: &str) -> String {

@@ -13,7 +13,8 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::obsidian_repository::{GroupedImages, ImageGroup, ObsidianRepository};
+use crate::ObsidianRepository;
+use crate::obsidian_repository::obsidian_repository_types::{GroupedImages, ImageGroup};
 use crate::utils::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;

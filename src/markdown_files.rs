@@ -15,7 +15,7 @@ use std::sync::{Arc, Mutex};
 use vecollect::collection;
 
 #[derive(Debug, Default)]
-#[collection(field="files")]
+#[collection(field = "files")]
 pub struct MarkdownFiles {
     pub(crate) files: Vec<MarkdownFile>,
 }

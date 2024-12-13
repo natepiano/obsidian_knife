@@ -15,19 +15,23 @@ mod update_modified_tests;
 
 pub mod obsidian_repository_types;
 
-pub use obsidian_repository_types::GroupedImages;
-pub use obsidian_repository_types::ImageGroup;
-
-use crate::image_file::{ImageFile,ImageFiles, ImageFileState};
-use crate::markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent};
-use crate::obsidian_repository::obsidian_repository_types::{
-    ImageGroupType, ImageOperation, ImageOperations, ImageReferences, MarkdownOperation,
-};
-use crate::utils;
 use crate::{
-    constants::*, markdown_file::BackPopulateMatch, markdown_files::MarkdownFiles,
-    validated_config::ValidatedConfig, wikilink::Wikilink, Timer,
+    constants::*,
+    image_file::{ImageFile, ImageFileState, ImageFiles},
+    markdown_file::BackPopulateMatch,
+    markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent},
+    markdown_files::MarkdownFiles,
+    obsidian_repository::obsidian_repository_types::{
+        GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations,
+        ImageReferences, MarkdownOperation,
+    },
+    utils,
+    utils::VecEnumFilter,
+    validated_config::ValidatedConfig,
+    wikilink::Wikilink,
+    Timer,
 };
+
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use regex::Regex;
@@ -465,9 +469,9 @@ impl ObsidianRepository {
         }
 
         // next handle incompatible image references
-        let incompatible = self
-            .image_files
-            .files_in_state(|state| matches!(state, ImageFileState::Incompatible { .. }));
+        let incompatible = self.image_files.filter_by_variant(|image_file_state| {
+            matches!(image_file_state, ImageFileState::Incompatible { .. })
+        });
 
         // match tiff/zero_byte image files to image_links that refer to them so we can mark the image_link as incompatible
         // the image_link will then be collected as a ReplaceableContent match which happens in the next step
@@ -529,7 +533,7 @@ impl ObsidianRepository {
         // 1. uses new ImageFiles / ImageFile approach for unreferenced images
         for unreferenced_image_file in self
             .image_files
-            .files_in_state(|state| matches!(state, ImageFileState::Unreferenced))
+            .filter_by_variant(|state| matches!(state, ImageFileState::Unreferenced))
         {
             operations
                 .image_ops

@@ -6,6 +6,7 @@ use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;
 use vecollect::collection;
+use crate::utils::{EnumFilter, VecEnumFilter};
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -213,18 +214,14 @@ pub struct Wikilinks {
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]
-#[collection(field="links")]
+#[collection(field = "links")]
 pub struct ImageLinks {
     pub links: Vec<ImageLink>,
 }
 
 impl ImageLinks {
     pub fn missing(&self) -> ImageLinks {
-        self.links
-            .iter()
-            .filter(|image_link| image_link.state == ImageLinkState::Missing)
-            .cloned()
-            .collect()
+        self.filter_by_variant(|state| { matches!(state, ImageLinkState::Missing)})
     }
 }
 
@@ -252,6 +249,14 @@ pub struct ImageLink {
     pub size_parameter: Option<String>, // Added to handle |400 style parameters
     pub state: ImageLinkState,
     pub image_link_type: ImageLinkType,
+}
+
+impl EnumFilter for ImageLink {
+    type EnumType = ImageLinkState;
+
+    fn as_enum(&self) -> &Self::EnumType {
+        &self.state
+    }
 }
 
 impl ReplaceableContent for ImageLink {

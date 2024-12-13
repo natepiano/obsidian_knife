@@ -10,10 +10,10 @@
 //! to retype all of this boilerplate
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, DeriveInput, Ident, Type, Data, Fields};
 use syn::parse::{Parse, ParseStream};
 use syn::punctuated::Punctuated;
 use syn::Token;
+use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident, Type};
 
 struct CollectionArgs {
     field: String,
@@ -35,7 +35,9 @@ impl Parse for CollectionArgs {
         }
 
         Ok(CollectionArgs {
-            field: field.ok_or_else(|| syn::Error::new_spanned(input.to_string(), "field argument is required"))?,
+            field: field.ok_or_else(|| {
+                syn::Error::new_spanned(input.to_string(), "field argument is required")
+            })?,
         })
     }
 }
@@ -51,11 +53,16 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
     // Extract the type from the Vec<T> field
     let inner_type = if let Data::Struct(data_struct) = &input.data {
         if let Fields::Named(fields) = &data_struct.fields {
-            fields.named.iter()
+            fields
+                .named
+                .iter()
                 .find(|f| f.ident.as_ref().map_or(false, |i| i == &field_name))
                 .and_then(|field| {
                     if let Type::Path(type_path) = &field.ty {
-                        type_path.path.segments.iter()
+                        type_path
+                            .path
+                            .segments
+                            .iter()
                             .find(|seg| seg.ident == "Vec")
                             .and_then(|seg| {
                                 if let syn::PathArguments::AngleBracketed(args) = &seg.arguments {
@@ -73,7 +80,8 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
         }
     } else {
         None
-    }.expect("Field must be Vec<T>");
+    }
+    .expect("Field must be Vec<T>");
 
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

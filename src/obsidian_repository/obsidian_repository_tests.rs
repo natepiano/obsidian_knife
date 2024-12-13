@@ -1,4 +1,4 @@
-use crate::image_file::{ImageFile, ImageFiles, ImageFileState, IncompatibilityReason};
+use crate::image_file::{ImageFile, ImageFileState, ImageFiles, IncompatibilityReason};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
@@ -63,7 +63,6 @@ fn test_new_matches_old_structure() -> Result<(), Box<dyn Error + Send + Sync>> 
 
     // Verify both structures contain same information
     for (path, image_refs) in &repository.image_path_to_references_map {
-
         let image_file = find_image_file(&repository.image_files, path)
             .expect("Image in map should exist in image_files");
 
@@ -150,7 +149,8 @@ date_modified: 2024-01-01
                 ImageFileState::Incompatible {
                     reason: expected_reason
                 },
-                "{}", message
+                "{}",
+                message
             );
         } else {
             panic!("Expected to find file at {:?}", path);
@@ -161,14 +161,14 @@ date_modified: 2024-01-01
         &repository.image_files,
         &zero_byte_path,
         IncompatibilityReason::ZeroByte,
-        "Zero-byte file should have ZeroByte state"
+        "Zero-byte file should have ZeroByte state",
     );
 
     assert_incompatible_image_state(
         &repository.image_files,
         &tiff_path,
         IncompatibilityReason::TiffFormat,
-        "TIFF file should have Tiff state"
+        "TIFF file should have Tiff state",
     );
 
     Ok(())
