@@ -26,7 +26,7 @@ pub use markdown_file_types::*;
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::utils;
-use crate::utils::MARKDOWN_REGEX;
+use crate::utils::{IMAGE_REGEX, MARKDOWN_REGEX};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
 use crate::wikilink::{ExtractedWikilinks, InvalidWikilink, ToWikilink, Wikilink};
@@ -40,7 +40,6 @@ use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::{fs, io};
 
 #[derive(Debug, Clone)]
@@ -126,10 +125,8 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        let image_regex = utils::get_image_regex();
-
         let extracted_wikilinks = file_info.process_wikilinks()?;
-        let image_links = file_info.process_image_links(&image_regex);
+        let image_links = file_info.process_image_links();
 
         // Store results directly in self
         file_info.wikilinks.invalid = extracted_wikilinks.invalid;
@@ -286,11 +283,11 @@ impl MarkdownFile {
     // [alt](image.ext) -> Link Only Markdown Internal
     // ![alt](https://example.com/image.ext) -> Embedded Markdown External
     // [alt](https://example.com/image.ext) -> Link Only Markdown External
-    fn process_image_links(&self, image_regex: &Arc<Regex>) -> Vec<ImageLink> {
+    fn process_image_links(&self) -> Vec<ImageLink> {
         let mut image_links = Vec::new();
 
         for (line_idx, line) in self.content.lines().enumerate() {
-            for capture in image_regex.captures_iter(line) {
+            for capture in IMAGE_REGEX.captures_iter(line) {
                 if let Some(raw_image_link) = capture.get(0) {
                     let image_link = ImageLink::new(
                         raw_image_link.as_str().to_string(),

@@ -53,7 +53,7 @@ pub struct ObsidianRepository {
 
 impl ObsidianRepository {
     pub fn new(config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("obsidian_repository_new");
+        let _timer = Timer::new("ObsidianRepository::new");
         let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
         let repository_files = utils::collect_repository_files(config, ignore_folders)?;
@@ -147,6 +147,7 @@ fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
+
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
 
@@ -237,7 +238,6 @@ impl ObsidianRepository {
     }
 
     pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
-        let _timer = Timer::new("find_all_back_populate_matches");
 
         let ac = self
             .wikilinks_ac
@@ -379,6 +379,8 @@ impl ObsidianRepository {
         &mut self,
         validated_config: &ValidatedConfig,
     ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
+        let _timer = Timer::new("ObsidianRepository::analyze");
+
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
@@ -485,9 +487,7 @@ impl ObsidianRepository {
         }
     }
 
-    fn analyze_images(
-        &self,
-    ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
+    fn analyze_images(&self) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
         // Get basic analysis
         let grouped_images = group_images(&self.image_path_to_references_map);
 

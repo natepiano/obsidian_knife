@@ -26,6 +26,7 @@ impl ObsidianRepository {
         &self,
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
         self.write_execution_start(validated_config, &writer)?; // done
