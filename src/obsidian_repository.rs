@@ -53,7 +53,7 @@ pub struct ObsidianRepository {
 
 impl ObsidianRepository {
     pub fn new(config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("ObsidianRepository::new");
+        let _timer = Timer::new("prescan");
         let ignore_folders = config.ignore_folders().unwrap_or(&[]);
 
         let repository_files = utils::collect_repository_files(config, ignore_folders)?;
@@ -379,7 +379,7 @@ impl ObsidianRepository {
         &mut self,
         validated_config: &ValidatedConfig,
     ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("ObsidianRepository::analyze");
+        let _timer = Timer::new("analyze");
 
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();

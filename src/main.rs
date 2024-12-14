@@ -43,8 +43,8 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _timer = Timer::new("total processing time");
-
+    let _timer = Timer::new("total time");
+    println!("obsidian knife - aka \"ok\"");
     let config_path = get_config_file()?;
 
     match process_config(config_path) {

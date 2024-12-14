@@ -19,7 +19,7 @@ impl Drop for Timer {
     fn drop(&mut self) {
         let duration = self.start.elapsed();
         if !cfg!(test) {
-            println!("{} took: {:.2}ms", self.label, duration.as_millis());
+            println!("{}: {:.2}ms", self.label, duration.as_millis());
         }
     }
 }
