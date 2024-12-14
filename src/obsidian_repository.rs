@@ -97,34 +97,6 @@ impl ObsidianRepository {
     }
 }
 
-// fn build_image_files_from_map(
-//     image_map: &HashMap<PathBuf, ImageReferences>,
-// ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-//     // Count occurrences of each hash so we know how many duplicates there are
-//     // we can create ImageFiles with this reference count new can classify it accordingly
-//     let hash_counts: HashMap<String, usize> =
-//         image_map
-//             .values()
-//             .map(|refs| &refs.hash)
-//             .fold(HashMap::new(), |mut acc, hash| {
-//                 *acc.entry(hash.clone()).or_insert(0) += 1;
-//                 acc
-//             });
-//
-//     image_map
-//         .iter()
-//         .map(|(path, image_refs)| {
-//             let duplicate_reference_count = hash_counts.get(&image_refs.hash).copied().unwrap_or(0);
-//             let file_info = ImageFile::new(
-//                 path.clone(),
-//                 image_refs.hash.clone(),
-//                 image_refs,
-//                 duplicate_reference_count,
-//             );
-//             Ok(file_info)
-//         })
-//         .collect()
-// }
 fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
