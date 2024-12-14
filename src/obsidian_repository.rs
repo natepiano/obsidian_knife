@@ -488,36 +488,35 @@ impl ObsidianRepository {
     }
 
     fn analyze_images(&self) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
-        // Get basic analysis
-        let grouped_images = group_images(&self.image_path_to_references_map);
 
+        let mut operations = ImageOperations::default();
         let files_to_persist: HashSet<_> = self
             .markdown_files_to_persist
             .iter()
             .map(|f| &f.path)
             .collect();
 
-        let mut operations = ImageOperations::default();
-
-        // 1. uses new ImageFiles / ImageFile approach for unreferenced images
-        for unreferenced_image_file in self
-            .image_files
-            .filter_by_variant(ImageFileState::Unreferenced)
-        {
-            operations
-                .image_ops
-                .push(ImageOperation::Delete(unreferenced_image_file.path.clone()))
+        for image_file in &self.image_files {
+            match &image_file.image_state {
+                ImageFileState::Unreferenced => {
+                    operations
+                        .image_ops
+                        .push(ImageOperation::Delete(image_file.path.clone()));
+                }
+                ImageFileState::Incompatible { .. } => {
+                    if image_file.references.is_empty() ||
+                        image_file.references.iter().all(|path| files_to_persist.contains(&path)) {
+                        operations
+                            .image_ops
+                            .push(ImageOperation::Delete(image_file.path.clone()));
+                    }
+                }
+                _ => () // duplicate goes here
+            }
         }
 
-        // 2. Handle zero byte images
-        if let Some(zero_byte) = grouped_images.get(&ImageGroupType::ZeroByteImage) {
-            process_zero_byte_and_tiff_images(zero_byte, &files_to_persist, &mut operations);
-        }
+        let grouped_images = group_images(&self.image_path_to_references_map);
 
-        // 3. Handle TIFF images - same logic as zero byte
-        if let Some(tiff_images) = grouped_images.get(&ImageGroupType::TiffImage) {
-            process_zero_byte_and_tiff_images(tiff_images, &files_to_persist, &mut operations);
-        }
 
         // 4. Handle duplicate groups
         for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
@@ -622,31 +621,6 @@ fn apply_line_replacements(
     }
 }
 
-fn process_zero_byte_and_tiff_images(
-    group_images: &[ImageGroup],
-    files_to_persist: &HashSet<&PathBuf>,
-    operations: &mut ImageOperations,
-) {
-    for group in group_images {
-        if group.image_references.markdown_file_references.is_empty() {
-            operations
-                .image_ops
-                .push(ImageOperation::Delete(group.path.clone()));
-        } else {
-            let can_delete = group
-                .image_references
-                .markdown_file_references
-                .iter()
-                .all(|path| files_to_persist.contains(&PathBuf::from(path)));
-            if can_delete {
-                operations
-                    .image_ops
-                    .push(ImageOperation::Delete(group.path.clone()));
-            }
-        }
-    }
-}
-
 fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages {
     let mut groups = GroupedImages::new();
 
@@ -682,27 +656,6 @@ fn determine_image_group_type(path: &Path, info: &ImageReferences) -> ImageGroup
         ImageGroupType::UnreferencedImage
     } else {
         ImageGroupType::DuplicateGroup(info.hash.clone())
-    }
-}
-
-// for deletion, we need the path to the file
-pub fn extract_relative_path(matched: &str) -> String {
-    if !matched.contains(FORWARD_SLASH) {
-        return DEFAULT_MEDIA_PATH.to_string();
-    }
-
-    let old_name = matched.split(FORWARD_SLASH).last().unwrap_or("");
-    if let Some(path_start) = matched.find(old_name) {
-        let prefix = &matched[..path_start];
-        prefix
-            .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
-            .map(|pos| &prefix[pos + 1..])
-            .map(|p| p.trim_end_matches(FORWARD_SLASH))
-            .filter(|p| !p.is_empty())
-            .unwrap_or("conf/media")
-            .to_string()
-    } else {
-        DEFAULT_MEDIA_PATH.to_string()
     }
 }
 

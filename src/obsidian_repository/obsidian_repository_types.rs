@@ -48,10 +48,6 @@ impl GroupedImages {
         self.groups.entry(group_type).or_default().push(image);
     }
 
-    pub(crate) fn get(&self, group_type: &ImageGroupType) -> Option<&Vec<ImageGroup>> {
-        self.groups.get(group_type)
-    }
-
     pub(crate) fn get_duplicate_groups(&self) -> Vec<(&String, &Vec<ImageGroup>)> {
         self.groups
             .iter()

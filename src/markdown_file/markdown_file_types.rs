@@ -2,7 +2,7 @@ use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
 use crate::utils::EnumFilter;
 use crate::wikilink::{InvalidWikilink, Wikilink};
-use crate::{markdown_file, obsidian_repository, wikilink};
+use crate::{markdown_file, wikilink, DEFAULT_MEDIA_PATH, FORWARD_SLASH, OPENING_BRACKET, OPENING_PAREN};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;
@@ -313,7 +313,7 @@ impl ReplaceableContent for ImageLink {
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
-        let relative_path = obsidian_repository::extract_relative_path(&raw_link);
+        let relative_path = extract_relative_path(&raw_link);
 
         // Determine link type and rendering first
         let (filename, image_link_type, alt_text, size_parameter) = if raw_link.ends_with("]]") {
@@ -398,5 +398,26 @@ impl ImageLink {
             state: ImageLinkState::default(),
             image_link_type,
         }
+    }
+}
+
+// for deletion, we need the path to the file
+fn extract_relative_path(matched: &str) -> String {
+    if !matched.contains(FORWARD_SLASH) {
+        return DEFAULT_MEDIA_PATH.to_string();
+    }
+
+    let old_name = matched.split(FORWARD_SLASH).last().unwrap_or("");
+    if let Some(path_start) = matched.find(old_name) {
+        let prefix = &matched[..path_start];
+        prefix
+            .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
+            .map(|pos| &prefix[pos + 1..])
+            .map(|p| p.trim_end_matches(FORWARD_SLASH))
+            .filter(|p| !p.is_empty())
+            .unwrap_or("conf/media")
+            .to_string()
+    } else {
+        DEFAULT_MEDIA_PATH.to_string()
     }
 }
