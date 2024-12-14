@@ -97,33 +97,66 @@ impl ObsidianRepository {
     }
 }
 
+// fn build_image_files_from_map(
+//     image_map: &HashMap<PathBuf, ImageReferences>,
+// ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
+//     // Count occurrences of each hash so we know how many duplicates there are
+//     // we can create ImageFiles with this reference count new can classify it accordingly
+//     let hash_counts: HashMap<String, usize> =
+//         image_map
+//             .values()
+//             .map(|refs| &refs.hash)
+//             .fold(HashMap::new(), |mut acc, hash| {
+//                 *acc.entry(hash.clone()).or_insert(0) += 1;
+//                 acc
+//             });
+//
+//     image_map
+//         .iter()
+//         .map(|(path, image_refs)| {
+//             let duplicate_reference_count = hash_counts.get(&image_refs.hash).copied().unwrap_or(0);
+//             let file_info = ImageFile::new(
+//                 path.clone(),
+//                 image_refs.hash.clone(),
+//                 image_refs,
+//                 duplicate_reference_count,
+//             );
+//             Ok(file_info)
+//         })
+//         .collect()
+// }
 fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-    // Count occurrences of each hash so we know how many duplicates there are
-    // we can create ImageFiles with this reference count new can classify it accordingly
-    let hash_counts: HashMap<String, usize> =
-        image_map
-            .values()
-            .map(|refs| &refs.hash)
-            .fold(HashMap::new(), |mut acc, hash| {
-                *acc.entry(hash.clone()).or_insert(0) += 1;
-                acc
-            });
+    // First group by hash to find duplicates
+    let mut hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> = HashMap::new();
+    for (path, refs) in image_map {
+        hash_groups.entry(refs.hash.clone())
+            .or_default()
+            .push((path, refs));
+    }
 
-    image_map
-        .iter()
-        .map(|(path, image_refs)| {
-            let duplicate_reference_count = hash_counts.get(&image_refs.hash).copied().unwrap_or(0);
-            let file_info = ImageFile::new(
-                path.clone(),
-                image_refs.hash.clone(),
-                image_refs,
-                duplicate_reference_count,
-            );
-            Ok(file_info)
+    // Sort each group by path to determine keeper
+    for group in hash_groups.values_mut() {
+        group.sort_by(|a, b| a.0.cmp(b.0));
+    }
+
+    // Now create ImageFiles
+    let files = hash_groups.values().flat_map(|group| {
+        let in_duplicate_group = group.len() > 1;
+        group.iter().enumerate().map(move |(idx, (path, refs))| {
+            let is_keeper = idx == 0;
+            ImageFile::new(
+                (*path).clone(),
+                refs.hash.clone(),
+                refs,
+                in_duplicate_group,
+                is_keeper
+            )
         })
-        .collect()
+    }).collect();
+
+    Ok(ImageFiles { files })
 }
 
 fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
@@ -394,7 +427,7 @@ impl ObsidianRepository {
         // after populating files to persist, we can use this dataset to determine whether
         // an image can be deleted - if it's referenced in a file that won't be persisted
         // then we won't delete it in this pass
-        let image_operations = self.analyze_images()?;
+        let image_operations = self.get_image_operations_for_deletions()?;
 
         Ok(image_operations)
     }
@@ -430,7 +463,7 @@ impl ObsidianRepository {
             .collect();
 
         for markdown_file in &mut self.markdown_files {
-            for link in markdown_file.image_links.links.iter_mut() {
+            for link in markdown_file.image_links.iter_mut() {
                 if !image_filenames.contains(&link.filename.to_lowercase()) {
                     link.state = ImageLinkState::Missing;
                 }
@@ -487,7 +520,7 @@ impl ObsidianRepository {
         }
     }
 
-    fn analyze_images(&self) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
+    fn get_image_operations_for_deletions(&self) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
 
         let mut operations = ImageOperations::default();
         let files_to_persist: HashSet<_> = self
@@ -495,6 +528,11 @@ impl ObsidianRepository {
             .iter()
             .map(|f| &f.path)
             .collect();
+
+        // Check if all references are in files being persisted
+        fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
+            image_file.references.iter().all(|path| files_to_persist.contains(&path))
+        }
 
         for image_file in &self.image_files {
             match &image_file.image_state {
@@ -505,34 +543,21 @@ impl ObsidianRepository {
                 }
                 ImageFileState::Incompatible { .. } => {
                     if image_file.references.is_empty() ||
-                        image_file.references.iter().all(|path| files_to_persist.contains(&path)) {
+                        can_delete(&files_to_persist, image_file) {
                         operations
                             .image_ops
                             .push(ImageOperation::Delete(image_file.path.clone()));
                     }
                 }
-                _ => () // duplicate goes here
-            }
-        }
-
-        let grouped_images = group_images(&self.image_path_to_references_map);
-
-
-        // 4. Handle duplicate groups
-        for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
-            if duplicate_group.first().is_some() {
-                for duplicate in duplicate_group.iter().skip(1) {
-                    let can_delete = duplicate
-                        .image_references
-                        .markdown_file_references
-                        .iter()
-                        .all(|path| files_to_persist.contains(&PathBuf::from(path)));
-                    if can_delete {
+                ImageFileState::Duplicate { .. } => {
+                    if can_delete(&files_to_persist, image_file)  {
                         operations
                             .image_ops
-                            .push(ImageOperation::Delete(duplicate.path.clone()));
+                            .push(ImageOperation::Delete(image_file.path.clone()));
                     }
                 }
+                ImageFileState::DuplicateKeeper {..} => (), // No operation needed for duplicate "keeper"
+                ImageFileState::Valid => (),                // No operation needed for valid files
             }
         }
 
@@ -630,7 +655,7 @@ fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages 
             group_type,
             ImageGroup {
                 path: path_buf.clone(),
-                image_references: image_references.clone(),
+               image_references: image_references.clone(),
             },
         );
     }

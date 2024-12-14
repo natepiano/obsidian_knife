@@ -52,7 +52,7 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    let image_operations = repository.analyze_images().unwrap();
+    let image_operations = repository.get_image_operations_for_deletions().unwrap();
     // repository.process_image_reference_updates(&image_operations);
     repository.persist(image_operations).unwrap();
 
@@ -404,7 +404,7 @@ fn test_analyze_wikilink_errors() {
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let image_operations = repository.analyze_images().unwrap();
+    let image_operations = repository.get_image_operations_for_deletions().unwrap();
 
     // Verify no operations were generated for invalid wikilink paths
     assert!(
