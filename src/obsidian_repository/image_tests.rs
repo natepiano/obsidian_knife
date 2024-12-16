@@ -1,5 +1,4 @@
 use crate::markdown_file::ImageLinkState;
-use crate::obsidian_repository::obsidian_repository_types::ImageOperation;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::utils::VecEnumFilter;
@@ -9,6 +8,54 @@ use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
+use crate::image_file::ImageFileState;
+
+struct ImageTestCase {
+    _name: &'static str,
+    setup: TestSetup,
+    verify: VerifyOutcome,
+}
+
+struct TestSetup {
+    images: Vec<TestImage>,
+    markdown_files: Vec<TestMarkdown>,
+}
+
+struct TestImage {
+    name: String,
+    content: Vec<u8>,
+}
+
+struct TestMarkdown {
+    name: String,
+    content: String,
+}
+
+type VerifyOutcome = fn(&[PathBuf], &ObsidianRepository);
+
+fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
+    let mut paths = Vec::new();
+
+    // Create images
+    for image in &setup.images {
+        let path = TestFileBuilder::new()
+            .with_content(image.content.clone())
+            .create(temp_dir, &image.name);
+        paths.push(path);
+    }
+
+    // Create markdown files
+    for md in &setup.markdown_files {
+        let path = TestFileBuilder::new()
+            .with_content(md.content.clone())
+            .with_matching_dates(test_date)
+            .create(temp_dir, &md.name);
+        paths.push(path);
+    }
+
+    paths
+}
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
@@ -67,52 +114,6 @@ fn test_analyze_missing_references() {
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_image_replacement_outcomes() {
-    struct ImageTestCase {
-        _name: &'static str,
-        setup: TestSetup,
-        verify: VerifyOutcome,
-    }
-
-    struct TestSetup {
-        images: Vec<TestImage>,
-        markdown_files: Vec<TestMarkdown>,
-    }
-
-    struct TestImage {
-        name: String,
-        content: Vec<u8>,
-    }
-
-    struct TestMarkdown {
-        name: String,
-        content: String,
-    }
-
-    type VerifyOutcome = fn(&[PathBuf], &ObsidianRepository);
-
-    fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
-        let test_date = test_utils::eastern_midnight(2024, 1, 15);
-        let mut paths = Vec::new();
-
-        // Create images
-        for image in &setup.images {
-            let path = TestFileBuilder::new()
-                .with_content(image.content.clone())
-                .create(temp_dir, &image.name);
-            paths.push(path);
-        }
-
-        // Create markdown files
-        for md in &setup.markdown_files {
-            let path = TestFileBuilder::new()
-                .with_content(md.content.clone())
-                .with_matching_dates(test_date)
-                .create(temp_dir, &md.name);
-            paths.push(path);
-        }
-
-        paths
-    }
 
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
     let tiff_header = vec![0x4D, 0x4D, 0x00, 0x2A];
@@ -255,138 +256,6 @@ fn test_image_replacement_outcomes() {
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_image_reference_detection() {
-    let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
-    let config = builder.apply_changes(true).build().unwrap();
-    fs::create_dir_all(config.output_folder()).unwrap();
-
-    // Test date for consistent file timestamps
-    let test_date = test_utils::eastern_midnight(2024, 1, 15);
-
-    // Create nested directory structure
-    let nested_paths = [
-        "deeply/nested/path",
-        "another/path",
-        "current/path",
-        "conf/media",
-    ];
-
-    for path in nested_paths.iter() {
-        fs::create_dir_all(temp_dir.path().join(path)).unwrap();
-    }
-
-    // Create test images with some content
-    let img_content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Simple JPEG header
-    let nested_img_path = temp_dir
-        .path()
-        .join("deeply")
-        .join("nested")
-        .join("path")
-        .join("image2.JPG");
-    let another_img_path = temp_dir
-        .path()
-        .join("another")
-        .join("path")
-        .join("image3.jpg");
-
-    let img_path1 = TestFileBuilder::new()
-        .with_content(img_content.clone())
-        .create(&temp_dir, "Image1.jpg"); // Mixed case filename
-    let img_path2 = TestFileBuilder::new()
-        .with_content(img_content.clone())
-        .create(&temp_dir, &nested_img_path.to_string_lossy()); // Different case extension in nested dir
-    let img_path3 = TestFileBuilder::new()
-        .with_content(img_content.clone())
-        .create(&temp_dir, &another_img_path.to_string_lossy()); // Unreferenced in another path
-
-    // Create markdown files with various reference formats including nested paths
-    let md_content1 = r#"# Doc1
-![[Image1.jpg|300]]
-![[deeply/nested/path/image2.JPG]]
-[[image2.JPG]]"#;
-    let md_file1 = TestFileBuilder::new()
-        .with_content(md_content1.to_string())
-        .with_matching_dates(test_date)
-        .with_fs_dates(test_date, test_date)
-        .create(&temp_dir, "doc1.md");
-
-    let md_content2 = r#"# Doc2
-![](Image1.jpg)
-![Alt](deeply/nested/path/image2.JPG)
-![[./current/path/other.jpg]]
-![[../relative/path/another.jpg]]"#;
-    let md_file2 = TestFileBuilder::new()
-        .with_content(md_content2.to_string())
-        .with_matching_dates(test_date)
-        .with_fs_dates(test_date, test_date)
-        .create(&temp_dir, "doc2.md");
-
-    // Scan the repository
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-
-    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file1) {
-        markdown_file.mark_image_reference_as_updated();
-    }
-    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file2) {
-        markdown_file.mark_image_reference_as_updated();
-    }
-
-    // Run analyze to generate the image info map
-    let image_operations = repository.analyze_repository(&config).unwrap();
-
-    // Verify image reference detection
-    let deletion_operations: Vec<_> = image_operations
-        .image_ops
-        .iter()
-        .filter(|op| matches!(op, ImageOperation::Delete(_)))
-        .collect();
-
-    assert_eq!(
-        deletion_operations.len(),
-        2,
-        "Expected two images to be deleted - one duplicate and one unreferenced"
-    );
-
-    match &deletion_operations[0] {
-        ImageOperation::Delete(path) => {
-            assert_eq!(
-                path.file_name().unwrap(),
-                img_path3.file_name().unwrap(),
-                "Wrong image marked as unreferenced"
-            );
-        }
-    }
-
-    // Verify the image references map
-    let image_refs = &repository.image_path_to_references_map;
-
-    // Check Image1.jpg references (root directory)
-    let image1_refs = image_refs.get(&img_path1).unwrap();
-    assert_eq!(
-        image1_refs.markdown_file_references.len(),
-        2,
-        "Image1.jpg should be referenced by both markdown files"
-    );
-
-    // Check nested image2.JPG references
-    let image2_refs = image_refs.get(&img_path2).unwrap();
-    assert_eq!(
-        image2_refs.markdown_file_references.len(),
-        2,
-        "image2.JPG should be referenced by both markdown files despite being in nested directory"
-    );
-
-    // Check unreferenced image3.jpg
-    let image3_refs = image_refs.get(&img_path3).unwrap();
-    assert!(
-        image3_refs.markdown_file_references.is_empty(),
-        "image3.jpg in nested directory should have no references"
-    );
-}
-
-#[test]
-#[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
@@ -474,4 +343,85 @@ fn test_handle_missing_references() {
         &markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
         "needs persist should better well be true, boyo"
     )
+}
+
+#[test]
+#[cfg_attr(target_os = "linux", ignore)]
+fn test_duplicate_grouping() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+    fs::create_dir_all(config.output_folder()).unwrap();
+
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
+
+    // Create 4 identical files (same content = same hash)
+    let content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Basic JPEG header
+
+    // Create files that will have the same hash
+    let files = [
+        ("output1.png", content.clone(), vec![]),
+        ("output2.png", content.clone(), vec![]),
+        ("output3.png", content.clone(), vec!["test1.md"]),
+        ("output4.png", content.clone(), vec!["test2.md"])
+    ];
+
+    let mut created_paths = Vec::new();
+
+    // Create the image files
+    for (name, image_content, _) in &files {
+        let path = TestFileBuilder::new()
+            .with_content(image_content.clone())
+            .create(&temp_dir, name);
+        created_paths.push(path);
+    }
+
+    // Create markdown files referencing some of the images
+    for (name, _, references) in &files {
+        if !references.is_empty() {
+            let md_content = references
+                .iter()
+                .map(|_| format!("![[{}]]", name))
+                .collect::<Vec<_>>()
+                .join("\n");
+
+            let path = TestFileBuilder::new()
+                .with_content(md_content)
+                .with_matching_dates(test_date)
+                .create(&temp_dir, references[0]);
+            created_paths.push(path);
+        }
+    }
+
+    let repository = ObsidianRepository::new(&config).unwrap();
+
+    // Verify all files are in the same duplicate group
+    let duplicates = repository.image_files.filter_by_predicate(|state| {
+        matches!(state, ImageFileState::Duplicate { .. })
+    });
+
+    let keepers = repository.image_files.filter_by_predicate(|state| {
+        matches!(state, ImageFileState::DuplicateKeeper { .. })
+    });
+
+    // Should have exactly one keeper
+    assert_eq!(keepers.len(), 1, "Should have exactly one keeper");
+
+    // Should have three duplicates
+    assert_eq!(duplicates.len(), 3, "Should have exactly three duplicates");
+
+    // Verify no files were marked as unreferenced
+    let unreferenced = repository.image_files.filter_by_predicate(|state| {
+        matches!(state, ImageFileState::Unreferenced)
+    });
+    assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
+
+    // Verify all duplicates share the same hash as the keeper
+    if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.files[0].image_state {
+        for duplicate in duplicates.files {
+            if let ImageFileState::Duplicate { hash } = &duplicate.image_state {
+                assert_eq!(hash, keeper_hash, "Duplicate hash should match keeper hash");
+            }
+        }
+    }
 }

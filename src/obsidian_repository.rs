@@ -13,17 +13,11 @@ mod scan_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-pub mod obsidian_repository_types;
-
 use crate::{
-    constants::*,
     image_file::{ImageFile, ImageFileState, ImageFiles},
     markdown_file::BackPopulateMatch,
     markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent},
     markdown_files::MarkdownFiles,
-    obsidian_repository::obsidian_repository_types::{
-        GroupedImages, ImageGroup, ImageGroupType, ImageOperation, ImageOperations, ImageReferences,
-    },
     utils,
     utils::VecEnumFilter,
     validated_config::ValidatedConfig,
@@ -36,8 +30,29 @@ use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
+
+#[derive(Debug)]
+pub enum ImageOperation {
+    Delete(PathBuf),
+}
+
+#[derive(Debug, Default)]
+pub struct ImageOperations {
+    pub image_ops: Vec<ImageOperation>,
+}
+
+#[derive(Debug, Clone, Default)]
+pub struct ImageReferences {
+    pub hash: String,
+    pub markdown_file_references: Vec<String>,
+}
+
+#[derive(Clone, Debug)]
+pub struct ImageGroup {
+    pub path: PathBuf,
+}
 
 #[derive(Default)]
 pub struct ObsidianRepository {
@@ -101,32 +116,37 @@ fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
     // First group by hash to find duplicates
-    let mut hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> = HashMap::new();
-    for (path, refs) in image_map {
-        hash_groups.entry(refs.hash.clone())
-            .or_default()
-            .push((path, refs));
-    }
+    let hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> = image_map.iter().fold(
+        HashMap::new(),
+        |mut acc, (path, refs)| {
+            acc.entry(refs.hash.clone())
+                .or_default()
+                .push((path, refs));
+            acc
+        },
+    );
 
-    // Sort each group by path to determine keeper
-    for group in hash_groups.values_mut() {
-        group.sort_by(|a, b| a.0.cmp(b.0));
-    }
+    let files: Vec<ImageFile> = hash_groups
+        .into_iter()
+        .flat_map(|(_, mut group)| {
+            let is_duplicate_group = group.len() > 1;
 
-    // Now create ImageFiles
-    let files = hash_groups.values().flat_map(|group| {
-        let in_duplicate_group = group.len() > 1;
-        group.iter().enumerate().map(move |(idx, (path, refs))| {
-            let is_keeper = idx == 0;
-            ImageFile::new(
-                (*path).clone(),
-                refs.hash.clone(),
-                refs,
-                in_duplicate_group,
-                is_keeper
-            )
+            if is_duplicate_group {
+                // Sort by path for consistent keeper selection
+                group.sort_by(|a, b| a.0.cmp(b.0));
+            }
+
+            group.into_iter().enumerate().map(move |(idx, (path, refs))| {
+                ImageFile::new(
+                    path.clone(),
+                    refs.hash.clone(),
+                    refs,
+                    is_duplicate_group,
+                    is_duplicate_group && idx == 0,
+                )
+            })
         })
-    }).collect();
+        .collect();
 
     Ok(ImageFiles { files })
 }
@@ -455,7 +475,6 @@ impl ObsidianRepository {
                 for markdown_file in &mut self.markdown_files {
                     if let Some(image_link) = markdown_file
                         .image_links
-                        .links
                         .iter_mut()
                         .find(|link| link.filename == image_file_name)
                     {
@@ -466,16 +485,23 @@ impl ObsidianRepository {
                 }
             }
         }
+        // last handle duplicates
+        let duplicates = self.image_files.filter_by_predicate(|state| {
+            matches!(state, ImageFileState::Duplicate { .. })
+        });
 
-        // last handle duplicate groups
-        let grouped_images = group_images(&self.image_path_to_references_map);
+        let keepers = self.image_files.filter_by_predicate(|state| {
+            matches!(state, ImageFileState::DuplicateKeeper { .. })
+        });
 
-        // Handle duplicate groups
-        for (_, duplicate_group) in grouped_images.get_duplicate_groups() {
-            if let Some(keeper) = duplicate_group.first() {
-                for duplicate in duplicate_group.iter().skip(1) {
-                    let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
-                    // Update ImageLink states in files to be persisted
+        for duplicate in duplicates.files {
+            let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
+            if let ImageFileState::Duplicate { hash } = &duplicate.image_state {
+                // Find the keeper with matching hash
+                if let Some(keeper) = keepers.iter().find(|k| {
+                    matches!(&k.image_state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
+                }) {
+                    // Update ImageLink states in markdown files
                     for markdown_file in &mut self.markdown_files {
                         if let Some(image_link) = markdown_file
                             .image_links
@@ -615,44 +641,6 @@ fn apply_line_replacements(
         }
     } else {
         updated_line
-    }
-}
-
-fn group_images(image_map: &HashMap<PathBuf, ImageReferences>) -> GroupedImages {
-    let mut groups = GroupedImages::new();
-
-    for (path_buf, image_references) in image_map {
-        let group_type = determine_image_group_type(path_buf, image_references);
-        groups.add_or_update(
-            group_type,
-            ImageGroup {
-                path: path_buf.clone(),
-               image_references: image_references.clone(),
-            },
-        );
-    }
-
-    // Sort groups by path
-    for group in groups.groups.values_mut() {
-        group.sort_by(|a, b| a.path.cmp(&b.path));
-    }
-
-    groups
-}
-
-fn determine_image_group_type(path: &Path, info: &ImageReferences) -> ImageGroupType {
-    if path
-        .extension()
-        .and_then(|ext| ext.to_str())
-        .map_or(false, |ext| ext.eq_ignore_ascii_case(TIFF_EXTENSION))
-    {
-        ImageGroupType::TiffImage
-    } else if fs::metadata(path).map(|m| m.len() == 0).unwrap_or(false) {
-        ImageGroupType::ZeroByteImage
-    } else if info.markdown_file_references.is_empty() {
-        ImageGroupType::UnreferencedImage
-    } else {
-        ImageGroupType::DuplicateGroup(info.hash.clone())
     }
 }
 

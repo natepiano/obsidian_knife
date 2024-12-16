@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod image_file_tests;
 
-use crate::obsidian_repository::obsidian_repository_types::ImageReferences;
+use crate::obsidian_repository::ImageReferences;
 use std::fs;
 use std::path::PathBuf;
 
@@ -102,14 +102,14 @@ impl ImageFile {
             ImageFileState::Incompatible {
                 reason: IncompatibilityReason::ZeroByte,
             }
-        } else if image_refs.markdown_file_references.is_empty() {
-            ImageFileState::Unreferenced
-        } else if in_duplicate_group {
+        } else if in_duplicate_group {  // Check duplicate status first!
             if is_keeper {
                 ImageFileState::DuplicateKeeper { hash: hash.clone() }
             } else {
                 ImageFileState::Duplicate { hash: hash.clone() }
             }
+        } else if image_refs.markdown_file_references.is_empty() {  // Only check unreferenced if not a duplicate
+            ImageFileState::Unreferenced
         } else {
             ImageFileState::Valid
         };

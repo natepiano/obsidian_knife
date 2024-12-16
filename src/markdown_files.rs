@@ -5,7 +5,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
 use crate::obsidian_repository;
-use crate::obsidian_repository::obsidian_repository_types::{ImageOperations, ImageReferences};
+use crate::obsidian_repository::{ImageOperations, ImageReferences};
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};

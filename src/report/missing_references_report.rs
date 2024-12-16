@@ -1,6 +1,6 @@
 use crate::constants::*;
 use crate::markdown_file::ImageLinkState;
-use crate::obsidian_repository::obsidian_repository_types::{ImageGroup, ImageReferences};
+use crate::obsidian_repository::ImageGroup;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils;
@@ -41,10 +41,6 @@ impl ReportDefinition for MissingReferencesTable {
                 .or_default()
                 .push(ImageGroup {
                     path: PathBuf::from(extracted_filename),
-                    image_references: ImageReferences {
-                        hash: String::new(),
-                        markdown_file_references: vec![markdown_path.to_string_lossy().to_string()],
-                    },
                 });
         }
 
