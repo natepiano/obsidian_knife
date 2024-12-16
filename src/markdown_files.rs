@@ -17,11 +17,15 @@ use vecollect::collection;
 #[collection(field = "files")]
 pub struct MarkdownFiles {
     pub(crate) files: Vec<MarkdownFile>,
+    pub(crate) file_process_limit: Option<usize>,
 }
 
 impl MarkdownFiles {
-    pub fn new(files: Vec<MarkdownFile>) -> Self {
-        Self { files }
+    pub fn new(files: Vec<MarkdownFile>, file_process_limit: Option<usize>) -> Self {
+        Self {
+            files,
+            file_process_limit,
+        }
     }
 
     // todo - can you get rid of this after you finish the image refactoring?
@@ -59,7 +63,7 @@ impl MarkdownFiles {
     }
 
     pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        for file_info in &self.files {
+        for file_info in &self.files_to_persist() {
             file_info.persist()?;
         }
         Ok(())
@@ -137,5 +141,27 @@ impl MarkdownFiles {
         }
 
         Ok(image_info_map)
+    }
+
+
+    pub fn files_to_persist(&self) -> Self {
+        let files_to_persist: Vec<MarkdownFile> = self
+            .iter()
+            .filter(|file_info| {
+                file_info
+                    .frontmatter
+                    .as_ref()
+                    .map_or(false, |fm| fm.needs_persist())
+            })
+            .cloned()
+            .collect();
+
+        let total_files = files_to_persist.len();
+        let count = self.file_process_limit.unwrap_or(total_files);
+
+        Self {
+            files: files_to_persist.into_iter().take(count).collect(),
+            file_process_limit: self.file_process_limit,
+        }
     }
 }

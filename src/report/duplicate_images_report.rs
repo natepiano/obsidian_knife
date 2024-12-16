@@ -176,20 +176,17 @@ impl ObsidianRepository {
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
 
-        // Debug: Print total counts of duplicates and keepers
-        let duplicates = self
-            .image_files
-            .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
-        let keepers = self
-            .image_files
-            .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
+        // Only write the header if we find at least one group with deletable duplicates
+        let mut header_written = false;
 
         // Collect both duplicates and keepers by hash
         let mut grouped_by_hash: HashMap<String, Vec<ImageFile>> = HashMap::new();
 
         // Add duplicates
+        let duplicates = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
         for img in duplicates {
             if let ImageFileState::Duplicate { hash } = &img.image_state {
                 grouped_by_hash.entry(hash.clone()).or_default().push(img);
@@ -197,21 +194,27 @@ impl ObsidianRepository {
         }
 
         // Add keepers to their respective groups
+        let keepers = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
         for img in keepers {
             if let ImageFileState::DuplicateKeeper { hash } = &img.image_state {
                 grouped_by_hash.entry(hash.clone()).or_default().push(img);
             }
         }
 
-        // Write report for each group that has both duplicates and keepers
-        // In ObsidianRepository::write_duplicate_images_report
-        // Write report for each group that has duplicates
+        // Write report for each group that has deletable duplicates
         for (hash, images) in grouped_by_hash {
-            // Only report groups that have duplicates (removing keeper check)
+            // Check if this group has any deletable duplicates
             if images
                 .iter()
-                .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }))
+                .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }) && img.delete)
             {
+                if !header_written {
+                    writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
+                    header_written = true;
+                }
+
                 let report = ReportWriter::new(images.to_vec()).with_validated_config(config);
 
                 let table = DuplicateImagesTable {
@@ -223,6 +226,7 @@ impl ObsidianRepository {
                 writer.writeln("", "")?; // Add spacing between tables
             }
         }
+
 
         Ok(())
     }

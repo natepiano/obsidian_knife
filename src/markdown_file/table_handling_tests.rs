@@ -59,7 +59,7 @@ fn test_back_populate_content() {
                 markdown_info
             };
 
-            repository.markdown_files = MarkdownFiles::new(vec![markdown_info]);
+            repository.markdown_files = MarkdownFiles::new(vec![markdown_info], None);
 
             // Apply back-populate changes
             repository.apply_replaceable_matches();

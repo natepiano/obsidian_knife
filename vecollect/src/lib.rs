@@ -1,13 +1,3 @@
-//! adds Deref, DerefMut, IntoIterator, FromIterator traits to a collection
-//! that is of the form
-//! ```
-//!
-//! pub struct TThings<T> {
-//!     pub things: Vec<T>,
-//! }
-//! ```
-//! makes it convenient to use this common container/contained pattern without having
-//! to retype all of this boilerplate
 use proc_macro::TokenStream;
 use quote::quote;
 use syn::parse::{Parse, ParseStream};
@@ -81,11 +71,18 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
     } else {
         None
     }
-    .expect("Field must be Vec<T>");
+        .ok_or_else(|| {
+            syn::Error::new_spanned(
+                input.clone(),
+                format!("Field '{}' must be of type Vec<T>", args.field),
+            )
+        })
+        .unwrap_or_else(|e| panic!("{}", e));
 
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+    // Pass through the original struct definition unchanged
     let expanded = quote! {
         #input
 
@@ -105,9 +102,9 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
 
         impl #impl_generics FromIterator<#inner_type> for #name #ty_generics #where_clause {
             fn from_iter<I: IntoIterator<Item = #inner_type>>(iter: I) -> Self {
-                Self {
-                    #field_name: iter.into_iter().collect(),
-                }
+                let mut result = Self::default();
+                result.#field_name = iter.into_iter().collect();
+                result
             }
         }
 

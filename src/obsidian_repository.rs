@@ -41,7 +41,7 @@ pub struct ImageReferences {
 #[derive(Default)]
 pub struct ObsidianRepository {
     pub markdown_files: MarkdownFiles,
-    pub markdown_files_to_persist: MarkdownFiles,
+  //  pub markdown_files_to_persist: MarkdownFiles,
     pub image_files: ImageFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     #[allow(dead_code)]
@@ -61,6 +61,7 @@ impl ObsidianRepository {
         let markdown_files = pre_scan_markdown_files(
             &repository_files.markdown_files,
             validated_config.operational_timezone(),
+            validated_config.file_process_limit(),
         )?;
 
         // Process wikilinks
@@ -75,7 +76,7 @@ impl ObsidianRepository {
         let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::default(),
-            markdown_files_to_persist: MarkdownFiles::default(),
+            // markdown_files_to_persist: MarkdownFiles::default(),
             image_path_to_references_map: HashMap::new(),
             other_files: repository_files.other_files,
             wikilinks_ac: Some(ac),
@@ -98,7 +99,7 @@ impl ObsidianRepository {
         repository.identify_ambiguous_matches();
         repository.identify_image_reference_replacements();
         repository.apply_replaceable_matches();
-        repository.populate_files_to_persist(validated_config.file_process_limit());
+       // repository.populate_files_to_persist(validated_config.file_process_limit());
         repository.mark_image_files_for_deletion();
 
         Ok(repository)
@@ -173,6 +174,7 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
+    file_process_limit: Option<usize>,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
@@ -191,10 +193,12 @@ fn pre_scan_markdown_files(
     })?;
 
     // Extract data from Arc<Mutex<...>>
-    let markdown_files = Arc::try_unwrap(markdown_files)
+    let mut markdown_files = Arc::try_unwrap(markdown_files)
         .unwrap()
         .into_inner()
         .unwrap();
+
+    markdown_files.file_process_limit = file_process_limit;
 
     Ok(markdown_files)
 }
@@ -395,29 +399,29 @@ impl ObsidianRepository {
 
     pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.image_files.delete_marked()?;
-        self.markdown_files_to_persist.persist_all()
+        self.markdown_files.persist_all()
     }
 
-    fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
-        let files_to_persist: Vec<MarkdownFile> = self
-            .markdown_files
-            .iter()
-            .filter(|file_info| {
-                file_info
-                    .frontmatter
-                    .as_ref()
-                    .map_or(false, |fm| fm.needs_persist())
-            })
-            .cloned()
-            .collect();
-
-        let total_files = files_to_persist.len();
-        let count = file_limit.unwrap_or(total_files);
-
-        self.markdown_files_to_persist = MarkdownFiles {
-            files: files_to_persist.into_iter().take(count).collect(),
-        };
-    }
+    // fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
+    //     let files_to_persist: Vec<MarkdownFile> = self
+    //         .markdown_files
+    //         .iter()
+    //         .filter(|file_info| {
+    //             file_info
+    //                 .frontmatter
+    //                 .as_ref()
+    //                 .map_or(false, |fm| fm.needs_persist())
+    //         })
+    //         .cloned()
+    //         .collect();
+    //
+    //     let total_files = files_to_persist.len();
+    //     let count = file_limit.unwrap_or(total_files);
+    //
+    //     self.markdown_files_to_persist = MarkdownFiles {
+    //         files: files_to_persist.into_iter().take(count).collect(),
+    //     };
+    // }
 
     fn identify_image_reference_replacements(&mut self) {
         // first handle missing references
@@ -493,8 +497,9 @@ impl ObsidianRepository {
     }
 
     fn mark_image_files_for_deletion(&mut self) {
-        let files_to_persist: HashSet<_> = self
-            .markdown_files_to_persist
+        let files_to_persist = self.markdown_files.files_to_persist();
+
+        let files_to_persist: HashSet<_> = files_to_persist
             .iter()
             .map(|f| &f.path)
             .collect();

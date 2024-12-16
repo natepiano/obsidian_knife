@@ -64,35 +64,35 @@ impl ObsidianRepository {
             .map(|value| value.to_string())
             .unwrap_or_else(|| "None".to_string());
 
-        let dry_run = !validated_config.apply_changes();
+        let apply_changes = validated_config.apply_changes();
 
         let properties = DescriptionBuilder::new()
             .no_space(YAML_TIMESTAMP_UTC)
             .text_with_newline(&timestamp_utc.to_string())
             .no_space(YAML_TIMESTAMP_LOCAL)
             .text_with_newline(&timestamp_local.to_string())
-            .no_space(YAML_DRY_RUN)
-            .text_with_newline(&dry_run.to_string())
+            .no_space(YAML_APPLY_CHANGES)
+            .text_with_newline(&apply_changes.to_string())
             .no_space(YAML_FILE_PROCESS_LIMIT)
             .text_with_newline(&limit_string)
             .build();
 
         writer.write_properties(&properties)?;
 
-        if validated_config.apply_changes() {
-            writer.writeln("", MODE_APPLY_CHANGES)?;
-        } else {
-            writer.writeln("", MODE_DRY_RUN)?;
-        }
-
         if validated_config.file_process_limit().is_some() {
             let message = DescriptionBuilder::new()
-                .number(self.markdown_files_to_persist.len())
+                .number(self.markdown_files.files_to_persist().len())
                 .text(OF)
                 .pluralize_with_count(Phrase::File(self.markdown_files.len()))
                 .text(THAT_NEED_UPDATES)
                 .build();
             writer.writeln("", message.as_str())?;
+        }
+
+        if validated_config.apply_changes() {
+            writer.writeln("", MODE_APPLY_CHANGES)?;
+        } else {
+            writer.writeln("", MODE_APPLY_CHANGES_OFF)?;
         }
 
         Ok(())

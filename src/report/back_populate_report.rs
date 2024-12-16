@@ -108,7 +108,7 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let matches = self.markdown_files_to_persist.unambiguous_matches();
+        let matches = self.markdown_files.files_to_persist().unambiguous_matches();
 
         // Skip if no matches
         if matches.is_empty() {

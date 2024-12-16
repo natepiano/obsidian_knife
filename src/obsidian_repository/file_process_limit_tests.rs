@@ -84,7 +84,7 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         // Verify files were actually processed by checking their content
         let processed_count = repository
-            .markdown_files_to_persist
+            .markdown_files.files_to_persist()
             .iter()
             .take(case.expected_processed)
             .filter(|file| {

@@ -5,7 +5,6 @@ use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils;
 use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
-use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -96,7 +95,7 @@ impl ObsidianRepository {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let missing_refs: Vec<(PathBuf, String, usize, usize)> = self
-            .markdown_files_to_persist
+            .markdown_files.files_to_persist()
             .iter()
             .flat_map(|file| {
                 let missing_links = file.image_links.filter_by_variant(ImageLinkState::Missing);

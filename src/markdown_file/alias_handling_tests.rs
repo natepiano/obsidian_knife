@@ -1,4 +1,4 @@
-use crate::markdown_file;
+use crate::obsidian_repository;
 use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::MarkdownFile;
 use crate::test_utils;
@@ -184,8 +184,8 @@ fn test_no_self_referential_back_population() {
         .expect("Should have a file with matches");
 
     assert_eq!(
-        markdown_file::format_relative_path(&file_with_matches.path, config.obsidian_path()),
-        markdown_file::format_relative_path(&other_file_path, config.obsidian_path()),
+        obsidian_repository::format_relative_path(&file_with_matches.path, config.obsidian_path()),
+        obsidian_repository::format_relative_path(&other_file_path, config.obsidian_path()),
         "Match should be in 'Other.md'"
     );
 }

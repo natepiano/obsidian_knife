@@ -109,7 +109,7 @@ impl ObsidianRepository {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut persist_data = Vec::new();
 
-        for file in self.markdown_files_to_persist.iter() {
+        for file in self.markdown_files.files_to_persist().iter() {
             if !file.persist_reasons.is_empty() {
                 let relative_path = file
                     .path

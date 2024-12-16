@@ -72,29 +72,30 @@ impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
                 ]);
             } else {
                 for ref_path in &image.references {
-                    let file_link =
-                        report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
-
-                    // Find line number and position for this reference
-                    let (line_number, position) = self.markdown_files.iter()
+                    // Only output the row if we can find the markdown file
+                    if let Some(markdown_file) = self.markdown_files.iter()
                         .find(|f| f.path == Path::new(ref_path))
-                        .and_then(|markdown_file| {
-                            markdown_file.image_links.links.iter().find(|l| {
+                    {
+                        let file_link = report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
+
+                        // Find line number and position for this reference
+                        let (line_number, position) = markdown_file.image_links.links.iter()
+                            .find(|l| {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
                             })
-                        })
-                        .map(|image_link| (image_link.line_number.to_string(), image_link.position.to_string()))
-                        .unwrap_or(("".to_string(), "".to_string()));
+                            .map(|image_link| (image_link.line_number.to_string(), image_link.position.to_string()))
+                            .unwrap_or(("".to_string(), "".to_string()));
 
-                    rows.push(vec![
-                        image_file_link.clone(),
-                        incompatibility_type.to_string(),
-                        WILL_DELETE.to_string(),
-                        file_link,
-                        line_number,
-                        position,
-                        REFERENCE_WILL_BE_REMOVED.to_string(),
-                    ]);
+                        rows.push(vec![
+                            image_file_link.clone(),
+                            incompatibility_type.to_string(),
+                            WILL_DELETE.to_string(),
+                            file_link,
+                            line_number,
+                            position,
+                            REFERENCE_WILL_BE_REMOVED.to_string(),
+                        ]);
+                    }
                 }
             }
         }
@@ -145,14 +146,27 @@ impl ObsidianRepository {
             .filter_by_predicate(|state| matches!(state, ImageFileState::Incompatible { .. }));
 
         if !incompatible_images.is_empty() {
-            let report =
-                ReportWriter::new(incompatible_images.to_owned()).with_validated_config(config);
-            report.write(
-                &IncompatibleImagesReport {
-                    markdown_files: &self.markdown_files,
-                },
-                writer,
-            )?;
+            // Create the report instance first
+            let report = IncompatibleImagesReport {
+                markdown_files: &self.markdown_files.files_to_persist(),
+            };
+
+            // Check if there would be any rows after filtering
+            let would_have_rows = incompatible_images.iter().any(|image| {
+                image.references.is_empty() ||
+                    image.references.iter().any(|ref_path| {
+                        self.markdown_files
+                            .files_to_persist()
+                            .iter()
+                            .any(|f| f.path == Path::new(ref_path))
+                    })
+            });
+
+            if would_have_rows {
+                let report_writer = ReportWriter::new(incompatible_images.to_owned())
+                    .with_validated_config(config);
+                report_writer.write(&report, writer)?;
+            }
         }
         Ok(())
     }
