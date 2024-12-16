@@ -12,15 +12,16 @@ use std::path::PathBuf;
 pub struct MissingReferencesTable;
 
 impl ReportDefinition for MissingReferencesTable {
-    type Item = (PathBuf, String, usize); // (markdown_path, extracted_filename)
+    type Item = (PathBuf, String, usize, usize); // (markdown_path, extracted_filename, line, position)
 
     fn headers(&self) -> Vec<&str> {
-        vec![FILE, LINE, MISSING_IMAGE_REFERENCES, ACTION]
+        vec![FILE, LINE, POSITION, MISSING_IMAGE_REFERENCES, ACTION]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
             ColumnAlignment::Left,
+            ColumnAlignment::Right,
             ColumnAlignment::Right,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
@@ -32,46 +33,37 @@ impl ReportDefinition for MissingReferencesTable {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        let mut grouped_references: HashMap<(&PathBuf, usize), Vec<PathBuf>> = HashMap::new();
-
-        for (markdown_path, extracted_filename, line_number) in items {
-            grouped_references
-                .entry((markdown_path, *line_number))
-                .or_default()
-                .push(PathBuf::from(extracted_filename));
-        }
-
         let config = config.expect(CONFIG_EXPECT);
-        let mut rows: Vec<Vec<String>> = grouped_references
+
+        let mut rows: Vec<Vec<String>> = items
             .iter()
-            .map(|((markdown_path, line_number), paths)| {
-                let markdown_link =
-                    crate::report::format_wikilink(markdown_path, config.obsidian_path(), false);
+            .map(
+                |(markdown_path, extracted_filename, line_number, position)| {
+                    let markdown_link = crate::report::format_wikilink(
+                        markdown_path,
+                        config.obsidian_path(),
+                        false,
+                    );
 
-                // Sort the paths before joining them
-                let mut sorted_paths = paths.clone();
-                sorted_paths.sort();
+                    let image_link = utils::escape_pipe(&utils::escape_brackets(
+                        &extracted_filename.to_string(),
+                    ));
 
-                let image_links = sorted_paths
-                    .iter()
-                    .map(|path| {
-                        utils::escape_pipe(&crate::utils::escape_brackets(&path.to_string_lossy()))
-                    })
-                    .collect::<Vec<_>>()
-                    .join(", ");
+                    let action = if config.apply_changes() {
+                        REFERENCE_REMOVED
+                    } else {
+                        REFERENCE_WILL_BE_REMOVED
+                    };
 
-                let action = if config.apply_changes() {
-                    REFERENCE_REMOVED
-                } else {
-                    REFERENCE_WILL_BE_REMOVED
-                };
-                vec![
-                    markdown_link,
-                    line_number.to_string(),
-                    image_links,
-                    action.to_string(),
-                ]
-            })
+                    vec![
+                        markdown_link,
+                        line_number.to_string(),
+                        position.to_string(),
+                        image_link,
+                        action.to_string(),
+                    ]
+                },
+            )
             .collect();
 
         // Sort rows by markdown link (first column)
@@ -103,25 +95,23 @@ impl ObsidianRepository {
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // Collect missing references data in the format the report expects
-        let missing_refs: Vec<(PathBuf, String, usize)> = self
+        let missing_refs: Vec<(PathBuf, String, usize, usize)> = self
             .markdown_files_to_persist
             .iter()
             .flat_map(|file| {
-                // Collect missing links into a local variable
                 let missing_links = file.image_links.filter_by_variant(ImageLinkState::Missing);
                 missing_links.into_iter().map(move |missing| {
                     (
                         file.path.clone(),
                         missing.filename.clone(),
                         missing.line_number,
+                        missing.position,
                     )
                 })
             })
             .collect();
 
         let report = ReportWriter::new(missing_refs).with_validated_config(config);
-
         report.write(&MissingReferencesTable, writer)
     }
 }

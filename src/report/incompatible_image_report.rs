@@ -18,7 +18,7 @@ impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
     type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {
-        vec![IMAGE_FILE, TYPE, ACTION, FILE, LINE, ACTION]
+        vec![IMAGE_FILE, TYPE, ACTION, FILE, LINE, POSITION, ACTION]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
@@ -27,6 +27,7 @@ impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
+            ColumnAlignment::Right,
             ColumnAlignment::Right,
             ColumnAlignment::Left,
         ]
@@ -39,54 +40,66 @@ impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
     ) -> Vec<Vec<String>> {
         let config = config.expect(CONFIG_EXPECT);
 
-        items.iter().map(|image| {
-            // Get the incompatibility reason from the image state
+        let mut rows = Vec::new();
+        for image in items {
             let reason = match &image.image_state {
                 ImageFileState::Incompatible { reason } => reason,
                 _ => unreachable!("Only incompatible images should be in this report"),
             };
 
-            // Handle file and line columns
-            let (file_text, line_number, reference_action) = if image.references.is_empty() {
-                (NOT_REFERENCED.to_string(), "".to_string(), "".to_string())
-            } else {
-                let mut first_line = "".to_string();
-                let file_links: Vec<String> = image.references.iter().map(|ref_path| {
-                    let link = report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
-                    // Find the corresponding markdown file to get line number
-                    if let Some(markdown_file) = self.markdown_files.iter().find(|f| f.path == Path::new(ref_path)) {
-                        if let Some(image_link) = markdown_file.image_links.links.iter().find(|l| {
-                            matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
-                        }) {
-                            first_line = image_link.line_number.to_string();
-                        }
-                    }
-                    link
-                }).collect();
-                (file_links.join("<br>"), first_line, REFERENCE_WILL_BE_REMOVED.to_string())
-            };
-
-            let relative_path = obsidian_repository::format_relative_path(&image.path, config.obsidian_path());
-            let image_file_link = format!("[{}]({})",
-                                          image.path.file_name().unwrap().to_string_lossy(),
-                                          relative_path
+            let relative_path =
+                obsidian_repository::format_relative_path(&image.path, config.obsidian_path());
+            let image_file_link = format!(
+                "[{}]({})",
+                image.path.file_name().unwrap().to_string_lossy(),
+                relative_path
             );
 
-            // Determine incompatibility type
             let incompatibility_type = match reason {
                 IncompatibilityReason::TiffFormat => TIFF,
                 IncompatibilityReason::ZeroByte => ZERO_BYTE,
             };
 
-            vec![
-                image_file_link,
-                incompatibility_type.to_string(),
-                WILL_DELETE.to_string(),
-                file_text,
-                line_number,
-                reference_action,
-            ]
-        }).collect()
+            if image.references.is_empty() {
+                rows.push(vec![
+                    image_file_link.clone(),
+                    incompatibility_type.to_string(),
+                    WILL_DELETE.to_string(),
+                    NOT_REFERENCED.to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                    "".to_string(),
+                ]);
+            } else {
+                for ref_path in &image.references {
+                    let file_link =
+                        report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
+
+                    // Find line number and position for this reference
+                    let (line_number, position) = self.markdown_files.iter()
+                        .find(|f| f.path == Path::new(ref_path))
+                        .and_then(|markdown_file| {
+                            markdown_file.image_links.links.iter().find(|l| {
+                                matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
+                            })
+                        })
+                        .map(|image_link| (image_link.line_number.to_string(), image_link.position.to_string()))
+                        .unwrap_or(("".to_string(), "".to_string()));
+
+                    rows.push(vec![
+                        image_file_link.clone(),
+                        incompatibility_type.to_string(),
+                        WILL_DELETE.to_string(),
+                        file_link,
+                        line_number,
+                        position,
+                        REFERENCE_WILL_BE_REMOVED.to_string(),
+                    ]);
+                }
+            }
+        }
+
+        rows
     }
 
     fn title(&self) -> Option<String> {

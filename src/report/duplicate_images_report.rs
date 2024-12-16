@@ -58,7 +58,7 @@ impl ReportDefinition for DuplicateImagesTable {
                     }
                     ImageFileState::Duplicate { hash: _ } => {
                         let action = if config.apply_changes() {
-                            DELETE
+                            DELETED
                         } else {
                             WILL_DELETE
                         };

@@ -14,14 +14,18 @@ impl ReportDefinition for UnreferencedImagesReport {
     type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {
-        vec!["sample", "file"]
+        vec![THUMBNAIL, IMAGE_FILE, ACTION]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
-        vec![ColumnAlignment::Left, ColumnAlignment::Left]
+        vec![
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+        ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], config: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|image| {
@@ -29,8 +33,13 @@ impl ReportDefinition for UnreferencedImagesReport {
                 let sample =
                     utils::escape_pipe(format!("![[{}|{}]]", file_name, THUMBNAIL_WIDTH).as_str());
                 let file_link = format!("[[{}]]", file_name);
+                let action = if config.map_or(false, |c| c.apply_changes()) {
+                    DELETED
+                } else {
+                    WILL_DELETE
+                };
 
-                vec![sample, file_link]
+                vec![sample, file_link, action.to_string()]
             })
             .collect()
     }
