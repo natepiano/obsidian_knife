@@ -113,9 +113,6 @@ fn test_case_insensitive_targets() {
     // Scan folders to populate repository
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    // Process files to find matches
-    repository.find_all_back_populate_matches(&config);
-
     // Find our test file
     let test_file = repository
         .markdown_files
