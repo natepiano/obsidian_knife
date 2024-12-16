@@ -1,21 +1,34 @@
 use crate::constants::*;
 use crate::image_file::{ImageFile, ImageFileState};
+use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
+use crate::{report, utils};
 use std::collections::HashMap;
 use std::error::Error;
+use std::path::Path;
 
-pub struct DuplicateImagesTable {
+pub struct DuplicateImagesTable<'a> {
     hash: String,
+    markdown_files: &'a MarkdownFiles,
 }
 
-impl ReportDefinition for DuplicateImagesTable {
+impl<'a> ReportDefinition for DuplicateImagesTable<'a> {
     type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {
-        vec![IMAGE, FILE, REFERENCED_BY, ACTION, REFERENCE_CHANGE]
+        vec![
+            THUMBNAIL,
+            IMAGE_FILE,
+            TYPE,
+            FILE,
+            LINE,
+            POSITION,
+            ACTION,
+            REFERENCE_CHANGE,
+        ]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
@@ -23,6 +36,9 @@ impl ReportDefinition for DuplicateImagesTable {
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Right,
+            ColumnAlignment::Right,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
         ]
@@ -34,48 +50,101 @@ impl ReportDefinition for DuplicateImagesTable {
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
         let config = config.expect(CONFIG_EXPECT);
-
-        items
+        let keeper = items
             .iter()
-            .map(|image| {
-                let filename = image.path.file_name().unwrap().to_string_lossy();
-                let referenced_by = if image.references.is_empty() {
-                    NOT_REFERENCED.to_string()
-                } else {
-                    image
-                        .references
+            .find(|img| matches!(img.image_state, ImageFileState::DuplicateKeeper { .. }));
+
+        let mut rows = Vec::new();
+        for image in items {
+            let filename = image.path.file_name().unwrap().to_string_lossy();
+            let thumbnail = format!("![[{}\\|{}]]", filename, THUMBNAIL_WIDTH);
+            let image_link = format!("[[{}]]", filename);
+
+            let (image_type, action, base_reference_update) = match &image.image_state {
+                ImageFileState::DuplicateKeeper { .. } => {
+                    ("keeper", NO_CHANGE.to_string(), NO_CHANGE.to_string())
+                }
+                ImageFileState::Duplicate { .. } => {
+                    let action = if config.apply_changes() {
+                        DELETED.to_string()
+                    } else {
+                        WILL_DELETE.to_string()
+                    };
+
+                    let reference_update = if let Some(keeper_img) = keeper {
+                        let keeper_name = keeper_img.path.file_name().unwrap().to_string_lossy();
+                        utils::escape_brackets(&format!("![[{}]]", keeper_name))
+                    } else {
+                        UNKNOWN.to_string()
+                    };
+
+                    ("duplicate", action, reference_update)
+                }
+                _ => ("unknown", UNKNOWN.to_string(), UNKNOWN.to_string()),
+            };
+
+            if image.references.is_empty() {
+                rows.push(vec![
+                    thumbnail.clone(),
+                    image_link.clone(),
+                    image_type.to_string(),
+                    NOT_REFERENCED.to_string(),
+                    String::new(),
+                    String::new(),
+                    action.clone(),
+                    String::new(), // No reference change for unreferenced files
+                ]);
+            } else {
+                for ref_path in &image.references {
+                    let file_link =
+                        report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
+
+                    // Get line number and position from markdown files
+                    let (line_number, position) = self
+                        .markdown_files
                         .iter()
-                        .map(|ref_path| {
-                            format!("[[{}]]", ref_path.file_name().unwrap().to_string_lossy())
+                        .find(|f| f.path == Path::new(ref_path))
+                        .and_then(|markdown_file| {
+                            let filename = image
+                                .path
+                                .file_name()
+                                .unwrap()
+                                .to_string_lossy()
+                                .to_string();
+                            markdown_file
+                                .image_links
+                                .links
+                                .iter()
+                                .find(|l| l.filename == filename)
                         })
-                        .collect::<Vec<_>>()
-                        .join(", ")
-                };
+                        .map(|image_link| {
+                            (
+                                image_link.line_number.to_string(),
+                                image_link.position.to_string(),
+                            )
+                        })
+                        .unwrap_or((String::new(), String::new()));
 
-                let (action, reference_update) = match &image.image_state {
-                    ImageFileState::DuplicateKeeper { .. } => {
-                        (NO_CHANGE.to_string(), NO_CHANGE.to_string())
-                    }
-                    ImageFileState::Duplicate { hash: _ } => {
-                        let action = if config.apply_changes() {
-                            DELETED
+                    rows.push(vec![
+                        thumbnail.clone(),
+                        image_link.clone(),
+                        image_type.to_string(),
+                        file_link,
+                        line_number,
+                        position,
+                        action.clone(),
+                        if matches!(image.image_state, ImageFileState::Duplicate { .. }) {
+                            base_reference_update.clone()
                         } else {
-                            WILL_DELETE
-                        };
-                        (action.to_string(), format!("![[{}]]", filename))
-                    }
-                    _ => (UNKNOWN.to_string(), UNKNOWN.to_string()),
-                };
+                            String::new()
+                        },
+                    ]);
+                }
+            }
+        }
+        rows.sort_by(|a, b| a[1].cmp(&b[1]));
 
-                vec![
-                    format!("![[{}\\|{}]]", filename, THUMBNAIL_WIDTH),
-                    format!("[[{}]]", filename),
-                    referenced_by,
-                    action,
-                    reference_update,
-                ]
-            })
-            .collect()
+        rows
     }
 
     fn title(&self) -> Option<String> {
@@ -135,19 +204,19 @@ impl ObsidianRepository {
         }
 
         // Write report for each group that has both duplicates and keepers
+        // In ObsidianRepository::write_duplicate_images_report
+        // Write report for each group that has duplicates
         for (hash, images) in grouped_by_hash {
-            // Only report groups that have both duplicates and keepers
+            // Only report groups that have duplicates (removing keeper check)
             if images
                 .iter()
-                .any(|img| matches!(img.image_state, ImageFileState::DuplicateKeeper { .. }))
-                && images
-                    .iter()
-                    .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }))
+                .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }))
             {
                 let report = ReportWriter::new(images.to_vec()).with_validated_config(config);
 
                 let table = DuplicateImagesTable {
                     hash: hash.to_string(),
+                    markdown_files: &self.markdown_files,
                 };
 
                 report.write(&table, writer)?;

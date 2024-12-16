@@ -25,7 +25,11 @@ impl ReportDefinition for UnreferencedImagesReport {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], config: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        config: Option<&ValidatedConfig>,
+    ) -> Vec<Vec<String>> {
         items
             .iter()
             .map(|image| {
