@@ -29,19 +29,8 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::fs;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
-
-#[derive(Debug)]
-pub enum ImageOperation {
-    Delete(PathBuf),
-}
-
-#[derive(Debug, Default)]
-pub struct ImageOperations {
-    pub image_ops: Vec<ImageOperation>,
-}
 
 #[derive(Debug, Clone, Default)]
 pub struct ImageReferences {
@@ -130,10 +119,17 @@ fn build_image_files_from_map(
         .into_iter()
         .flat_map(|(_, mut group)| {
             let is_duplicate_group = group.len() > 1;
+            let mut should_have_keeper = false;
 
             if is_duplicate_group {
-                // Sort by path for consistent keeper selection
-                group.sort_by(|a, b| a.0.cmp(b.0));
+                // Check if any files in group are referenced
+                let any_referenced = group.iter()
+                    .any(|(_, refs)| !refs.markdown_file_references.is_empty());
+
+                if any_referenced {
+                    should_have_keeper = true;
+                    group.sort_by(|a, b| a.0.cmp(b.0));
+                }
             }
 
             group.into_iter().enumerate().map(move |(idx, (path, refs))| {
@@ -142,7 +138,7 @@ fn build_image_files_from_map(
                     refs.hash.clone(),
                     refs,
                     is_duplicate_group,
-                    is_duplicate_group && idx == 0,
+                    is_duplicate_group && should_have_keeper && idx == 0,
                 )
             })
         })
@@ -395,15 +391,15 @@ impl ObsidianRepository {
 
     pub fn persist(
         &mut self,
-        image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.markdown_files_to_persist.persist_all(image_operations)
+        self.image_files.delete_marked()?;
+        self.markdown_files_to_persist.persist_all()
     }
 
     pub fn analyze_repository(
         &mut self,
         validated_config: &ValidatedConfig,
-    ) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let _timer = Timer::new("analyze");
 
         self.find_all_back_populate_matches(validated_config);
@@ -419,9 +415,10 @@ impl ObsidianRepository {
         // after populating files to persist, we can use this dataset to determine whether
         // an image can be deleted - if it's referenced in a file that won't be persisted
         // then we won't delete it in this pass
-        let image_operations = self.get_image_operations_for_deletions()?;
+        self.mark_image_files_for_deletion()?;
 
-        Ok(image_operations)
+        // Ok(image_operations)
+        Ok(())
     }
 
     fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
@@ -518,9 +515,7 @@ impl ObsidianRepository {
         }
     }
 
-    fn get_image_operations_for_deletions(&self) -> Result<ImageOperations, Box<dyn Error + Send + Sync>> {
-
-        let mut operations = ImageOperations::default();
+    fn mark_image_files_for_deletion(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         let files_to_persist: HashSet<_> = self
             .markdown_files_to_persist
             .iter()
@@ -532,53 +527,29 @@ impl ObsidianRepository {
             image_file.references.iter().all(|path| files_to_persist.contains(&path))
         }
 
-        for image_file in &self.image_files {
+        for image_file in &mut self.image_files.files {
             match &image_file.image_state {
                 ImageFileState::Unreferenced => {
-                    operations
-                        .image_ops
-                        .push(ImageOperation::Delete(image_file.path.clone()));
+                    image_file.delete = true;
                 }
                 ImageFileState::Incompatible { .. } => {
                     if image_file.references.is_empty() ||
                         can_delete(&files_to_persist, image_file) {
-                        operations
-                            .image_ops
-                            .push(ImageOperation::Delete(image_file.path.clone()));
+                        image_file.delete = true;
                     }
                 }
                 ImageFileState::Duplicate { .. } => {
-                    if can_delete(&files_to_persist, image_file)  {
-                        operations
-                            .image_ops
-                            .push(ImageOperation::Delete(image_file.path.clone()));
+                    if can_delete(&files_to_persist, image_file) {
+                        image_file.delete = true;
                     }
                 }
-                ImageFileState::DuplicateKeeper {..} => (), // No operation needed for duplicate "keeper"
-                ImageFileState::Valid => (),                // No operation needed for valid files
+                ImageFileState::DuplicateKeeper {..} => (), // No deletion for keepers
+                ImageFileState::Valid => (),                // No deletion for valid files
             }
         }
 
-        Ok(operations)
+        Ok(())
     }
-}
-
-pub fn execute_image_deletions(
-    operations: &ImageOperations,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // First execute image deletions
-    for op in &operations.image_ops {
-        match op {
-            ImageOperation::Delete(path) => {
-                if let Err(e) = fs::remove_file(path) {
-                    eprintln!("Error deleting file {:?}: {}", path, e);
-                    return Err(e.into());
-                }
-            }
-        }
-    }
-
-    Ok(())
 }
 
 fn apply_line_replacements(

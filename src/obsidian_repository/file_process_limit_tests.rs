@@ -79,10 +79,10 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let _ = create_test_files(&temp_dir, case.file_count);
         let mut repository = ObsidianRepository::new(&config)?;
 
-        let image_operations = repository.analyze_repository(&config)?;
+        let _ = repository.analyze_repository(&config)?;
 
         // Run persistence
-        repository.persist(image_operations)?;
+        repository.persist()?;
 
         // Verify files were actually processed by checking their content
         let processed_count = repository

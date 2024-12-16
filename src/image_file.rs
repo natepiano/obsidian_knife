@@ -1,6 +1,7 @@
 #[cfg(test)]
 mod image_file_tests;
 
+use std::error::Error;
 use crate::obsidian_repository::ImageReferences;
 use std::fs;
 use std::path::PathBuf;
@@ -14,14 +15,26 @@ pub struct ImageFiles {
     pub(crate) files: Vec<ImageFile>,
 }
 
+impl ImageFiles {
+    pub fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.files
+            .iter()
+            .filter(|file| file.delete)
+            .try_for_each(|file| fs::remove_file(&file.path))?;
+
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
-    pub path: PathBuf,
+    pub delete: bool,
+    pub file_type: ImageFileType,
     pub hash: String,
+    pub image_state: ImageFileState,
+    pub path: PathBuf,
     pub references: Vec<PathBuf>,
     pub size: u64,
-    pub file_type: ImageFileType,
-    pub image_state: ImageFileState,
 }
 
 impl EnumFilter for ImageFile {
@@ -121,12 +134,13 @@ impl ImageFile {
             .collect();
 
         ImageFile {
-            path,
+            delete: false,
+            file_type,
             hash,
+            image_state: initial_state,
+            path,
             references,
             size,
-            file_type,
-            image_state: initial_state,
         }
     }
 }

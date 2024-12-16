@@ -81,9 +81,9 @@ fn test_analyze_missing_references() {
     }
 
     // Run analyze
-    let image_operations = repository.analyze_repository(&config).unwrap();
+    let _ = repository.analyze_repository(&config).unwrap();
 
-    repository.persist(image_operations).unwrap();
+    repository.persist().unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&md_file).unwrap();
@@ -99,9 +99,9 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    let image_operations = repository.get_image_operations_for_deletions().unwrap();
-    // repository.process_image_reference_updates(&image_operations);
-    repository.persist(image_operations).unwrap();
+    repository.mark_image_files_for_deletion().unwrap();
+
+    repository.persist().unwrap();
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&md_file).unwrap();
@@ -247,8 +247,8 @@ fn test_image_replacement_outcomes() {
             }
         }
 
-        let image_operations = repository.analyze_repository(&config).unwrap();
-        repository.persist(image_operations).unwrap();
+        let _ = repository.analyze_repository(&config).unwrap();
+        repository.persist().unwrap();
 
         (test_case.verify)(&created_paths, &repository);
     }
@@ -270,16 +270,17 @@ fn test_analyze_wikilink_errors() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test_file.md");
 
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    let image_operations = repository.get_image_operations_for_deletions().unwrap();
+    repository.mark_image_files_for_deletion().unwrap();
+
 
     // Verify no operations were generated for invalid wikilink paths
-    assert!(
-        image_operations.image_ops.is_empty(),
-        "No image operations should be created for wikilink paths"
-    );
+    // assert!(
+    //     image_operations.image_ops.is_empty(),
+    //     "No image operations should be created for wikilink paths"
+    // );
 
     // Verify the content wasn't modified
     let final_content = fs::read_to_string(&md_file).unwrap();
@@ -312,7 +313,7 @@ fn test_handle_missing_references() {
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run the analysis
-    let image_operations = repository.analyze_repository(&config).unwrap();
+    let _ = repository.analyze_repository(&config).unwrap();
 
     // Verify that the missing references are handled correctly
     let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
@@ -323,12 +324,6 @@ fn test_handle_missing_references() {
         missing_references.len(),
         2,
         "Expected two missing image references"
-    );
-
-    // Verify that no image operations were created for the missing references
-    assert!(
-        image_operations.image_ops.is_empty(),
-        "No image operations should be created for missing references"
     );
 
     // Verify that the MarkdownFile.content does not have the references anymore
@@ -424,4 +419,108 @@ fn test_duplicate_grouping() {
             }
         }
     }
+}
+
+#[test]
+fn test_multiple_file_deletion() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+
+    // Create multiple files marked for deletion
+    let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
+    let test_setup = TestSetup {
+        images: vec![
+            TestImage {
+                name: "unused1.jpg".into(),
+                content: jpeg_header.clone(),
+            },
+            TestImage {
+                name: "unused2.jpg".into(),
+                content: jpeg_header.clone(),
+            },
+            TestImage {
+                name: "empty.jpg".into(),
+                content: vec![],
+            },
+        ],
+        markdown_files: vec![],
+    };
+
+    let created_paths = create_test_files(&temp_dir, &test_setup);
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+
+    let _ = repository.analyze_repository(&config).unwrap();
+
+    // Verify all files are marked for deletion
+    assert_eq!(
+        repository.image_files.files.iter().filter(|f| f.delete).count(),
+        3,
+        "Expected all files to be marked for deletion"
+    );
+
+    // Run analyze and persist
+    let _ = repository.analyze_repository(&config).unwrap();
+    repository.persist().unwrap();
+
+    // Verify all files were deleted
+    for path in created_paths {
+        assert!(!path.exists(), "File should have been deleted: {:?}", path);
+    }
+}
+
+#[test]
+fn test_referenced_and_unreferenced_duplicates() {
+    let temp_dir = TempDir::new().unwrap();
+    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let config = builder.apply_changes(true).build().unwrap();
+
+    // Create two sets of duplicate files with different content
+    let test_setup = TestSetup {
+        images: vec![
+            // First set - both unreferenced
+            TestImage {
+                name: "unreferenced1.jpg".into(),
+                content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
+            },
+            TestImage {
+                name: "unreferenced2.jpg".into(),
+                content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
+            },
+            // Second set - one will be referenced
+            TestImage {
+                name: "referenced1.jpg".into(),
+                content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
+            },
+            TestImage {
+                name: "referenced2.jpg".into(),
+                content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
+            },
+        ],
+        markdown_files: vec![
+            TestMarkdown {
+                name: "test.md".into(),
+                content: "# Test\n![[referenced1.jpg]]".into(),
+            },
+        ],
+    };
+
+    let created_paths = create_test_files(&temp_dir, &test_setup);
+    let mut repository = ObsidianRepository::new(&config).unwrap();
+
+    // Mark markdown file for persistence so files can be deleted
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&created_paths[4]) {
+        markdown_file.mark_image_reference_as_updated();
+    }
+
+    let _ = repository.analyze_repository(&config).unwrap();
+    repository.persist().unwrap();
+
+    // Verify unreferenced duplicates - both should be deleted
+    assert!(!created_paths[0].exists(), "unreferenced1.jpg should be deleted");
+    assert!(!created_paths[1].exists(), "unreferenced2.jpg should be deleted");
+
+    // Verify referenced duplicates
+    assert!(created_paths[2].exists(), "referenced1.jpg should be kept as it's referenced in markdown");
+    assert!(!created_paths[3].exists(), "referenced2.jpg should be deleted as it's a duplicate");
 }

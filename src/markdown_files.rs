@@ -4,8 +4,7 @@ use crate::utils::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
-use crate::obsidian_repository;
-use crate::obsidian_repository::{ImageOperations, ImageReferences};
+use crate::obsidian_repository::ImageReferences;
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
@@ -61,9 +60,7 @@ impl MarkdownFiles {
 
     pub fn persist_all(
         &self,
-        image_operations: ImageOperations,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        obsidian_repository::execute_image_deletions(&image_operations)?;
 
         for file_info in &self.files {
             file_info.persist()?;
