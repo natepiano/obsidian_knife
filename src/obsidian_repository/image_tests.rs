@@ -81,7 +81,7 @@ fn test_analyze_missing_references() {
     }
 
     // Run analyze
-    let _ = repository.analyze_repository(&config).unwrap();
+    repository.analyze_repository(&config);
 
     repository.persist().unwrap();
 
@@ -99,7 +99,7 @@ fn test_analyze_missing_references() {
     // Second analyze pass to verify idempotency
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    repository.mark_image_files_for_deletion().unwrap();
+    repository.mark_image_files_for_deletion();
 
     repository.persist().unwrap();
 
@@ -247,7 +247,7 @@ fn test_image_replacement_outcomes() {
             }
         }
 
-        let _ = repository.analyze_repository(&config).unwrap();
+        repository.analyze_repository(&config);
         repository.persist().unwrap();
 
         (test_case.verify)(&created_paths, &repository);
@@ -273,14 +273,7 @@ fn test_analyze_wikilink_errors() {
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    repository.mark_image_files_for_deletion().unwrap();
-
-
-    // Verify no operations were generated for invalid wikilink paths
-    // assert!(
-    //     image_operations.image_ops.is_empty(),
-    //     "No image operations should be created for wikilink paths"
-    // );
+    repository.mark_image_files_for_deletion();
 
     // Verify the content wasn't modified
     let final_content = fs::read_to_string(&md_file).unwrap();
@@ -313,7 +306,7 @@ fn test_handle_missing_references() {
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Run the analysis
-    let _ = repository.analyze_repository(&config).unwrap();
+    repository.analyze_repository(&config);
 
     // Verify that the missing references are handled correctly
     let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
@@ -450,7 +443,7 @@ fn test_multiple_file_deletion() {
     let created_paths = create_test_files(&temp_dir, &test_setup);
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    let _ = repository.analyze_repository(&config).unwrap();
+    repository.analyze_repository(&config);
 
     // Verify all files are marked for deletion
     assert_eq!(
@@ -460,7 +453,7 @@ fn test_multiple_file_deletion() {
     );
 
     // Run analyze and persist
-    let _ = repository.analyze_repository(&config).unwrap();
+    repository.analyze_repository(&config);
     repository.persist().unwrap();
 
     // Verify all files were deleted
@@ -513,7 +506,7 @@ fn test_referenced_and_unreferenced_duplicates() {
         markdown_file.mark_image_reference_as_updated();
     }
 
-    let _ = repository.analyze_repository(&config).unwrap();
+    repository.analyze_repository(&config);
     repository.persist().unwrap();
 
     // Verify unreferenced duplicates - both should be deleted

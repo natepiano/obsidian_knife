@@ -399,7 +399,7 @@ impl ObsidianRepository {
     pub fn analyze_repository(
         &mut self,
         validated_config: &ValidatedConfig,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    ) {
         let _timer = Timer::new("analyze");
 
         self.find_all_back_populate_matches(validated_config);
@@ -415,10 +415,8 @@ impl ObsidianRepository {
         // after populating files to persist, we can use this dataset to determine whether
         // an image can be deleted - if it's referenced in a file that won't be persisted
         // then we won't delete it in this pass
-        self.mark_image_files_for_deletion()?;
+        self.mark_image_files_for_deletion();
 
-        // Ok(image_operations)
-        Ok(())
     }
 
     fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
@@ -515,7 +513,7 @@ impl ObsidianRepository {
         }
     }
 
-    fn mark_image_files_for_deletion(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn mark_image_files_for_deletion(&mut self)  {
         let files_to_persist: HashSet<_> = self
             .markdown_files_to_persist
             .iter()
@@ -547,8 +545,6 @@ impl ObsidianRepository {
                 ImageFileState::Valid => (),                // No deletion for valid files
             }
         }
-
-        Ok(())
     }
 }
 
