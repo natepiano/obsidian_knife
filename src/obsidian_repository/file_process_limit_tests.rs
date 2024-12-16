@@ -79,8 +79,6 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let _ = create_test_files(&temp_dir, case.file_count);
         let mut repository = ObsidianRepository::new(&config)?;
 
-        repository.analyze_repository(&config);
-
         // Run persistence
         repository.persist()?;
 

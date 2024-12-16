@@ -44,7 +44,6 @@ pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send +
 
     // ANALYSIS PHASE
     let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
-    obsidian_repository.analyze_repository(&validated_config);
 
     // REPORTING PHASE
     obsidian_repository.write_reports(&validated_config)?;

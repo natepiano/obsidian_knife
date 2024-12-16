@@ -80,9 +80,6 @@ fn test_analyze_missing_references() {
         markdown_file.mark_image_reference_as_updated();
     }
 
-    // Run analyze
-    repository.analyze_repository(&config);
-
     repository.persist().unwrap();
 
     // Verify the markdown file was updated
@@ -247,7 +244,6 @@ fn test_image_replacement_outcomes() {
             }
         }
 
-        repository.analyze_repository(&config);
         repository.persist().unwrap();
 
         (test_case.verify)(&created_paths, &repository);
@@ -304,9 +300,6 @@ fn test_handle_missing_references() {
 
     // Initialize the repository info
     let mut repository = ObsidianRepository::new(&config).unwrap();
-
-    // Run the analysis
-    repository.analyze_repository(&config);
 
     // Verify that the missing references are handled correctly
     let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
@@ -443,8 +436,6 @@ fn test_multiple_file_deletion() {
     let created_paths = create_test_files(&temp_dir, &test_setup);
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
-    repository.analyze_repository(&config);
-
     // Verify all files are marked for deletion
     assert_eq!(
         repository.image_files.files.iter().filter(|f| f.delete).count(),
@@ -452,8 +443,6 @@ fn test_multiple_file_deletion() {
         "Expected all files to be marked for deletion"
     );
 
-    // Run analyze and persist
-    repository.analyze_repository(&config);
     repository.persist().unwrap();
 
     // Verify all files were deleted
@@ -506,7 +495,6 @@ fn test_referenced_and_unreferenced_duplicates() {
         markdown_file.mark_image_reference_as_updated();
     }
 
-    repository.analyze_repository(&config);
     repository.persist().unwrap();
 
     // Verify unreferenced duplicates - both should be deleted

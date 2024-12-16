@@ -57,7 +57,7 @@ pub struct ObsidianRepository {
 
 impl ObsidianRepository {
     pub fn new(validated_config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("prescan");
+        let _timer = Timer::new("prescan+analyze");
         let ignore_folders = validated_config.ignore_folders().unwrap_or(&[]);
 
         let repository_files = utils::collect_repository_files(validated_config, ignore_folders)?;
@@ -87,6 +87,8 @@ impl ObsidianRepository {
             wikilinks_sorted: sorted,
         };
 
+        let _timer = Timer::new("analyze");
+
         // Get image map using existing functionality
         repository.image_path_to_references_map = repository
             .markdown_files
@@ -101,29 +103,11 @@ impl ObsidianRepository {
         repository.identify_ambiguous_matches();
         repository.identify_image_reference_replacements();
         repository.apply_replaceable_matches();
+        repository.populate_files_to_persist(validated_config.file_process_limit());
+        repository.mark_image_files_for_deletion();
 
 
         Ok(repository)
-    }
-
-    pub fn analyze_repository(
-        &mut self,
-        validated_config: &ValidatedConfig,
-    ) {
-        let _timer = Timer::new("analyze");
-
-       // self.apply_replaceable_matches();
-
-        // after checking for all back populate matches and references to nonexistent files
-        // and then applying replacement matches,
-        // mark either all files - or the file_process_limit count files - as to be persisted
-        self.populate_files_to_persist(validated_config.file_process_limit());
-
-        // after populating files to persist, we can use this dataset to determine whether
-        // an image can be deleted - if it's referenced in a file that won't be persisted
-        // then we won't delete it in this pass
-        self.mark_image_files_for_deletion();
-
     }
 }
 
