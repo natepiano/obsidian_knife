@@ -2,7 +2,9 @@ use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
 use crate::utils::EnumFilter;
 use crate::wikilink::{InvalidWikilink, Wikilink};
-use crate::{markdown_file, wikilink, DEFAULT_MEDIA_PATH, FORWARD_SLASH, OPENING_BRACKET, OPENING_PAREN};
+use crate::{
+    markdown_file, wikilink, DEFAULT_MEDIA_PATH, FORWARD_SLASH, OPENING_BRACKET, OPENING_PAREN,
+};
 use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;

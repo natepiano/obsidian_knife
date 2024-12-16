@@ -26,7 +26,6 @@ impl ObsidianRepository {
         &self,
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
         let writer = OutputFileWriter::new(validated_config.output_folder())?;
 
         self.write_execution_start(validated_config, &writer)?; // done
@@ -35,8 +34,7 @@ impl ObsidianRepository {
         writer.writeln(LEVEL1, IMAGES)?;
         // hack just so cargo fmt doesn't expand the report call across multiple lines
         self.write_missing_references_report(validated_config, &writer)?;
-        self.write_tiff_images_report(validated_config, &writer)?;
-        self.write_zero_byte_images_report(validated_config, &writer)?;
+        self.write_incompatible_image_report(validated_config, &writer)?;
 
         self.write_unreferenced_images_report(validated_config, &writer)?;
         self.write_duplicate_images_report(validated_config, &writer)?;

@@ -26,7 +26,8 @@ impl ReportDefinition for UnreferencedImagesReport {
             .iter()
             .map(|image| {
                 let file_name = image.path.file_name().unwrap().to_string_lossy();
-                let sample = utils::escape_pipe(format!("![[{}|{}]]", file_name, THUMBNAIL_WIDTH).as_str());
+                let sample =
+                    utils::escape_pipe(format!("![[{}|{}]]", file_name, THUMBNAIL_WIDTH).as_str());
                 let file_link = format!("[[{}]]", file_name);
 
                 vec![sample, file_link]

@@ -1,3 +1,4 @@
+use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
@@ -8,7 +9,6 @@ use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
-use crate::image_file::ImageFileState;
 
 struct ImageTestCase {
     _name: &'static str,
@@ -111,7 +111,6 @@ fn test_analyze_missing_references() {
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_image_replacement_outcomes() {
-
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
     let tiff_header = vec![0x4D, 0x4D, 0x00, 0x2A];
     let empty_content = vec![];
@@ -344,7 +343,7 @@ fn test_duplicate_grouping() {
         ("output1.png", content.clone(), vec![]),
         ("output2.png", content.clone(), vec![]),
         ("output3.png", content.clone(), vec!["test1.md"]),
-        ("output4.png", content.clone(), vec!["test2.md"])
+        ("output4.png", content.clone(), vec!["test2.md"]),
     ];
 
     let mut created_paths = Vec::new();
@@ -377,13 +376,13 @@ fn test_duplicate_grouping() {
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Verify all files are in the same duplicate group
-    let duplicates = repository.image_files.filter_by_predicate(|state| {
-        matches!(state, ImageFileState::Duplicate { .. })
-    });
+    let duplicates = repository
+        .image_files
+        .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
 
-    let keepers = repository.image_files.filter_by_predicate(|state| {
-        matches!(state, ImageFileState::DuplicateKeeper { .. })
-    });
+    let keepers = repository
+        .image_files
+        .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
     // Should have exactly one keeper
     assert_eq!(keepers.len(), 1, "Should have exactly one keeper");
@@ -392,9 +391,9 @@ fn test_duplicate_grouping() {
     assert_eq!(duplicates.len(), 3, "Should have exactly three duplicates");
 
     // Verify no files were marked as unreferenced
-    let unreferenced = repository.image_files.filter_by_predicate(|state| {
-        matches!(state, ImageFileState::Unreferenced)
-    });
+    let unreferenced = repository
+        .image_files
+        .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
     assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
 
     // Verify all duplicates share the same hash as the keeper
@@ -438,7 +437,12 @@ fn test_multiple_file_deletion() {
 
     // Verify all files are marked for deletion
     assert_eq!(
-        repository.image_files.files.iter().filter(|f| f.delete).count(),
+        repository
+            .image_files
+            .files
+            .iter()
+            .filter(|f| f.delete)
+            .count(),
         3,
         "Expected all files to be marked for deletion"
     );
@@ -479,12 +483,10 @@ fn test_referenced_and_unreferenced_duplicates() {
                 content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
             },
         ],
-        markdown_files: vec![
-            TestMarkdown {
-                name: "test.md".into(),
-                content: "# Test\n![[referenced1.jpg]]".into(),
-            },
-        ],
+        markdown_files: vec![TestMarkdown {
+            name: "test.md".into(),
+            content: "# Test\n![[referenced1.jpg]]".into(),
+        }],
     };
 
     let created_paths = create_test_files(&temp_dir, &test_setup);
@@ -498,10 +500,22 @@ fn test_referenced_and_unreferenced_duplicates() {
     repository.persist().unwrap();
 
     // Verify unreferenced duplicates - both should be deleted
-    assert!(!created_paths[0].exists(), "unreferenced1.jpg should be deleted");
-    assert!(!created_paths[1].exists(), "unreferenced2.jpg should be deleted");
+    assert!(
+        !created_paths[0].exists(),
+        "unreferenced1.jpg should be deleted"
+    );
+    assert!(
+        !created_paths[1].exists(),
+        "unreferenced2.jpg should be deleted"
+    );
 
     // Verify referenced duplicates
-    assert!(created_paths[2].exists(), "referenced1.jpg should be kept as it's referenced in markdown");
-    assert!(!created_paths[3].exists(), "referenced2.jpg should be deleted as it's a duplicate");
+    assert!(
+        created_paths[2].exists(),
+        "referenced1.jpg should be kept as it's referenced in markdown"
+    );
+    assert!(
+        !created_paths[3].exists(),
+        "referenced2.jpg should be deleted as it's a duplicate"
+    );
 }

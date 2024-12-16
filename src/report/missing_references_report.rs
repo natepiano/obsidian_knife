@@ -1,6 +1,5 @@
 use crate::constants::*;
 use crate::markdown_file::ImageLinkState;
-use crate::obsidian_repository::ImageGroup;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
 use crate::utils;
@@ -33,36 +32,38 @@ impl ReportDefinition for MissingReferencesTable {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        let mut grouped_references: HashMap<(&PathBuf, usize), Vec<ImageGroup>> = HashMap::new(); // Changed key to include line number
+        let mut grouped_references: HashMap<(&PathBuf, usize), Vec<PathBuf>> = HashMap::new();
 
         for (markdown_path, extracted_filename, line_number) in items {
             grouped_references
                 .entry((markdown_path, *line_number))
                 .or_default()
-                .push(ImageGroup {
-                    path: PathBuf::from(extracted_filename),
-                });
+                .push(PathBuf::from(extracted_filename));
         }
 
         let config = config.expect(CONFIG_EXPECT);
-        grouped_references
+        let mut rows: Vec<Vec<String>> = grouped_references
             .iter()
-            .map(|((markdown_path, line_number), image_groups)| {
+            .map(|((markdown_path, line_number), paths)| {
                 let markdown_link =
                     crate::report::format_wikilink(markdown_path, config.obsidian_path(), false);
-                let image_links = image_groups
+
+                // Sort the paths before joining them
+                let mut sorted_paths = paths.clone();
+                sorted_paths.sort();
+
+                let image_links = sorted_paths
                     .iter()
-                    .map(|group| {
-                        utils::escape_pipe(&crate::utils::escape_brackets(
-                            &group.path.to_string_lossy(),
-                        ))
+                    .map(|path| {
+                        utils::escape_pipe(&crate::utils::escape_brackets(&path.to_string_lossy()))
                     })
                     .collect::<Vec<_>>()
                     .join(", ");
+
                 let action = if config.apply_changes() {
-                    "reference removed"
+                    REFERENCE_REMOVED
                 } else {
-                    "reference will be removed"
+                    REFERENCE_WILL_BE_REMOVED
                 };
                 vec![
                     markdown_link,
@@ -71,7 +72,11 @@ impl ReportDefinition for MissingReferencesTable {
                     action.to_string(),
                 ]
             })
-            .collect()
+            .collect();
+
+        // Sort rows by markdown link (first column)
+        rows.sort_by(|a, b| a[0].cmp(&b[0]));
+        rows
     }
 
     fn title(&self) -> Option<String> {

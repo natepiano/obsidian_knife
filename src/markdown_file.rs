@@ -25,13 +25,13 @@ pub use markdown_file_types::*;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
-use crate::utils;
 use crate::utils::{IMAGE_REGEX, MARKDOWN_REGEX};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
 use crate::wikilink::{ExtractedWikilinks, InvalidWikilink, ToWikilink, Wikilink};
 use crate::yaml_frontmatter;
 use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
+use crate::{obsidian_repository, utils};
 
 use aho_corasick::AhoCorasick;
 use chrono::{DateTime, NaiveDate, Utc};
@@ -39,7 +39,7 @@ use filetime::FileTime;
 use itertools::Itertools;
 use regex::Regex;
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::{fs, io};
 
 #[derive(Debug, Clone)]
@@ -346,7 +346,8 @@ impl MarkdownFile {
                     replacement = replacement.replace('|', r"\|");
                 }
 
-                let relative_path = format_relative_path(&self.path, config.obsidian_path());
+                let relative_path =
+                    obsidian_repository::format_relative_path(&self.path, config.obsidian_path());
 
                 matches.push(BackPopulateMatch {
                     found_text: matched_text.to_string(),
@@ -607,13 +608,6 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
             || (end > r_start && end <= r_end)
             || (start <= r_start && end >= r_end)
     })
-}
-
-fn format_relative_path(path: &Path, base_path: &Path) -> String {
-    path.strip_prefix(base_path)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .into_owned()
 }
 
 fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {

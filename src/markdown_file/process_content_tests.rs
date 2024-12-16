@@ -2,9 +2,9 @@ use crate::markdown_file::{
     ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFile,
 };
 use crate::test_utils::TestFileBuilder;
+use crate::utils::IMAGE_REGEX;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use tempfile::TempDir;
-use crate::utils::IMAGE_REGEX;
 
 fn assert_contains_wikilink(
     wikilinks: &[Wikilink],
@@ -236,7 +236,6 @@ fn test_image_link_types() {
             ImageLinkType::MarkdownLink(ImageLinkTarget::External, ImageLinkRendering::LinkOnly),
         ),
     ];
-
 
     for case in test_cases.iter() {
         let captures = IMAGE_REGEX

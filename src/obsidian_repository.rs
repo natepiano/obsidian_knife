@@ -29,18 +29,13 @@ use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 #[derive(Debug, Clone, Default)]
 pub struct ImageReferences {
     pub hash: String,
     pub markdown_file_references: Vec<String>,
-}
-
-#[derive(Clone, Debug)]
-pub struct ImageGroup {
-    pub path: PathBuf,
 }
 
 #[derive(Default)]
@@ -106,7 +101,6 @@ impl ObsidianRepository {
         repository.populate_files_to_persist(validated_config.file_process_limit());
         repository.mark_image_files_for_deletion();
 
-
         Ok(repository)
     }
 }
@@ -115,15 +109,13 @@ fn build_image_files_from_map(
     image_map: &HashMap<PathBuf, ImageReferences>,
 ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
     // First group by hash to find duplicates
-    let hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> = image_map.iter().fold(
-        HashMap::new(),
-        |mut acc, (path, refs)| {
-            acc.entry(refs.hash.clone())
-                .or_default()
-                .push((path, refs));
-            acc
-        },
-    );
+    let hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> =
+        image_map
+            .iter()
+            .fold(HashMap::new(), |mut acc, (path, refs)| {
+                acc.entry(refs.hash.clone()).or_default().push((path, refs));
+                acc
+            });
 
     let files: Vec<ImageFile> = hash_groups
         .into_iter()
@@ -133,7 +125,8 @@ fn build_image_files_from_map(
 
             if is_duplicate_group {
                 // Check if any files in group are referenced
-                let any_referenced = group.iter()
+                let any_referenced = group
+                    .iter()
                     .any(|(_, refs)| !refs.markdown_file_references.is_empty());
 
                 if any_referenced {
@@ -142,15 +135,18 @@ fn build_image_files_from_map(
                 }
             }
 
-            group.into_iter().enumerate().map(move |(idx, (path, refs))| {
-                ImageFile::new(
-                    path.clone(),
-                    refs.hash.clone(),
-                    refs,
-                    is_duplicate_group,
-                    is_duplicate_group && should_have_keeper && idx == 0,
-                )
-            })
+            group
+                .into_iter()
+                .enumerate()
+                .map(move |(idx, (path, refs))| {
+                    ImageFile::new(
+                        path.clone(),
+                        refs.hash.clone(),
+                        refs,
+                        is_duplicate_group,
+                        is_duplicate_group && should_have_keeper && idx == 0,
+                    )
+                })
         })
         .collect();
 
@@ -178,7 +174,6 @@ fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
-
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
 
@@ -269,7 +264,6 @@ impl ObsidianRepository {
     }
 
     pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
-
         let ac = self
             .wikilinks_ac
             .as_ref()
@@ -399,9 +393,7 @@ impl ObsidianRepository {
         matches
     }
 
-    pub fn persist(
-        &mut self,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.image_files.delete_marked()?;
         self.markdown_files_to_persist.persist_all()
     }
@@ -468,13 +460,13 @@ impl ObsidianRepository {
             }
         }
         // last handle duplicates
-        let duplicates = self.image_files.filter_by_predicate(|state| {
-            matches!(state, ImageFileState::Duplicate { .. })
-        });
+        let duplicates = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
 
-        let keepers = self.image_files.filter_by_predicate(|state| {
-            matches!(state, ImageFileState::DuplicateKeeper { .. })
-        });
+        let keepers = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
         for duplicate in duplicates.files {
             let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
@@ -500,7 +492,7 @@ impl ObsidianRepository {
         }
     }
 
-    fn mark_image_files_for_deletion(&mut self)  {
+    fn mark_image_files_for_deletion(&mut self) {
         let files_to_persist: HashSet<_> = self
             .markdown_files_to_persist
             .iter()
@@ -509,7 +501,10 @@ impl ObsidianRepository {
 
         // Check if all references are in files being persisted
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
-            image_file.references.iter().all(|path| files_to_persist.contains(&path))
+            image_file
+                .references
+                .iter()
+                .all(|path| files_to_persist.contains(&path))
         }
 
         for image_file in &mut self.image_files.files {
@@ -518,8 +513,8 @@ impl ObsidianRepository {
                     image_file.delete = true;
                 }
                 ImageFileState::Incompatible { .. } => {
-                    if image_file.references.is_empty() ||
-                        can_delete(&files_to_persist, image_file) {
+                    if image_file.references.is_empty() || can_delete(&files_to_persist, image_file)
+                    {
                         image_file.delete = true;
                     }
                 }
@@ -528,8 +523,8 @@ impl ObsidianRepository {
                         image_file.delete = true;
                     }
                 }
-                ImageFileState::DuplicateKeeper {..} => (), // No deletion for keepers
-                ImageFileState::Valid => (),                // No deletion for valid files
+                ImageFileState::DuplicateKeeper { .. } => (), // No deletion for keepers
+                ImageFileState::Valid => (),                  // No deletion for valid files
             }
         }
     }
@@ -600,4 +595,11 @@ fn apply_line_replacements(
 
 fn normalize_spaces(text: &str) -> String {
     text.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+pub fn format_relative_path(path: &Path, base_path: &Path) -> String {
+    path.strip_prefix(base_path)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned()
 }

@@ -58,10 +58,7 @@ impl MarkdownFiles {
             .collect()
     }
 
-    pub fn persist_all(
-        &self,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
+    pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         for file_info in &self.files {
             file_info.persist()?;
         }

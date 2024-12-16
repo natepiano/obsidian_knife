@@ -196,7 +196,7 @@ fn test_mixed_case_and_truly_ambiguous() {
             r#"AWS and aws are the same
 Amazon is ambiguous"#,
         )
-        .with_title("Test Document".to_string())  // This adds frontmatter with the title
+        .with_title("Test Document".to_string()) // This adds frontmatter with the title
         .create(&temp_dir, "test1.md");
 
     // Let scan_folders find all the files and process them

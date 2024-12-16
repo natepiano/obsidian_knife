@@ -35,38 +35,51 @@ impl ReportDefinition for DuplicateImagesTable {
     ) -> Vec<Vec<String>> {
         let config = config.expect(CONFIG_EXPECT);
 
-        items.iter().map(|image| {
-            let filename = image.path.file_name().unwrap().to_string_lossy();
-            let referenced_by = if image.references.is_empty() {
-                NOT_REFERENCED.to_string()
-            } else {
-                image.references.iter()
-                    .map(|ref_path| format!("[[{}]]", ref_path.file_name().unwrap().to_string_lossy()))
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            };
+        items
+            .iter()
+            .map(|image| {
+                let filename = image.path.file_name().unwrap().to_string_lossy();
+                let referenced_by = if image.references.is_empty() {
+                    NOT_REFERENCED.to_string()
+                } else {
+                    image
+                        .references
+                        .iter()
+                        .map(|ref_path| {
+                            format!("[[{}]]", ref_path.file_name().unwrap().to_string_lossy())
+                        })
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                };
 
-            let (action, reference_update) = match &image.image_state {
-                ImageFileState::DuplicateKeeper { .. } => (NO_CHANGE.to_string(), NO_CHANGE.to_string()),
-                ImageFileState::Duplicate { hash: _ } => {
-                    let action = if config.apply_changes() { DELETE } else { WILL_DELETE };
-                    (action.to_string(), format!("![[{}]]", filename))
-                }
-                _ => (UNKNOWN.to_string(), UNKNOWN.to_string()),
-            };
+                let (action, reference_update) = match &image.image_state {
+                    ImageFileState::DuplicateKeeper { .. } => {
+                        (NO_CHANGE.to_string(), NO_CHANGE.to_string())
+                    }
+                    ImageFileState::Duplicate { hash: _ } => {
+                        let action = if config.apply_changes() {
+                            DELETE
+                        } else {
+                            WILL_DELETE
+                        };
+                        (action.to_string(), format!("![[{}]]", filename))
+                    }
+                    _ => (UNKNOWN.to_string(), UNKNOWN.to_string()),
+                };
 
-            vec![
-                format!("![[{}\\|{}]]", filename, THUMBNAIL_WIDTH),
-                format!("[[{}]]", filename),
-                referenced_by,
-                action,
-                reference_update,
-            ]
-        }).collect()
+                vec![
+                    format!("![[{}\\|{}]]", filename, THUMBNAIL_WIDTH),
+                    format!("[[{}]]", filename),
+                    referenced_by,
+                    action,
+                    reference_update,
+                ]
+            })
+            .collect()
     }
 
     fn title(&self) -> Option<String> {
-        Some(format!("{}{} {}", IMAGE_FILE_HASH, COLON,  &self.hash))
+        Some(format!("{}{} {}", IMAGE_FILE_HASH, COLON, &self.hash))
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
@@ -97,8 +110,12 @@ impl ObsidianRepository {
         writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
 
         // Debug: Print total counts of duplicates and keepers
-        let duplicates = self.image_files.filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
-        let keepers = self.image_files.filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
+        let duplicates = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
+        let keepers = self
+            .image_files
+            .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
         // Collect both duplicates and keepers by hash
         let mut grouped_by_hash: HashMap<String, Vec<ImageFile>> = HashMap::new();
@@ -120,9 +137,13 @@ impl ObsidianRepository {
         // Write report for each group that has both duplicates and keepers
         for (hash, images) in grouped_by_hash {
             // Only report groups that have both duplicates and keepers
-            if images.iter().any(|img| matches!(img.image_state, ImageFileState::DuplicateKeeper { .. }))
-                && images.iter().any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. })) {
-
+            if images
+                .iter()
+                .any(|img| matches!(img.image_state, ImageFileState::DuplicateKeeper { .. }))
+                && images
+                    .iter()
+                    .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }))
+            {
                 let report = ReportWriter::new(images.to_vec()).with_validated_config(config);
 
                 let table = DuplicateImagesTable {

@@ -162,7 +162,13 @@ fn test_incompatible_states() {
         markdown_file_references: vec!["note.md".to_string()],
         hash: "hash2".to_string(),
     };
-    let zero_byte_image = ImageFile::new(zero_byte_path, "hash2".to_string(), &zero_byte_refs, false, false);
+    let zero_byte_image = ImageFile::new(
+        zero_byte_path,
+        "hash2".to_string(),
+        &zero_byte_refs,
+        false,
+        false,
+    );
     assert!(matches!(
         zero_byte_image.image_state,
         ImageFileState::Incompatible {
@@ -180,7 +186,7 @@ fn test_reference_state_determination() {
 
     // Test with no references
     let empty_refs = ImageReferences::default();
-    let unreferenced = ImageFile::new(path.clone(), "hash1".to_string(), &empty_refs, false,false);
+    let unreferenced = ImageFile::new(path.clone(), "hash1".to_string(), &empty_refs, false, false);
     assert_eq!(unreferenced.image_state, ImageFileState::Unreferenced);
 
     // Test with references
@@ -221,7 +227,13 @@ fn test_equality_and_cloning() {
         .with_content(vec![0x89, 0x50, 0x4E, 0x47])
         .create(&temp_dir, "different.jpg");
 
-    let different = ImageFile::new(different_path, "differenthash".to_string(), &image_refs, false, false);
+    let different = ImageFile::new(
+        different_path,
+        "differenthash".to_string(),
+        &image_refs,
+        false,
+        false,
+    );
     assert_ne!(
         original, different,
         "Different ImageFile instances should not be equal"
@@ -241,7 +253,13 @@ fn test_image_file_debug() {
         .markdown_file_references
         .push("test_note.md".to_string());
 
-    let info = ImageFile::new(path.clone(), "testhash".to_string(), &image_refs, false, false);
+    let info = ImageFile::new(
+        path.clone(),
+        "testhash".to_string(),
+        &image_refs,
+        false,
+        false,
+    );
 
     let debug_str = format!("{:?}", info);
     assert!(
