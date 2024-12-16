@@ -136,28 +136,7 @@ fn test_truly_ambiguous_targets() {
         .create(&temp_dir, "Amazon (river).md");
 
     // Let scan_folders find all the files and process them
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-
-    // Find test1.md and verify initial state
-    let test_file = repository
-        .markdown_files
-        .iter()
-        .find(|f| f.path.ends_with("test1.md"))
-        .expect("Should find test1.md");
-
-    // Verify initial match exists in unambiguous
-    assert_eq!(
-        test_file.matches.unambiguous.len(),
-        1,
-        "Should have one initial match in unambiguous"
-    );
-    assert!(
-        test_file.matches.ambiguous.is_empty(),
-        "Should start with no ambiguous matches"
-    );
-
-    // Process ambiguous matches
-    repository.identify_ambiguous_matches();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find test1.md again and verify final state
     let test_file = repository
@@ -220,41 +199,7 @@ Amazon is ambiguous"#,
         .create(&temp_dir, "test1.md");
 
     // Let scan_folders find all the files and process them
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-
-    // Find test1.md and verify initial state
-    let test_file = repository
-        .markdown_files
-        .iter()
-        .find(|f| f.path.ends_with("test1.md"))
-        .expect("Should find test1.md");
-
-    // Verify initial matches
-    assert_eq!(
-        test_file.matches.unambiguous.len(),
-        3,
-        "Should have both AWS cases and Amazon matches initially"
-    );
-
-    // Verify we found both cases of AWS and Amazon
-    let aws_matches: Vec<_> = test_file
-        .matches
-        .unambiguous
-        .iter()
-        .filter(|m| m.found_text.to_lowercase() == "aws")
-        .collect();
-    assert_eq!(aws_matches.len(), 2, "Should have both cases of AWS");
-
-    let amazon_matches: Vec<_> = test_file
-        .matches
-        .unambiguous
-        .iter()
-        .filter(|m| m.found_text == "Amazon")
-        .collect();
-    assert_eq!(amazon_matches.len(), 1, "Should have one Amazon match");
-
-    // Process ambiguous matches
-    repository.identify_ambiguous_matches();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find test1.md again and verify final state
     let test_file = repository
@@ -340,45 +285,7 @@ Nate was here and so was Nate"#
         .create(&temp_dir, "Nathan Dye.md");
 
     // Let scan_folders find all the files and process them
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-
-    // Find other.md and verify initial state
-    let other_file = repository
-        .markdown_files
-        .iter()
-        .find(|f| f.path.ends_with("other.md"))
-        .expect("Should find other.md");
-
-    // Verify initial Karen matches
-    let karen_matches: Vec<_> = other_file
-        .matches
-        .unambiguous
-        .iter()
-        .filter(|m| m.found_text.to_lowercase() == "karen")
-        .collect();
-    assert_eq!(karen_matches.len(), 2, "Should have both cases of Karen");
-
-    // Verify we have both cases
-    assert!(
-        karen_matches.iter().any(|m| m.found_text == "Karen"),
-        "Should find uppercase Karen"
-    );
-    assert!(
-        karen_matches.iter().any(|m| m.found_text == "karen"),
-        "Should find lowercase karen"
-    );
-
-    // Verify initial Nate matches
-    let nate_matches: Vec<_> = other_file
-        .matches
-        .unambiguous
-        .iter()
-        .filter(|m| m.found_text == "Nate")
-        .collect();
-    assert_eq!(nate_matches.len(), 2, "Should have two Nate matches");
-
-    // Process ambiguous matches
-    repository.identify_ambiguous_matches();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find other.md again and verify final state
     let other_file = repository

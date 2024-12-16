@@ -98,6 +98,7 @@ impl ObsidianRepository {
             build_image_files_from_map(&repository.image_path_to_references_map)?;
 
         repository.find_all_back_populate_matches(validated_config);
+        repository.identify_ambiguous_matches();
 
         Ok(repository)
     }
@@ -109,7 +110,7 @@ impl ObsidianRepository {
         let _timer = Timer::new("analyze");
 
       //  self.find_all_back_populate_matches(validated_config);
-        self.identify_ambiguous_matches();
+        // self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
         self.apply_replaceable_matches();
 
