@@ -149,6 +149,7 @@ fn test_cache_file_cleanup() {
         // Create a test file and image using TestFileBuilder
         TestFileBuilder::new()
             .with_content("# Test\n![test](test.png)".to_string())
+            .with_title("Test Document".to_string())
             .create(&temp_dir, "test.md");
 
         TestFileBuilder::new()

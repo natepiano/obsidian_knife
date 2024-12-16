@@ -107,7 +107,8 @@ fn test_case_insensitive_targets() {
         .create(&temp_dir, "Amazon.md");
 
     TestFileBuilder::new()
-        .with_content("# Sample Document\nAmazon is huge\namazon is also huge") // Changed from "Test Document"
+        .with_content("# Sample Document\nAmazon is huge\namazon is also huge")
+        .with_title("Test Document".to_string())  // This adds frontmatter with the title
         .create(&temp_dir, "test1.md");
 
     // Scan folders to populate repository

@@ -99,6 +99,9 @@ impl ObsidianRepository {
 
         repository.find_all_back_populate_matches(validated_config);
         repository.identify_ambiguous_matches();
+        repository.identify_image_reference_replacements();
+        repository.apply_replaceable_matches();
+
 
         Ok(repository)
     }
@@ -109,10 +112,7 @@ impl ObsidianRepository {
     ) {
         let _timer = Timer::new("analyze");
 
-      //  self.find_all_back_populate_matches(validated_config);
-        // self.identify_ambiguous_matches();
-        self.identify_image_reference_replacements();
-        self.apply_replaceable_matches();
+       // self.apply_replaceable_matches();
 
         // after checking for all back populate matches and references to nonexistent files
         // and then applying replacement matches,
