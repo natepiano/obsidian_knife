@@ -198,7 +198,7 @@ impl MarkdownFile {
         ac: &AhoCorasick,
     ) {
         let content = self.content.clone();
-        let mut state = FileProcessingState::new();
+        let mut state = CodeBlockTracker::new();
 
         for (line_idx, line) in content.lines().enumerate() {
             // Skip empty/whitespace lines early

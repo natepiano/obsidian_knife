@@ -1,4 +1,4 @@
-use crate::markdown_file::{FileProcessingState, MarkdownFile};
+use crate::markdown_file::{CodeBlockTracker, MarkdownFile};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
@@ -133,57 +133,30 @@ fn test_config_creation() {
 }
 
 #[test]
-fn test_file_processing_state() {
-    let mut state = FileProcessingState::new();
+fn test_code_block_tracking() {
+    let mut tracker = CodeBlockTracker::new();
 
     // Initial state
-    assert!(!state.should_skip_line(), "Initial state should not skip");
+    assert!(!tracker.should_skip_line(), "Initial state should not skip");
 
-    // Frontmatter
-    state.update_for_line("---");
-    assert!(state.should_skip_line(), "Should skip in frontmatter");
-    state.update_for_line("title: Test");
-    assert!(state.should_skip_line(), "Should skip frontmatter content");
-    state.update_for_line("---");
-    assert!(
-        !state.should_skip_line(),
-        "Should not skip after frontmatter"
-    );
+    // Single code block
+    assert!(tracker.update_for_line("```rust"), "Should detect code block start");
+    assert!(tracker.should_skip_line(), "Should skip inside code block");
+    assert!(tracker.update_for_line("let x = 42;"), "Should skip code content");
+    assert!(tracker.should_skip_line(), "Should still be in code block");
+    assert!(tracker.update_for_line("```"), "Should detect code block end");
+    assert!(!tracker.should_skip_line(), "Should not skip after code block");
 
-    // Code block
-    state.update_for_line("```rust");
-    assert!(state.should_skip_line(), "Should skip in code block");
-    state.update_for_line("let x = 42;");
-    assert!(state.should_skip_line(), "Should skip code block content");
-    state.update_for_line("```");
-    assert!(
-        !state.should_skip_line(),
-        "Should not skip after code block"
-    );
+    // Regular content
+    assert!(!tracker.update_for_line("Regular text"), "Should not skip regular text");
+    assert!(!tracker.should_skip_line(), "Should not be in code block");
 
-    // Combined frontmatter and code block
-    state.update_for_line("---");
-    assert!(state.should_skip_line(), "Should skip in frontmatter again");
-    state.update_for_line("description: complex");
-    assert!(state.should_skip_line(), "Should skip frontmatter content");
-    state.update_for_line("---");
-    assert!(
-        !state.should_skip_line(),
-        "Should not skip after frontmatter"
-    );
-
-    state.update_for_line("```");
-    assert!(
-        state.should_skip_line(),
-        "Should skip in another code block"
-    );
-    state.update_for_line("print('Hello')");
-    assert!(state.should_skip_line(), "Should skip code block content");
-    state.update_for_line("```");
-    assert!(
-        !state.should_skip_line(),
-        "Should not skip after code block"
-    );
+    // Nested code blocks (treated as toggles)
+    assert!(tracker.update_for_line("```python"), "Should detect second code block");
+    assert!(tracker.should_skip_line(), "Should skip in second code block");
+    assert!(tracker.update_for_line("print('hello')"), "Should skip second block content");
+    assert!(tracker.update_for_line("```"), "Should detect second block end");
+    assert!(!tracker.should_skip_line(), "Should not skip after second block");
 }
 
 #[test]

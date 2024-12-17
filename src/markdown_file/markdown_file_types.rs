@@ -166,43 +166,32 @@ pub struct BackPopulateMatches {
 }
 
 #[derive(Debug)]
-pub struct FileProcessingState {
-    in_frontmatter: bool,
+pub struct CodeBlockTracker {
     in_code_block: bool,
-    frontmatter_delimiter_count: usize,
 }
 
-impl FileProcessingState {
+impl CodeBlockTracker {
     pub(crate) fn new() -> Self {
         Self {
-            in_frontmatter: false,
             in_code_block: false,
-            frontmatter_delimiter_count: 0,
         }
     }
 
     pub(crate) fn update_for_line(&mut self, line: &str) -> bool {
         let trimmed = line.trim();
 
-        // Check frontmatter delimiter
-        if trimmed == "---" {
-            self.frontmatter_delimiter_count += 1;
-            self.in_frontmatter = self.frontmatter_delimiter_count % 2 != 0;
-            return true;
-        }
-
-        // Check code block delimiter if not in frontmatter
-        if !self.in_frontmatter && trimmed.starts_with("```") {
+        // Check code block delimiter
+        if trimmed.starts_with("```") {
             self.in_code_block = !self.in_code_block;
             return true;
         }
 
         // Return true if we should skip this line
-        self.in_frontmatter || self.in_code_block
+        self.in_code_block
     }
 
     pub(crate) fn should_skip_line(&self) -> bool {
-        self.in_frontmatter || self.in_code_block
+        self.in_code_block
     }
 }
 
@@ -424,17 +413,18 @@ fn extract_relative_path(matched: &str) -> String {
         return DEFAULT_MEDIA_PATH.to_string();
     }
 
-    let old_name = matched.split(FORWARD_SLASH).last().unwrap_or("");
-    if let Some(path_start) = matched.find(old_name) {
-        let prefix = &matched[..path_start];
-        prefix
-            .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
-            .map(|pos| &prefix[pos + 1..])
-            .map(|p| p.trim_end_matches(FORWARD_SLASH))
-            .filter(|p| !p.is_empty())
-            .unwrap_or("conf/media")
-            .to_string()
-    } else {
-        DEFAULT_MEDIA_PATH.to_string()
-    }
+    // Extract the portion before the last '/' (potential path).
+    let prefix = matched
+        .rsplit_once(FORWARD_SLASH)
+        .map(|(prefix, _)| prefix)
+        .unwrap_or(matched);
+
+    // Find the position of the last opening '(' or '[' and take the path after it.
+    prefix
+        .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
+        .map(|pos| &prefix[pos + 1..])
+        .map(|p| p.trim_end_matches(FORWARD_SLASH))
+        .filter(|p| !p.is_empty())
+        .unwrap_or(DEFAULT_MEDIA_PATH)
+        .to_string()
 }
