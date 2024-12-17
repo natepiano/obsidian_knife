@@ -205,7 +205,13 @@ fn test_process_date_validations() {
         };
 
         // Process validations
-        process_date_validations(&mut frontmatter, &created_validation, &modified_validation);
+        process_date_validations(
+            &mut frontmatter,
+            &created_validation,
+            &modified_validation,
+            &DateCreatedFixValidation::default(),
+            DEFAULT_TIMEZONE,
+        );
 
         // Verify frontmatter dates
         test_utils::assert_test_case(

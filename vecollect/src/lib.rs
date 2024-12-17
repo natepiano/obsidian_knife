@@ -71,13 +71,13 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
     } else {
         None
     }
-        .ok_or_else(|| {
-            syn::Error::new_spanned(
-                input.clone(),
-                format!("Field '{}' must be of type Vec<T>", args.field),
-            )
-        })
-        .unwrap_or_else(|e| panic!("{}", e));
+    .ok_or_else(|| {
+        syn::Error::new_spanned(
+            input.clone(),
+            format!("Field '{}' must be of type Vec<T>", args.field),
+        )
+    })
+    .unwrap_or_else(|e| panic!("{}", e));
 
     let generics = &input.generics;
     let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();

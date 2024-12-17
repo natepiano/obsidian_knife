@@ -176,7 +176,6 @@ impl ObsidianRepository {
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-
         // Only write the header if we find at least one group with deletable duplicates
         let mut header_written = false;
 
@@ -206,10 +205,9 @@ impl ObsidianRepository {
         // Write report for each group that has deletable duplicates
         for (hash, images) in grouped_by_hash {
             // Check if this group has any deletable duplicates
-            if images
-                .iter()
-                .any(|img| matches!(img.image_state, ImageFileState::Duplicate { .. }) && img.delete)
-            {
+            if images.iter().any(|img| {
+                matches!(img.image_state, ImageFileState::Duplicate { .. }) && img.delete
+            }) {
                 if !header_written {
                     writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
                     header_written = true;
@@ -226,7 +224,6 @@ impl ObsidianRepository {
                 writer.writeln("", "")?; // Add spacing between tables
             }
         }
-
 
         Ok(())
     }

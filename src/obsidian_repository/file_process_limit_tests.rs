@@ -5,6 +5,7 @@ use crate::test_utils::TestFileBuilder;
 use crate::validated_config::validated_config_tests;
 use chrono::{TimeZone, Utc};
 use std::error::Error;
+use std::str::FromStr;
 use tempfile::TempDir;
 
 #[derive(Debug)]
@@ -15,27 +16,30 @@ struct ProcessLimitTestCase {
     expected_processed: usize,
 }
 
-fn create_test_files(temp_dir: &TempDir, count: usize) -> Vec<MarkdownFile> {
-    let base_date = Utc.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
+fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
+    let tz = chrono_tz::Tz::from_str(timezone).unwrap();
+    let base_date = tz.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
 
-    let files: Vec<MarkdownFile> = (0..count)
+    let _: Vec<MarkdownFile> = (0..count)
         .map(|i| {
             let created = base_date + chrono::Duration::days(i as i64);
             let modified = created + chrono::Duration::hours(1);
+
+            // Convert to UTC for the filesystem dates
+            let created_utc = created.with_timezone(&Utc);
+            let modified_utc = modified.with_timezone(&Utc);
 
             let file = TestFileBuilder::new()
                 .with_frontmatter_dates(
                     Some(format!("[[{}-01-01]]", 2023 - i)),
                     Some(format!("[[{}-01-01]]", 2023 - i)),
                 )
-                .with_fs_dates(created, modified)
+                .with_fs_dates(created_utc, modified_utc)
                 .create(temp_dir, &format!("test_{}.md", i));
 
             test_utils::get_test_markdown_file(file)
         })
         .collect();
-
-    files
 }
 
 #[test]
@@ -76,7 +80,7 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let config = builder.build()?;
 
         // Create test files
-        let _ = create_test_files(&temp_dir, case.file_count);
+        create_test_files(&temp_dir, case.file_count, config.operational_timezone());
         let mut repository = ObsidianRepository::new(&config)?;
 
         // Run persistence
@@ -84,7 +88,8 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         // Verify files were actually processed by checking their content
         let processed_count = repository
-            .markdown_files.files_to_persist()
+            .markdown_files
+            .files_to_persist()
             .iter()
             .take(case.expected_processed)
             .filter(|file| {

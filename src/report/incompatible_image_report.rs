@@ -73,10 +73,16 @@ impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
             } else {
                 for ref_path in &image.references {
                     // Only output the row if we can find the markdown file
-                    if let Some(markdown_file) = self.markdown_files.iter()
+                    if let Some(markdown_file) = self
+                        .markdown_files
+                        .iter()
                         .find(|f| f.path == Path::new(ref_path))
                     {
-                        let file_link = report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
+                        let file_link = report::format_wikilink(
+                            Path::new(ref_path),
+                            config.obsidian_path(),
+                            false,
+                        );
 
                         // Find line number and position for this reference
                         let (line_number, position) = markdown_file.image_links.links.iter()
@@ -153,8 +159,8 @@ impl ObsidianRepository {
 
             // Check if there would be any rows after filtering
             let would_have_rows = incompatible_images.iter().any(|image| {
-                image.references.is_empty() ||
-                    image.references.iter().any(|ref_path| {
+                image.references.is_empty()
+                    || image.references.iter().any(|ref_path| {
                         self.markdown_files
                             .files_to_persist()
                             .iter()
@@ -163,8 +169,8 @@ impl ObsidianRepository {
             });
 
             if would_have_rows {
-                let report_writer = ReportWriter::new(incompatible_images.to_owned())
-                    .with_validated_config(config);
+                let report_writer =
+                    ReportWriter::new(incompatible_images.to_owned()).with_validated_config(config);
                 report_writer.write(&report, writer)?;
             }
         }

@@ -50,6 +50,7 @@ obsidian_path: /test/path
 apply_changes: true
 file_process_limit: 5
 back_populate_file_filter: "*test*"
+operational_timezone: America/New_York
 do_not_back_populate:
  - "*.png"
 ignore_folders:
@@ -82,7 +83,7 @@ output_folder: output"#;
         .frontmatter
         .as_mut()
         .unwrap()
-        .set_date_modified_now();
+        .set_date_modified_now(DEFAULT_TIMEZONE);
     markdown_file.persist().unwrap();
 
     // Verify all fields after update

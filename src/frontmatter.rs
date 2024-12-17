@@ -1,6 +1,6 @@
 use crate::utils;
 use crate::yaml_frontmatter_struct;
-use chrono::{DateTime, Datelike, Utc};
+use chrono::{DateTime, Utc};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 
@@ -54,17 +54,14 @@ impl FrontMatter {
     // if we're changing the create date it's possible no change will be happening otherwise
     // in this case we still need to update the modify date so make sure we set it if it's
     // not already set
-    pub fn set_date_created(&mut self, date: DateTime<Utc>) {
+    pub fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
+        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let local_date = date.with_timezone(&tz);
         self.raw_date_created = Some(date);
-        self.date_created = Some(format!(
-            "[[{}-{:02}-{:02}]]",
-            date.year(),
-            date.month(),
-            date.day()
-        ));
+        self.date_created = Some(format!("[[{}]]", local_date.format("%Y-%m-%d")));
 
         if self.raw_date_modified.is_none() {
-            self.set_date_modified_now();
+            self.set_date_modified_now(operational_timezone);
         }
 
         self.needs_persist = true;
@@ -74,20 +71,16 @@ impl FrontMatter {
     // so that we then will persist it with an updated date_modified to match the file
     // date_modified date and this is also the sentinel for doing the persist operation at the
     // end of processing
-    pub fn set_date_modified_now(&mut self) {
-        let now = Utc::now();
-        self.set_date_modified(now);
+    pub fn set_date_modified_now(&mut self, operational_timezone: &str) {
+        self.set_date_modified(Utc::now(), operational_timezone);
     }
 
     // we use this when set_date_modified is missing
-    pub fn set_date_modified(&mut self, date: DateTime<Utc>) {
-        self.raw_date_modified = Some(date); // Store raw value
-        self.date_modified = Some(format!(
-            "[[{}-{:02}-{:02}]]",
-            date.year(),
-            date.month(),
-            date.day()
-        ));
+    pub fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
+        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let local_date = date.with_timezone(&tz);
+        self.raw_date_modified = Some(date);
+        self.date_modified = Some(format!("[[{}]]", local_date.format("%Y-%m-%d")));
         self.needs_persist = true;
     }
 

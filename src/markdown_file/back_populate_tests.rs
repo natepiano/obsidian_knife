@@ -98,7 +98,7 @@ fn test_apply_changes() {
     repository.find_all_back_populate_matches(&config);
 
     // Apply the changes
-    repository.apply_replaceable_matches();
+    repository.apply_replaceable_matches(config.operational_timezone());
 
     // Verify changes by checking MarkdownFile content
     assert_eq!(

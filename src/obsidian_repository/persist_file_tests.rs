@@ -146,8 +146,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 fn create_test_cases() -> Vec<PersistenceTestCase> {
-    let now = Utc::now();
-    let last_week = now - chrono::Duration::days(7);
+    let last_week = test_utils::eastern_midnight(2024, 1, 8);
 
     vec![
         PersistenceTestCase {
@@ -182,9 +181,9 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             initial_fs_created: last_week,
             initial_fs_modified: last_week,
             expected_frontmatter_created: Some(last_week.format("%Y-%m-%d").to_string()),
-            expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()), // Changed from now to last_week
+            expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()),
             expected_fs_created_date: last_week.date_naive(),
-            expected_fs_modified_date: last_week.date_naive(), // Changed from now to last_week
+            expected_fs_modified_date: last_week.date_naive(),
             should_persist: true,
         },
     ]

@@ -61,7 +61,7 @@ pub struct RepositoryFiles {
 // using rayon (.into_par_iter()) and not using walkdir
 // takes this from 12ms down to 4ms
 pub fn collect_repository_files(
-    config: &ValidatedConfig,
+    validated_config: &ValidatedConfig,
     ignore_folders: &[PathBuf],
 ) -> Result<RepositoryFiles, Box<dyn Error + Send + Sync>> {
     fn is_ignored(path: &Path, ignore_folders: &[PathBuf]) -> bool {
@@ -116,7 +116,7 @@ pub fn collect_repository_files(
     }
 
     visit_dirs(
-        vec![config.obsidian_path().to_path_buf()],
+        vec![validated_config.obsidian_path().to_path_buf()],
         ignore_folders,
         &md_files,
         &img_files,

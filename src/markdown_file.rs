@@ -86,24 +86,18 @@ impl MarkdownFile {
         let (date_validation_created, date_validation_modified) =
             get_date_validations(&frontmatter, &path, operational_timezone)?;
 
-        let mut persist_reasons = process_date_validations(
-            &mut frontmatter,
-            &date_validation_created,
-            &date_validation_modified,
-        );
-
         let date_created_fix = DateCreatedFixValidation::from_frontmatter(
             &frontmatter,
             date_validation_created.file_system_date,
         );
 
-        if let Some(ref mut fm) = frontmatter {
-            if let Some(fix_date) = date_created_fix.fix_date {
-                fm.set_date_created(fix_date);
-                fm.remove_date_created_fix();
-                persist_reasons.push(PersistReason::DateCreatedFixApplied);
-            }
-        }
+        let persist_reasons = process_date_validations(
+            &mut frontmatter,
+            &date_validation_created,
+            &date_validation_modified,
+            &date_created_fix,
+            operational_timezone,
+        );
 
         let do_not_back_populate_regexes = frontmatter
             .as_ref()
@@ -171,21 +165,28 @@ impl MarkdownFile {
         Ok(())
     }
 
-    pub fn mark_as_back_populated(&mut self) {
+    pub fn mark_as_back_populated(&mut self, operational_timezone: &str) {
         let fm = self
             .frontmatter
             .as_mut()
             .expect("Attempted to mark file as back populated without frontmatter");
-        fm.set_date_modified_now();
+
+        // Remove any DateModifiedUpdated reasons since we'll be setting the date to now
+        // this way we won't show extraneous results in persist_reasons_report
+        self.persist_reasons
+            .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
+
+        fm.set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
     }
 
-    pub fn mark_image_reference_as_updated(&mut self) {
+    pub fn mark_image_reference_as_updated(&mut self, operational_timezone: &str) {
         let fm = self
             .frontmatter
             .as_mut()
             .expect("Attempted to record image references change on a file without frontmatter");
-        fm.set_date_modified_now();
+
+        fm.set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);
     }
@@ -429,6 +430,54 @@ impl MarkdownFile {
     }
 }
 
+fn get_date_validations(
+    frontmatter: &Option<FrontMatter>,
+    path: &PathBuf,
+    operational_timezone: &str,
+) -> Result<(DateValidation, DateValidation), io::Error> {
+    let metadata = fs::metadata(path)?;
+
+    let dates = [
+        (
+            frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_created().cloned()),
+            metadata
+                .created()
+                .map(|t| t.into())
+                .unwrap_or_else(|_| Utc::now()),
+        ),
+        (
+            frontmatter
+                .as_ref()
+                .and_then(|fm| fm.date_modified().cloned()),
+            metadata
+                .modified()
+                .map(|t| t.into())
+                .unwrap_or_else(|_| Utc::now()),
+        ),
+    ];
+
+    // skip when the create date has a date_created_fix in place, we don't need to validate as it's moot
+    Ok(dates
+        .into_iter()
+        .map(|(frontmatter_date, fs_date)| {
+            let issue = get_date_validation_issue(
+                frontmatter_date.as_ref(),
+                &fs_date,
+                operational_timezone,
+            );
+            DateValidation {
+                frontmatter_date,
+                file_system_date: fs_date,
+                issue,
+                operational_timezone: operational_timezone.to_string(),
+            }
+        })
+        .collect_tuple()
+        .unwrap())
+}
+
 fn get_date_validation_issue(
     date_opt: Option<&String>,
     fs_date: &DateTime<Utc>,
@@ -477,53 +526,6 @@ fn get_date_validation_issue(
     None
 }
 
-fn get_date_validations(
-    frontmatter: &Option<FrontMatter>,
-    path: &PathBuf,
-    operational_timezone: &str,
-) -> Result<(DateValidation, DateValidation), io::Error> {
-    let metadata = fs::metadata(path)?;
-
-    let dates = [
-        (
-            frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_created().cloned()),
-            metadata
-                .created()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Utc::now()),
-        ),
-        (
-            frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_modified().cloned()),
-            metadata
-                .modified()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Utc::now()),
-        ),
-    ];
-
-    Ok(dates
-        .into_iter()
-        .map(|(frontmatter_date, fs_date)| {
-            let issue = get_date_validation_issue(
-                frontmatter_date.as_ref(),
-                &fs_date,
-                operational_timezone,
-            );
-            DateValidation {
-                frontmatter_date,
-                file_system_date: fs_date,
-                issue,
-                operational_timezone: operational_timezone.to_string(),
-            }
-        })
-        .collect_tuple()
-        .unwrap())
-}
-
 // Extracts the date string from a possible wikilink format
 fn extract_date(date_str: &str) -> &str {
     let date_str = date_str.trim();
@@ -546,21 +548,35 @@ fn process_date_validations(
     frontmatter: &mut Option<FrontMatter>,
     created_validation: &DateValidation,
     modified_validation: &DateValidation,
+    date_created_fix_validation: &DateCreatedFixValidation,
+    operational_timezone: &str,
 ) -> Vec<PersistReason> {
     let mut reasons = Vec::new();
 
     if let Some(ref mut fm) = frontmatter {
+        let mut skip_date_created = false;
+
+        if let Some(fix_date) = date_created_fix_validation.fix_date {
+            skip_date_created = true;
+
+            fm.set_date_created(fix_date, operational_timezone);
+            fm.remove_date_created_fix();
+            reasons.push(PersistReason::DateCreatedFixApplied);
+        }
+
         // Update created date if there's an issue
         if let Some(ref issue) = created_validation.issue {
-            fm.set_date_created(created_validation.file_system_date);
-            reasons.push(PersistReason::DateCreatedUpdated {
-                reason: issue.clone(),
-            });
+            if !skip_date_created {
+                fm.set_date_created(created_validation.file_system_date, operational_timezone);
+                reasons.push(PersistReason::DateCreatedUpdated {
+                    reason: issue.clone(),
+                });
+            }
         }
 
         // Update modified date if there's an issue
         if let Some(ref issue) = modified_validation.issue {
-            fm.set_date_modified(modified_validation.file_system_date);
+            fm.set_date_modified(modified_validation.file_system_date, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
                 reason: issue.clone(),
             });

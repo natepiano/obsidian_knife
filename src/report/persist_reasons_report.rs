@@ -27,7 +27,7 @@ impl ReportDefinition for PersistReasonsTable {
     type Item = PersistReasonData;
 
     fn headers(&self) -> Vec<&str> {
-        vec![FILE, PATH, PERSIST_REASON, INFO, BEFORE, AFTER]
+        vec![FILE, PATH, REASON, INFO, BEFORE, AFTER]
     }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
@@ -156,41 +156,42 @@ impl ObsidianRepository {
                         back_populate_count,
                         image_refs_count,
                         parent_path: parent_path.clone(),
-                        date_validation_created: file
-                            .date_validation_created
-                            .frontmatter_date
-                            .clone()
-                            .map(|d| {
-                                (
-                                    d,
-                                    format!(
-                                        "[[{}]]",
-                                        file.date_validation_created
-                                            .file_system_date
-                                            .format("%Y-%m-%d")
-                                    ),
-                                )
-                            }),
-                        date_validation_modified: file
-                            .date_validation_modified
-                            .frontmatter_date
-                            .clone()
-                            .map(|d| {
-                                (
-                                    d,
-                                    format!(
-                                        "[[{}]]",
-                                        file.date_validation_modified
-                                            .file_system_date
-                                            .format("%Y-%m-%d")
-                                    ),
-                                )
-                            }),
-                        date_created_fix: file.date_created_fix.date_string.clone().zip(
+                        date_validation_created: Some((
+                            file.date_validation_created
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_created
+                                    .operational_file_system_date()
+                                    .format("%Y-%m-%d")
+                            ),
+                        )),
+                        date_validation_modified: Some((
+                            file.date_validation_modified
+                                .frontmatter_date
+                                .clone()
+                                .unwrap_or_default(),
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_modified
+                                    .operational_file_system_date()
+                                    .format("%Y-%m-%d")
+                            ),
+                        )),
+                        date_created_fix: Some((
+                            format!(
+                                "[[{}]]",
+                                file.date_validation_created
+                                    .operational_file_system_date()
+                                    .format("%Y-%m-%d")
+                            ),
                             file.date_created_fix
                                 .fix_date
-                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d"))),
-                        ),
+                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
+                                .unwrap_or_default(),
+                        )),
                     };
                     persist_data.push(data);
                 }

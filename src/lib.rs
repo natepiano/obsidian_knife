@@ -68,11 +68,17 @@ fn reset_apply_changes(
     let config_yaml = config.to_yaml_str()?;
     let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
     markdown_file.frontmatter = Some(updated_frontmatter);
+
+    let operational_timezone = match &config.operational_timezone {
+        Some(time_zone) => time_zone.as_str(),
+        None => DEFAULT_TIMEZONE,
+    };
+
     markdown_file
         .frontmatter
         .as_mut()
         .unwrap()
-        .set_date_modified_now();
+        .set_date_modified_now(operational_timezone);
     markdown_file.persist()?;
     Ok(())
 }

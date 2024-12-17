@@ -41,7 +41,7 @@ pub struct ImageReferences {
 #[derive(Default)]
 pub struct ObsidianRepository {
     pub markdown_files: MarkdownFiles,
-  //  pub markdown_files_to_persist: MarkdownFiles,
+    //  pub markdown_files_to_persist: MarkdownFiles,
     pub image_files: ImageFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     #[allow(dead_code)]
@@ -98,8 +98,8 @@ impl ObsidianRepository {
         repository.find_all_back_populate_matches(validated_config);
         repository.identify_ambiguous_matches();
         repository.identify_image_reference_replacements();
-        repository.apply_replaceable_matches();
-       // repository.populate_files_to_persist(validated_config.file_process_limit());
+        repository.apply_replaceable_matches(validated_config.operational_timezone());
+        // repository.apply_file_process_limit(validated_config.file_process_limit());
         repository.mark_image_files_for_deletion();
 
         Ok(repository)
@@ -280,7 +280,7 @@ impl ObsidianRepository {
             .process_files_for_back_populate_matches(config, sorted_wikilinks, ac);
     }
 
-    pub fn apply_replaceable_matches(&mut self) {
+    pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) {
         for markdown_file in &mut self.markdown_files {
             let has_replaceable_image_links = markdown_file.image_links.links.iter().any(|link| {
                 matches!(
@@ -351,10 +351,10 @@ impl ObsidianRepository {
             markdown_file.content = updated_content.trim_end().to_string();
 
             if has_back_populate_changes {
-                markdown_file.mark_as_back_populated();
+                markdown_file.mark_as_back_populated(operational_timezone);
             }
             if has_image_reference_changes {
-                markdown_file.mark_image_reference_as_updated();
+                markdown_file.mark_image_reference_as_updated(operational_timezone);
             }
         }
     }
@@ -399,7 +399,7 @@ impl ObsidianRepository {
 
     pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.image_files.delete_marked()?;
-        self.markdown_files.persist_all()
+        self.markdown_files.files_to_persist().persist_all()
     }
 
     // fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
@@ -499,10 +499,7 @@ impl ObsidianRepository {
     fn mark_image_files_for_deletion(&mut self) {
         let files_to_persist = self.markdown_files.files_to_persist();
 
-        let files_to_persist: HashSet<_> = files_to_persist
-            .iter()
-            .map(|f| &f.path)
-            .collect();
+        let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
 
         // Check if all references are in files being persisted
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {

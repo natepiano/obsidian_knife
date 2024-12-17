@@ -83,7 +83,7 @@ impl ObsidianRepository {
             let message = DescriptionBuilder::new()
                 .number(self.markdown_files.files_to_persist().len())
                 .text(OF)
-                .pluralize_with_count(Phrase::File(self.markdown_files.len()))
+                .pluralize_with_count(Phrase::File(self.markdown_files.total_files_to_persist()))
                 .text(THAT_NEED_UPDATES)
                 .build();
             writer.writeln("", message.as_str())?;

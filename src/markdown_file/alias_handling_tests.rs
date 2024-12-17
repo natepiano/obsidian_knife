@@ -1,6 +1,6 @@
-use crate::obsidian_repository;
 use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::MarkdownFile;
+use crate::obsidian_repository;
 use crate::test_utils;
 use crate::test_utils::TestFileBuilder;
 use crate::wikilink::Wikilink;

@@ -81,7 +81,7 @@ impl ReportDefinition for BackPopulateTable {
         let stats = DescriptionBuilder::new()
             .pluralize_with_count(Phrase::Time(self.total_occurrences))
             .text(IN)
-            .pluralize_with_count(Phrase::Time(self.file_count))
+            .pluralize_with_count(Phrase::File(self.file_count))
             .build();
 
         let title = DescriptionBuilder::new()

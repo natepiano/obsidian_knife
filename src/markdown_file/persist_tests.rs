@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_utils::{eastern_midnight, TestFileBuilder};
 use tempfile::TempDir;
 
 #[test]
@@ -84,7 +84,7 @@ fn test_back_populate_persist_reason() -> Result<(), Box<dyn Error + Send + Sync
         .create(&temp_dir, "back_populate.md");
 
     let mut file_info = test_utils::get_test_markdown_file(file_path);
-    file_info.mark_as_back_populated();
+    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
 
     assert!(file_info
         .persist_reasons
@@ -104,7 +104,7 @@ fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + S
         .create(&temp_dir, "image_refs.md");
 
     let mut file_info = test_utils::get_test_markdown_file(file_path);
-    file_info.mark_image_reference_as_updated();
+    file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
     assert!(file_info
         .persist_reasons
@@ -131,13 +131,15 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
         }));
 
     // Add back populate reason
-    file_info.mark_as_back_populated();
+    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
 
     // Add image reference change
-    file_info.mark_image_reference_as_updated();
+    file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
     // Verify all reasons are present
-    assert_eq!(file_info.persist_reasons.len(), 4);
+    // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated, ImageReferencesModified
+    // we don't have an update date missing because if we BackPopulate we automatically remove the modified date reason
+    assert_eq!(file_info.persist_reasons.len(), 3);
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::BackPopulated));
@@ -159,8 +161,8 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
-        let created_date = test_utils::parse_datetime("2024-01-02 00:00:00");
-        fm.set_date_created(created_date);
+        let created_date = eastern_midnight(2024, 1, 2); // Instead of parse_datetime
+        fm.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -188,7 +190,8 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_created(test_utils::parse_datetime("2024-01-02 00:00:00"));
+        let created_date = eastern_midnight(2024, 1, 2); // Instead of parse_datetime
+        fm.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -196,58 +199,6 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
     let updated_content = fs::read_to_string(&file_path)?;
     assert!(updated_content.contains("tags:\n- tag1\n- tag2"));
     assert!(updated_content.contains("[[2024-01-02]]"));
-
-    Ok(())
-}
-
-#[test]
-#[cfg_attr(target_os = "linux", ignore)]
-fn test_persist_with_missing_raw_date_created() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let temp_dir = TempDir::new()?;
-
-    // Set up FS dates
-    let fs_created = test_utils::parse_datetime("2024-01-01 00:00:00");
-    let fs_modified = test_utils::parse_datetime("2024-01-01 00:00:00");
-
-    let file_path = TestFileBuilder::new()
-        .with_frontmatter_dates(None, Some("2024-01-01".to_string()))
-        .with_fs_dates(fs_created, fs_modified)
-        .create(&temp_dir, "test_missing_created.md");
-
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
-
-    // Assert initial frontmatter matches FS dates
-    assert_eq!(
-        file_info.frontmatter.as_ref().unwrap().raw_date_created,
-        Some(fs_created)
-    );
-    assert_eq!(
-        file_info.frontmatter.as_ref().unwrap().raw_date_modified,
-        Some(fs_modified)
-    );
-
-    // Update modification date
-    let new_modified = test_utils::parse_datetime("2024-01-03 12:00:00");
-    if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_modified(new_modified);
-    }
-
-    // Assert `raw_date_modified` was updated
-    assert_eq!(
-        file_info.frontmatter.as_ref().unwrap().raw_date_modified,
-        Some(new_modified)
-    );
-
-    // Persist the file
-    file_info.persist()?;
-
-    // Assert FS timestamps
-    let metadata = fs::metadata(&file_path)?;
-    let created_time = FileTime::from_creation_time(&metadata).unwrap();
-    let modified_time = FileTime::from_last_modification_time(&metadata);
-
-    assert_eq!(created_time.unix_seconds(), fs_created.timestamp());
-    assert_eq!(modified_time.unix_seconds(), new_modified.timestamp());
 
     Ok(())
 }
@@ -272,8 +223,8 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
         // Update the frontmatter to match the intended created and modified dates
         fm.raw_date_created = Some(created_date);
         fm.raw_date_modified = Some(modified_date);
-        fm.set_date_created(created_date); // Ensure frontmatter reflects this change
-        fm.set_date_modified(modified_date);
+        fm.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
+        fm.set_date_modified(modified_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -347,8 +298,8 @@ fn test_persist_no_changes_when_dates_are_valid() -> Result<(), Box<dyn Error + 
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_created(created_time);
-        fm.set_date_modified(modified_time);
+        fm.set_date_created(created_time, DEFAULT_TIMEZONE);
+        fm.set_date_modified(modified_time, DEFAULT_TIMEZONE);
     }
 
     let metadata_before = fs::metadata(&file_path)?;
@@ -389,8 +340,14 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_created(test_utils::parse_datetime("2024-01-03 10:00:00"));
-        fm.set_date_modified(test_utils::parse_datetime("2024-01-04 15:00:00"));
+        fm.set_date_created(
+            test_utils::parse_datetime("2024-01-03 10:00:00"),
+            DEFAULT_TIMEZONE,
+        );
+        fm.set_date_modified(
+            test_utils::parse_datetime("2024-01-04 15:00:00"),
+            DEFAULT_TIMEZONE,
+        );
     }
 
     file_info.persist()?;

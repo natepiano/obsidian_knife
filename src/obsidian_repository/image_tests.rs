@@ -1,11 +1,10 @@
 use crate::image_file::ImageFileState;
-use crate::markdown_file::ImageLinkState;
+use crate::markdown_file::{ImageLinkState, PersistReason};
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::validated_config_tests;
 use crate::{test_utils, MARKDOWN_EXTENSION};
-use chrono::Utc;
 use std::fs;
 use std::path::PathBuf;
 use tempfile::TempDir;
@@ -77,27 +76,26 @@ fn test_analyze_missing_references() {
 
     let mut repository = ObsidianRepository::new(&config).unwrap();
     if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file) {
-        markdown_file.mark_image_reference_as_updated();
+        // Instead of using mark_image_reference_as_updated which uses current date,
+        // directly set the date we want
+        if let Some(fm) = &mut markdown_file.frontmatter {
+            fm.set_date_modified(test_date, config.operational_timezone());
+        }
+        markdown_file
+            .persist_reasons
+            .push(PersistReason::ImageReferencesModified);
     }
 
     repository.persist().unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&md_file).unwrap();
-
-    let today_formatted = Utc::now().format("[[%Y-%m-%d]]").to_string();
-
-    let expected_content = format!(
-        "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '{}'\n---\n# Test\nSome content",
-        today_formatted
-    );
+    let expected_content = "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '[[2024-01-15]]'\n---\n# Test\nSome content".to_string();
     assert_eq!(updated_content, expected_content);
 
     // Second analyze pass to verify idempotency
     let mut repository = ObsidianRepository::new(&config).unwrap();
-
     repository.mark_image_files_for_deletion();
-
     repository.persist().unwrap();
 
     // Verify content remains the same after second pass
@@ -238,7 +236,7 @@ fn test_image_replacement_outcomes() {
                 .map_or(false, |ext| ext == MARKDOWN_EXTENSION)
             {
                 if let Some(markdown_file) = repository.markdown_files.get_mut(path) {
-                    markdown_file.mark_image_reference_as_updated();
+                    markdown_file.mark_image_reference_as_updated(config.operational_timezone());
                 }
             }
         }
@@ -494,7 +492,7 @@ fn test_referenced_and_unreferenced_duplicates() {
 
     // Mark markdown file for persistence so files can be deleted
     if let Some(markdown_file) = repository.markdown_files.get_mut(&created_paths[4]) {
-        markdown_file.mark_image_reference_as_updated();
+        markdown_file.mark_image_reference_as_updated(config.operational_timezone());
     }
 
     repository.persist().unwrap();

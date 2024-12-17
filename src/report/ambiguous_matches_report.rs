@@ -63,7 +63,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
                 report::highlight_matches(&line_text, &positions, self.display_text.len());
 
             rows.push(vec![
-                file_stem.to_string(),
+                file_stem.to_wikilink(),
                 line_number.to_string(),
                 utils::escape_pipe(&highlighted_line),
                 positions.len().to_string(),
@@ -148,7 +148,8 @@ impl ObsidianRepository {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Skip if no files have ambiguous matches
         let has_ambiguous = self
-            .markdown_files.files_to_persist()
+            .markdown_files
+            .files_to_persist()
             .iter()
             .any(|file| !file.matches.ambiguous.is_empty());
 

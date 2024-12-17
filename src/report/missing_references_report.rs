@@ -95,7 +95,8 @@ impl ObsidianRepository {
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let missing_refs: Vec<(PathBuf, String, usize, usize)> = self
-            .markdown_files.files_to_persist()
+            .markdown_files
+            .files_to_persist()
             .iter()
             .flat_map(|file| {
                 let missing_links = file.image_links.filter_by_variant(ImageLinkState::Missing);

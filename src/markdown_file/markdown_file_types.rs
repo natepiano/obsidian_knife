@@ -58,8 +58,23 @@ pub struct DateValidation {
     pub issue: Option<DateValidationIssue>,
     pub operational_timezone: String,
 }
+
+impl DateValidation {
+    pub fn operational_file_system_date(&self) -> DateTime<Utc> {
+        // Parse timezone string into a Tz
+        if let Ok(tz) = self.operational_timezone.parse::<chrono_tz::Tz>() {
+            // Convert to local time then back to UTC to get the date in the operational timezone
+            let local = self.file_system_date.with_timezone(&tz);
+            let naive = local.naive_local();
+            DateTime::from_naive_utc_and_offset(naive, Utc)
+        } else {
+            // If timezone parsing fails, return original UTC date
+            self.file_system_date
+        }
+    }
+}
 // In markdown_file.rs
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,
     pub fix_date: Option<DateTime<Utc>>,
@@ -70,11 +85,11 @@ impl DateCreatedFixValidation {
         frontmatter: &Option<FrontMatter>,
         file_created_date: DateTime<Utc>,
     ) -> Self {
-        let date_string = frontmatter
+        let fix_str = frontmatter
             .as_ref()
             .and_then(|fm| fm.date_created_fix().cloned());
 
-        let parsed_date = date_string.as_ref().and_then(|date_str| {
+        let parsed_date = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
                 markdown_file::extract_date(date_str)
             } else {
@@ -91,7 +106,7 @@ impl DateCreatedFixValidation {
         });
 
         DateCreatedFixValidation {
-            date_string,
+            date_string: fix_str, // Keep the original behavior for date_string
             fix_date: parsed_date,
         }
     }

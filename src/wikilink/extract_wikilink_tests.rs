@@ -343,9 +343,9 @@ fn test_tag_detection() {
         },
         WikilinkTestCase {
             description: "Tag with underscore and numbers",
-            input: "Task #todo_123 pending",
+            input: "Task #two_do_123 pending",
             expected_valid: vec![],
-            expected_invalid: vec![("#todo_123", InvalidWikilinkReason::Tag, (4, 14))],
+            expected_invalid: vec![("#two_do_123", InvalidWikilinkReason::Tag, (4, 16))],
         },
     ];
 

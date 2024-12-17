@@ -63,7 +63,7 @@ impl MarkdownFiles {
     }
 
     pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        for file_info in &self.files_to_persist() {
+        for file_info in &self.files {
             file_info.persist()?;
         }
         Ok(())
@@ -143,9 +143,19 @@ impl MarkdownFiles {
         Ok(image_info_map)
     }
 
+    pub fn total_files_to_persist(&self) -> usize {
+        self.iter()
+            .filter(|file_info| {
+                file_info
+                    .frontmatter
+                    .as_ref()
+                    .map_or(false, |fm| fm.needs_persist())
+            })
+            .count()
+    }
 
     pub fn files_to_persist(&self) -> Self {
-        let files_to_persist: Vec<MarkdownFile> = self
+        let mut files_to_persist: Vec<MarkdownFile> = self
             .iter()
             .filter(|file_info| {
                 file_info
@@ -155,6 +165,8 @@ impl MarkdownFiles {
             })
             .cloned()
             .collect();
+
+        files_to_persist.sort_by(|a, b| a.path.cmp(&b.path));
 
         let total_files = files_to_persist.len();
         let count = self.file_process_limit.unwrap_or(total_files);

@@ -62,7 +62,7 @@ fn test_back_populate_content() {
             repository.markdown_files = MarkdownFiles::new(vec![markdown_info], None);
 
             // Apply back-populate changes
-            repository.apply_replaceable_matches();
+            repository.apply_replaceable_matches(config.operational_timezone());
 
             // Validate replacements
             if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
