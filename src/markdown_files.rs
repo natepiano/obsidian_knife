@@ -9,7 +9,7 @@ use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
 use std::collections::{HashMap, HashSet};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use vecollect::collection;
 
@@ -26,11 +26,6 @@ impl MarkdownFiles {
             files,
             file_process_limit,
         }
-    }
-
-    // todo - can you get rid of this after you finish the image refactoring?
-    pub fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
-        self.iter_mut().find(|file| file.path == path)
     }
 
     pub fn process_files_for_back_populate_matches(

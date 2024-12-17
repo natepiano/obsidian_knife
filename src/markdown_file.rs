@@ -386,22 +386,20 @@ impl MarkdownFile {
         ];
 
         // Flatten the iterator to get a single iterator over regexes
-        for regexes in regex_sources.iter().flatten() {
-            for regex in *regexes {
+        for do_not_back_populate_regexes in regex_sources.iter().flatten() {
+            for regex in *do_not_back_populate_regexes {
                 for mat in regex.find_iter(line) {
                     exclusion_zones.push((mat.start(), mat.end()));
                 }
             }
         }
 
-        // todo - we should use the ImageLinks once we add line number and start/end position
-        //        to ImageLink struct then we can simply exclude everything without a redundant
-        //        regex search right here
         // Add Markdown links as exclusion zones
         for mat in MARKDOWN_REGEX.find_iter(line) {
             exclusion_zones.push((mat.start(), mat.end()));
         }
 
+        // they need to be ordered!
         exclusion_zones.sort_by_key(|&(start, _)| start);
         exclusion_zones
     }
