@@ -319,9 +319,14 @@ impl ObsidianRepository {
                 }
 
                 // Collect matches for the current line
-                let line_matches: Vec<&Box<dyn ReplaceableContent>> = sorted_replaceable_matches
+                // let line_matches: Vec<&Box<dyn ReplaceableContent>> = sorted_replaceable_matches
+                //     .iter()
+                //     .filter(|m| m.line_number() == absolute_line_number)
+                //     .collect();
+                let line_matches: Vec<&dyn ReplaceableContent> = sorted_replaceable_matches
                     .iter()
                     .filter(|m| m.line_number() == absolute_line_number)
+                    .map(|m| m.as_ref()) // Dereference Box to &dyn ReplaceableContent
                     .collect();
 
                 if !line_matches.is_empty() {
@@ -330,7 +335,7 @@ impl ObsidianRepository {
 
                     // Track which types of changes occurred
                     for m in &line_matches {
-                        match m.as_ref().match_type() {
+                        match m.match_type() {
                             MatchType::BackPopulate => has_back_populate_changes = true,
                             MatchType::ImageReference => has_image_reference_changes = true,
                         }
@@ -534,8 +539,7 @@ impl ObsidianRepository {
 
 fn apply_line_replacements(
     line: &str,
-    line_matches: &[&Box<dyn ReplaceableContent>],
-    //  line_matches: &[&dyn ReplaceableContent],
+    line_matches: &[&dyn ReplaceableContent],
     file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();
@@ -566,7 +570,7 @@ fn apply_line_replacements(
         }
 
         // Track if this is an image replacement
-        if match_info.as_ref().match_type() == MatchType::ImageReference {
+        if match_info.match_type() == MatchType::ImageReference {
             has_image_replacement = true;
         }
 
