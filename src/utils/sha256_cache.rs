@@ -1,3 +1,4 @@
+use crate::image_file::ImageHash;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::collections::{HashMap, HashSet};
@@ -23,7 +24,7 @@ pub enum CacheEntryStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CachedImageInfo {
-    pub hash: String,
+    pub hash: ImageHash,
     pub time_stamp: SystemTime,
 }
 
@@ -73,18 +74,21 @@ impl Sha256Cache {
     pub fn get_or_update(
         &mut self,
         path: &Path,
-    ) -> Result<(String, CacheEntryStatus), Box<dyn Error + Send + Sync>> {
+    ) -> Result<(ImageHash, CacheEntryStatus), Box<dyn Error + Send + Sync>> {
         let metadata = fs::metadata(path)?;
         let time_stamp = metadata.modified()?;
 
         if let Some(cached_info) = self.cache.get(path) {
             if cached_info.time_stamp == time_stamp {
                 self.files_read += 1;
-                return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
+                return Ok((
+                    cached_info.hash.clone(),
+                    CacheEntryStatus::Read,
+                ));
             }
         }
 
-        let new_hash = self.hash_file(path)?;
+        let new_hash = ImageHash::from(self.hash_file(path)?);
         let status = if self.cache.contains_key(path) {
             self.files_modified += 1;
             CacheEntryStatus::Modified
@@ -104,12 +108,6 @@ impl Sha256Cache {
         Ok((new_hash, status))
     }
 
-    // pub fn remove_non_existent_entries(&mut self) {
-    //     let initial_count = self.cache.len();
-    //     self.cache.retain(|path, _| path.exists());
-    //     let removed = initial_count - self.cache.len();
-    //     self.files_deleted = removed;
-    // }
     pub fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
         // Create vector of paths that exist in cache but not in valid_paths
         let to_remove: Vec<_> = self

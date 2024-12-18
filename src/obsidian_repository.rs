@@ -14,17 +14,20 @@ mod scan_tests;
 mod update_modified_tests;
 
 use crate::{
+    constants::*,
     image_file::{ImageFile, ImageFileState, ImageFiles},
     markdown_file::BackPopulateMatch,
     markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent},
     markdown_files::MarkdownFiles,
     utils,
+    utils::Timer,
     utils::VecEnumFilter,
     validated_config::ValidatedConfig,
     wikilink::Wikilink,
-    utils::Timer,
 };
 
+use crate::image_file::ImageHash;
+use crate::utils::Sha256Cache;
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
 use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
 use std::collections::{HashMap, HashSet};
@@ -32,17 +35,10 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-#[derive(Debug, Clone, Default)]
-pub struct ImageReferences {
-    pub hash: String,
-    pub markdown_file_references: Vec<String>,
-}
-
 #[derive(Default)]
 pub struct ObsidianRepository {
     pub markdown_files: MarkdownFiles,
     pub image_files: ImageFiles,
-    pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     #[allow(dead_code)]
     pub other_files: Vec<PathBuf>,
     pub wikilinks_ac: Option<AhoCorasick>,
@@ -54,11 +50,11 @@ impl ObsidianRepository {
         let _timer = Timer::new("prescan+analyze");
         let ignore_folders = validated_config.ignore_folders().unwrap_or(&[]);
 
-        let repository_files = utils::collect_repository_files(validated_config, ignore_folders)?;
+        let files = utils::collect_repository_files(validated_config, ignore_folders)?;
 
         // Process markdown files
         let markdown_files = Self::initialize_markdown_files(
-            &repository_files.markdown_files,
+            &files.markdown_files,
             validated_config.operational_timezone(),
             validated_config.file_limit(),
         )?;
@@ -69,13 +65,15 @@ impl ObsidianRepository {
         let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::default(),
-            image_path_to_references_map: HashMap::new(),
-            other_files: repository_files.other_files,
+            other_files: files.other_files,
             wikilinks_ac: Some(ac),
             wikilinks_sorted: sorted,
         };
 
-        repository.analyze_repository(&repository_files.image_files, validated_config)?;
+        repository.image_files =
+            repository.initialize_image_files(&files.image_files, validated_config)?;
+
+        repository.analyze_repository(validated_config)?;
 
         Ok(repository)
     }
@@ -112,9 +110,7 @@ impl ObsidianRepository {
         Ok(markdown_files)
     }
 
-    fn initialize_wikilinks(
-        markdown_files: &MarkdownFiles,
-    ) -> (Vec<Wikilink>, AhoCorasick) {
+    fn initialize_wikilinks(markdown_files: &MarkdownFiles) -> (Vec<Wikilink>, AhoCorasick) {
         let all_wikilinks: HashSet<Wikilink> = markdown_files
             .iter()
             .flat_map(|file_info| file_info.wikilinks.valid.clone())
@@ -124,70 +120,146 @@ impl ObsidianRepository {
 
     fn analyze_repository(
         &mut self,
-        image_files: &[PathBuf],
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let _timer = Timer::new("analyze");
-        self.image_path_to_references_map = self
-            .markdown_files
-            .get_image_info_map(validated_config, image_files)?;
-        self.image_files = build_image_files_from_map(&self.image_path_to_references_map)?;
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
         self.apply_replaceable_matches(validated_config.operational_timezone());
-        // repository.apply_file_limit(validated_config.file_limit());
         self.mark_image_files_for_deletion();
         Ok(())
     }
-}
 
-fn build_image_files_from_map(
-    image_map: &HashMap<PathBuf, ImageReferences>,
-) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-    // First group by hash to find duplicates
-    let hash_groups: HashMap<String, Vec<(&PathBuf, &ImageReferences)>> =
-        image_map
-            .iter()
-            .fold(HashMap::new(), |mut acc, (path, refs)| {
-                acc.entry(refs.hash.clone()).or_default().push((path, refs));
-                acc
-            });
+    pub fn initialize_image_files(
+        &self,
+        image_files: &[PathBuf],
+        validated_config: &ValidatedConfig,
+    ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
+        let mut cache = Self::initialize_image_cache(validated_config, image_files)?;
 
-    let files: Vec<ImageFile> = hash_groups
-        .into_iter()
-        .flat_map(|(_, mut group)| {
-            let is_duplicate_group = group.len() > 1;
-            let mut should_have_keeper = false;
+        // Step 1: Create a map of markdown_file_path to their referenced image_file_names
+        let markdown_references = self.get_markdown_file_image_reference_map();
 
-            if is_duplicate_group {
-                // Check if any files in group are referenced
-                let any_referenced = group
-                    .iter()
-                    .any(|(_, refs)| !refs.markdown_file_references.is_empty());
+        // Step 2: Build an image hash-based grouping for duplicate handling
+        let hash_groups = Self::get_image_hash_to_markdown_references_map(
+            &mut cache,
+            image_files,
+            markdown_references,
+        );
 
-                if any_referenced {
-                    should_have_keeper = true;
-                    group.sort_by(|a, b| a.0.cmp(b.0));
+        // Step 3: Generate ImageFiles with duplicate and keeper logic
+        let files = Self::generate_image_files(hash_groups);
+
+        // Step 4: Save cache if needed
+        if cache.has_changes() {
+            cache.save()?;
+        }
+
+        Ok(ImageFiles { files })
+    }
+
+    // if a group has multiple references, check if any are referenced
+    // the first referenced file is marked as a DuplicateKeeper
+    // remaining files are marked as Duplicate
+    fn generate_image_files(
+        hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
+    ) -> Vec<ImageFile> {
+        hash_groups
+            .into_iter()
+            .flat_map(|(hash, mut group)| {
+                let is_duplicate_group = group.len() > 1;
+                let mut should_have_keeper = false;
+
+                if is_duplicate_group {
+                    let any_referenced = group.iter().any(|(_, refs)| !refs.is_empty());
+                    if any_referenced {
+                        should_have_keeper = true;
+                        group.sort_by(|a, b| a.0.cmp(&b.0));
+                    }
                 }
-            }
 
-            group
-                .into_iter()
-                .enumerate()
-                .map(move |(idx, (path, refs))| {
-                    ImageFile::new(
-                        path.clone(),
-                        refs.hash.clone(),
-                        refs,
-                        is_duplicate_group,
-                        is_duplicate_group && should_have_keeper && idx == 0,
-                    )
-                })
-        })
-        .collect();
+                group
+                    .into_iter()
+                    .enumerate()
+                    .map(move |(idx, (path, references))| {
+                        let path_references: Vec<PathBuf> =
+                            references.into_iter().map(PathBuf::from).collect();
+                        ImageFile::new(
+                            path,
+                            hash.clone(),
+                            path_references, // Pass PathBuf references here
+                            is_duplicate_group,
+                            is_duplicate_group && should_have_keeper && idx == 0,
+                        )
+                    })
+            })
+            .collect()
+    }
 
-    Ok(ImageFiles { files })
+    // this map is keyed on image hash
+    fn get_image_hash_to_markdown_references_map(
+        cache: &mut Sha256Cache,
+        image_files: &[PathBuf],
+        markdown_references: HashMap<String, HashSet<String>>,
+    ) -> HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>> {
+        image_files
+            .iter()
+            .filter_map(|image_path| {
+                // Use `ok()?` to convert Result to Option and get ImageHash
+                let (hash, _) = cache.get_or_update(image_path).ok()?; // hash is `ImageHash`
+                let image_name = image_path.file_name()?.to_str()?.to_lowercase();
+
+                let references = markdown_references
+                    .iter()
+                    .filter_map(|(path, image_names)| {
+                        if image_names.contains(&image_name) {
+                            Some(path.clone())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>();
+
+                Some((hash, (image_path.clone(), references))) // Keyed by `ImageHash`
+            })
+            .fold(HashMap::new(), |mut acc, (hash, entry)| {
+                acc.entry(hash).or_default().push(entry); // Use `ImageHash` as the key
+                acc
+            })
+    }
+
+    // map of markdown file paths to the image file names that are referenced on that markdown_file
+    fn get_markdown_file_image_reference_map(&self) -> HashMap<String, HashSet<String>> {
+        self.markdown_files
+            .iter()
+            .filter(|file| !file.image_links.is_empty())
+            .map(|file| {
+                let markdown_file_path = file.path.to_string_lossy().to_string();
+                let image_file_names: HashSet<_> = file
+                    .image_links
+                    .iter()
+                    .map(|link| link.filename.to_lowercase())
+                    .collect();
+                (markdown_file_path, image_file_names)
+            })
+            .collect::<HashMap<_, _>>()
+    }
+
+    fn initialize_image_cache(
+        validated_config: &ValidatedConfig,
+        image_files: &[PathBuf],
+    ) -> Result<Sha256Cache, Box<dyn Error + Send + Sync>> {
+        let cache_file_path = validated_config
+            .obsidian_path()
+            .join(CACHE_FOLDER)
+            .join(CACHE_FILE);
+        let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
+
+        let mut cache = Sha256Cache::load_or_create(cache_file_path)?.0;
+        cache.mark_deletions(&valid_paths);
+        Ok(cache)
+    }
 }
 
 fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
@@ -411,27 +483,6 @@ impl ObsidianRepository {
         self.markdown_files.files_to_persist().persist_all()
     }
 
-    // fn populate_files_to_persist(&mut self, file_limit: Option<usize>) {
-    //     let files_to_persist: Vec<MarkdownFile> = self
-    //         .markdown_files
-    //         .iter()
-    //         .filter(|file_info| {
-    //             file_info
-    //                 .frontmatter
-    //                 .as_ref()
-    //                 .map_or(false, |fm| fm.needs_persist())
-    //         })
-    //         .cloned()
-    //         .collect();
-    //
-    //     let total_files = files_to_persist.len();
-    //     let count = file_limit.unwrap_or(total_files);
-    //
-    //     self.markdown_files_to_persist = MarkdownFiles {
-    //         files: files_to_persist.into_iter().take(count).collect(),
-    //     };
-    // }
-
     fn identify_image_reference_replacements(&mut self) {
         // first handle missing references
         let image_filenames: HashSet<String> = self
@@ -513,7 +564,7 @@ impl ObsidianRepository {
         // Check if all references are in files being persisted
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
             image_file
-                .references
+                .markdown_file_references
                 .iter()
                 .all(|path| files_to_persist.contains(&path))
         }
@@ -524,7 +575,8 @@ impl ObsidianRepository {
                     image_file.delete = true;
                 }
                 ImageFileState::Incompatible { .. } => {
-                    if image_file.references.is_empty() || can_delete(&files_to_persist, image_file)
+                    if image_file.markdown_file_references.is_empty()
+                        || can_delete(&files_to_persist, image_file)
                     {
                         image_file.delete = true;
                     }

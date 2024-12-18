@@ -114,28 +114,23 @@ fn test_create_image_file() {
             .with_content(content)
             .create(&temp_dir, filename);
 
-        let image_refs = ImageReferences {
-            markdown_file_references: references.into_iter().map(String::from).collect(),
-            ..Default::default()
-        };
+        let references: Vec<PathBuf> = references.into_iter().map(PathBuf::from).collect();
 
-        let info = ImageFile::new(
+        let image_hash = ImageHash::from(hash);
+
+        let image_file = ImageFile::new(
             path.clone(),
-            hash.to_string(),
-            &image_refs,
+            image_hash.clone(),
+            references,
             is_duplicate_group,
             is_keeper,
         );
 
-        assert_eq!(info.path, path);
-        assert_eq!(info.hash, hash);
-        assert_eq!(info.size, fs::metadata(&path).unwrap().len());
-        assert_eq!(info.file_type, expected_type);
-        assert_eq!(info.image_state, expected_state);
-        assert_eq!(
-            info.references.len(),
-            image_refs.markdown_file_references.len()
-        );
+        assert_eq!(image_file.path, path);
+        assert_eq!(image_file.hash, image_hash);
+        assert_eq!(image_file.size, fs::metadata(&path).unwrap().len());
+        assert_eq!(image_file.file_type, expected_type);
+        assert_eq!(image_file.image_state, expected_state);
     }
 }
 
@@ -147,8 +142,13 @@ fn test_incompatible_states() {
     let tiff_path = TestFileBuilder::new()
         .with_content(vec![0x4D, 0x4D, 0x00, 0x2A])
         .create(&temp_dir, "test.tiff");
-    let tiff_refs = ImageReferences::default();
-    let tiff_image = ImageFile::new(tiff_path, "hash1".to_string(), &tiff_refs, false, false);
+    let tiff_image = ImageFile::new(
+        tiff_path,
+        ImageHash::from("hash1"),
+        vec![], // No references
+        false,
+        false,
+    );
     assert!(matches!(
         tiff_image.image_state,
         ImageFileState::Incompatible {
@@ -158,16 +158,12 @@ fn test_incompatible_states() {
 
     // Test zero-byte incompatibility
     let zero_byte_path = TestFileBuilder::new()
-        .with_content(vec![])
+        .with_content(vec![]) // Zero-byte content
         .create(&temp_dir, "test.jpg");
-    let zero_byte_refs = ImageReferences {
-        markdown_file_references: vec!["note.md".to_string()],
-        hash: "hash2".to_string(),
-    };
     let zero_byte_image = ImageFile::new(
         zero_byte_path,
-        "hash2".to_string(),
-        &zero_byte_refs,
+        ImageHash::from("hash2"),
+        vec![PathBuf::from("note.md")], // Single reference
         false,
         false,
     );
@@ -187,16 +183,17 @@ fn test_reference_state_determination() {
         .create(&temp_dir, "test.jpg");
 
     // Test with no references
-    let empty_refs = ImageReferences::default();
-    let unreferenced = ImageFile::new(path.clone(), "hash1".to_string(), &empty_refs, false, false);
+    let unreferenced = ImageFile::new(path.clone(), ImageHash::from("hash1"), vec![], false, false);
     assert_eq!(unreferenced.image_state, ImageFileState::Unreferenced);
 
     // Test with references
-    let mut refs_with_content = ImageReferences::default();
-    refs_with_content
-        .markdown_file_references
-        .push("note.md".to_string());
-    let referenced = ImageFile::new(path, "hash2".to_string(), &refs_with_content, false, false);
+    let referenced = ImageFile::new(
+        path,
+        ImageHash::from("hash2"),
+        vec![PathBuf::from("note.md")], // Use Vec<PathBuf>
+        false,
+        false,
+    );
     assert_eq!(referenced.image_state, ImageFileState::Valid);
 }
 
@@ -204,19 +201,16 @@ fn test_reference_state_determination() {
 fn test_equality_and_cloning() {
     let temp_dir = TempDir::new().unwrap();
 
-    let mut image_refs = ImageReferences::default();
-    image_refs
-        .markdown_file_references
-        .push("test_note.md".to_string());
+    let references = vec![PathBuf::from("test_note.md")];
 
     let original_path = TestFileBuilder::new()
-        .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0])
+        .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0]) // JPEG header
         .create(&temp_dir, "test.jpg");
 
     let original = ImageFile::new(
         original_path.clone(),
-        "testhash".to_string(),
-        &image_refs,
+        ImageHash::from("testhash"),
+        references.clone(), // Use references directly
         false,
         false,
     );
@@ -226,13 +220,13 @@ fn test_equality_and_cloning() {
 
     // Test inequality
     let different_path = TestFileBuilder::new()
-        .with_content(vec![0x89, 0x50, 0x4E, 0x47])
+        .with_content(vec![0x89, 0x50, 0x4E, 0x47]) // PNG header
         .create(&temp_dir, "different.jpg");
 
     let different = ImageFile::new(
         different_path,
-        "differenthash".to_string(),
-        &image_refs,
+        ImageHash::from("differenthash"),
+        references, // Same references
         false,
         false,
     );
@@ -247,23 +241,21 @@ fn test_image_file_debug() {
     let temp_dir = TempDir::new().unwrap();
 
     let path = TestFileBuilder::new()
-        .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0])
+        .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0]) // JPEG header
         .create(&temp_dir, "test.jpg");
 
-    let mut image_refs = ImageReferences::default();
-    image_refs
-        .markdown_file_references
-        .push("test_note.md".to_string());
+    let references = vec![PathBuf::from("test_note.md")];
 
     let info = ImageFile::new(
         path.clone(),
-        "testhash".to_string(),
-        &image_refs,
+        ImageHash::from("testhash"),
+        references, // Directly pass references
         false,
         false,
     );
 
     let debug_str = format!("{:?}", info);
+
     assert!(
         debug_str.contains("test.jpg"),
         "Debug output should contain filename"

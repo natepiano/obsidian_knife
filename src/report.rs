@@ -36,9 +36,10 @@ impl ObsidianRepository {
         self.write_image_reports(validated_config, &writer)?;
         self.write_back_populate_reports(validated_config, &writer)?;
 
-        // this report is slightly duplicative with regards to outputting when
-        // back populate or image references are updated
+        // this report is slightly duplicative - i.e., outputting when
+        // back populate or image references are updated - which already have reports
         // but it does uniquely represent any date changes so that's helpful
+        // and mostly it acts as an audit
         self.write_persist_reasons_report(validated_config, &writer)?; // done
 
         Ok(())

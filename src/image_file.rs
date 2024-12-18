@@ -1,15 +1,35 @@
 #[cfg(test)]
 mod image_file_tests;
 
-use crate::obsidian_repository::ImageReferences;
-use std::error::Error;
-use std::fs;
-use std::path::PathBuf;
-
 use crate::utils::EnumFilter;
+use serde::{Deserialize, Serialize};
+use std::error::Error;
+use std::path::PathBuf;
+use std::{fmt, fs};
 use vecollect::collection;
 
-#[derive(Default, Debug)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
+pub struct ImageHash(pub String);
+
+impl From<&str> for ImageHash {
+    fn from(hash: &str) -> Self {
+        ImageHash(hash.to_string())
+    }
+}
+
+impl From<String> for ImageHash {
+    fn from(hash: String) -> Self {
+        ImageHash(hash)
+    }
+}
+
+impl fmt::Display for ImageHash {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
+#[derive(Default, Debug, PartialEq)]
 #[collection(field = "files")]
 pub struct ImageFiles {
     pub(crate) files: Vec<ImageFile>,
@@ -26,14 +46,23 @@ impl ImageFiles {
     }
 }
 
+impl ImageFiles {
+    pub fn normalize(&mut self) {
+        self.files.sort_by(|a, b| a.path.cmp(&b.path));
+        for file in &mut self.files {
+            file.markdown_file_references.sort();
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
     pub delete: bool,
     pub file_type: ImageFileType,
-    pub hash: String,
+    pub hash: ImageHash,
     pub image_state: ImageFileState,
     pub path: PathBuf,
-    pub references: Vec<PathBuf>,
+    pub markdown_file_references: Vec<PathBuf>,
     pub size: u64,
 }
 
@@ -77,10 +106,10 @@ pub enum ImageFileState {
     },
     Unreferenced,
     Duplicate {
-        hash: String,
+        hash: ImageHash,
     },
     DuplicateKeeper {
-        hash: String,
+        hash: ImageHash,
     },
 }
 
@@ -93,8 +122,8 @@ pub enum IncompatibilityReason {
 impl ImageFile {
     pub fn new(
         path: PathBuf,
-        hash: String,
-        image_refs: &ImageReferences,
+        hash: ImageHash,
+        markdown_file_references: Vec<PathBuf>,
         in_duplicate_group: bool,
         is_keeper: bool,
     ) -> Self {
@@ -122,18 +151,12 @@ impl ImageFile {
             } else {
                 ImageFileState::Duplicate { hash: hash.clone() }
             }
-        } else if image_refs.markdown_file_references.is_empty() {
+        } else if markdown_file_references.is_empty() {
             // Only check unreferenced if not a duplicate
             ImageFileState::Unreferenced
         } else {
             ImageFileState::Valid
         };
-
-        let references = image_refs
-            .markdown_file_references
-            .iter()
-            .map(PathBuf::from)
-            .collect();
 
         ImageFile {
             delete: false,
@@ -141,7 +164,7 @@ impl ImageFile {
             hash,
             image_state: initial_state,
             path,
-            references,
+            markdown_file_references,
             size,
         }
     }

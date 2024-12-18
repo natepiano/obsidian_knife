@@ -1,5 +1,5 @@
-use crate::constants::*;
 use crate::config::Config;
+use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::test_utils;

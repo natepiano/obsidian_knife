@@ -4,8 +4,8 @@ use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::validated_config::validated_config_tests;
-use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use crate::wikilink;
+use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use std::collections::HashSet;
 use tempfile::TempDir;
 

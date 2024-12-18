@@ -25,7 +25,9 @@ use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub fn process_obsidian_repository(
+    config_path: PathBuf,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
     let expanded_path = utils::expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;

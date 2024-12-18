@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub(crate) mod validated_config_tests;
 
-use crate::{utils,constants::*};
+use crate::{constants::*, utils};
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;

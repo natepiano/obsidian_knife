@@ -1,4 +1,4 @@
-use crate::{ValidatedConfig, constants::*};
+use crate::{constants::*, ValidatedConfig};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
 use std::path::{Path, PathBuf};

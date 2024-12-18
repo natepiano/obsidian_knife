@@ -1,5 +1,5 @@
 use crate::constants::*;
-use crate::image_file::{ImageFile, ImageFileState};
+use crate::image_file::{ImageFile, ImageFileState, ImageHash};
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::report::{ReportDefinition, ReportWriter};
@@ -11,7 +11,7 @@ use std::error::Error;
 use std::path::Path;
 
 pub struct DuplicateImagesTable<'a> {
-    hash: String,
+    hash: ImageHash,
     markdown_files: &'a MarkdownFiles,
 }
 
@@ -83,7 +83,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                 _ => ("unknown", UNKNOWN.to_string(), UNKNOWN.to_string()),
             };
 
-            if image.references.is_empty() {
+            if image.markdown_file_references.is_empty() {
                 rows.push(vec![
                     thumbnail.clone(),
                     image_link.clone(),
@@ -95,7 +95,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                     String::new(), // No reference change for unreferenced files
                 ]);
             } else {
-                for ref_path in &image.references {
+                for ref_path in &image.markdown_file_references {
                     let file_link =
                         report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
 
@@ -151,8 +151,10 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        let unique_references: std::collections::HashSet<_> =
-            items.iter().flat_map(|img| &img.references).collect();
+        let unique_references: std::collections::HashSet<_> = items
+            .iter()
+            .flat_map(|img| &img.markdown_file_references)
+            .collect();
 
         DescriptionBuilder::new()
             .text(FOUND)
@@ -179,7 +181,7 @@ impl ObsidianRepository {
         let mut header_written = false;
 
         // Collect both duplicates and keepers by hash
-        let mut grouped_by_hash: HashMap<String, Vec<ImageFile>> = HashMap::new();
+        let mut grouped_by_hash: HashMap<ImageHash, Vec<ImageFile>> = HashMap::new();
 
         // Add duplicates
         let duplicates = self
@@ -215,7 +217,7 @@ impl ObsidianRepository {
                 let report = ReportWriter::new(images.to_vec()).with_validated_config(config);
 
                 let table = DuplicateImagesTable {
-                    hash: hash.to_string(),
+                    hash,
                     markdown_files: &self.markdown_files,
                 };
 
