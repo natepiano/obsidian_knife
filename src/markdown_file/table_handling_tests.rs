@@ -86,12 +86,10 @@ fn test_process_line_table_escaping_combined() {
         Wikilink {
             display_text: "Another Link".to_string(),
             target: "Other Page".to_string(),
-            is_alias: false,
         },
         Wikilink {
             display_text: "Test Link".to_string(),
             target: "Target Page".to_string(),
-            is_alias: true,
         },
     ];
 

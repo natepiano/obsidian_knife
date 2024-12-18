@@ -46,7 +46,12 @@ fn strip_md_extension(text: &str) -> &str {
 pub struct Wikilink {
     pub display_text: String,
     pub target: String,
-    pub is_alias: bool,
+}
+
+impl Wikilink {
+    pub fn is_alias(&self) -> bool {
+        self.display_text != self.target
+    }
 }
 
 impl PartialOrd for Wikilink {
@@ -62,7 +67,7 @@ impl Ord for Wikilink {
             .len()
             .cmp(&self.display_text.len())
             .then(self.display_text.cmp(&other.display_text))
-            .then_with(|| match (self.is_alias, other.is_alias) {
+            .then_with(|| match (self.is_alias(), other.is_alias()) {
                 (true, false) => Ordering::Less,
                 (false, true) => Ordering::Greater,
                 _ => self.target.cmp(&other.target),
@@ -76,8 +81,8 @@ impl fmt::Display for Wikilink {
             f,
             "{}{}{}",
             self.target,
-            if self.is_alias { "|" } else { "" },
-            if self.is_alias {
+            if self.is_alias() { "|" } else { "" },
+            if self.is_alias() {
                 &self.display_text
             } else {
                 ""

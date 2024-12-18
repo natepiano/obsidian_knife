@@ -19,7 +19,6 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
             wikilink: Wikilink {
                 display_text: "Test Link".to_string(),
                 target: "Test Link".to_string(),
-                is_alias: false,
             },
             // careful - these must match the order returned by process_line
             expected_matches: vec![
@@ -34,7 +33,6 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
             wikilink: Wikilink {
                 display_text: "josh".to_string(),
                 target: "Joshua Strayhorn".to_string(),
-                is_alias: true,
             },
             expected_matches: vec![("josh", "[[Joshua Strayhorn|josh]]")],
             description: "Alias case preservation",
@@ -44,7 +42,6 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
             wikilink: Wikilink {
                 display_text: "Karen".to_string(),
                 target: "Karen McCoy".to_string(),
-                is_alias: true,
             },
             expected_matches: vec![("karen", "[[Karen McCoy|karen]]")],
             description: "Alias case preservation when display case differs from content",
@@ -54,7 +51,6 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
             wikilink: Wikilink {
                 display_text: "Test Link".to_string(),
                 target: "Test Link".to_string(),
-                is_alias: false,
             },
             expected_matches: vec![
                 ("Test Link", "[[Test Link]]"),

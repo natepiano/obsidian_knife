@@ -13,7 +13,7 @@ fn assert_contains_wikilink(
     is_alias: bool,
 ) {
     let exists = wikilinks.iter().any(|w| {
-        w.target == target && w.display_text == display.unwrap_or(target) && w.is_alias == is_alias
+        w.target == target && w.display_text == display.unwrap_or(target) && w.is_alias() == is_alias
     });
     assert!(
         exists,

@@ -119,7 +119,7 @@ fn test_wikilink_sorting_with_aliases() {
     // The first occurrence should be the alias version
     let first_tomatoes = &tomatoes_wikilinks[0];
     assert!(
-        first_tomatoes.is_alias && first_tomatoes.target == "tomato",
+        first_tomatoes.is_alias() && first_tomatoes.target == "tomato",
         "First 'tomatoes' wikilink should be the alias version targeting 'tomato'"
     );
 

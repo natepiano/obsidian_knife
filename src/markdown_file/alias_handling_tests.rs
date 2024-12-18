@@ -13,12 +13,10 @@ fn test_alias_priority() {
         Wikilink {
             display_text: "tomatoes".to_string(),
             target: "tomato".to_string(),
-            is_alias: true,
         },
         Wikilink {
             display_text: "tomatoes".to_string(),
             target: "tomatoes".to_string(),
-            is_alias: false,
         },
     ];
 
@@ -69,7 +67,6 @@ fn test_no_matches_for_frontmatter_aliases() {
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
         target: "William.md".to_string(),
-        is_alias: true,
     };
 
     repository.wikilinks_sorted.clear();
@@ -132,7 +129,6 @@ fn test_no_self_referential_back_population() {
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
         target: "William.md".to_string(),
-        is_alias: true,
     };
 
     repository.wikilinks_sorted.clear();

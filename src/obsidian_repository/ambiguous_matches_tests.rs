@@ -14,17 +14,14 @@ fn test_identify_ambiguous_matches() {
         Wikilink {
             display_text: "Ed".to_string(),
             target: "Ed Barnes".to_string(),
-            is_alias: true,
         },
         Wikilink {
             display_text: "Ed".to_string(),
             target: "Ed Stanfield".to_string(),
-            is_alias: true,
         },
         Wikilink {
             display_text: "Unique".to_string(),
             target: "Unique Target".to_string(),
-            is_alias: false,
         },
     ];
 

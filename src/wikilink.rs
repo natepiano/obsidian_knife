@@ -36,7 +36,6 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     Wikilink {
         display_text: display_text.clone(),
         target: display_text,
-        is_alias: false,
     }
 }
 
@@ -248,7 +247,6 @@ impl WikilinkState {
                     WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed.clone(),
                         target: trimmed,
-                        is_alias: false,
                     })
                 }
             }
@@ -270,7 +268,6 @@ impl WikilinkState {
                     WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed_display,
                         target: trimmed_target,
-                        is_alias: true,
                     })
                 }
             }

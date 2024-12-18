@@ -33,7 +33,7 @@ fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
             test_case.description
         );
         assert_eq!(
-            wikilink.is_alias, *is_alias,
+            wikilink.is_alias(), *is_alias,
             "Alias flag mismatch in {}",
             test_case.description
         );

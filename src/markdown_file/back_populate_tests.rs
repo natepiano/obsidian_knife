@@ -62,7 +62,6 @@ pub(crate) fn create_test_environment(
         repository.wikilinks_sorted = vec![Wikilink {
             display_text: "Test Link".to_string(),
             target: "Test Link".to_string(),
-            is_alias: false,
         }];
     }
 

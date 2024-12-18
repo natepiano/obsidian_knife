@@ -49,12 +49,10 @@ fn test_overlapping_wikilink_matches() {
         Wikilink {
             display_text: "Kyri".to_string(),
             target: "Kyri".to_string(),
-            is_alias: false,
         },
         Wikilink {
             display_text: "Kyri".to_string(),
             target: "Kyriana McCoy".to_string(),
-            is_alias: true,
         },
     ];
 

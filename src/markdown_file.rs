@@ -250,7 +250,6 @@ impl MarkdownFile {
                 let wikilink = Wikilink {
                     display_text: alias.clone(),
                     target: filename_wikilink.target.clone(),
-                    is_alias: true,
                 };
                 result.valid.push(wikilink);
             }
