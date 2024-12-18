@@ -23,7 +23,7 @@ fn create_frontmatter(
             .map(|created| format!("date_created: \"{}\"", created)),
     ]
     .into_iter()
-    .filter_map(|part| part)
+    .flatten()
     .collect::<Vec<_>>()
     .join("\n");
 

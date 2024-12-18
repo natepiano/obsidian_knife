@@ -22,7 +22,6 @@ pub use test_file_builder::TestFileBuilder;
 /// # Returns
 /// DateTime<Utc> set to 05:00:00 UTC (midnight Eastern) for the given date
 ///
-
 pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
     // Using 05:00 UTC (midnight Eastern) ensures dates like "[[2024-01-15]]" match
     // the filesystem dates when viewed in Eastern timezone

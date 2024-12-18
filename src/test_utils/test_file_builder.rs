@@ -53,8 +53,8 @@ pub struct TestFileBuilder {
     title: Option<String>,
 }
 
-impl TestFileBuilder {
-    pub fn new() -> Self {
+impl Default for TestFileBuilder {
+    fn default() -> Self {
         let now = Utc::now();
         Self {
             aliases: None,
@@ -68,6 +68,12 @@ impl TestFileBuilder {
             tags: None,
             title: None,
         }
+    }
+}
+
+impl TestFileBuilder {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn with_custom_frontmatter(mut self, content: String) -> Self {

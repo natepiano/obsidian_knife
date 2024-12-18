@@ -132,7 +132,7 @@ impl ImageFile {
         let references = image_refs
             .markdown_file_references
             .iter()
-            .map(|s| PathBuf::from(s))
+            .map(PathBuf::from)
             .collect();
 
         ImageFile {

@@ -53,7 +53,7 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
 #[test]
 fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new()?;
-    let test_date = test_utils::eastern_midnight(2024, 1, 15);
+    let test_date = eastern_midnight(2024, 1, 15);
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(

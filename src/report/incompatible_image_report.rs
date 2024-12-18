@@ -14,7 +14,7 @@ pub struct IncompatibleImagesReport<'a> {
     markdown_files: &'a MarkdownFiles,
 }
 
-impl<'a> ReportDefinition for IncompatibleImagesReport<'a> {
+impl ReportDefinition for IncompatibleImagesReport<'_> {
     type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {

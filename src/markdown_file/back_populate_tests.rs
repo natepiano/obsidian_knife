@@ -140,23 +140,53 @@ fn test_code_block_tracking() {
     assert!(!tracker.should_skip_line(), "Initial state should not skip");
 
     // Single code block
-    assert!(tracker.update_for_line("```rust"), "Should detect code block start");
+    assert!(
+        tracker.update_for_line("```rust"),
+        "Should detect code block start"
+    );
     assert!(tracker.should_skip_line(), "Should skip inside code block");
-    assert!(tracker.update_for_line("let x = 42;"), "Should skip code content");
+    assert!(
+        tracker.update_for_line("let x = 42;"),
+        "Should skip code content"
+    );
     assert!(tracker.should_skip_line(), "Should still be in code block");
-    assert!(tracker.update_for_line("```"), "Should detect code block end");
-    assert!(!tracker.should_skip_line(), "Should not skip after code block");
+    assert!(
+        tracker.update_for_line("```"),
+        "Should detect code block end"
+    );
+    assert!(
+        !tracker.should_skip_line(),
+        "Should not skip after code block"
+    );
 
     // Regular content
-    assert!(!tracker.update_for_line("Regular text"), "Should not skip regular text");
+    assert!(
+        !tracker.update_for_line("Regular text"),
+        "Should not skip regular text"
+    );
     assert!(!tracker.should_skip_line(), "Should not be in code block");
 
     // Nested code blocks (treated as toggles)
-    assert!(tracker.update_for_line("```python"), "Should detect second code block");
-    assert!(tracker.should_skip_line(), "Should skip in second code block");
-    assert!(tracker.update_for_line("print('hello')"), "Should skip second block content");
-    assert!(tracker.update_for_line("```"), "Should detect second block end");
-    assert!(!tracker.should_skip_line(), "Should not skip after second block");
+    assert!(
+        tracker.update_for_line("```python"),
+        "Should detect second code block"
+    );
+    assert!(
+        tracker.should_skip_line(),
+        "Should skip in second code block"
+    );
+    assert!(
+        tracker.update_for_line("print('hello')"),
+        "Should skip second block content"
+    );
+    assert!(
+        tracker.update_for_line("```"),
+        "Should detect second block end"
+    );
+    assert!(
+        !tracker.should_skip_line(),
+        "Should not skip after second block"
+    );
 }
 
 #[test]

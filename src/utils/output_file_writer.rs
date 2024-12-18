@@ -40,8 +40,7 @@ impl OutputFileWriter {
         let mut file = self.file.lock().unwrap();
 
         // markdown tables always have to have a blank line before them
-        writeln!(file, "")?;
-        writeln!(file, "| {} |", headers.join(" | "))?;
+        writeln!(file, "\n| {} |", headers.join(" | "))?;
 
         let separator = match alignments {
             Some(aligns) => {

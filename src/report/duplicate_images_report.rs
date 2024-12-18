@@ -15,7 +15,7 @@ pub struct DuplicateImagesTable<'a> {
     markdown_files: &'a MarkdownFiles,
 }
 
-impl<'a> ReportDefinition for DuplicateImagesTable<'a> {
+impl ReportDefinition for DuplicateImagesTable<'_> {
     type Item = ImageFile;
 
     fn headers(&self) -> Vec<&str> {

@@ -1,18 +1,18 @@
 use crate::image_file::ImageFileState;
 use crate::markdown_file::{ImageLinkState, MarkdownFile, PersistReason};
+use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::validated_config_tests;
 use crate::{test_utils, MARKDOWN_EXTENSION};
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use tempfile::TempDir;
-use crate::markdown_files::MarkdownFiles;
 
 impl MarkdownFiles {
-    fn get_mut(&mut self, path: &PathBuf) -> Option<&mut MarkdownFile> {
-        self.iter_mut().find(|file| file.path == path.as_path())
+    fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
+        self.iter_mut().find(|file| file.path == path)
     }
 }
 
@@ -180,7 +180,7 @@ fn test_image_replacement_outcomes() {
                 for (i, md_path) in paths[2..].iter().enumerate() {
                     let content = fs::read_to_string(md_path).unwrap();
 
-                    let possible_refs = vec![
+                    let possible_refs = [
                         format!("![[{}]]", keeper_name),
                         format!("![[conf/media/{}]]", keeper_name),
                     ];

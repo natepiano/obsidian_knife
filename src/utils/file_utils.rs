@@ -96,11 +96,11 @@ pub fn collect_repository_files(
                         .map(|s| s.to_lowercase())
                     {
                         let mutex = if ext == MARKDOWN_EXTENSION {
-                            &*md_files
+                            md_files
                         } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-                            &*img_files
+                            img_files
                         } else {
-                            &*other_files
+                            other_files
                         };
                         mutex.lock().unwrap().push(path.clone());
                     }

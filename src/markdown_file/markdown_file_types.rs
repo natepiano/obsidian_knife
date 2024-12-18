@@ -421,7 +421,7 @@ fn extract_relative_path(matched: &str) -> String {
 
     // Find the position of the last opening '(' or '[' and take the path after it.
     prefix
-        .rfind(|c| c == OPENING_PAREN || c == OPENING_BRACKET)
+        .rfind(|c| matches!(c, OPENING_PAREN | OPENING_BRACKET))
         .map(|pos| &prefix[pos + 1..])
         .map(|p| p.trim_end_matches(FORWARD_SLASH))
         .filter(|p| !p.is_empty())

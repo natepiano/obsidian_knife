@@ -88,7 +88,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
 
         // Write description if present
         let description = &report.description(&self.items);
-        if description.len() > 0 {
+        if !description.is_empty() {
             writer.writeln("", &report.description(&self.items))?;
         }
 

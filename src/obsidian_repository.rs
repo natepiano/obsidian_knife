@@ -535,6 +535,7 @@ impl ObsidianRepository {
 fn apply_line_replacements(
     line: &str,
     line_matches: &[&Box<dyn ReplaceableContent>],
+    //  line_matches: &[&dyn ReplaceableContent],
     file_path: &PathBuf,
 ) -> String {
     let mut updated_line = line.to_string();

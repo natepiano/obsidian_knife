@@ -114,8 +114,10 @@ fn test_create_image_file() {
             .with_content(content)
             .create(&temp_dir, filename);
 
-        let mut image_refs = ImageReferences::default();
-        image_refs.markdown_file_references = references.into_iter().map(String::from).collect();
+        let image_refs = ImageReferences {
+            markdown_file_references: references.into_iter().map(String::from).collect(),
+            ..Default::default()
+        };
 
         let info = ImageFile::new(
             path.clone(),

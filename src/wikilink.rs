@@ -156,7 +156,7 @@ fn add_special_patterns(
     line: &str,
     result: &mut ParsedExtractedWikilinks,
     reason: InvalidWikilinkReason,
-    regex: &regex::Regex,
+    regex: &Regex,
 ) {
     for regex_match in regex.find_iter(line) {
         result.invalid.push(ParsedInvalidWikilink {
