@@ -20,13 +20,13 @@ impl Error for MainError {}
 
 // Separate error handling and reporting logic
 fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("error occurred");
-    println!("error type:");
+    println!("{ERROR_OCCURRED}");
+    println!("{ERROR_TYPE}");
     println!("{}", std::any::type_name_of_val(&*e));
-    println!("error details: {}", e);
+    println!("{ERROR_DETAILS} {}", e);
 
     if let Some(source) = e.source() {
-        println!("error source: {}", source);
+        println!("{ERROR_SOURCE} {}", source);
     }
     Err(e)
 }
@@ -43,8 +43,14 @@ fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let _timer = Timer::new("total time");
-    println!("obsidian knife - aka \"ok\"");
+    let _timer = Timer::new(TOTAL_TIME);
+
+    #[cfg(debug_assertions)]
+    println!("{OBSIDIAN_KNIFE}{DEV}");
+
+    #[cfg(not(debug_assertions))]
+    println!("{OBSIDIAN_KNIFE}{RELEASE}");
+
     let config_path = get_config_file()?;
 
     match process_config(config_path) {

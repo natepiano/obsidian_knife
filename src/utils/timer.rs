@@ -1,4 +1,5 @@
 // Add to a new utils.rs file:
+use crate::MILLISECONDS;
 use std::time::Instant;
 
 pub struct Timer {
@@ -19,7 +20,7 @@ impl Drop for Timer {
     fn drop(&mut self) {
         let duration = self.start.elapsed();
         if !cfg!(test) {
-            println!("{}: {:.2}ms", self.label, duration.as_millis());
+            println!("{}: {:.2}{MILLISECONDS}", self.label, duration.as_millis());
         }
     }
 }

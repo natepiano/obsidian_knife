@@ -30,14 +30,25 @@ simplify_wikilinks:
  - "Bob Rock"
 ---
 
-this is an example configuration file. I thought it would be helpful to just store the config as a markdown file in obsidian
-so it lives with the repository
+---
+apply_changes: false
+do_not_back_populate:
+  - away
+  - bill
+  - ed
+  - jim
+  - ok
+  - people
+  - tom
+  - will
+file_process_limit: 2000
+ignore_folders:
+  - .idea
+  - conf/templates
+obsidian_path: ~/Documents/brain
+operational_timezone: America/New_York
+output_folder: conf/obsidian_knife
+tags: [code]
+---
 
-to make it work, just copy/paste the configuration parameters and put it into a markdown file in 
-obsidian as the frontmatter - placed between two lines with just --- in them like so (without the comments)
-
-```yaml
- ---
- <your config goes here>
- ---
-```
+this file is a working markdown file example see the repo readme.md for explanation of config parameters

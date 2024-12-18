@@ -15,7 +15,7 @@ The config file must be a markdown file with yaml frontmatter - an example can b
 
 ```yaml
 # required
-obsidian_path: ~/Documents/obsidian            # path to obsidian vault
+obsidian_path: ~/Documents/obsidian            # path to obsidian vault - tilde is allowed or you can specify full path
 output_folder: obsidian_knife                  # where to place output file (relative to obsidian_path)
 
 # optional
@@ -24,10 +24,10 @@ back_populate_file_filter: [[some note]]       # optionally process this specifi
 do_not_back_populate:                          # text patterns to skip during back population
   - bill
   - will
-file_process_limit: 1                          # limit files processed
+file_process_limit: 10                         # limit files processed - if this parameter is not specified it will process all files
 ignore_folders:                                # folders to skip during processing
   - templates
-operational_timezone: America/New_York
+operational_timezone: America/New_York         # see note below
 ```
 It's important that the yaml is placed between lines with only --- in them to mark the beginning and ending of the frontmatter in the markdown file. Then you can place the configuration file in your output_folder (which by default is ignored when scanning the repo). 
 
@@ -70,7 +70,7 @@ we can set an operational time zone (defaults to: America/New_York time zone). F
 
 the operational time zone bridges the gap between the wikilink dates of date_created and date_modified and the UTC date from the operating system.
 
-This way, mismatches between the OS and the frontmatter will always treat the frontmatter as if it's in the operational timezone so when you happen to run obsidian knife in some other time zone, it won't change the create and modified dates to line up with the timezone you happen to be in at that moment in time. It will keep aligning them all to whether the OS date on the East Coast matches up with the frontmatter date.
+This way, mismatches between the OS and the frontmatter will always treat the frontmatter as if it's in the operational timezone so when you happen to run obsidian knife in some other time zone, it won't change the create and modified dates to line up with the timezone you happen to be in at that moment in time. It will keep aligning them all to the OS date for whatever timezone it is you specify.
 
 As an example, 23:00 on the East Coast is 04:00 of the next day UTC. Let's say the frontmatter date is 2024-01-15. On the East Coast the OS will show it as 2024-01-15 23:00 but in UTC it will be 2024-01-16 04:00. We don't want the date fix to update the frontmatter to 2024-01-16 so the operational_timezone ensures that it's looking at the UTC date from the OS as if it's in the East Coast to compare it to what's in the front matter - which will be 2024-01-15. 
 

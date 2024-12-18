@@ -1,14 +1,16 @@
 // processing stuff
-pub const DURATION_MILLISECONDS: &str = "ms";
-pub const ERROR_DETAILS: &str = "**error details:**";
-pub const ERROR_DURATION: &str = "total processing time before error:";
+pub const DEV: &str = " - dev";
+pub const ERROR_DETAILS: &str = "error details:";
 pub const ERROR_OCCURRED: &str = "error occurred";
-pub const ERROR_SOURCE: &str = "**error source:**";
+pub const ERROR_SOURCE: &str = "error source:";
 pub const ERROR_TYPE: &str = "error type:";
 pub const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
+pub const MILLISECONDS: &str = "ms";
 pub const MODE_APPLY_CHANGES: &str = "apply changes is on - changes will be applied";
 pub const MODE_APPLY_CHANGES_OFF: &str = "apply changes is off - no changes will be applied";
-pub const PROCESSING_DURATION: &str = "total processing time:";
+pub const OBSIDIAN_KNIFE: &str = "obsidian knife - aka \"ok\"";
+pub const RELEASE: &str = " - release";
+pub const TOTAL_TIME: &str = "total time";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
 // config stuff
