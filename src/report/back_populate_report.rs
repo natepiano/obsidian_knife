@@ -110,11 +110,6 @@ impl ObsidianRepository {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let matches = self.markdown_files.files_to_persist().unambiguous_matches();
 
-        // Skip if no matches
-        if matches.is_empty() {
-            return Ok(());
-        }
-
         writer.writeln(LEVEL2, MATCHES)?;
         let header_message = DescriptionBuilder::new()
             .text(BACK_POPULATE)

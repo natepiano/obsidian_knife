@@ -425,6 +425,14 @@ impl MarkdownFile {
 
         !wikilink::is_within_wikilink(line, absolute_start)
     }
+
+    pub fn has_ambiguous_matches(&self) -> bool {
+        !self.matches.ambiguous.is_empty()
+    }
+
+    pub fn has_unambiguous_matches(&self) -> bool {
+        !self.matches.unambiguous.is_empty()
+    }
 }
 
 fn get_date_validations(

@@ -146,24 +146,15 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        // Skip if no files have ambiguous matches
-        let has_ambiguous = self
-            .markdown_files
-            .files_to_persist()
-            .iter()
-            .any(|file| !file.matches.ambiguous.is_empty());
-
-        if !has_ambiguous {
-            return Ok(());
-        }
-
         writer.writeln(LEVEL2, MATCHES_AMBIGUOUS)?;
 
         // Create a map to group ambiguous matches by their display text (case-insensitive)
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
         // First pass: collect all matches
-        for markdown_file in &self.markdown_files.files_to_persist() {
+        for markdown_file in &self.markdown_files
+        /*.files_to_persist()*/
+        {
             for match_info in &markdown_file.matches.ambiguous {
                 let key = match_info.found_text.to_lowercase();
                 matches_by_text

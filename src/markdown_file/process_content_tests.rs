@@ -13,7 +13,9 @@ fn assert_contains_wikilink(
     is_alias: bool,
 ) {
     let exists = wikilinks.iter().any(|w| {
-        w.target == target && w.display_text == display.unwrap_or(target) && w.is_alias() == is_alias
+        w.target == target
+            && w.display_text == display.unwrap_or(target)
+            && w.is_alias() == is_alias
     });
     assert!(
         exists,
@@ -163,12 +165,6 @@ fn test_process_content_with_images() {
 
     // Check image links
     assert_eq!(image_links.len(), 2, "Should have two image links");
-    // assert!(image_links
-    //     .iter()
-    //     .any(|link| link.raw_link == "![[image.png]]"));
-    // assert!(image_links
-    //     .iter()
-    //     .any(|link| link.raw_link == "![[another.jpg]]"));
 
     // Optionally, also test the filenames were extracted correctly
     assert!(image_links.iter().any(|link| link.filename == "image.png"));

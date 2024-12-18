@@ -85,7 +85,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                         );
 
                         // Find line number and position for this reference
-                        let (line_number, position) = markdown_file.image_links.links.iter()
+                        let (line_number, position) = markdown_file.image_links.iter()
                             .find(|l| {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
                             })

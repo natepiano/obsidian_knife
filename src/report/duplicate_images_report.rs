@@ -113,7 +113,6 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                                 .to_string();
                             markdown_file
                                 .image_links
-                                .links
                                 .iter()
                                 .find(|l| l.filename == filename)
                         })

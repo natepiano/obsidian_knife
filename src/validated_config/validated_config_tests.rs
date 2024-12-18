@@ -229,17 +229,17 @@ output_folder: "  ""#,
 fn test_invalid_back_populate_count() {
     let temp_dir = TempDir::new().unwrap();
     let result = get_test_validated_config_result(&temp_dir, |builder| {
-        builder.file_process_limit(Some(0));
+        builder.file_limit(Some(0));
     });
 
     assert!(matches!(
         result.unwrap_err(),
-        ValidationError::InvalidFileProcessLimit
+        ValidationError::InvalidFileLimit
     ));
 
     // Test that valid counts work
     let result = get_test_validated_config_result(&temp_dir, |builder| {
-        builder.file_process_limit(Some(1));
+        builder.file_limit(Some(1));
     });
     assert!(result.is_ok());
 }
@@ -323,14 +323,14 @@ fn test_multiple_validation_errors() {
     let temp_dir = TempDir::new().unwrap();
     let result = get_test_validated_config_result(&temp_dir, |builder| {
         builder
-            .file_process_limit(Some(0))
+            .file_limit(Some(0))
             .back_populate_file_filter(Some("".to_string()));
     });
 
     // Should fail with the first error encountered
     assert!(matches!(
         result.unwrap_err(),
-        ValidationError::InvalidFileProcessLimit
+        ValidationError::InvalidFileLimit
     ));
 }
 
@@ -339,7 +339,7 @@ fn test_all_validation_passes() {
     let temp_dir = TempDir::new().unwrap();
     let result = get_test_validated_config_result(&temp_dir, |builder| {
         builder
-            .file_process_limit(Some(1))
+            .file_limit(Some(1))
             .back_populate_file_filter(Some("valid_filter".to_string()))
             .operational_timezone("America/New_York".to_string());
     });

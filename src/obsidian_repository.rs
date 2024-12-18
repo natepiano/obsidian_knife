@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod ambiguous_matches_tests;
 #[cfg(test)]
-mod file_process_limit_tests;
+mod file_limit_tests;
 #[cfg(test)]
 mod image_tests;
 #[cfg(test)]
@@ -61,7 +61,7 @@ impl ObsidianRepository {
         let markdown_files = pre_scan_markdown_files(
             &repository_files.markdown_files,
             validated_config.operational_timezone(),
-            validated_config.file_process_limit(),
+            validated_config.file_limit(),
         )?;
 
         // Process wikilinks
@@ -99,7 +99,7 @@ impl ObsidianRepository {
         repository.identify_ambiguous_matches();
         repository.identify_image_reference_replacements();
         repository.apply_replaceable_matches(validated_config.operational_timezone());
-        // repository.apply_file_process_limit(validated_config.file_process_limit());
+        // repository.apply_file_limit(validated_config.file_limit());
         repository.mark_image_files_for_deletion();
 
         Ok(repository)
@@ -174,7 +174,7 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
 fn pre_scan_markdown_files(
     markdown_paths: &[PathBuf],
     timezone: &str,
-    file_process_limit: Option<usize>,
+    file_limit: Option<usize>,
 ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
     // Use Arc<Mutex<...>> for safe shared collection
     let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
@@ -198,7 +198,7 @@ fn pre_scan_markdown_files(
         .into_inner()
         .unwrap();
 
-    markdown_files.file_process_limit = file_process_limit;
+    markdown_files.file_limit = file_limit;
 
     Ok(markdown_files)
 }
@@ -282,7 +282,7 @@ impl ObsidianRepository {
 
     pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) {
         for markdown_file in &mut self.markdown_files {
-            let has_replaceable_image_links = markdown_file.image_links.links.iter().any(|link| {
+            let has_replaceable_image_links = markdown_file.image_links.iter().any(|link| {
                 matches!(
                     link.state,
                     ImageLinkState::Missing
@@ -291,7 +291,7 @@ impl ObsidianRepository {
                 )
             });
 
-            if markdown_file.matches.unambiguous.is_empty() && !has_replaceable_image_links {
+            if !markdown_file.has_unambiguous_matches() && !has_replaceable_image_links {
                 continue;
             }
 

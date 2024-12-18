@@ -37,7 +37,6 @@ fn test_parallel_image_reference_collection() {
     // Common filter logic
     fn has_common_image(info: &MarkdownFile) -> bool {
         info.image_links
-            .links
             .iter()
             .any(|link| link.filename == "common.jpg")
     }

@@ -48,7 +48,7 @@ fn test_reset_apply_changes() {
     let yaml = r#"
 obsidian_path: /test/path
 apply_changes: true
-file_process_limit: 5
+file_limit: 5
 back_populate_file_filter: "*test*"
 operational_timezone: America/New_York
 do_not_back_populate:
@@ -66,7 +66,7 @@ output_folder: output"#;
 
     // Validate initial values
     assert_eq!(config.apply_changes, Some(true));
-    assert_eq!(config.file_process_limit, Some(5));
+    assert_eq!(config.file_limit, Some(5));
     assert_eq!(config.back_populate_file_filter, Some("*test*".to_string()));
     assert_eq!(config.do_not_back_populate, Some(vec!["*.png".to_string()]));
     assert_eq!(config.ignore_folders, Some(vec![PathBuf::from(".git")]));
@@ -91,7 +91,7 @@ output_folder: output"#;
     let new_config = Config::from_frontmatter(new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.apply_changes, Some(false));
-    assert_eq!(new_config.file_process_limit, Some(5));
+    assert_eq!(new_config.file_limit, Some(5));
     assert_eq!(
         new_config.back_populate_file_filter,
         Some("*test*".to_string())

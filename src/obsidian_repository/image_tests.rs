@@ -442,12 +442,7 @@ fn test_multiple_file_deletion() {
 
     // Verify all files are marked for deletion
     assert_eq!(
-        repository
-            .image_files
-            .files
-            .iter()
-            .filter(|f| f.delete)
-            .count(),
+        repository.image_files.iter().filter(|f| f.delete).count(),
         3,
         "Expected all files to be marked for deletion"
     );

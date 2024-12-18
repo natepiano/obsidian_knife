@@ -19,7 +19,7 @@ back_populate_file_filter: [[some note]]       # optionally process this specifi
 do_not_back_populate:                          # text patterns to skip during back population
   - bill
   - will
-file_process_limit: 10                         # limit files processed - if this parameter is not specified it will process all files
+file_limit: 10                                 # limit files processed - if this parameter is not specified it will process all files
 ignore_folders:                                # folders to skip during processing
   - templates
 operational_timezone: America/New_York         # see note below
@@ -164,7 +164,7 @@ radio button you can click to enable.
 After ok does an update with apply_changes: true, it will set this property back to false 
 so you don't accidentally apply changes when you may not want to - especially when making sure that things work.
 
-### file_process_limit
+### file_limit
 Optional. Limits the number of files processed. Useful for testing changes on a subset of files. 
 
 For example, you can set apply_changes: false and then limit the number of files processed so you can assess if ok is

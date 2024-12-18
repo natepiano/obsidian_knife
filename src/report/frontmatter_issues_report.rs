@@ -68,7 +68,6 @@ impl ObsidianRepository {
 
     fn collect_frontmatter_issues(&self) -> Vec<(PathBuf, String)> {
         self.markdown_files
-            .files
             .iter()
             .filter_map(|info| {
                 info.frontmatter_error

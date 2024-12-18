@@ -12,7 +12,7 @@ do_not_back_populate:
   
 # count of files to actually process - mostly for debugging purposes in case you want to find out
 # what replacements are going to happen and you're seeing to many files
-file_process_limit: 1
+file_limit: 1
 
 ignore_folders:
   - templates
@@ -41,7 +41,7 @@ do_not_back_populate:
   - people
   - tom
   - will
-file_process_limit: 2000
+file_limit: 2000
 ignore_folders:
   - .idea
   - conf/templates

@@ -47,7 +47,7 @@ fn test_alias_priority() {
     let file_with_matches = repository_info
         .markdown_files
         .iter()
-        .find(|file| !file.matches.unambiguous.is_empty())
+        .find(|file| file.has_unambiguous_matches())
         .expect("Should have a file with matches");
 
     // Verify the match uses the alias form
@@ -176,7 +176,7 @@ fn test_no_self_referential_back_population() {
     let file_with_matches = repository
         .markdown_files
         .iter()
-        .find(|file| !file.matches.unambiguous.is_empty())
+        .find(|file| file.has_unambiguous_matches())
         .expect("Should have a file with matches");
 
     assert_eq!(

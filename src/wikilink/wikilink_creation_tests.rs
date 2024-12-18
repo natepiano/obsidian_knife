@@ -37,7 +37,8 @@ fn assert_valid_wikilink(
                 input
             );
             assert_eq!(
-                wikilink.is_alias(), expected_is_alias,
+                wikilink.is_alias(),
+                expected_is_alias,
                 "Alias flag mismatch for input: {}",
                 input
             );

@@ -17,15 +17,12 @@ use vecollect::collection;
 #[collection(field = "files")]
 pub struct MarkdownFiles {
     pub(crate) files: Vec<MarkdownFile>,
-    pub(crate) file_process_limit: Option<usize>,
+    pub(crate) file_limit: Option<usize>,
 }
 
 impl MarkdownFiles {
-    pub fn new(files: Vec<MarkdownFile>, file_process_limit: Option<usize>) -> Self {
-        Self {
-            files,
-            file_process_limit,
-        }
+    pub fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
+        Self { files, file_limit }
     }
 
     pub fn process_files_for_back_populate_matches(
@@ -85,12 +82,11 @@ impl MarkdownFiles {
         // to_lowercase() for comparisons
         let markdown_refs: HashMap<String, HashSet<String>> = self
             .par_iter()
-            .filter(|file_info| !file_info.image_links.links.is_empty())
+            .filter(|file_info| !file_info.image_links.is_empty())
             .map(|markdown_file| {
                 let path = markdown_file.path.to_string_lossy().to_string();
                 let images: HashSet<_> = markdown_file
                     .image_links
-                    .links
                     .iter()
                     .map(|link| link.filename.to_lowercase())
                     .collect();
@@ -164,11 +160,11 @@ impl MarkdownFiles {
         files_to_persist.sort_by(|a, b| a.path.cmp(&b.path));
 
         let total_files = files_to_persist.len();
-        let count = self.file_process_limit.unwrap_or(total_files);
+        let count = self.file_limit.unwrap_or(total_files);
 
         Self {
             files: files_to_persist.into_iter().take(count).collect(),
-            file_process_limit: self.file_process_limit,
+            file_limit: self.file_limit,
         }
     }
 }

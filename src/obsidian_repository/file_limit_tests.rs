@@ -9,7 +9,7 @@ use std::str::FromStr;
 use tempfile::TempDir;
 
 #[derive(Debug)]
-struct ProcessLimitTestCase {
+struct FileLimitTestCase {
     name: &'static str,
     file_count: usize,
     process_limit: Option<usize>,
@@ -44,27 +44,27 @@ fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
-fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
+fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = vec![
-        ProcessLimitTestCase {
+        FileLimitTestCase {
             name: "no limit processes all files",
             file_count: 3,
             process_limit: None,
             expected_processed: 3,
         },
-        ProcessLimitTestCase {
+        FileLimitTestCase {
             name: "limit of 1 processes single file",
             file_count: 3,
             process_limit: Some(1),
             expected_processed: 1,
         },
-        ProcessLimitTestCase {
+        FileLimitTestCase {
             name: "limit of 2 processes two files",
             file_count: 3,
             process_limit: Some(2),
             expected_processed: 2,
         },
-        ProcessLimitTestCase {
+        FileLimitTestCase {
             name: "limit larger than file count processes all files",
             file_count: 2,
             process_limit: Some(5),
@@ -76,7 +76,7 @@ fn test_file_process_limits() -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
 
         let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
-        builder.file_process_limit(case.process_limit);
+        builder.file_limit(case.process_limit);
         let config = builder.build()?;
 
         // Create test files

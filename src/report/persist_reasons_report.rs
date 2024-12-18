@@ -198,6 +198,10 @@ impl ObsidianRepository {
             }
         }
 
+        if persist_data.is_empty() {
+            return Ok(());
+        }
+
         persist_data.sort_by(|a, b| {
             let file_cmp = a
                 .full_path

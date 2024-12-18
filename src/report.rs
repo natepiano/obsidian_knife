@@ -13,9 +13,11 @@ mod report_writer;
 pub use report_writer::*;
 
 use crate::constants::*;
-use crate::utils::OutputFileWriter;
+use crate::image_file::ImageFileState;
+use crate::markdown_file::ImageLinkState;
+use crate::utils::{OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
-use crate::wikilink::ToWikilink;
+use crate::wikilink::{InvalidWikilinkReason, ToWikilink};
 use crate::ObsidianRepository;
 use chrono::{Local, Utc};
 use std::error::Error;
@@ -31,22 +33,96 @@ impl ObsidianRepository {
         self.write_execution_start(validated_config, &writer)?; // done
         self.write_frontmatter_issues_report(&writer)?; // done
 
-        writer.writeln(LEVEL1, IMAGES)?;
-        // hack just so cargo fmt doesn't expand the report call across multiple lines
-        self.write_missing_references_report(validated_config, &writer)?;
-        self.write_incompatible_image_report(validated_config, &writer)?;
+        self.write_image_reports(validated_config, &writer)?;
+        self.write_back_populate_reports(validated_config, &writer)?;
 
-        self.write_unreferenced_images_report(validated_config, &writer)?;
-        self.write_duplicate_images_report(validated_config, &writer)?;
-
-        // back populate reports
-        write_back_populate_report_header(validated_config, &writer)?;
-        self.write_invalid_wikilinks_report(&writer)?;
-        self.write_ambiguous_matches_report(&writer)?; // done
-        self.write_back_populate_report(&writer)?; // done
-
-        // audit of persist reasons
+        // this report is slightly duplicative with regards to outputting when
+        // back populate or image references are updated
+        // but it does uniquely represent any date changes so that's helpful
         self.write_persist_reasons_report(validated_config, &writer)?; // done
+
+        Ok(())
+    }
+
+    pub fn write_back_populate_reports(
+        &self,
+        validated_config: &ValidatedConfig,
+        writer: &OutputFileWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // Check for unambiguous matches in files_to_persist
+        let has_back_populate_entries = self
+            .markdown_files
+            .files_to_persist()
+            .iter()
+            .any(|file| file.has_unambiguous_matches());
+
+        // Check for ambiguous matches globally
+        let has_ambiguous_matches = self
+            .markdown_files
+            .iter()
+            .any(|file| file.has_ambiguous_matches());
+
+        // Check for invalid wikilinks globally
+        let has_invalid_wikilinks = self.markdown_files.iter().any(|file| {
+            file.wikilinks.invalid.iter().any(|wikilink| {
+                !matches!(
+                    wikilink.reason,
+                    InvalidWikilinkReason::EmailAddress
+                        | InvalidWikilinkReason::Tag
+                        | InvalidWikilinkReason::RawHttpLink
+                )
+            })
+        });
+
+        // Write the report header if any type of entry exists
+        if has_back_populate_entries || has_invalid_wikilinks || has_ambiguous_matches {
+            write_back_populate_report_header(validated_config, writer)?;
+
+            if has_invalid_wikilinks {
+                self.write_invalid_wikilinks_report(writer)?;
+            }
+
+            if has_ambiguous_matches {
+                self.write_ambiguous_matches_report(writer)?;
+            }
+
+            if has_back_populate_entries {
+                self.write_back_populate_report(writer)?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn write_image_reports(
+        &self,
+        validated_config: &ValidatedConfig,
+        writer: &OutputFileWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        // only output image reports if we have image files to report on or markdown files with
+        // missing image references
+        let has_report_entries = self.image_files.files.iter().any(|image| {
+            matches!(
+                image.image_state,
+                ImageFileState::Unreferenced
+                    | ImageFileState::Duplicate { .. }
+                    | ImageFileState::Incompatible { .. }
+            )
+        }) || self.markdown_files.files_to_persist().iter().any(|file| {
+            file.image_links
+                .filter_by_variant(ImageLinkState::Missing)
+                .len()
+                > 0
+        });
+
+        if has_report_entries {
+            writer.writeln(LEVEL1, IMAGES)?;
+
+            self.write_missing_references_report(validated_config, writer)?;
+            self.write_incompatible_image_report(validated_config, writer)?;
+            self.write_unreferenced_images_report(validated_config, writer)?;
+            self.write_duplicate_images_report(validated_config, writer)?;
+        }
 
         Ok(())
     }
@@ -60,7 +136,7 @@ impl ObsidianRepository {
         let timestamp_local = Local::now().format(FORMAT_TIME_STAMP);
 
         let limit_string = validated_config
-            .file_process_limit()
+            .file_limit()
             .map(|value| value.to_string())
             .unwrap_or_else(|| "None".to_string());
 
@@ -73,21 +149,29 @@ impl ObsidianRepository {
             .text_with_newline(&timestamp_local.to_string())
             .no_space(YAML_APPLY_CHANGES)
             .text_with_newline(&apply_changes.to_string())
-            .no_space(YAML_FILE_PROCESS_LIMIT)
+            .no_space(YAML_FILE_LIMIT)
             .text_with_newline(&limit_string)
             .build();
 
         writer.write_properties(&properties)?;
 
-        if validated_config.file_process_limit().is_some() {
-            let message = DescriptionBuilder::new()
-                .number(self.markdown_files.files_to_persist().len())
+        let total_files_to_persist = self.markdown_files.total_files_to_persist();
+        let files_to_persist = self.markdown_files.files_to_persist().len();
+
+        let message = match validated_config.file_limit() {
+            Some(_) => DescriptionBuilder::new()
+                .number(files_to_persist)
                 .text(OF)
-                .pluralize_with_count(Phrase::File(self.markdown_files.total_files_to_persist()))
-                .text(THAT_NEED_UPDATES)
-                .build();
-            writer.writeln("", message.as_str())?;
-        }
+                .pluralize_with_count(Phrase::File(total_files_to_persist))
+                .text(IN_CHANGESET)
+                .build(),
+            None => DescriptionBuilder::new()
+                .pluralize_with_count(Phrase::File(total_files_to_persist))
+                .text(IN_CHANGESET)
+                .build(),
+        };
+
+        writer.writeln("", message.as_str())?;
 
         if validated_config.apply_changes() {
             writer.writeln("", MODE_APPLY_CHANGES)?;

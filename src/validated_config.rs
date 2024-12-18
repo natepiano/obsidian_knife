@@ -15,7 +15,7 @@ pub enum ValidationError {
     #[error("Empty output folder")]
     EmptyOutputFolder,
     #[error("Back populate file count must be >= 1")]
-    InvalidFileProcessLimit,
+    InvalidFileLimit,
     #[error("Invalid timezone: {0}")]
     InvalidTimezone(String),
     #[error("Obsidian path does not exist: {0}")]
@@ -51,7 +51,7 @@ pub struct ValidatedConfig {
     #[builder(setter(strip_option), default)]
     do_not_back_populate_regexes: Option<Vec<Regex>>,
     #[builder(default)]
-    file_process_limit: Option<usize>,
+    file_limit: Option<usize>,
     #[builder(setter(custom), default)]
     ignore_folders: Option<Vec<PathBuf>>,
     #[builder(setter(into))]
@@ -77,10 +77,10 @@ impl ValidatedConfigBuilder {
             ));
         }
 
-        // Validate file_process_limit
-        if let Some(Some(count)) = self.file_process_limit {
+        // Validate file_limit
+        if let Some(Some(count)) = self.file_limit {
             if count < 1 {
-                return Err(ValidationError::InvalidFileProcessLimit);
+                return Err(ValidationError::InvalidFileLimit);
             }
         }
 
@@ -199,8 +199,8 @@ impl ValidatedConfig {
         self.apply_changes
     }
 
-    pub fn file_process_limit(&self) -> Option<usize> {
-        self.file_process_limit
+    pub fn file_limit(&self) -> Option<usize> {
+        self.file_limit
     }
 
     pub fn back_populate_file_filter(&self) -> Option<String> {

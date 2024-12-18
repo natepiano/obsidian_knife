@@ -20,7 +20,7 @@ yaml_frontmatter_struct! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub do_not_back_populate: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub file_process_limit: Option<usize>,
+        pub file_limit: Option<usize>,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub ignore_folders: Option<Vec<PathBuf>>,
         pub obsidian_path: String,
@@ -45,7 +45,7 @@ impl Config {
             .apply_changes(self.apply_changes.unwrap_or(false))
             .back_populate_file_filter(self.back_populate_file_filter.clone())
             .do_not_back_populate(self.do_not_back_populate.clone())
-            .file_process_limit(self.file_process_limit)
+            .file_limit(self.file_limit)
             .ignore_folders(self.ignore_folders.clone())
             .obsidian_path(utils::expand_tilde(&self.obsidian_path))
             .operational_timezone(

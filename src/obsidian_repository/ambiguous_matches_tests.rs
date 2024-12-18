@@ -80,7 +80,7 @@ fn test_identify_ambiguous_matches() {
 
     // Verify match was moved from unambiguous to ambiguous
     assert!(
-        test_file.matches.unambiguous.is_empty(),
+        !test_file.has_unambiguous_matches(),
         "Ed match should be removed from unambiguous"
     );
     assert_eq!(
@@ -105,7 +105,7 @@ fn test_identify_ambiguous_matches() {
     );
     assert_eq!(test_file2.matches.unambiguous[0].found_text, "Unique");
     assert!(
-        test_file2.matches.ambiguous.is_empty(),
+        !test_file2.has_ambiguous_matches(),
         "Should have no ambiguous matches"
     );
 }
@@ -144,7 +144,7 @@ fn test_truly_ambiguous_targets() {
 
     // Verify the match was moved to ambiguous
     assert!(
-        test_file.matches.unambiguous.is_empty(),
+        !test_file.has_unambiguous_matches(),
         "All matches should be moved from unambiguous"
     );
     assert_eq!(
