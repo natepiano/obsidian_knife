@@ -1,25 +1,22 @@
 #[cfg(test)]
 pub mod test_utils;
 
-// mod cleanup_dates;
 mod config;
-mod constants;
 mod frontmatter;
 mod image_file;
 mod markdown_file;
 mod markdown_files;
 mod obsidian_repository;
 mod report;
-mod utils;
 mod validated_config;
 mod wikilink;
 mod yaml_frontmatter;
 
-// Re-export types for main
-pub use constants::*;
-pub use utils::Timer;
+pub mod constants;
+pub mod utils;
 
 use crate::config::Config;
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
@@ -28,9 +25,7 @@ use crate::yaml_frontmatter::YamlFrontMatter;
 use std::error::Error;
 use std::path::PathBuf;
 
-// lib was separated from main so it could be incorporated into integration tests
-// such as config_tests.rs - but that's not happening so...
-pub fn process_config(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
+pub fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     let expanded_path = utils::expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;

@@ -1,4 +1,6 @@
 use ok::*;
+use crate::utils::Timer;
+use crate::constants::*;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -20,13 +22,13 @@ impl Error for MainError {}
 
 // Separate error handling and reporting logic
 fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
-    println!("{ERROR_OCCURRED}");
-    println!("{ERROR_TYPE}");
-    println!("{}", std::any::type_name_of_val(&*e));
-    println!("{ERROR_DETAILS} {}", e);
+    eprintln!("{ERROR_OCCURRED}");
+    eprintln!("{ERROR_TYPE}");
+    eprintln!("{}", std::any::type_name_of_val(&*e));
+    eprintln!("{ERROR_DETAILS} {}", e);
 
     if let Some(source) = e.source() {
-        println!("{ERROR_SOURCE} {}", source);
+        eprintln!("{ERROR_SOURCE} {}", source);
     }
     Err(e)
 }
@@ -53,7 +55,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let config_path = get_config_file()?;
 
-    match process_config(config_path) {
+    match process_obsidian_repository(config_path) {
         Ok(_) => Ok(()),
         Err(e) => handle_error(e), // Removed writer parameter
     }

@@ -1,7 +1,7 @@
 #[cfg(test)]
 pub(crate) mod validated_config_tests;
 
-use crate::{utils, DEFAULT_TIMEZONE, MARKDOWN_SUFFIX};
+use crate::{utils,constants::*};
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;

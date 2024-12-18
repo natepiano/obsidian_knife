@@ -1,5 +1,5 @@
 // Add to a new utils.rs file:
-use crate::MILLISECONDS;
+use crate::constants::*;
 use std::time::Instant;
 
 pub struct Timer {

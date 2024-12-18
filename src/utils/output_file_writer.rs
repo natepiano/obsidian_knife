@@ -1,4 +1,4 @@
-use crate::OUTPUT_MARKDOWN_FILE;
+use crate::constants::*;
 use std::fs::{File, OpenOptions};
 use std::io;
 use std::io::Write;

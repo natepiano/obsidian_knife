@@ -1,5 +1,4 @@
-use crate::{ValidatedConfig, DS_STORE, MARKDOWN_EXTENSION};
-use crate::{ERROR_NOT_FOUND, ERROR_READING, IMAGE_EXTENSIONS};
+use crate::{ValidatedConfig, constants::*};
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
 use std::path::{Path, PathBuf};

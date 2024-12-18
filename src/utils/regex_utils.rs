@@ -1,4 +1,4 @@
-use crate::IMAGE_EXTENSIONS;
+use crate::constants::*;
 use lazy_static::lazy_static;
 use regex::Regex;
 use std::sync::Arc;

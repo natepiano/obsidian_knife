@@ -1,3 +1,4 @@
+use crate::constants::*;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::{ImageLinkState, MarkdownFile, PersistReason};
 use crate::markdown_files::MarkdownFiles;
@@ -5,7 +6,7 @@ use crate::obsidian_repository::ObsidianRepository;
 use crate::test_utils::TestFileBuilder;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::validated_config_tests;
-use crate::{test_utils, MARKDOWN_EXTENSION};
+use crate::test_utils;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

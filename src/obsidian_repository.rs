@@ -22,7 +22,7 @@ use crate::{
     utils::VecEnumFilter,
     validated_config::ValidatedConfig,
     wikilink::Wikilink,
-    Timer,
+    utils::Timer,
 };
 
 use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};

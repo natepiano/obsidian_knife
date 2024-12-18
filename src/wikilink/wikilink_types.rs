@@ -1,4 +1,4 @@
-use crate::MARKDOWN_SUFFIX;
+use crate::constants::*;
 use serde::{Deserialize, Serialize};
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
