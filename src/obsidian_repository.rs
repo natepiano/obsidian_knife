@@ -41,7 +41,6 @@ pub struct ImageReferences {
 #[derive(Default)]
 pub struct ObsidianRepository {
     pub markdown_files: MarkdownFiles,
-    //  pub markdown_files_to_persist: MarkdownFiles,
     pub image_files: ImageFiles,
     pub image_path_to_references_map: HashMap<PathBuf, ImageReferences>,
     #[allow(dead_code)]
@@ -58,51 +57,88 @@ impl ObsidianRepository {
         let repository_files = utils::collect_repository_files(validated_config, ignore_folders)?;
 
         // Process markdown files
-        let markdown_files = pre_scan_markdown_files(
+        let markdown_files = Self::initialize_markdown_files(
             &repository_files.markdown_files,
             validated_config.operational_timezone(),
             validated_config.file_limit(),
         )?;
 
-        // Process wikilinks
-        let all_wikilinks: HashSet<Wikilink> = markdown_files
-            .iter()
-            .flat_map(|file_info| file_info.wikilinks.valid.clone())
-            .collect();
-
-        let (sorted, ac) = sort_and_build_wikilinks_ac(all_wikilinks);
+        let (sorted, ac) = Self::initialize_wikilinks(&markdown_files);
 
         // Initialize instance with defaults
         let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::default(),
-            // markdown_files_to_persist: MarkdownFiles::default(),
             image_path_to_references_map: HashMap::new(),
             other_files: repository_files.other_files,
             wikilinks_ac: Some(ac),
             wikilinks_sorted: sorted,
         };
 
-        let _timer = Timer::new("analyze");
-
-        // Get image map using existing functionality
-        repository.image_path_to_references_map = repository
-            .markdown_files
-            .get_image_info_map(validated_config, &repository_files.image_files)?;
-
-        // Build the new ImageFiles struct from the map data
-        // this is new but things may change as we go continue with the refactoring to use image_files
-        repository.image_files =
-            build_image_files_from_map(&repository.image_path_to_references_map)?;
-
-        repository.find_all_back_populate_matches(validated_config);
-        repository.identify_ambiguous_matches();
-        repository.identify_image_reference_replacements();
-        repository.apply_replaceable_matches(validated_config.operational_timezone());
-        // repository.apply_file_limit(validated_config.file_limit());
-        repository.mark_image_files_for_deletion();
+        repository.analyze_repository(&repository_files.image_files, validated_config)?;
 
         Ok(repository)
+    }
+
+    fn initialize_markdown_files(
+        markdown_paths: &[PathBuf],
+        timezone: &str,
+        file_limit: Option<usize>,
+    ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
+        // Use Arc<Mutex<...>> for safe shared collection
+        let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
+
+        markdown_paths.par_iter().try_for_each(|file_path| {
+            match MarkdownFile::new(file_path.clone(), timezone) {
+                Ok(file_info) => {
+                    markdown_files.lock().unwrap().push(file_info);
+                    Ok(())
+                }
+                Err(e) => {
+                    eprintln!("Error processing file {:?}: {}", file_path, e);
+                    Err(e)
+                }
+            }
+        })?;
+
+        // Extract data from Arc<Mutex<...>>
+        let mut markdown_files = Arc::try_unwrap(markdown_files)
+            .unwrap()
+            .into_inner()
+            .unwrap();
+
+        markdown_files.file_limit = file_limit;
+
+        Ok(markdown_files)
+    }
+
+    fn initialize_wikilinks(
+        markdown_files: &MarkdownFiles,
+    ) -> (Vec<Wikilink>, AhoCorasick) {
+        let all_wikilinks: HashSet<Wikilink> = markdown_files
+            .iter()
+            .flat_map(|file_info| file_info.wikilinks.valid.clone())
+            .collect();
+        sort_and_build_wikilinks_ac(all_wikilinks)
+    }
+
+    fn analyze_repository(
+        &mut self,
+        image_files: &[PathBuf],
+        validated_config: &ValidatedConfig,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let _timer = Timer::new("analyze");
+        self.image_path_to_references_map = self
+            .markdown_files
+            .get_image_info_map(validated_config, image_files)?;
+        self.image_files = build_image_files_from_map(&self.image_path_to_references_map)?;
+        self.find_all_back_populate_matches(validated_config);
+        self.identify_ambiguous_matches();
+        self.identify_image_reference_replacements();
+        self.apply_replaceable_matches(validated_config.operational_timezone());
+        // repository.apply_file_limit(validated_config.file_limit());
+        self.mark_image_files_for_deletion();
+        Ok(())
     }
 }
 
@@ -169,38 +205,6 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
         .expect("Failed to build Aho-Corasick automaton for wikilinks");
 
     (wikilinks, ac)
-}
-
-fn pre_scan_markdown_files(
-    markdown_paths: &[PathBuf],
-    timezone: &str,
-    file_limit: Option<usize>,
-) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
-    // Use Arc<Mutex<...>> for safe shared collection
-    let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
-
-    markdown_paths.par_iter().try_for_each(|file_path| {
-        match MarkdownFile::new(file_path.clone(), timezone) {
-            Ok(file_info) => {
-                markdown_files.lock().unwrap().push(file_info);
-                Ok(())
-            }
-            Err(e) => {
-                eprintln!("Error processing file {:?}: {}", file_path, e);
-                Err(e)
-            }
-        }
-    })?;
-
-    // Extract data from Arc<Mutex<...>>
-    let mut markdown_files = Arc::try_unwrap(markdown_files)
-        .unwrap()
-        .into_inner()
-        .unwrap();
-
-    markdown_files.file_limit = file_limit;
-
-    Ok(markdown_files)
 }
 
 impl ObsidianRepository {
