@@ -4,6 +4,8 @@ use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::{fs, io};
+use chrono::{DateTime, Utc};
+use filetime::FileTime;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
@@ -127,6 +129,58 @@ pub fn collect_repository_files(
         image_files: img_files.into_inner().unwrap(),
         other_files: other_files.into_inner().unwrap(),
     })
+}
+
+#[cfg(target_os = "macos")]
+pub fn set_file_dates(
+    path: &Path,
+    created: Option<DateTime<Utc>>,
+    modified: DateTime<Utc>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // Always set modification time using filetime
+    filetime::set_file_mtime(
+        path,
+        FileTime::from_system_time(modified.into()),
+    )?;
+
+    // On macOS, use SetFile for creation date if specified
+    if let Some(created_date) = created {
+        let status = std::process::Command::new("SetFile")
+            .arg("-d")
+            .arg(format!(
+                "{}",
+                created_date.format("%m/%d/%Y %H:%M:%S")
+            ))
+            .arg(path)
+            .status()?;
+
+        if !status.success() {
+            return Err("Failed to set creation date with SetFile".into());
+        }
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_os = "macos"))]
+pub fn set_file_dates(
+    path: &Path,
+    created: Option<DateTime<Utc>>,
+    modified: DateTime<Utc>,
+) -> Result<(), Box<dyn Error + Send + Sync>> {
+    if let Some(created_date) = created {
+        filetime::set_file_times(
+            path,
+            FileTime::from_system_time(created_date.into()),
+            FileTime::from_system_time(modified.into()),
+        )?;
+    } else {
+        filetime::set_file_mtime(
+            path,
+            FileTime::from_system_time(modified.into()),
+        )?;
+    }
+    Ok(())
 }
 
 #[cfg(test)]

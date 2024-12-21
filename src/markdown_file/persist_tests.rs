@@ -1,6 +1,6 @@
 use super::*;
 use crate::test_utils;
-use crate::test_utils::{eastern_midnight, TestFileBuilder};
+use crate::test_utils::TestFileBuilder;
 use tempfile::TempDir;
 
 #[test]
@@ -53,7 +53,7 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
 #[test]
 fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new()?;
-    let test_date = eastern_midnight(2024, 1, 15);
+    let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
@@ -161,7 +161,7 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     // Update frontmatter directly
     if let Some(fm) = &mut file_info.frontmatter {
-        let created_date = eastern_midnight(2024, 1, 2); // Instead of parse_datetime
+        let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
         fm.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
@@ -190,7 +190,7 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
     if let Some(fm) = &mut file_info.frontmatter {
-        let created_date = eastern_midnight(2024, 1, 2); // Instead of parse_datetime
+        let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
         fm.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
@@ -247,7 +247,7 @@ fn test_disallow_persist_if_date_modified_not_set() {
     let temp_dir = TempDir::new().unwrap();
 
     // Use with_matching_dates to set consistent creation and modification dates
-    let matching_date = test_utils::parse_datetime("2024-01-01 00:00:00");
+    let matching_date = test_utils::eastern_midnight(2024,1,1);// ("2024-01-01 00:00:00");
     let file_path = TestFileBuilder::new()
         .with_matching_dates(matching_date)
         .create(&temp_dir, "test_invalid_state.md");
@@ -287,8 +287,8 @@ fn test_persist_no_changes_when_dates_are_valid() -> Result<(), Box<dyn Error + 
         .create(&temp_dir, "test_no_changes.md");
 
     // Set initial creation and modification times
-    let created_time = test_utils::parse_datetime("2024-01-01 00:00:00");
-    let modified_time = test_utils::parse_datetime("2024-01-02 00:00:00");
+    let created_time = test_utils::eastern_midnight(2024,1,1);//("2024-01-01 00:00:00");
+    let modified_time = test_utils::eastern_midnight(2024,1,2);// ("2024-01-02 00:00:00");
     filetime::set_file_times(
         &file_path,
         FileTime::from_system_time(created_time.into()),
