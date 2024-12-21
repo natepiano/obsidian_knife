@@ -88,7 +88,7 @@ fn verify_dates(
 
     // Verify filesystem dates
     let metadata = fs::metadata(&info.path)?;
-    let fs_created = FileTime::from_last_access_time(&metadata);
+    let fs_created = FileTime::from_creation_time(&metadata).unwrap();
     let fs_modified = FileTime::from_last_modification_time(&metadata);
 
     // Convert to UTC for comparison

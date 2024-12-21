@@ -145,17 +145,25 @@ pub fn set_file_dates(
 
     // On macOS, use SetFile for creation date if specified
     if let Some(created_date) = created {
-        let status = std::process::Command::new("SetFile")
-            .arg("-d")
-            .arg(format!(
-                "{}",
-                created_date.format("%m/%d/%Y %H:%M:%S")
-            ))
-            .arg(path)
-            .status()?;
+        let formatted_date = created_date.format("%m/%d/%Y %H:%M:%S").to_string();
 
-        if !status.success() {
-            return Err("Failed to set creation date with SetFile".into());
+        let output = std::process::Command::new("SetFile")
+            .arg("-d")
+            .arg(&formatted_date)
+            .arg(path)
+            .output()?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            return Err(format!("Failed to set creation date with SetFile: {}", stderr).into());
+        }
+
+        // Verify the date was set
+        if let Ok(metadata) = std::fs::metadata(path) {
+            if let Ok(actual_time) = metadata.created() {
+                let actual_datetime: DateTime<Utc> = actual_time.into();
+                println!("Actual creation date set: {}", actual_datetime);
+            }
         }
     }
 

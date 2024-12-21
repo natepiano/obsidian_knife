@@ -4,6 +4,7 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use tempfile::TempDir;
+// use crate::utils;
 
 #[derive(Clone)]
 pub enum Content {
@@ -110,8 +111,8 @@ impl TestFileBuilder {
         self
     }
 
-    pub fn with_title(mut self, title: String) -> Self {
-        self.title = Some(title);
+    pub fn with_title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
         self
     }
 
@@ -175,9 +176,15 @@ impl TestFileBuilder {
         let modified_system = SystemTime::UNIX_EPOCH
             + std::time::Duration::from_secs(self.fs_modified.timestamp() as u64);
 
-        let created_time = filetime::FileTime::from_system_time(created_system);
-        let modified_time = filetime::FileTime::from_system_time(modified_system);
-        filetime::set_file_times(&file_path, created_time, modified_time).unwrap();
+       let created_time = filetime::FileTime::from_system_time(created_system);
+       let modified_time = filetime::FileTime::from_system_time(modified_system);
+       filetime::set_file_times(&file_path, created_time, modified_time).unwrap();
+
+        // utils::set_file_dates(
+        //     &file_path,
+        //     Some(created_system.into()),
+        //     modified_system.into(),
+        // ).unwrap();
 
         file_path
     }
