@@ -136,17 +136,36 @@ pub fn set_file_dates(
     path: &Path,
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
+    operational_timezone: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    // Parse operational timezone
+    let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+
+    // Convert modification date to the operational timezone
+    let modified_in_tz = modified.with_timezone(&tz);
+    println!(
+        "Setting modified date (Operational Timezone - {}): {}",
+        operational_timezone, modified_in_tz
+    );
+
     // Always set modification time using filetime
     filetime::set_file_mtime(
         path,
         FileTime::from_system_time(modified.into()),
     )?;
+    println!("Modified date set successfully.");
 
-    // On macOS, use SetFile for creation date if specified
     if let Some(created_date) = created {
-        let formatted_date = created_date.format("%m/%d/%Y %H:%M:%S").to_string();
+        // Convert created date to the operational timezone
+        let created_in_tz = created_date.with_timezone(&tz);
+        let formatted_date = created_in_tz.format("%m/%d/%Y %H:%M:%S").to_string();
 
+        println!(
+            "Formatted created date for SetFile (Operational Timezone - {}): {}",
+            operational_timezone, formatted_date
+        );
+
+        // Use SetFile to set the creation date
         let output = std::process::Command::new("SetFile")
             .arg("-d")
             .arg(&formatted_date)
@@ -157,18 +176,14 @@ pub fn set_file_dates(
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Failed to set creation date with SetFile: {}", stderr).into());
         }
-
-        // Verify the date was set
-        if let Ok(metadata) = std::fs::metadata(path) {
-            if let Ok(actual_time) = metadata.created() {
-                let actual_datetime: DateTime<Utc> = actual_time.into();
-                println!("Actual creation date set: {}", actual_datetime);
-            }
-        }
+        println!("SetFile executed successfully.");
+    } else {
+        println!("No creation date provided; skipping creation date setting.");
     }
 
     Ok(())
 }
+
 
 #[cfg(not(target_os = "macos"))]
 pub fn set_file_dates(
@@ -192,7 +207,7 @@ pub fn set_file_dates(
 }
 
 #[cfg(test)]
-mod tests {
+mod expand_tilde_tests {
     use super::*;
 
     #[test]
@@ -240,3 +255,91 @@ mod tests {
         }
     }
 }
+
+#[cfg(test)]
+mod set_file_dates_tests {
+    use super::*;
+    use chrono::{TimeZone, Utc};
+    use tempfile::tempdir;
+    use std::fs::File;
+
+    #[test]
+    fn test_set_file_dates_with_operational_timezone() {
+        // Define test parameters
+        let operational_timezone = "America/New_York";
+        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap();
+
+        // Define creation and modification dates in UTC
+        let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
+        let modified_date_utc = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+
+        // Create a temporary file for testing
+        let temp_dir = tempdir().expect("Failed to create temporary directory");
+        let temp_file_path = temp_dir.path().join("test_file.txt");
+        File::create(&temp_file_path).expect("Failed to create test file");
+
+        // Apply `set_file_dates` with the operational timezone
+        set_file_dates(
+            &temp_file_path,
+            Some(created_date_utc),
+            modified_date_utc,
+            operational_timezone,
+        )
+            .expect("Failed to set file dates");
+
+        // Retrieve metadata for verification
+        let metadata = fs::metadata(&temp_file_path).expect("Failed to retrieve metadata");
+
+        // Verify modification date
+        let retrieved_modified: DateTime<Utc> = metadata.modified().expect("Failed to retrieve modified date").into();
+        let retrieved_modified_in_tz = retrieved_modified.with_timezone(&tz);
+        let expected_modified_in_tz = modified_date_utc.with_timezone(&tz);
+
+        println!("Modified in UTC: {}", retrieved_modified);
+        println!(
+            "Retrieved modified in {}: {}",
+            operational_timezone, retrieved_modified_in_tz
+        );
+        println!(
+            "Expected modified in {}: {}",
+            operational_timezone, expected_modified_in_tz
+        );
+
+        assert_eq!(
+            retrieved_modified, modified_date_utc,
+            "Modified dates do not match in UTC"
+        );
+        assert_eq!(
+            retrieved_modified_in_tz, expected_modified_in_tz,
+            "Modified dates do not match in the operational timezone"
+        );
+
+        // Verify creation date
+        #[cfg(target_os = "macos")]
+        {
+            let retrieved_created: DateTime<Utc> = metadata.created().expect("Failed to retrieve created date").into();
+            let retrieved_created_in_tz = retrieved_created.with_timezone(&tz);
+            let expected_created_in_tz = created_date_utc.with_timezone(&tz);
+
+            println!("Created in UTC: {}", retrieved_created);
+            println!(
+                "Retrieved created in {}: {}",
+                operational_timezone, retrieved_created_in_tz
+            );
+            println!(
+                "Expected created in {}: {}",
+                operational_timezone, expected_created_in_tz
+            );
+
+            assert_eq!(
+                retrieved_created, created_date_utc,
+                "Created dates do not match in UTC"
+            );
+            assert_eq!(
+                retrieved_created_in_tz, expected_created_in_tz,
+                "Created dates do not match in the operational timezone"
+            );
+        }
+    }
+}
+
