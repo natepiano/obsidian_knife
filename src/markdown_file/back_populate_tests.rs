@@ -45,7 +45,7 @@ pub(crate) fn create_test_environment(
     // Create test file using TestFileBuilder but WITHOUT frontmatter
     let file_path = TestFileBuilder::new()
         //.with_matching_dates(test_utils::parse_datetime("2024-01-02 00:00:00"))
-        .with_matching_dates(test_utils::eastern_midnight(2024,1,2))
+        .with_matching_dates(test_utils::eastern_midnight(2024, 1, 2))
         .with_content(
             initial_content
                 .unwrap_or("Initial test content")

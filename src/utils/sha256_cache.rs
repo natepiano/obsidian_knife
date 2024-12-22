@@ -81,10 +81,7 @@ impl Sha256Cache {
         if let Some(cached_info) = self.cache.get(path) {
             if cached_info.time_stamp == time_stamp {
                 self.files_read += 1;
-                return Ok((
-                    cached_info.hash.clone(),
-                    CacheEntryStatus::Read,
-                ));
+                return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
             }
         }
 

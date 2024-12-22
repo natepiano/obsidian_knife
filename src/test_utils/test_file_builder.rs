@@ -1,10 +1,11 @@
+use crate::constants::DEFAULT_TIMEZONE;
+use crate::utils;
 use chrono::{DateTime, Utc};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
 use std::time::SystemTime;
 use tempfile::TempDir;
-// use crate::utils;
 
 #[derive(Clone)]
 pub enum Content {
@@ -176,15 +177,13 @@ impl TestFileBuilder {
         let modified_system = SystemTime::UNIX_EPOCH
             + std::time::Duration::from_secs(self.fs_modified.timestamp() as u64);
 
-       let created_time = filetime::FileTime::from_system_time(created_system);
-       let modified_time = filetime::FileTime::from_system_time(modified_system);
-       filetime::set_file_times(&file_path, created_time, modified_time).unwrap();
-
-        // utils::set_file_dates(
-        //     &file_path,
-        //     Some(created_system.into()),
-        //     modified_system.into(),
-        // ).unwrap();
+        utils::set_file_dates(
+            &file_path,
+            Some(created_system.into()),
+            modified_system.into(),
+            DEFAULT_TIMEZONE,
+        )
+        .unwrap();
 
         file_path
     }

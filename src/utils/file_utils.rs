@@ -1,11 +1,11 @@
 use crate::{constants::*, ValidatedConfig};
+use chrono::{DateTime, Utc};
+use filetime::FileTime;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::{fs, io};
-use chrono::{DateTime, Utc};
-use filetime::FileTime;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
@@ -138,32 +138,19 @@ pub fn set_file_dates(
     modified: DateTime<Utc>,
     operational_timezone: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Parse operational timezone
-    let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
-
-    // Convert modification date to the operational timezone
-    let modified_in_tz = modified.with_timezone(&tz);
-    println!(
-        "Setting modified date (Operational Timezone - {}): {}",
-        operational_timezone, modified_in_tz
-    );
-
     // Always set modification time using filetime
-    filetime::set_file_mtime(
-        path,
-        FileTime::from_system_time(modified.into()),
-    )?;
-    println!("Modified date set successfully.");
+    // we don't need operational_timezone here because we're always passing in dates that are
+    // managed with operational timezone from frontmatter
+    filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
 
     if let Some(created_date) = created {
+        // Parse operational timezone
+        // we need it here because SetFile operates in local time so we have to convert
+        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+
         // Convert created date to the operational timezone
         let created_in_tz = created_date.with_timezone(&tz);
         let formatted_date = created_in_tz.format("%m/%d/%Y %H:%M:%S").to_string();
-
-        println!(
-            "Formatted created date for SetFile (Operational Timezone - {}): {}",
-            operational_timezone, formatted_date
-        );
 
         // Use SetFile to set the creation date
         let output = std::process::Command::new("SetFile")
@@ -176,14 +163,10 @@ pub fn set_file_dates(
             let stderr = String::from_utf8_lossy(&output.stderr);
             return Err(format!("Failed to set creation date with SetFile: {}", stderr).into());
         }
-        println!("SetFile executed successfully.");
-    } else {
-        println!("No creation date provided; skipping creation date setting.");
     }
 
     Ok(())
 }
-
 
 #[cfg(not(target_os = "macos"))]
 pub fn set_file_dates(
@@ -198,10 +181,7 @@ pub fn set_file_dates(
             FileTime::from_system_time(modified.into()),
         )?;
     } else {
-        filetime::set_file_mtime(
-            path,
-            FileTime::from_system_time(modified.into()),
-        )?;
+        filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
     }
     Ok(())
 }
@@ -260,8 +240,8 @@ mod expand_tilde_tests {
 mod set_file_dates_tests {
     use super::*;
     use chrono::{TimeZone, Utc};
-    use tempfile::tempdir;
     use std::fs::File;
+    use tempfile::tempdir;
 
     #[test]
     fn test_set_file_dates_with_operational_timezone() {
@@ -285,13 +265,16 @@ mod set_file_dates_tests {
             modified_date_utc,
             operational_timezone,
         )
-            .expect("Failed to set file dates");
+        .expect("Failed to set file dates");
 
         // Retrieve metadata for verification
         let metadata = fs::metadata(&temp_file_path).expect("Failed to retrieve metadata");
 
         // Verify modification date
-        let retrieved_modified: DateTime<Utc> = metadata.modified().expect("Failed to retrieve modified date").into();
+        let retrieved_modified: DateTime<Utc> = metadata
+            .modified()
+            .expect("Failed to retrieve modified date")
+            .into();
         let retrieved_modified_in_tz = retrieved_modified.with_timezone(&tz);
         let expected_modified_in_tz = modified_date_utc.with_timezone(&tz);
 
@@ -317,7 +300,10 @@ mod set_file_dates_tests {
         // Verify creation date
         #[cfg(target_os = "macos")]
         {
-            let retrieved_created: DateTime<Utc> = metadata.created().expect("Failed to retrieve created date").into();
+            let retrieved_created: DateTime<Utc> = metadata
+                .created()
+                .expect("Failed to retrieve created date")
+                .into();
             let retrieved_created_in_tz = retrieved_created.with_timezone(&tz);
             let expected_created_in_tz = created_date_utc.with_timezone(&tz);
 
@@ -342,4 +328,3 @@ mod set_file_dates_tests {
         }
     }
 }
-

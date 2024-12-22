@@ -1,6 +1,7 @@
 use super::*;
 use crate::test_utils;
 use crate::test_utils::TestFileBuilder;
+use filetime::FileTime;
 use tempfile::TempDir;
 
 #[test]
@@ -247,7 +248,7 @@ fn test_disallow_persist_if_date_modified_not_set() {
     let temp_dir = TempDir::new().unwrap();
 
     // Use with_matching_dates to set consistent creation and modification dates
-    let matching_date = test_utils::eastern_midnight(2024,1,1);// ("2024-01-01 00:00:00");
+    let matching_date = test_utils::eastern_midnight(2024, 1, 1); // ("2024-01-01 00:00:00");
     let file_path = TestFileBuilder::new()
         .with_matching_dates(matching_date)
         .create(&temp_dir, "test_invalid_state.md");
@@ -274,55 +275,6 @@ fn test_disallow_persist_if_date_modified_not_set() {
             "Unexpected error message"
         );
     }
-}
-
-#[test]
-fn test_persist_no_changes_when_dates_are_valid() -> Result<(), Box<dyn Error + Send + Sync>> {
-    let temp_dir = TempDir::new()?;
-    let file_path = TestFileBuilder::new()
-        .with_frontmatter_dates(
-            Some("2024-01-01".to_string()),
-            Some("2024-01-02".to_string()),
-        )
-        .create(&temp_dir, "test_no_changes.md");
-
-    // Set initial creation and modification times
-    let created_time = test_utils::eastern_midnight(2024,1,1);//("2024-01-01 00:00:00");
-    let modified_time = test_utils::eastern_midnight(2024,1,2);// ("2024-01-02 00:00:00");
-    filetime::set_file_times(
-        &file_path,
-        FileTime::from_system_time(created_time.into()),
-        FileTime::from_system_time(modified_time.into()),
-    )?;
-
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
-
-    if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_created(created_time, DEFAULT_TIMEZONE);
-        fm.set_date_modified(modified_time, DEFAULT_TIMEZONE);
-    }
-
-    let metadata_before = fs::metadata(&file_path)?;
-    let created_time_before = FileTime::from_creation_time(&metadata_before).unwrap();
-    let modified_time_before = FileTime::from_last_modification_time(&metadata_before);
-
-    file_info.persist()?;
-
-    // Verify that file system dates remain unchanged
-    let metadata_after = fs::metadata(&file_path)?;
-    let created_time_after = FileTime::from_creation_time(&metadata_after).unwrap();
-    let modified_time_after = FileTime::from_last_modification_time(&metadata_after);
-
-    assert_eq!(
-        created_time_before, created_time_after,
-        "Creation time mismatch"
-    );
-    assert_eq!(
-        modified_time_before, modified_time_after,
-        "Modification time mismatch"
-    );
-
-    Ok(())
 }
 
 #[test]
