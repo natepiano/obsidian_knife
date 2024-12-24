@@ -173,6 +173,7 @@ pub fn set_file_dates(
     path: &Path,
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
+    _operational_timezone: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(created_date) = created {
         filetime::set_file_times(
