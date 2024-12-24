@@ -88,6 +88,7 @@ impl MarkdownFile {
         let date_created_fix = DateCreatedFixValidation::from_frontmatter(
             &frontmatter,
             date_validation_created.file_system_date,
+            operational_timezone,
         );
 
         let persist_reasons = process_date_validations(

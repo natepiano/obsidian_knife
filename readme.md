@@ -63,7 +63,9 @@ if you want to change the file create date to something else you can add a prope
 front matter with the date that you'd like the file to have.  ok will change the file create date, update the date_created 
 property and remove the date_create_fix property after.
 
-at some point, i may make this a configurable feature - for now it's default behavior
+at some point, i may make date handling a configurable feature - for now it's default behavior
+
+also at some point providing the name of the frontmatter property should become configurable as well
 
 #### operational_timezone
 we can set an operational time zone (defaults to: America/New_York time zone). For more information on naming, 
@@ -81,6 +83,9 @@ As an example, 23:00 on the East Coast is 04:00 of the next day UTC. Let's say t
 On the East Coast the OS will show it as 2024-01-15 23:00 but in UTC it will be 2024-01-16 04:00. We don't want the 
 date fix to update the frontmatter to 2024-01-16 so the operational_timezone ensures that it's looking at the UTC date 
 from the OS as if it's in the East Coast to compare it to what's in the front matter - which will be 2024-01-15. 
+
+the obsidian linter plugin can do most of what i'm doing here with dates but it doesn't have the notion of the operational timezone.
+it does allow you to conver to UTC but if you don't want to operate in UTC then this doesn't work
 
 ### useful troubleshooting info
 ok will output a list of any files that have invalid frontmatter.

@@ -407,3 +407,47 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
         );
     }
 }
+
+#[test]
+#[cfg_attr(target_os = "linux", ignore)]
+fn test_late_night_date_created_fix() {
+    let temp_dir = TempDir::new().unwrap();
+
+    // Create time at 10:11 PM Eastern (next day 03:11 UTC)
+    let late_night_time = Utc.with_ymd_and_hms(2024, 1, 16, 3, 11, 0).unwrap();
+
+    let file_path = TestFileBuilder::new()
+        .with_frontmatter_dates(
+            Some("[[2024-01-15]]".to_string()),
+            Some("[[2024-01-15]]".to_string()),
+        )
+        .with_fs_dates(late_night_time, late_night_time)
+        .with_date_created_fix(Some("2024-01-16".to_string()))
+        .create(&temp_dir, "test1.md");
+
+    // Create MarkdownFile from the test file
+    let markdown_info = test_utils::get_test_markdown_file(file_path);
+
+    // Verify the parsed date shows as Jan 16 when viewed in Eastern
+    let tz: chrono_tz::Tz = DEFAULT_TIMEZONE.parse().unwrap();
+    let parsed_date_local = markdown_info
+        .date_created_fix
+        .fix_date
+        .unwrap()
+        .with_timezone(&tz);
+
+    assert_eq!(
+        parsed_date_local.date_naive(),
+        NaiveDate::from_ymd_opt(2024, 1, 16).unwrap(),
+        "Date created fix should show as Jan 16 in Eastern time"
+    );
+
+    // Also verify that the persist report would show Jan 16
+    let persist_reasons = &markdown_info.persist_reasons;
+    assert!(
+        persist_reasons
+            .iter()
+            .any(|r| matches!(r, PersistReason::DateCreatedFixApplied)),
+        "Should have DateCreatedFixApplied reason"
+    );
+}

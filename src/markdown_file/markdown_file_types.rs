@@ -82,6 +82,7 @@ impl DateCreatedFixValidation {
     pub(crate) fn from_frontmatter(
         frontmatter: &Option<FrontMatter>,
         file_created_date: DateTime<Utc>,
+        operational_timezone: &str,
     ) -> Self {
         let fix_str = frontmatter
             .as_ref()
@@ -94,17 +95,38 @@ impl DateCreatedFixValidation {
                 date_str.trim().trim_matches('"')
             };
 
+            // First parse the date string
             NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d")
                 .ok()
                 .map(|naive_date| {
-                    let time = file_created_date.time();
-                    let naive_datetime = naive_date.and_time(time);
-                    Utc.from_local_datetime(&naive_datetime).unwrap()
+                    let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+
+                    // Create naive datetime at noon to ensure date consistency
+                    let naive_datetime = naive_date.and_hms_opt(12, 0, 0).unwrap();
+
+                    // Convert to UTC
+                    let fixed_date = tz.from_local_datetime(&naive_datetime)
+                        .single()
+                        .map(|dt| dt.with_timezone(&Utc))
+                        .unwrap_or_else(|| file_created_date);
+
+                    // Assert that the date in operational timezone matches the requested fix date
+                    let fixed_date_local = fixed_date.with_timezone(&tz);
+                    assert_eq!(
+                        fixed_date_local.date_naive(),
+                        naive_date,
+                        "Date mismatch: fixed_date converts to {} in {} but should be {}",
+                        fixed_date_local.date_naive(),
+                        operational_timezone,
+                        naive_date
+                    );
+
+                    fixed_date
                 })
         });
 
         DateCreatedFixValidation {
-            date_string: fix_str, // Keep the original behavior for date_string
+            date_string: fix_str,
             fix_date: parsed_date,
         }
     }
