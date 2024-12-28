@@ -241,7 +241,7 @@ impl MarkdownFile {
             self.matches.unambiguous.extend(matches);
         }
     }
-
+    
     fn process_wikilinks(&self) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
         let mut result = ExtractedWikilinks::default();
 
@@ -271,8 +271,15 @@ impl MarkdownFile {
             }
         }
 
+        let mut state = CodeBlockTracker::new();
+
         // Process content line by line for wikilinks
         for (line_idx, line) in self.content.lines().enumerate() {
+            state.update_for_line(line);
+            if state.should_skip_line() {
+                continue;
+            }
+            
             let extracted = wikilink::extract_wikilinks(line);
             result.valid.extend(extracted.valid);
 
