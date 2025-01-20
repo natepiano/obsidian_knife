@@ -182,10 +182,12 @@ impl MarkdownFile {
     }
 
     pub fn mark_as_back_populated(&mut self, operational_timezone: &str) {
-        let fm = self
-            .frontmatter
-            .as_mut()
-            .expect("Attempted to mark file as back populated without frontmatter");
+        let fm = self.frontmatter.as_mut().unwrap_or_else(|| {
+            panic!(
+                "Attempted to mark file '{}' as back populated without frontmatter",
+                self.path.display()
+            )
+        });
 
         // Remove any DateModifiedUpdated reasons since we'll be setting the date to now
         // this way we won't show extraneous results in persist_reasons_report
@@ -241,7 +243,7 @@ impl MarkdownFile {
             self.matches.unambiguous.extend(matches);
         }
     }
-    
+
     fn process_wikilinks(&self) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
         let mut result = ExtractedWikilinks::default();
 
@@ -279,7 +281,7 @@ impl MarkdownFile {
             if state.should_skip_line() {
                 continue;
             }
-            
+
             let extracted = wikilink::extract_wikilinks(line);
             result.valid.extend(extracted.valid);
 

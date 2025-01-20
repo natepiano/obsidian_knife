@@ -105,7 +105,8 @@ impl DateCreatedFixValidation {
                     let naive_datetime = naive_date.and_hms_opt(12, 0, 0).unwrap();
 
                     // Convert to UTC
-                    let fixed_date = tz.from_local_datetime(&naive_datetime)
+                    let fixed_date = tz
+                        .from_local_datetime(&naive_datetime)
                         .single()
                         .map(|dt| dt.with_timezone(&Utc))
                         .unwrap_or_else(|| file_created_date);
