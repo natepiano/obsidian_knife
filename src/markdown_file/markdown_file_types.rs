@@ -186,33 +186,42 @@ pub struct BackPopulateMatches {
     pub unambiguous: Vec<BackPopulateMatch>,
 }
 
+#[derive(Debug, PartialEq)]
+pub enum CodeBlockLocation {
+    Inside,
+    Outside,
+}
+
 #[derive(Debug)]
 pub struct CodeBlockTracker {
-    in_code_block: bool,
+    location: CodeBlockLocation,
 }
 
 impl CodeBlockTracker {
     pub(crate) fn new() -> Self {
         Self {
-            in_code_block: false,
+            location: CodeBlockLocation::Outside,
         }
     }
 
-    pub(crate) fn update_for_line(&mut self, line: &str) -> bool {
+    pub(crate) fn update_for_line(&mut self, line: &str) {
         let trimmed = line.trim();
 
         // Check code block delimiter
         if trimmed.starts_with("```") {
-            self.in_code_block = !self.in_code_block;
-            return true;
+            match self.location {
+                CodeBlockLocation::Inside => {
+                    self.location = CodeBlockLocation::Outside;
+                }
+                CodeBlockLocation::Outside => {
+                    self.location = CodeBlockLocation::Inside;
+                }
+            }
         }
-
-        // Return true if we should skip this line
-        self.in_code_block
     }
 
     pub(crate) fn should_skip_line(&self) -> bool {
-        self.in_code_block
+        self.location == CodeBlockLocation::Inside
     }
 }
 

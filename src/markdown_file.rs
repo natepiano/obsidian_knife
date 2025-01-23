@@ -143,27 +143,6 @@ impl MarkdownFile {
         }
     }
 
-    // pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-    //     // Write the updated content to the file
-    //     fs::write(&self.path, self.to_full_content())?;
-    //
-    //     let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
-    //     let modified_date = frontmatter
-    //         .raw_date_modified
-    //         .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
-    //
-    //     if let Some(created_date) = frontmatter.raw_date_created {
-    //         filetime::set_file_times(
-    //             &self.path,
-    //             FileTime::from_system_time(created_date.into()),
-    //             FileTime::from_system_time(modified_date.into()),
-    //         )?;
-    //     } else {
-    //         filetime::set_file_mtime(&self.path, FileTime::from_system_time(modified_date.into()))?;
-    //     }
-    //
-    //     Ok(())
-    // }
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Write the updated content to the file
         fs::write(&self.path, self.to_full_content())?;

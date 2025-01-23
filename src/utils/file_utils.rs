@@ -1,5 +1,5 @@
 use crate::{constants::*, ValidatedConfig};
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, Offset, TimeZone, Utc};
 use filetime::FileTime;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
@@ -138,21 +138,29 @@ pub fn set_file_dates(
     modified: DateTime<Utc>,
     operational_timezone: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    // Always set modification time using filetime
-    // we don't need operational_timezone here because we're always passing in dates that are
-    // managed with operational timezone from frontmatter
     filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
 
     if let Some(created_date) = created {
-        // Parse operational timezone
-        // we need it here because SetFile operates in local time so we have to convert
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
 
-        // Convert created date to the operational timezone
-        let created_in_tz = created_date.with_timezone(&tz);
-        let formatted_date = created_in_tz.format("%m/%d/%Y %H:%M:%S").to_string();
+        // Get the offset
+        let offset = tz.offset_from_utc_datetime(&created_date.naive_utc());
+        let offset_seconds = offset.fix().local_minus_utc() as i64;
+        // We want to add the opposite of the offset (if EST is -5, we add +5)
+        let time_delta = chrono::TimeDelta::try_seconds(-offset_seconds).unwrap();
 
-        // Use SetFile to set the creation date
+        // Convert to operational timezone and adjust
+        let adjusted_time = created_date.with_timezone(&tz) + time_delta;
+        let formatted_date = adjusted_time.format("%m/%d/%Y %H:%M:%S").to_string();
+
+        // println!("Debug: Original UTC: {}", created_date);
+        // println!(
+        //     "Debug: Desired EST time: {}",
+        //     created_date.with_timezone(&tz)
+        // );
+        // println!("Debug: Adjusted time for SetFile: {}", adjusted_time);
+        // println!("Debug: Formatted date: {}", formatted_date);
+
         let output = std::process::Command::new("SetFile")
             .arg("-d")
             .arg(&formatted_date)
@@ -254,6 +262,20 @@ mod set_file_dates_tests {
         let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
         let modified_date_utc = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
 
+        // println!("\nTest Setup:");
+        // println!("Input created_date_utc: {}", created_date_utc);
+        // println!(
+        //     "Input created_date in {}: {}",
+        //     operational_timezone,
+        //     created_date_utc.with_timezone(&tz)
+        // );
+        // println!("Input modified_date_utc: {}", modified_date_utc);
+        // println!(
+        //     "Input modified_date in {}: {}",
+        //     operational_timezone,
+        //     modified_date_utc.with_timezone(&tz)
+        // );
+
         // Create a temporary file for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let temp_file_path = temp_dir.path().join("test_file.txt");
@@ -279,15 +301,16 @@ mod set_file_dates_tests {
         let retrieved_modified_in_tz = retrieved_modified.with_timezone(&tz);
         let expected_modified_in_tz = modified_date_utc.with_timezone(&tz);
 
-        println!("Modified in UTC: {}", retrieved_modified);
-        println!(
-            "Retrieved modified in {}: {}",
-            operational_timezone, retrieved_modified_in_tz
-        );
-        println!(
-            "Expected modified in {}: {}",
-            operational_timezone, expected_modified_in_tz
-        );
+        // println!("\nModification Time Verification:");
+        // println!("Modified in UTC: {}", retrieved_modified);
+        // println!(
+        //     "Retrieved modified in {}: {}",
+        //     operational_timezone, retrieved_modified_in_tz
+        // );
+        // println!(
+        //     "Expected modified in {}: {}",
+        //     operational_timezone, expected_modified_in_tz
+        // );
 
         assert_eq!(
             retrieved_modified, modified_date_utc,
@@ -308,6 +331,7 @@ mod set_file_dates_tests {
             let retrieved_created_in_tz = retrieved_created.with_timezone(&tz);
             let expected_created_in_tz = created_date_utc.with_timezone(&tz);
 
+            println!("\nCreation Time Verification:");
             println!("Created in UTC: {}", retrieved_created);
             println!(
                 "Retrieved created in {}: {}",

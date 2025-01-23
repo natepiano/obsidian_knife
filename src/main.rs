@@ -48,10 +48,13 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let _timer = Timer::new(TOTAL_TIME);
 
     #[cfg(debug_assertions)]
-    println!("{OBSIDIAN_KNIFE}{DEV}");
+    println!("{OBSIDIAN_KNIFE}\n{DEV} v.{}", env!("CARGO_PKG_VERSION"));
 
     #[cfg(not(debug_assertions))]
-    println!("{OBSIDIAN_KNIFE}{RELEASE}");
+    println!(
+        "{OBSIDIAN_KNIFE}\n{RELEASE} v.{}",
+        env!("CARGO_PKG_VERSION")
+    );
 
     let config_path = get_config_file()?;
 

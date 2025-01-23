@@ -299,6 +299,8 @@ fn test_date_created_fix_integration() {
         // Using 05:00 UTC (midnight Eastern) ensures the date in Eastern timezone
         // matches the frontmatter date, preventing FileSystemMismatch errors
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
+        // println!("Test date: {:?}", test_date); // Debug print
+
         let file_path = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some("[[2024-01-15]]".to_string()),

@@ -40,9 +40,9 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
 }
 
 pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
-    let mut result = ParsedExtractedWikilinks::default();
+    let mut extracted_wikilinks = ParsedExtractedWikilinks::default();
 
-    parse_special_patterns(line, &mut result);
+    parse_special_patterns(line, &mut extracted_wikilinks);
 
     let mut chars = line.char_indices().peekable();
     let mut markdown_opening: Option<usize> = None;
@@ -58,7 +58,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         // Handle unmatched closing brackets when not in a wikilink
         if ch == ']' && is_next_char(&mut chars, ']') {
             let content = line[last_position..=start_idx + 1].to_string();
-            result.invalid.push(ParsedInvalidWikilink {
+            extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                 content,
                 reason: InvalidWikilinkReason::UnmatchedClosing,
                 span: (last_position, start_idx + 2),
@@ -78,7 +78,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 // If we had an unclosed markdown link before this wikilink, add it as invalid
                 if let Some(start_pos) = markdown_opening {
                     let content_slice = line[start_pos..start_idx].trim();
-                    result.invalid.push(ParsedInvalidWikilink {
+                    extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
                         span: (start_pos, start_pos + content_slice.len()),
@@ -95,14 +95,14 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                         WikilinkParseResult::Valid(wikilink) => {
                             // Only add non-image wikilinks to the result
                             if !is_image {
-                                result.valid.push(wikilink);
+                                extracted_wikilinks.valid.push(wikilink);
                             }
                             if let Some((pos, _)) = chars.peek() {
                                 last_position = *pos;
                             }
                         }
                         WikilinkParseResult::Invalid(invalid) => {
-                            result.invalid.push(invalid);
+                            extracted_wikilinks.invalid.push(invalid);
                         }
                     }
                 }
@@ -110,7 +110,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 // Handle markdown link opening as before...
                 if let Some(start_pos) = markdown_opening {
                     let content_slice = line[start_pos..start_idx].trim();
-                    result.invalid.push(ParsedInvalidWikilink {
+                    extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
                         reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
                         span: (start_pos, start_pos + content_slice.len()),
@@ -124,14 +124,14 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     // Handle unclosed markdown link at end of line
     if let Some(start_pos) = markdown_opening {
         let content_slice = line[start_pos..].trim();
-        result.invalid.push(ParsedInvalidWikilink {
+        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: content_slice.to_string(),
             reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
             span: (start_pos, start_pos + content_slice.len()),
         });
     }
 
-    result
+    extracted_wikilinks
 }
 
 fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
