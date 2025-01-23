@@ -93,16 +93,17 @@ impl fmt::Display for Wikilink {
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub enum InvalidWikilinkReason {
-    DoubleAlias,               // e.g. [[A|B|C]]
-    EmptyWikilink,             // [[]] or [[|]]
-    EmailAddress,              // bob@rock.com
-    NestedOpening,             // [[blah [[blah]]
-    RawHttpLink,               // http://somelink.com/
-    Tag,                       // #tags should be ignored
-    UnmatchedClosing,          // ]] without matching [[
-    UnmatchedMarkdownOpening,  // [ without following ]
-    UnmatchedOpening,          // [[ without closing ]]
-    UnmatchedSingleInWikilink, // ] without [ or [ without ]
+    DoubleAlias,                  // e.g. [[A|B|C]]
+    EmptyWikilink,                // [[]] or [[|]]
+    EmailAddress,                 // bob@rock.com
+    NestedOpening,                // [[blah [[blah]]
+    RawHttpLink,                  // http://somelink.com/
+    Tag,                          // #tags should be ignored
+    UnclosedInlineCode,           // ` without closing `
+    UnmatchedClosing,             // ]] without matching [[
+    UnmatchedMarkdownLinkOpening, // [ without following ]
+    UnmatchedOpening,             // [[ without closing ]]
+    UnmatchedSingleInWikilink,    // ] without [ or [ without ]
 }
 
 impl fmt::Display for InvalidWikilinkReason {
@@ -114,8 +115,9 @@ impl fmt::Display for InvalidWikilinkReason {
             Self::NestedOpening => write!(f, "contains a nested opening"),
             Self::RawHttpLink => write!(f, "ignore raw web links"),
             Self::Tag => write!(f, "ignore tags for back population"),
+            Self::UnclosedInlineCode => write!(f, "contains unclosed inline code"),
             Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
-            Self::UnmatchedMarkdownOpening => write!(f, "'[' without following match"),
+            Self::UnmatchedMarkdownLinkOpening => write!(f, "'[' without following match"),
             Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
             Self::UnmatchedSingleInWikilink => write!(f, "contains unmatched bracket '[' or ']'"),
         }

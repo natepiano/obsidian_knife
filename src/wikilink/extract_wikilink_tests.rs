@@ -199,7 +199,7 @@ fn test_unclosed_markdown_links() {
             expected_valid: vec![],
             expected_invalid: vec![(
                 "[display",
-                InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                 (0, 8),
             )],
         },
@@ -209,7 +209,7 @@ fn test_unclosed_markdown_links() {
             expected_valid: vec![],
             expected_invalid: vec![(
                 "[link",
-                InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                 (10, 15),
             )],
         },
@@ -219,7 +219,7 @@ fn test_unclosed_markdown_links() {
             expected_valid: vec![("valid link", "valid link", false)],
             expected_invalid: vec![(
                 "[unclosed",
-                InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                 (15, 24),
             )],
         },
@@ -230,12 +230,12 @@ fn test_unclosed_markdown_links() {
             expected_invalid: vec![
                 (
                     "[first",
-                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                     (0, 6),
                 ),
                 (
                     "[second",
-                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                     (7, 14),
                 ),
             ],
@@ -253,7 +253,7 @@ fn test_unclosed_markdown_links() {
             expected_invalid: vec![
                 (
                     "[unclosed",
-                    InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                    InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                     (14, 23),
                 ), // Fixed span
             ],

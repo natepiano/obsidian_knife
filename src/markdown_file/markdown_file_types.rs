@@ -186,45 +186,6 @@ pub struct BackPopulateMatches {
     pub unambiguous: Vec<BackPopulateMatch>,
 }
 
-#[derive(Debug, PartialEq)]
-pub enum CodeBlockLocation {
-    Inside,
-    Outside,
-}
-
-#[derive(Debug)]
-pub struct CodeBlockTracker {
-    location: CodeBlockLocation,
-}
-
-impl CodeBlockTracker {
-    pub(crate) fn new() -> Self {
-        Self {
-            location: CodeBlockLocation::Outside,
-        }
-    }
-
-    pub(crate) fn update_for_line(&mut self, line: &str) {
-        let trimmed = line.trim();
-
-        // Check code block delimiter
-        if trimmed.starts_with("```") {
-            match self.location {
-                CodeBlockLocation::Inside => {
-                    self.location = CodeBlockLocation::Outside;
-                }
-                CodeBlockLocation::Outside => {
-                    self.location = CodeBlockLocation::Inside;
-                }
-            }
-        }
-    }
-
-    pub(crate) fn should_skip_line(&self) -> bool {
-        self.location == CodeBlockLocation::Inside
-    }
-}
-
 #[derive(Debug, Clone, PartialEq)]
 pub enum ImageLinkTarget {
     Internal,

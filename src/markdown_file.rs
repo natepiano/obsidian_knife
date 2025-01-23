@@ -20,8 +20,10 @@ mod process_content_tests;
 mod table_handling_tests;
 
 mod markdown_file_types;
+mod text_excluder;
 
 pub use markdown_file_types::*;
+pub use text_excluder::{CodeBlockExcluder, InlineCodeExcluder};
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
@@ -195,7 +197,7 @@ impl MarkdownFile {
         ac: &AhoCorasick,
     ) {
         let content = self.content.clone();
-        let mut state = CodeBlockTracker::new();
+        let mut code_block_tracker = CodeBlockExcluder::new();
 
         for (line_idx, line) in content.lines().enumerate() {
             // Skip empty/whitespace lines early
@@ -204,8 +206,8 @@ impl MarkdownFile {
             }
 
             // Update state and skip if needed
-            state.update_for_line(line);
-            if state.should_skip_line() {
+            code_block_tracker.update(line);
+            if code_block_tracker.should_skip() {
                 continue;
             }
 
@@ -252,12 +254,12 @@ impl MarkdownFile {
             }
         }
 
-        let mut state = CodeBlockTracker::new();
+        let mut state = CodeBlockExcluder::new();
 
         // Process content line by line for wikilinks
         for (line_idx, line) in self.content.lines().enumerate() {
-            state.update_for_line(line);
-            if state.should_skip_line() {
+            state.update(line);
+            if state.should_skip() {
                 continue;
             }
 

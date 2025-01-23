@@ -10,6 +10,7 @@ pub use wikilink_types::*;
 
 use crate::{
     constants::*,
+    markdown_file::InlineCodeExcluder,
     utils::{EMAIL_REGEX, TAG_REGEX},
 };
 
@@ -41,6 +42,7 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
 
 pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut extracted_wikilinks = ParsedExtractedWikilinks::default();
+    let mut inline_code = InlineCodeExcluder::new();
 
     parse_special_patterns(line, &mut extracted_wikilinks);
 
@@ -49,6 +51,13 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut last_position: usize = 0;
 
     while let Some((start_idx, ch)) = chars.next() {
+        // Update inline code tracker and skip if in code block
+        inline_code.update(ch);
+
+        if inline_code.should_skip() {
+            continue;
+        }
+
         // Handle escaped characters
         if ch == '\\' {
             chars.next(); // Skip next character
@@ -80,7 +89,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     let content_slice = line[start_pos..start_idx].trim();
                     extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
-                        reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                         span: (start_pos, start_pos + content_slice.len()),
                     });
                     markdown_opening = None;
@@ -112,7 +121,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     let content_slice = line[start_pos..start_idx].trim();
                     extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
-                        reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+                        reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
                         span: (start_pos, start_pos + content_slice.len()),
                     });
                 }
@@ -126,8 +135,19 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         let content_slice = line[start_pos..].trim();
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: content_slice.to_string(),
-            reason: InvalidWikilinkReason::UnmatchedMarkdownOpening,
+            reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
             span: (start_pos, start_pos + content_slice.len()),
+        });
+    }
+
+    // If we ended inside an inline code block, it's unclosed
+    // technically this is allowed in obsidian but it's messy so let's report it
+    if inline_code.is_inside() {
+        // Add an invalid wikilink for the unclosed code block
+        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+            content: line[last_position..].to_string(),
+            reason: InvalidWikilinkReason::UnclosedInlineCode,
+            span: (last_position, line.len()),
         });
     }
 

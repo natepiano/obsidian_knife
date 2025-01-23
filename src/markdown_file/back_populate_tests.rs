@@ -1,4 +1,4 @@
-use crate::markdown_file::{CodeBlockTracker, MarkdownFile};
+use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::wikilink::Wikilink;
 use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
@@ -130,41 +130,6 @@ fn test_config_creation() {
         create_test_environment(true, Some(vec!["pattern".to_string()]), None, None);
     assert!(full_config.apply_changes());
     assert!(full_config.do_not_back_populate().is_some());
-}
-
-#[test]
-fn test_code_block_tracking() {
-    let mut tracker = CodeBlockTracker::new();
-
-    // Initial state
-    assert!(!tracker.should_skip_line(), "Initial state should not skip");
-
-    tracker.update_for_line("```rust");
-    assert!(tracker.should_skip_line(), "Should skip inside code block");
-    tracker.update_for_line("let x = 42;");
-    assert!(tracker.should_skip_line(), "Should still be in code block");
-    tracker.update_for_line("```");
-    assert!(
-        !tracker.should_skip_line(),
-        "Should not skip after code block"
-    );
-
-    // Regular content
-    tracker.update_for_line("Regular text");
-    assert!(!tracker.should_skip_line(), "Should not be in code block");
-
-    // Nested code blocks (treated as toggles)
-    tracker.update_for_line("```python");
-    assert!(
-        tracker.should_skip_line(),
-        "Should skip in second code block"
-    );
-    tracker.update_for_line("print('hello')");
-    tracker.update_for_line("```");
-    assert!(
-        !tracker.should_skip_line(),
-        "Should not skip after second block"
-    );
 }
 
 #[test]
