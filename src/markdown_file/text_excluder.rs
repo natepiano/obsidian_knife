@@ -4,30 +4,25 @@ pub enum CodeBlockDelimiter {
     TripleBacktick,
 }
 
-/// we need a couple of things to be able to convert
-/// into a delimiter - both a str for triple back ticks
-/// and a char for single back ticks
-pub trait ExclusionDelimiter<'a> {
-    fn into_delimiter(self) -> Option<CodeBlockDelimiter>;
-}
+impl TryFrom<&str> for CodeBlockDelimiter {
+    type Error = (); // Using unit type for error since we don't care if it fails
 
-impl<'a> ExclusionDelimiter<'a> for &'a str {
-    fn into_delimiter(self) -> Option<CodeBlockDelimiter> {
-        if self.trim().starts_with("```") {
-            Some(CodeBlockDelimiter::TripleBacktick)
-        } else if self == "`" {
-            Some(CodeBlockDelimiter::Backtick)
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        if s.trim().starts_with("```") {
+            Ok(CodeBlockDelimiter::TripleBacktick)
         } else {
-            None
+            Err(())
         }
     }
 }
 
-impl<'a> ExclusionDelimiter<'a> for char {
-    fn into_delimiter(self) -> Option<CodeBlockDelimiter> {
-        match self {
-            '`' => Some(CodeBlockDelimiter::Backtick),
-            _ => None,
+impl TryFrom<char> for CodeBlockDelimiter {
+    type Error = ();
+
+    fn try_from(c: char) -> Result<Self, Self::Error> {
+        match c {
+            '`' => Ok(CodeBlockDelimiter::Backtick),
+            _ => Err(()),
         }
     }
 }
@@ -71,8 +66,11 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
-    pub fn update<'a, T: ExclusionDelimiter<'a>>(&mut self, content: T) {
-        if let Some(delimiter) = content.into_delimiter() {
+    pub fn update<T>(&mut self, content: T)
+    where
+        T: TryInto<CodeBlockDelimiter>,
+    {
+        if let Ok(delimiter) = content.try_into() {
             if delimiter == self.delimiter.delimiter_type() {
                 match self.location {
                     BlockLocation::Inside => {
