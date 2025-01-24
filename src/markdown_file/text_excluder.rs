@@ -31,7 +31,7 @@ impl TryFrom<char> for CodeBlockDelimiter {
 enum BlockLocation {
     Outside,
     Inside,
-    OnClosingDelimiter,
+    ClosingDelimiterFound,
 }
 
 pub trait BlockDelimiter {
@@ -66,6 +66,10 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
+    /// One might notice that if we're at BlockLocation::OnClosingDelimiter and we
+    /// encounter a delimiter, we go back to inside - this is intentional for the case
+    /// where another code block is opened up right after the last one - it's possible in markdown
+    /// so we don't treat this as a "nested" case we treat it as an opening of a code block
     pub fn update<T>(&mut self, content: T)
     where
         T: TryInto<CodeBlockDelimiter>,
@@ -74,25 +78,29 @@ impl<D: BlockDelimiter> BlockTracker<D> {
             if delimiter == self.delimiter.delimiter_type() {
                 match self.location {
                     BlockLocation::Inside => {
-                        self.location = BlockLocation::OnClosingDelimiter;
+                        self.location = BlockLocation::ClosingDelimiterFound;
                     }
                     BlockLocation::Outside => {
                         self.location = BlockLocation::Inside;
                     }
-                    BlockLocation::OnClosingDelimiter => {
+                    BlockLocation::ClosingDelimiterFound => {
                         self.location = BlockLocation::Inside;
                     }
                 }
             }
-        } else if self.location == BlockLocation::OnClosingDelimiter {
+        } else if self.location == BlockLocation::ClosingDelimiterFound {
             self.location = BlockLocation::Outside;
         }
     }
 
-    pub fn should_skip(&self) -> bool {
+    // we want to be clear that the ClosingDelimiterFound should also be skipped
+    // if we didn't skip it then the closing TripleBacktickDelimiter ``` would be
+    // considered "outside" and it would then be prased by the
+    // character iterator and would treat this as an open/close/open of a code block
+    pub fn is_in_code_block(&self) -> bool {
         matches!(
             self.location,
-            BlockLocation::Inside | BlockLocation::OnClosingDelimiter
+            BlockLocation::Inside | BlockLocation::ClosingDelimiterFound
         )
     }
 
@@ -121,36 +129,42 @@ fn test_code_block_tracking() {
     let mut tracker = CodeBlockExcluder::new();
 
     // Initial state
-    assert!(!tracker.should_skip(), "Initial state should not skip");
+    assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
     tracker.update("```rust");
-    assert!(tracker.should_skip(), "Should skip inside code block");
+    assert!(tracker.is_in_code_block(), "Should skip inside code block");
     tracker.update("let x = 42;");
-    assert!(tracker.should_skip(), "Should still be in code block");
+    assert!(tracker.is_in_code_block(), "Should still be in code block");
     tracker.update("```");
     assert!(
-        tracker.should_skip(),
+        tracker.is_in_code_block(),
         "Should skip while processing closing delimiter"
     );
 
     tracker.update("next line"); // This moves us to Outside
-    assert!(!tracker.should_skip(), "Should not skip after code block");
+    assert!(
+        !tracker.is_in_code_block(),
+        "Should not skip after code block"
+    );
 
     // Regular content
     tracker.update("Regular text");
-    assert!(!tracker.should_skip(), "Should not be in code block");
+    assert!(!tracker.is_in_code_block(), "Should not be in code block");
 
     // Nested code blocks (treated as toggles)
     tracker.update("```python");
-    assert!(tracker.should_skip(), "Should skip in second code block");
+    assert!(
+        tracker.is_in_code_block(),
+        "Should skip in second code block"
+    );
     tracker.update("print('hello')");
     tracker.update("```");
-    assert!(tracker.should_skip(), "Should skip after second block");
+    assert!(tracker.is_in_code_block(), "Should skip after second block");
 
     // immediately following with another code block opening
     tracker.update("```");
     assert!(
-        tracker.should_skip(),
+        tracker.is_in_code_block(),
         "Should skip after opening another code block right after the last one"
     );
 }
@@ -160,26 +174,26 @@ fn test_inline_code_tracking() {
     let mut tracker = InlineCodeExcluder::new();
 
     // Initial state
-    assert!(!tracker.should_skip(), "Initial state should not skip");
+    assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
     tracker.update('`');
     assert!(
-        tracker.should_skip(),
+        tracker.is_in_code_block(),
         "Should skip opening inline code block"
     );
 
     tracker.update('a');
-    assert!(tracker.should_skip(), "should skip inside code block");
+    assert!(tracker.is_in_code_block(), "should skip inside code block");
 
     tracker.update('`');
     assert!(
-        tracker.should_skip(),
+        tracker.is_in_code_block(),
         "Should skip closing inline code block"
     );
 
     tracker.update('b');
     assert!(
-        !tracker.should_skip(),
+        !tracker.is_in_code_block(),
         "Should not skip regular text after an inline code block"
     );
 }

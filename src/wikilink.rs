@@ -54,7 +54,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         // Update inline code tracker and skip if in code block
         inline_code.update(ch);
 
-        if inline_code.should_skip() {
+        if inline_code.is_in_code_block() {
             continue;
         }
 

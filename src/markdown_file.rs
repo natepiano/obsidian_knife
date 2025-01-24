@@ -207,7 +207,7 @@ impl MarkdownFile {
 
             // Update state and skip if needed
             code_block_tracker.update(line);
-            if code_block_tracker.should_skip() {
+            if code_block_tracker.is_in_code_block() {
                 continue;
             }
 
@@ -259,7 +259,7 @@ impl MarkdownFile {
         // Process content line by line for wikilinks
         for (line_idx, line) in self.content.lines().enumerate() {
             state.update(line);
-            if state.should_skip() {
+            if state.is_in_code_block() {
                 continue;
             }
 
