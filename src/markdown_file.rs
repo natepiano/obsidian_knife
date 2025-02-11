@@ -526,10 +526,10 @@ fn get_date_validation_issue(
 
     // Convert UTC fs_date to the specified timezone
     let fs_date_local = fs_date.with_timezone(&tz);
-    let fs_date_ymd = fs_date_local.format("%Y-%m-%d").to_string();
+    let fs_date_naive = fs_date_local.date_naive();
 
     // Compare the dates
-    if frontmatter_date.format("%Y-%m-%d").to_string() != fs_date_ymd {
+    if frontmatter_date != fs_date_naive {
         return Some(DateValidationIssue::FileSystemMismatch);
     }
 

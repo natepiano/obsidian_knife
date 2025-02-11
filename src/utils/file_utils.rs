@@ -1,5 +1,5 @@
 use crate::{constants::*, ValidatedConfig};
-use chrono::{DateTime, Offset, TimeZone, Utc};
+use chrono::{DateTime, Utc};
 use filetime::FileTime;
 use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
@@ -143,23 +143,9 @@ pub fn set_file_dates(
     if let Some(created_date) = created {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
 
-        // Get the offset
-        let offset = tz.offset_from_utc_datetime(&created_date.naive_utc());
-        let offset_seconds = offset.fix().local_minus_utc() as i64;
-        // We want to add the opposite of the offset (if EST is -5, we add +5)
-        let time_delta = chrono::TimeDelta::try_seconds(-offset_seconds).unwrap();
-
-        // Convert to operational timezone and adjust
-        let adjusted_time = created_date.with_timezone(&tz) + time_delta;
-        let formatted_date = adjusted_time.format("%m/%d/%Y %H:%M:%S").to_string();
-
-        // println!("Debug: Original UTC: {}", created_date);
-        // println!(
-        //     "Debug: Desired EST time: {}",
-        //     created_date.with_timezone(&tz)
-        // );
-        // println!("Debug: Adjusted time for SetFile: {}", adjusted_time);
-        // println!("Debug: Formatted date: {}", formatted_date);
+        // Convert directly to local time without additional adjustment
+        let local_time = created_date.with_timezone(&tz);
+        let formatted_date = local_time.format("%m/%d/%Y %H:%M:%S").to_string();
 
         let output = std::process::Command::new("SetFile")
             .arg("-d")

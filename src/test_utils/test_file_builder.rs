@@ -4,7 +4,6 @@ use chrono::{DateTime, Utc};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
-use std::time::SystemTime;
 use tempfile::TempDir;
 
 #[derive(Clone)]
@@ -172,15 +171,10 @@ impl TestFileBuilder {
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
         };
 
-        let created_system = SystemTime::UNIX_EPOCH
-            + std::time::Duration::from_secs(self.fs_created.timestamp() as u64);
-        let modified_system = SystemTime::UNIX_EPOCH
-            + std::time::Duration::from_secs(self.fs_modified.timestamp() as u64);
-
         utils::set_file_dates(
             &file_path,
-            Some(created_system.into()),
-            modified_system.into(),
+            Some(self.fs_created), // Pass DateTime<Utc> directly
+            self.fs_modified,      // Pass DateTime<Utc> directly
             DEFAULT_TIMEZONE,
         )
         .unwrap();
