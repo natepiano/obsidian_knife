@@ -13,8 +13,8 @@ path = "src/main.rs"
 
 [workspace]
 members = [
-    "vecollect",
-    ".",         # assuming your main project is in the root directory
+  "vecollect",
+  ".",         # assuming your main project is in the root directory
 ]
 
 [dependencies]
