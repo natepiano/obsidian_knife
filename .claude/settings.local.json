@@ -3,7 +3,8 @@
     "allow": [
       "WebSearch",
       "Bash(cargo clippy:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ],
     "deny": [],
     "ask": []
