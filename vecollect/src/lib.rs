@@ -46,7 +46,7 @@ pub fn collection(args: TokenStream, input: TokenStream) -> TokenStream {
             fields
                 .named
                 .iter()
-                .find(|f| f.ident.as_ref().map_or(false, |i| i == &field_name))
+                .find(|f| f.ident.as_ref() == Some(&field_name))
                 .and_then(|field| {
                     if let Type::Path(type_path) = &field.ty {
                         type_path

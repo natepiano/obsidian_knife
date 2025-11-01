@@ -241,7 +241,7 @@ fn test_image_replacement_outcomes() {
         for path in &created_paths {
             if path
                 .extension()
-                .map_or(false, |ext| ext == MARKDOWN_EXTENSION)
+                .is_some_and(|ext| ext == MARKDOWN_EXTENSION)
             {
                 if let Some(markdown_file) = repository.markdown_files.get_mut(path) {
                     markdown_file.mark_image_reference_as_updated(config.operational_timezone());

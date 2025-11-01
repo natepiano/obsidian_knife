@@ -618,7 +618,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     let after_chars = &line[ends_at..];
 
     // Check start boundary
-    let start_is_boundary = starts_at == 0 || before.map_or(true, |ch| !is_word_char(ch));
+    let start_is_boundary = starts_at == 0 || before.is_none_or(|ch| !is_word_char(ch));
 
     // Check end boundary
     // No need to check for possessives as they should be valid candidates for replacement

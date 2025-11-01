@@ -110,10 +110,10 @@ impl ObsidianRepository {
                     | ImageFileState::Incompatible { .. }
             )
         }) || self.markdown_files.files_to_persist().iter().any(|file| {
-            file.image_links
+            !file
+                .image_links
                 .filter_by_variant(ImageLinkState::Missing)
-                .len()
-                > 0
+                .is_empty()
         });
 
         if has_report_entries {

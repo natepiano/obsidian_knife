@@ -8,20 +8,20 @@
 /// # Type Parameters
 /// - `T`: The type of the `Ok` value in the `Result`.
 /// - `E`: The type of the `Err` value in the `Result`. Must implement `PartialEq`
-///        and `Debug` to enable comparison and formatted error output. One gotcha is that
-///        if you're using an Enum of error variants, and they happen to carry string messages,
-///        you might want to implement a custom PartialEq so that it's not crucial that the
-///        strings match the code and the test as it's really the variant that usually matters
+///   and `Debug` to enable comparison and formatted error output. One gotcha is that
+///   if you're using an Enum of error variants, and they happen to carry string messages,
+///   you might want to implement a custom PartialEq so that it's not crucial that the
+///   strings match the code and the test as it's really the variant that usually matters
 /// - `F`: A function or closure that defines the custom comparison logic for `Ok` values.
 ///
 /// # Parameters
 /// - `result`: The actual `Result` value obtained from the test case execution.
 /// - `expected`: The expected `Result` value to compare against `result`.
 /// - `test_name`: A name or description of the test case, used for more informative
-///                error messages on failure.
+///   error messages on failure.
 /// - `ok_compare`: A function or closure that takes references to the `Ok` values of
-///                 `result` and `expected`. It will be called to assert the equality
-///                 of `Ok` values, and should panic if they do not match.
+///   `result` and `expected`. It will be called to assert the equality
+///   of `Ok` values, and should panic if they do not match.
 ///
 /// # Panics
 /// - If `result` and `expected` have different `Ok` or `Err` values, a detailed assertion

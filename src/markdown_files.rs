@@ -62,7 +62,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .map_or(false, |fm| fm.needs_persist())
+                    .is_some_and(|fm| fm.needs_persist())
             })
             .count()
     }
@@ -74,7 +74,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .map_or(false, |fm| fm.needs_persist())
+                    .is_some_and(|fm| fm.needs_persist())
             })
             .cloned()
             .collect();
