@@ -1,4 +1,5 @@
 // processing stuff
+#[cfg(debug_assertions)]
 pub const DEV: &str = "dev";
 pub const ERROR_DETAILS: &str = "error details:";
 pub const ERROR_OCCURRED: &str = "error occurred";
@@ -9,6 +10,8 @@ pub const MILLISECONDS: &str = "ms";
 pub const MODE_APPLY_CHANGES: &str = "apply changes is on - changes will be applied";
 pub const MODE_APPLY_CHANGES_OFF: &str = "apply changes is off - no changes will be applied";
 pub const OBSIDIAN_KNIFE: &str = "obsidian knife - aka \"ok\"";
+#[cfg(not(debug_assertions))]
+pub const RELEASE: &str = "release";
 pub const TOTAL_TIME: &str = "total time";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
