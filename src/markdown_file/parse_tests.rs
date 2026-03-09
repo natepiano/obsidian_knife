@@ -1,4 +1,4 @@
-use crate::markdown_file::MarkdownFile;
+use super::MarkdownFile;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use std::fs;

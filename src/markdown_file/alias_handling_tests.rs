@@ -1,4 +1,4 @@
-use crate::markdown_file::MarkdownFile;
+use super::MarkdownFile;
 use crate::obsidian_repository;
 use crate::test_support;
 use crate::test_support as test_utils;

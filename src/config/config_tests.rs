@@ -1,4 +1,4 @@
-use crate::config::Config;
+use super::Config;
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;

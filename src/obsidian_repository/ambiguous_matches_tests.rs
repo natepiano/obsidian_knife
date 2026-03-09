@@ -1,5 +1,5 @@
 use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
-use crate::obsidian_repository::ObsidianRepository;
+use super::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;

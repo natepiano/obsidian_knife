@@ -1,4 +1,4 @@
-use crate::markdown_file::MarkdownFile;
+use super::MarkdownFile;
 use crate::DEFAULT_TIMEZONE;
 
 use crate::test_support;
