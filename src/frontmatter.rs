@@ -1,8 +1,11 @@
+use chrono::DateTime;
+use chrono::Utc;
+use regex::Regex;
+use serde::Deserialize;
+use serde::Serialize;
+
 use crate::utils;
 use crate::yaml_frontmatter_struct;
-use chrono::{DateTime, Utc};
-use regex::Regex;
-use serde::{Deserialize, Serialize};
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
@@ -29,21 +32,13 @@ yaml_frontmatter_struct! {
 }
 
 impl FrontMatter {
-    pub fn aliases(&self) -> Option<&Vec<String>> {
-        self.aliases.as_ref()
-    }
+    pub fn aliases(&self) -> Option<&Vec<String>> { self.aliases.as_ref() }
 
-    pub fn date_created(&self) -> Option<&String> {
-        self.date_created.as_ref()
-    }
+    pub fn date_created(&self) -> Option<&String> { self.date_created.as_ref() }
 
-    pub fn date_modified(&self) -> Option<&String> {
-        self.date_modified.as_ref()
-    }
+    pub fn date_modified(&self) -> Option<&String> { self.date_modified.as_ref() }
 
-    pub fn date_created_fix(&self) -> Option<&String> {
-        self.date_created_fix.as_ref()
-    }
+    pub fn date_created_fix(&self) -> Option<&String> { self.date_created_fix.as_ref() }
 
     pub fn remove_date_created_fix(&mut self) {
         // setting it to None will cause it to skip serialization
@@ -84,15 +79,14 @@ impl FrontMatter {
         self.needs_persist = true;
     }
 
-    pub fn needs_persist(&self) -> bool {
-        self.needs_persist
-    }
+    pub fn needs_persist(&self) -> bool { self.needs_persist }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
         // first get do_not_back_populate explicit value
         let mut do_not_populate = self.do_not_back_populate.clone().unwrap_or_default();
 
-        // if there are aliases, add them to that as we don't need text on the page to link to this same page
+        // if there are aliases, add them to that as we don't need text on the page to link to this
+        // same page
         if let Some(aliases) = self.aliases() {
             do_not_populate.extend(aliases.iter().cloned());
         }

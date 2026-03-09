@@ -1,27 +1,30 @@
-use crate::constants::*;
-use crate::markdown_file::BackPopulateMatch;
-use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter};
-use crate::validated_config::ValidatedConfig;
-use crate::wikilink::ToWikilink;
-use crate::{report, utils};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
+use crate::constants::*;
+use crate::markdown_file::BackPopulateMatch;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::report;
+use crate::utils;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::validated_config::ValidatedConfig;
+use crate::wikilink::ToWikilink;
+
 struct AmbiguousMatchesTable {
-    display_text: String,
-    targets: HashSet<String>,
+    display_text:   String,
+    targets:        HashSet<String>,
     sorted_targets: Vec<String>,
 }
 
 impl ReportDefinition for AmbiguousMatchesTable {
     type Item = BackPopulateMatch;
 
-    fn headers(&self) -> Vec<&str> {
-        vec!["file name", "line", TEXT, OCCURRENCES]
-    }
+    fn headers(&self) -> Vec<&str> { vec!["file name", "line", TEXT, OCCURRENCES] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -136,9 +139,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         result
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL3
-    }
+    fn level(&self) -> &'static str { LEVEL3 }
 }
 
 impl ObsidianRepository {
@@ -153,7 +154,7 @@ impl ObsidianRepository {
 
         // First pass: collect all matches
         for markdown_file in &self.markdown_files
-        /*.files_to_persist()*/
+        /* .files_to_persist() */
         {
             for match_info in &markdown_file.matches.ambiguous {
                 let key = match_info.found_text.to_lowercase();

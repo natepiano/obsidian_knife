@@ -22,47 +22,65 @@ mod table_handling_tests;
 mod markdown_file_types;
 mod text_excluder;
 
-pub use markdown_file_types::{
-    BackPopulateMatch, BackPopulateMatches, DateCreatedFixValidation, DateValidation,
-    DateValidationIssue, ImageLink, ImageLinkState, ImageLinkTarget, ImageLinkType, ImageLinks,
-    MatchType, PersistReason, ReplaceableContent, Wikilinks,
-};
-pub use text_excluder::InlineCodeExcluder;
+use std::error::Error;
+use std::fs;
+use std::io;
+use std::path::PathBuf;
+
+use aho_corasick::AhoCorasick;
+use chrono::DateTime;
+use chrono::NaiveDate;
+use chrono::Utc;
+use itertools::Itertools;
+pub use markdown_file_types::BackPopulateMatch;
+pub use markdown_file_types::BackPopulateMatches;
+pub use markdown_file_types::DateCreatedFixValidation;
+pub use markdown_file_types::DateValidation;
+pub use markdown_file_types::DateValidationIssue;
+pub use markdown_file_types::ImageLink;
+pub use markdown_file_types::ImageLinkState;
+pub use markdown_file_types::ImageLinkTarget;
+pub use markdown_file_types::ImageLinkType;
+pub use markdown_file_types::ImageLinks;
+pub use markdown_file_types::MatchType;
+pub use markdown_file_types::PersistReason;
+pub use markdown_file_types::ReplaceableContent;
+pub use markdown_file_types::Wikilinks;
+use regex::Regex;
 use text_excluder::CodeBlockExcluder;
+pub use text_excluder::InlineCodeExcluder;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
-use crate::utils::{IMAGE_REGEX, MARKDOWN_REGEX};
+use crate::obsidian_repository;
+use crate::utils;
+use crate::utils::IMAGE_REGEX;
+use crate::utils::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
-use crate::wikilink::{ExtractedWikilinks, InvalidWikilink, ToWikilink, Wikilink};
+use crate::wikilink::ExtractedWikilinks;
+use crate::wikilink::InvalidWikilink;
+use crate::wikilink::ToWikilink;
+use crate::wikilink::Wikilink;
 use crate::yaml_frontmatter;
-use crate::yaml_frontmatter::{YamlFrontMatter, YamlFrontMatterError};
-use crate::{obsidian_repository, utils};
-
-use aho_corasick::AhoCorasick;
-use chrono::{DateTime, NaiveDate, Utc};
-use itertools::Itertools;
-use regex::Regex;
-use std::error::Error;
-use std::path::PathBuf;
-use std::{fs, io};
+use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::yaml_frontmatter::YamlFrontMatterError;
 
 #[derive(Debug, Clone)]
 pub struct MarkdownFile {
-    pub content: String,
-    pub date_created_fix: DateCreatedFixValidation,
-    pub date_validation_created: DateValidation,
-    pub date_validation_modified: DateValidation,
+    pub content:                      String,
+    pub date_created_fix:             DateCreatedFixValidation,
+    pub date_validation_created:      DateValidation,
+    pub date_validation_modified:     DateValidation,
     pub do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub frontmatter: Option<FrontMatter>,
-    pub frontmatter_error: Option<YamlFrontMatterError>,
-    pub frontmatter_line_count: usize,
-    pub image_links: ImageLinks,
-    pub wikilinks: Wikilinks,
-    pub matches: BackPopulateMatches,
-    pub path: PathBuf,
-    pub persist_reasons: Vec<PersistReason>,
+    pub frontmatter:                  Option<FrontMatter>,
+    pub frontmatter_error:            Option<YamlFrontMatterError>,
+    pub frontmatter_line_count:       usize,
+    pub image_links:                  ImageLinks,
+    pub wikilinks:                    Wikilinks,
+    pub matches:                      BackPopulateMatches,
+    pub path:                         PathBuf,
+    pub persist_reasons:              Vec<PersistReason>,
 }
 
 impl MarkdownFile {
@@ -84,7 +102,7 @@ impl MarkdownFile {
                     Ok(fm) => (Some(fm), after_yaml.to_string(), None),
                     Err(e) => (None, after_yaml.to_string(), Some(e)),
                 }
-            }
+            },
             Ok(None) => (None, full_content, Some(YamlFrontMatterError::Missing)),
             Err(e) => (None, full_content, Some(e)),
         };
@@ -253,7 +271,7 @@ impl MarkdownFile {
             for alias in alias_list {
                 let wikilink = Wikilink {
                     display_text: alias.clone(),
-                    target: filename_wikilink.target.clone(),
+                    target:       filename_wikilink.target.clone(),
                 };
                 result.valid.push(wikilink);
             }
@@ -309,8 +327,8 @@ impl MarkdownFile {
                         ImageLinkType::Wikilink(_)
                         | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
                             image_links.push(image_link)
-                        }
-                        _ => {}
+                        },
+                        _ => {},
                     }
                 }
             }
@@ -437,13 +455,9 @@ impl MarkdownFile {
         !wikilink::is_within_wikilink(line, absolute_start)
     }
 
-    pub fn has_ambiguous_matches(&self) -> bool {
-        !self.matches.ambiguous.is_empty()
-    }
+    pub fn has_ambiguous_matches(&self) -> bool { !self.matches.ambiguous.is_empty() }
 
-    pub fn has_unambiguous_matches(&self) -> bool {
-        !self.matches.unambiguous.is_empty()
-    }
+    pub fn has_unambiguous_matches(&self) -> bool { !self.matches.unambiguous.is_empty() }
 }
 
 fn get_date_validations(
@@ -474,7 +488,8 @@ fn get_date_validations(
         ),
     ];
 
-    // skip when the create date has a date_created_fix in place, we don't need to validate as it's moot
+    // skip when the create date has a date_created_fix in place, we don't need to validate as it's
+    // moot
     Ok(dates
         .into_iter()
         .map(|(frontmatter_date, fs_date)| {
@@ -604,9 +619,7 @@ fn process_date_validations(
 
 fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     // Helper to check if a char is a word character (\w in regex)
-    fn is_word_char(ch: char) -> bool {
-        ch.is_alphanumeric() || ch == '_'
-    }
+    fn is_word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == '_' }
 
     // Helper to check if string matches a contraction pattern ending in apostrophe t or T
     fn is_t_contraction(chars: &str) -> bool {

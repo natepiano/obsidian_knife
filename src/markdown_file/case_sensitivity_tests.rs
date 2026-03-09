@@ -1,4 +1,5 @@
-use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
@@ -6,19 +7,19 @@ use crate::wikilink::Wikilink;
 
 // Helper struct for test cases
 struct TestCase {
-    content: &'static str,
-    wikilink: Wikilink,
+    content:          &'static str,
+    wikilink:         Wikilink,
     expected_matches: Vec<(&'static str, &'static str)>,
-    description: &'static str,
+    description:      &'static str,
 }
 
 fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
     vec![
         TestCase {
-            content: "test link TEST LINK Test Link",
-            wikilink: Wikilink {
+            content:          "test link TEST LINK Test Link",
+            wikilink:         Wikilink {
                 display_text: "Test Link".to_string(),
-                target: "Test Link".to_string(),
+                target:       "Test Link".to_string(),
             },
             // careful - these must match the order returned by process_line
             expected_matches: vec![
@@ -26,37 +27,37 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
                 ("TEST LINK", "[[Test Link|TEST LINK]]"),
                 ("Test Link", "[[Test Link]]"),
             ],
-            description: "Basic case-insensitive matching",
+            description:      "Basic case-insensitive matching",
         },
         TestCase {
-            content: "josh likes apples",
-            wikilink: Wikilink {
+            content:          "josh likes apples",
+            wikilink:         Wikilink {
                 display_text: "josh".to_string(),
-                target: "Joshua Strayhorn".to_string(),
+                target:       "Joshua Strayhorn".to_string(),
             },
             expected_matches: vec![("josh", "[[Joshua Strayhorn|josh]]")],
-            description: "Alias case preservation",
+            description:      "Alias case preservation",
         },
         TestCase {
-            content: "karen likes math",
-            wikilink: Wikilink {
+            content:          "karen likes math",
+            wikilink:         Wikilink {
                 display_text: "Karen".to_string(),
-                target: "Karen McCoy".to_string(),
+                target:       "Karen McCoy".to_string(),
             },
             expected_matches: vec![("karen", "[[Karen McCoy|karen]]")],
-            description: "Alias case preservation when display case differs from content",
+            description:      "Alias case preservation when display case differs from content",
         },
         TestCase {
-            content: "| Test Link | Another test link |",
-            wikilink: Wikilink {
+            content:          "| Test Link | Another test link |",
+            wikilink:         Wikilink {
                 display_text: "Test Link".to_string(),
-                target: "Test Link".to_string(),
+                target:       "Test Link".to_string(),
             },
             expected_matches: vec![
                 ("Test Link", "[[Test Link]]"),
                 ("test link", "[[Test Link|test link]]"),
             ],
-            description: "Case handling in tables",
+            description:      "Case handling in tables",
         },
     ]
 }

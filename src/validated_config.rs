@@ -1,12 +1,16 @@
 #[cfg(test)]
 mod validated_config_tests;
 
-use crate::{constants::*, utils};
+use std::path::Path;
+use std::path::PathBuf;
+
 use chrono_tz::Tz;
 use derive_builder::Builder;
 use regex::Regex;
-use std::path::{Path, PathBuf};
 use thiserror::Error;
+
+use crate::constants::*;
+use crate::utils;
 
 #[derive(Error, Debug)]
 pub enum ValidationError {
@@ -42,24 +46,24 @@ impl From<derive_builder::UninitializedFieldError> for ValidationError {
 )]
 pub struct ValidatedConfig {
     #[builder(default = "false")]
-    apply_changes: bool,
+    apply_changes:                bool,
     #[builder(default)]
-    back_populate_file_filter: Option<String>,
+    back_populate_file_filter:    Option<String>,
     #[builder(setter(custom), default)]
     #[allow(dead_code)]
-    do_not_back_populate: Option<Vec<String>>,
+    do_not_back_populate:         Option<Vec<String>>,
     #[builder(setter(strip_option), default)]
     do_not_back_populate_regexes: Option<Vec<Regex>>,
     #[builder(default)]
-    file_limit: Option<usize>,
+    file_limit:                   Option<usize>,
     #[builder(setter(custom), default)]
-    ignore_folders: Option<Vec<PathBuf>>,
+    ignore_folders:               Option<Vec<PathBuf>>,
     #[builder(setter(into))]
-    obsidian_path: PathBuf,
+    obsidian_path:                PathBuf,
     #[builder(default = "DEFAULT_TIMEZONE.to_string()")]
-    operational_timezone: String,
+    operational_timezone:         String,
     #[builder(setter(custom))]
-    output_folder: PathBuf,
+    output_folder:                PathBuf,
 }
 
 impl ValidatedConfigBuilder {
@@ -195,13 +199,9 @@ impl ValidatedConfigBuilder {
 }
 
 impl ValidatedConfig {
-    pub fn apply_changes(&self) -> bool {
-        self.apply_changes
-    }
+    pub fn apply_changes(&self) -> bool { self.apply_changes }
 
-    pub fn file_limit(&self) -> Option<usize> {
-        self.file_limit
-    }
+    pub fn file_limit(&self) -> Option<usize> { self.file_limit }
 
     pub fn back_populate_file_filter(&self) -> Option<String> {
         self.back_populate_file_filter.as_ref().map(|filter| {
@@ -222,27 +222,17 @@ impl ValidatedConfig {
     }
 
     #[cfg(test)]
-    pub fn do_not_back_populate(&self) -> Option<&[String]> {
-        self.do_not_back_populate.as_deref()
-    }
+    pub fn do_not_back_populate(&self) -> Option<&[String]> { self.do_not_back_populate.as_deref() }
 
     pub fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
         self.do_not_back_populate_regexes.as_deref()
     }
 
-    pub fn ignore_folders(&self) -> Option<&[PathBuf]> {
-        self.ignore_folders.as_deref()
-    }
+    pub fn ignore_folders(&self) -> Option<&[PathBuf]> { self.ignore_folders.as_deref() }
 
-    pub fn obsidian_path(&self) -> &Path {
-        &self.obsidian_path
-    }
+    pub fn obsidian_path(&self) -> &Path { &self.obsidian_path }
 
-    pub fn operational_timezone(&self) -> &str {
-        &self.operational_timezone
-    }
+    pub fn operational_timezone(&self) -> &str { &self.operational_timezone }
 
-    pub fn output_folder(&self) -> &Path {
-        &self.output_folder
-    }
+    pub fn output_folder(&self) -> &Path { &self.output_folder }
 }

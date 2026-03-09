@@ -6,17 +6,22 @@ mod sha256_cache;
 mod timer;
 mod vec_enum_filter;
 
-pub use file_utils::{
-    collect_repository_files, expand_tilde, read_contents_from_file, set_file_dates,
-};
-pub use output_file_writer::{ColumnAlignment, OutputFileWriter};
-pub use regex_utils::{
-    build_case_insensitive_word_finder, EMAIL_REGEX, IMAGE_REGEX, MARKDOWN_REGEX, RAW_HTTP_REGEX,
-    TAG_REGEX,
-};
+pub use file_utils::collect_repository_files;
+pub use file_utils::expand_tilde;
+pub use file_utils::read_contents_from_file;
+pub use file_utils::set_file_dates;
+pub use output_file_writer::ColumnAlignment;
+pub use output_file_writer::OutputFileWriter;
+pub use regex_utils::build_case_insensitive_word_finder;
+pub use regex_utils::EMAIL_REGEX;
+pub use regex_utils::IMAGE_REGEX;
+pub use regex_utils::MARKDOWN_REGEX;
+pub use regex_utils::RAW_HTTP_REGEX;
+pub use regex_utils::TAG_REGEX;
 pub use sha256_cache::Sha256Cache;
 pub use timer::Timer;
-pub use vec_enum_filter::{EnumFilter, VecEnumFilter};
+pub use vec_enum_filter::EnumFilter;
+pub use vec_enum_filter::VecEnumFilter;
 
 // Helper function to escape pipes in Markdown strings
 pub fn escape_pipe(text: &str) -> String {
@@ -50,6 +55,4 @@ pub fn escape_pipe(text: &str) -> String {
 }
 
 // Helper function to escape pipes and brackets for visual verification
-pub fn escape_brackets(text: &str) -> String {
-    text.replace('[', r"\[").replace(']', r"\]")
-}
+pub fn escape_brackets(text: &str) -> String { text.replace('[', r"\[").replace(']', r"\]") }

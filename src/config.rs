@@ -1,14 +1,19 @@
 #[cfg(test)]
 mod config_tests;
 
-use crate::constants::*;
-use crate::frontmatter::FrontMatter;
-use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
-use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::{utils, yaml_frontmatter_struct};
-use serde::{Deserialize, Serialize};
 use std::error::Error;
 use std::path::PathBuf;
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::constants::*;
+use crate::frontmatter::FrontMatter;
+use crate::utils;
+use crate::validated_config::ValidatedConfig;
+use crate::validated_config::ValidatedConfigBuilder;
+use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::yaml_frontmatter_struct;
 
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]

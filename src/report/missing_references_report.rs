@@ -1,21 +1,23 @@
+use std::error::Error;
+use std::path::PathBuf;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
-use std::error::Error;
-use std::path::PathBuf;
 
 pub(super) struct MissingReferencesTable;
 
 impl ReportDefinition for MissingReferencesTable {
     type Item = (PathBuf, String, usize, usize); // (markdown_path, extracted_filename, line, position)
 
-    fn headers(&self) -> Vec<&str> {
-        vec![FILE, LINE, POSITION, MISSING_IMAGE_REFERENCES, ACTION]
-    }
+    fn headers(&self) -> Vec<&str> { vec![FILE, LINE, POSITION, MISSING_IMAGE_REFERENCES, ACTION] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -70,9 +72,7 @@ impl ReportDefinition for MissingReferencesTable {
         rows
     }
 
-    fn title(&self) -> Option<String> {
-        Some(MISSING_IMAGE_REFERENCES.to_string())
-    }
+    fn title(&self) -> Option<String> { Some(MISSING_IMAGE_REFERENCES.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         DescriptionBuilder::new()
@@ -83,9 +83,7 @@ impl ReportDefinition for MissingReferencesTable {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL2
-    }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {

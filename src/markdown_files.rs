@@ -1,16 +1,18 @@
-use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
-use crate::validated_config::ValidatedConfig;
-use crate::wikilink::Wikilink;
+use std::error::Error;
 
 use aho_corasick::AhoCorasick;
 use rayon::prelude::*;
-use std::error::Error;
 use vecollect::collection;
+
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MarkdownFile;
+use crate::validated_config::ValidatedConfig;
+use crate::wikilink::Wikilink;
 
 #[derive(Debug, Default)]
 #[collection(field = "files")]
 pub struct MarkdownFiles {
-    pub(crate) files: Vec<MarkdownFile>,
+    pub(crate) files:      Vec<MarkdownFile>,
     pub(crate) file_limit: Option<usize>,
 }
 
@@ -85,7 +87,7 @@ impl MarkdownFiles {
         let count = self.file_limit.unwrap_or(total_files);
 
         Self {
-            files: files_to_persist.into_iter().take(count).collect(),
+            files:      files_to_persist.into_iter().take(count).collect(),
             file_limit: self.file_limit,
         }
     }

@@ -1,11 +1,14 @@
-use crate::markdown_file::{
-    ImageLink, ImageLinkTarget, ImageLinkType, MarkdownFile,
-};
+use tempfile::TempDir;
+
 use crate::markdown_file::markdown_file_types::ImageLinkRendering;
+use crate::markdown_file::ImageLink;
+use crate::markdown_file::ImageLinkTarget;
+use crate::markdown_file::ImageLinkType;
+use crate::markdown_file::MarkdownFile;
 use crate::test_support::TestFileBuilder;
 use crate::utils::IMAGE_REGEX;
-use crate::wikilink::{InvalidWikilinkReason, Wikilink};
-use tempfile::TempDir;
+use crate::wikilink::InvalidWikilinkReason;
+use crate::wikilink::Wikilink;
 
 fn assert_contains_wikilink(
     wikilinks: &[Wikilink],
@@ -176,9 +179,9 @@ fn test_process_content_with_images() {
 
 #[derive(Debug)]
 struct ImageLinkTestCase {
-    input: &'static str,
+    input:             &'static str,
     expected_filename: &'static str,
-    expected_type: ImageLinkType,
+    expected_type:     ImageLinkType,
 }
 
 impl ImageLinkTestCase {

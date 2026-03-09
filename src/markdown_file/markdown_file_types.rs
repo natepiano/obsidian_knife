@@ -1,12 +1,20 @@
-use crate::frontmatter::FrontMatter;
-use crate::image_file::IncompatibilityReason;
-use crate::utils::EnumFilter;
-use crate::wikilink::{InvalidWikilink, Wikilink};
-use crate::{constants::*, markdown_file, wikilink};
-use chrono::{DateTime, NaiveDate, TimeZone, Utc};
 use std::fmt;
 use std::path::PathBuf;
+
+use chrono::DateTime;
+use chrono::NaiveDate;
+use chrono::TimeZone;
+use chrono::Utc;
 use vecollect::collection;
+
+use crate::constants::*;
+use crate::frontmatter::FrontMatter;
+use crate::image_file::IncompatibilityReason;
+use crate::markdown_file;
+use crate::utils::EnumFilter;
+use crate::wikilink;
+use crate::wikilink::InvalidWikilink;
+use crate::wikilink::Wikilink;
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum PersistReason {
@@ -51,9 +59,9 @@ impl fmt::Display for DateValidationIssue {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DateValidation {
-    pub frontmatter_date: Option<String>,
-    pub file_system_date: DateTime<Utc>,
-    pub issue: Option<DateValidationIssue>,
+    pub frontmatter_date:     Option<String>,
+    pub file_system_date:     DateTime<Utc>,
+    pub issue:                Option<DateValidationIssue>,
     pub operational_timezone: String,
 }
 
@@ -75,7 +83,7 @@ impl DateValidation {
 #[derive(Debug, Default, Clone)]
 pub struct DateCreatedFixValidation {
     pub date_string: Option<String>,
-    pub fix_date: Option<DateTime<Utc>>,
+    pub fix_date:    Option<DateTime<Utc>>,
 }
 
 impl DateCreatedFixValidation {
@@ -128,7 +136,7 @@ impl DateCreatedFixValidation {
 
         DateCreatedFixValidation {
             date_string: fix_str,
-            fix_date: parsed_date,
+            fix_date:    parsed_date,
         }
     }
 }
@@ -149,40 +157,30 @@ pub trait ReplaceableContent {
 
 #[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatch {
-    pub found_text: String,
+    pub found_text:        String,
     pub in_markdown_table: bool,
-    pub line_number: usize,
-    pub line_text: String,
-    pub position: usize,
-    pub relative_path: String,
-    pub replacement: String,
+    pub line_number:       usize,
+    pub line_text:         String,
+    pub position:          usize,
+    pub relative_path:     String,
+    pub replacement:       String,
 }
 
 impl ReplaceableContent for BackPopulateMatch {
-    fn line_number(&self) -> usize {
-        self.line_number
-    }
+    fn line_number(&self) -> usize { self.line_number }
 
-    fn position(&self) -> usize {
-        self.position
-    }
+    fn position(&self) -> usize { self.position }
 
-    fn get_replacement(&self) -> String {
-        self.replacement.clone()
-    }
+    fn get_replacement(&self) -> String { self.replacement.clone() }
 
-    fn matched_text(&self) -> String {
-        self.found_text.clone()
-    }
+    fn matched_text(&self) -> String { self.found_text.clone() }
 
-    fn match_type(&self) -> MatchType {
-        MatchType::BackPopulate
-    }
+    fn match_type(&self) -> MatchType { MatchType::BackPopulate }
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatches {
-    pub ambiguous: Vec<BackPopulateMatch>,
+    pub ambiguous:   Vec<BackPopulateMatch>,
     pub unambiguous: Vec<BackPopulateMatch>,
 }
 
@@ -206,7 +204,7 @@ pub enum ImageLinkType {
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Wikilinks {
-    pub valid: Vec<Wikilink>,
+    pub valid:   Vec<Wikilink>,
     pub invalid: Vec<InvalidWikilink>,
 }
 
@@ -231,33 +229,27 @@ pub enum ImageLinkState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageLink {
-    pub matched_text: String, // The full ![[image.jpg]] syntax
-    pub position: usize,
-    pub line_number: usize,
-    pub filename: String, // Just "image.jpg"
-    pub relative_path: String,
-    pub alt_text: String,
-    pub size_parameter: Option<String>, // Added to handle |400 style parameters
-    pub state: ImageLinkState,
+    pub matched_text:    String, // The full ![[image.jpg]] syntax
+    pub position:        usize,
+    pub line_number:     usize,
+    pub filename:        String, // Just "image.jpg"
+    pub relative_path:   String,
+    pub alt_text:        String,
+    pub size_parameter:  Option<String>, // Added to handle |400 style parameters
+    pub state:           ImageLinkState,
     pub image_link_type: ImageLinkType,
 }
 
 impl EnumFilter for ImageLink {
     type EnumType = ImageLinkState;
 
-    fn as_enum(&self) -> &Self::EnumType {
-        &self.state
-    }
+    fn as_enum(&self) -> &Self::EnumType { &self.state }
 }
 
 impl ReplaceableContent for ImageLink {
-    fn line_number(&self) -> usize {
-        self.line_number
-    }
+    fn line_number(&self) -> usize { self.line_number }
 
-    fn position(&self) -> usize {
-        self.position
-    }
+    fn position(&self) -> usize { self.position }
 
     fn get_replacement(&self) -> String {
         match &self.state {
@@ -283,28 +275,25 @@ impl ReplaceableContent for ImageLink {
                         match (target, rendering) {
                             (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
                                 format!("![{}]({})", self.alt_text, new_relative)
-                            }
+                            },
                             (ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly) => {
                                 format!("[{}]({})", self.alt_text, new_relative)
-                            }
+                            },
                             (ImageLinkTarget::External, _) => {
-                                // We shouldn't get here for duplicate handling as we don't process external images
+                                // We shouldn't get here for duplicate handling as we don't process
+                                // external images
                                 self.matched_text.clone()
-                            }
+                            },
                         }
-                    }
+                    },
                 }
-            }
+            },
         }
     }
 
-    fn matched_text(&self) -> String {
-        self.matched_text.clone()
-    }
+    fn matched_text(&self) -> String { self.matched_text.clone() }
 
-    fn match_type(&self) -> MatchType {
-        MatchType::ImageReference
-    }
+    fn match_type(&self) -> MatchType { MatchType::ImageReference }
 }
 
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)

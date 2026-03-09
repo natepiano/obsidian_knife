@@ -2,10 +2,10 @@ use super::InvalidWikilinkReason;
 use super::*;
 
 struct WikilinkTestCase {
-    description: &'static str,
-    input: &'static str,
-    expected_valid: Vec<(&'static str, &'static str, bool)>, // (target, display, is_alias)
-    expected_invalid: Vec<(&'static str, InvalidWikilinkReason, (usize, usize))>, // (content, reason, span)
+    description:      &'static str,
+    input:            &'static str,
+    expected_valid:   Vec<(&'static str, &'static str, bool)>, // (target, display, is_alias)
+    expected_invalid: Vec<(&'static str, InvalidWikilinkReason, (usize, usize))>, /* (content, reason, span) */
 }
 
 fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
@@ -75,9 +75,9 @@ fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
 fn test_various_extractions() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "Double alias with closing brackets",
-            input: "Text with [[target|alias|extra]] here",
-            expected_valid: vec![],
+            description:      "Double alias with closing brackets",
+            input:            "Text with [[target|alias|extra]] here",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[target|alias|extra]]",
                 InvalidWikilinkReason::DoubleAlias,
@@ -85,9 +85,9 @@ fn test_various_extractions() {
             )],
         },
         WikilinkTestCase {
-            description: "Double alias without closing",
-            input: "Text with [[target|alias|extra",
-            expected_valid: vec![],
+            description:      "Double alias without closing",
+            input:            "Text with [[target|alias|extra",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[target|alias|extra",
                 InvalidWikilinkReason::UnmatchedOpening,
@@ -95,9 +95,9 @@ fn test_various_extractions() {
             )],
         },
         WikilinkTestCase {
-            description: "Unmatched closing bracket within wikilink",
-            input: "Text with [[test]text]] here",
-            expected_valid: vec![],
+            description:      "Unmatched closing bracket within wikilink",
+            input:            "Text with [[test]text]] here",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[test]text]]",
                 InvalidWikilinkReason::UnmatchedSingleInWikilink,
@@ -105,9 +105,9 @@ fn test_various_extractions() {
             )],
         },
         WikilinkTestCase {
-            description: "Unmatched opening bracket within wikilink",
-            input: "Text with [[test[text]] here",
-            expected_valid: vec![],
+            description:      "Unmatched opening bracket within wikilink",
+            input:            "Text with [[test[text]] here",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[test[text]]",
                 InvalidWikilinkReason::UnmatchedSingleInWikilink,
@@ -115,9 +115,9 @@ fn test_various_extractions() {
             )],
         },
         WikilinkTestCase {
-            description: "Nested wikilink",
-            input: "Text with [[target[[inner]] here",
-            expected_valid: vec![],
+            description:      "Nested wikilink",
+            input:            "Text with [[target[[inner]] here",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[target[[inner]]",
                 InvalidWikilinkReason::NestedOpening,
@@ -135,9 +135,9 @@ fn test_various_extractions() {
 fn test_unmatched_brackets() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "Single unmatched closing brackets",
-            input: "Some text here]] more text",
-            expected_valid: vec![],
+            description:      "Single unmatched closing brackets",
+            input:            "Some text here]] more text",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "Some text here]]",
                 InvalidWikilinkReason::UnmatchedClosing,
@@ -145,18 +145,18 @@ fn test_unmatched_brackets() {
             )],
         },
         WikilinkTestCase {
-            description: "Multiple unmatched closings",
-            input: "Text]] more]] text",
-            expected_valid: vec![],
+            description:      "Multiple unmatched closings",
+            input:            "Text]] more]] text",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 ("Text]]", InvalidWikilinkReason::UnmatchedClosing, (0, 6)),
                 (" more]]", InvalidWikilinkReason::UnmatchedClosing, (6, 13)),
             ],
         },
         WikilinkTestCase {
-            description: "Mixed valid and invalid brackets",
-            input: "[[Valid Link]] but here]] and [[Another]]",
-            expected_valid: vec![
+            description:      "Mixed valid and invalid brackets",
+            input:            "[[Valid Link]] but here]] and [[Another]]",
+            expected_valid:   vec![
                 ("Valid Link", "Valid Link", false),
                 ("Another", "Another", false),
             ],
@@ -168,9 +168,9 @@ fn test_unmatched_brackets() {
         },
         // New Test Case for Unmatched Opening
         WikilinkTestCase {
-            description: "Unmatched opening brackets at the end",
-            input: "Here is an [[unmatched link",
-            expected_valid: vec![],
+            description:      "Unmatched opening brackets at the end",
+            input:            "Here is an [[unmatched link",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[[unmatched link",
                 InvalidWikilinkReason::UnmatchedOpening,
@@ -178,9 +178,9 @@ fn test_unmatched_brackets() {
             )],
         },
         WikilinkTestCase {
-            description: "No wikilinks",
-            input: "This is a plain text without any wikilinks.",
-            expected_valid: vec![],
+            description:      "No wikilinks",
+            input:            "This is a plain text without any wikilinks.",
+            expected_valid:   vec![],
             expected_invalid: vec![],
         },
     ];
@@ -194,9 +194,9 @@ fn test_unmatched_brackets() {
 fn test_unclosed_markdown_links() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "Basic unclosed markdown link",
-            input: "[display",
-            expected_valid: vec![],
+            description:      "Basic unclosed markdown link",
+            input:            "[display",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[display",
                 InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
@@ -204,9 +204,9 @@ fn test_unclosed_markdown_links() {
             )],
         },
         WikilinkTestCase {
-            description: "Unclosed link in context",
-            input: "some text [link",
-            expected_valid: vec![],
+            description:      "Unclosed link in context",
+            input:            "some text [link",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "[link",
                 InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
@@ -214,9 +214,9 @@ fn test_unclosed_markdown_links() {
             )],
         },
         WikilinkTestCase {
-            description: "Mixed valid wikilink and unclosed markdown",
-            input: "[[valid link]] [unclosed",
-            expected_valid: vec![("valid link", "valid link", false)],
+            description:      "Mixed valid wikilink and unclosed markdown",
+            input:            "[[valid link]] [unclosed",
+            expected_valid:   vec![("valid link", "valid link", false)],
             expected_invalid: vec![(
                 "[unclosed",
                 InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
@@ -224,9 +224,9 @@ fn test_unclosed_markdown_links() {
             )],
         },
         WikilinkTestCase {
-            description: "Multiple unclosed markdown links",
-            input: "[first [second",
-            expected_valid: vec![],
+            description:      "Multiple unclosed markdown links",
+            input:            "[first [second",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 (
                     "[first",
@@ -241,15 +241,15 @@ fn test_unclosed_markdown_links() {
             ],
         },
         WikilinkTestCase {
-            description: "Escaped brackets should not trigger",
-            input: "\\[not a link",
-            expected_valid: vec![],
+            description:      "Escaped brackets should not trigger",
+            input:            "\\[not a link",
+            expected_valid:   vec![],
             expected_invalid: vec![],
         },
         WikilinkTestCase {
-            description: "Valid markdown link followed by unclosed",
-            input: "[valid](link) [unclosed",
-            expected_valid: vec![],
+            description:      "Valid markdown link followed by unclosed",
+            input:            "[valid](link) [unclosed",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 (
                     "[unclosed",
@@ -269,9 +269,9 @@ fn test_unclosed_markdown_links() {
 fn test_email_detection() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "Simple email address",
-            input: "Contact bob@example.com for more info",
-            expected_valid: vec![],
+            description:      "Simple email address",
+            input:            "Contact bob@example.com for more info",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "bob@example.com",
                 InvalidWikilinkReason::EmailAddress,
@@ -279,9 +279,9 @@ fn test_email_detection() {
             )],
         },
         WikilinkTestCase {
-            description: "Email with wikilink",
-            input: "[[Contact]] john.doe@company.org today",
-            expected_valid: vec![("Contact", "Contact", false)],
+            description:      "Email with wikilink",
+            input:            "[[Contact]] john.doe@company.org today",
+            expected_valid:   vec![("Contact", "Contact", false)],
             expected_invalid: vec![(
                 "john.doe@company.org",
                 InvalidWikilinkReason::EmailAddress,
@@ -289,9 +289,9 @@ fn test_email_detection() {
             )],
         },
         WikilinkTestCase {
-            description: "Multiple emails",
-            input: "Email user1@test.com or user2@test.com",
-            expected_valid: vec![],
+            description:      "Multiple emails",
+            input:            "Email user1@test.com or user2@test.com",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 (
                     "user1@test.com",
@@ -316,36 +316,36 @@ fn test_email_detection() {
 fn test_tag_detection() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "Simple tag at start of line",
-            input: "#obsidian_knife is great",
-            expected_valid: vec![],
+            description:      "Simple tag at start of line",
+            input:            "#obsidian_knife is great",
+            expected_valid:   vec![],
             expected_invalid: vec![("#obsidian_knife", InvalidWikilinkReason::Tag, (0, 15))],
         },
         WikilinkTestCase {
-            description: "Tag after space",
-            input: "Check out this #ka-fave tag",
-            expected_valid: vec![],
+            description:      "Tag after space",
+            input:            "Check out this #ka-fave tag",
+            expected_valid:   vec![],
             expected_invalid: vec![("#ka-fave", InvalidWikilinkReason::Tag, (14, 23))],
         },
         WikilinkTestCase {
-            description: "Multiple tags",
-            input: "#tag1 some text #tag2",
-            expected_valid: vec![],
+            description:      "Multiple tags",
+            input:            "#tag1 some text #tag2",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 ("#tag1", InvalidWikilinkReason::Tag, (0, 5)),
                 ("#tag2", InvalidWikilinkReason::Tag, (15, 21)),
             ],
         },
         WikilinkTestCase {
-            description: "Tag with wikilink",
-            input: "[[Note]] #important reference",
-            expected_valid: vec![("Note", "Note", false)],
+            description:      "Tag with wikilink",
+            input:            "[[Note]] #important reference",
+            expected_valid:   vec![("Note", "Note", false)],
             expected_invalid: vec![("#important", InvalidWikilinkReason::Tag, (8, 19))],
         },
         WikilinkTestCase {
-            description: "Tag with underscore and numbers",
-            input: "Task #two_do_123 pending",
-            expected_valid: vec![],
+            description:      "Tag with underscore and numbers",
+            input:            "Task #two_do_123 pending",
+            expected_valid:   vec![],
             expected_invalid: vec![("#two_do_123", InvalidWikilinkReason::Tag, (4, 16))],
         },
     ];
@@ -359,9 +359,9 @@ fn test_tag_detection() {
 fn test_raw_http_detection() {
     let test_cases = vec![
         WikilinkTestCase {
-            description: "link at start of line",
-            input: "https://google.com/ is blah",
-            expected_valid: vec![],
+            description:      "link at start of line",
+            input:            "https://google.com/ is blah",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "https://google.com/",
                 InvalidWikilinkReason::RawHttpLink,
@@ -369,9 +369,9 @@ fn test_raw_http_detection() {
             )],
         },
         WikilinkTestCase {
-            description: "link after space",
-            input: "Check out this https://google.com/ link",
-            expected_valid: vec![],
+            description:      "link after space",
+            input:            "Check out this https://google.com/ link",
+            expected_valid:   vec![],
             expected_invalid: vec![(
                 "https://google.com/",
                 InvalidWikilinkReason::RawHttpLink,
@@ -379,9 +379,9 @@ fn test_raw_http_detection() {
             )],
         },
         WikilinkTestCase {
-            description: "Multiple links",
-            input: "http://this.com/ some text http://that.com/",
-            expected_valid: vec![],
+            description:      "Multiple links",
+            input:            "http://this.com/ some text http://that.com/",
+            expected_valid:   vec![],
             expected_invalid: vec![
                 (
                     "http://this.com/",

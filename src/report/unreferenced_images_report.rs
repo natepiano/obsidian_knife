@@ -1,21 +1,23 @@
+use std::error::Error;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
-use std::error::Error;
 
 pub(super) struct UnreferencedImagesReport;
 
 impl ReportDefinition for UnreferencedImagesReport {
     type Item = ImageFile;
 
-    fn headers(&self) -> Vec<&str> {
-        vec![THUMBNAIL, IMAGE_FILE, ACTION]
-    }
+    fn headers(&self) -> Vec<&str> { vec![THUMBNAIL, IMAGE_FILE, ACTION] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -48,9 +50,7 @@ impl ReportDefinition for UnreferencedImagesReport {
             .collect()
     }
 
-    fn title(&self) -> Option<String> {
-        Some(UNREFERENCED_IMAGES.to_string())
-    }
+    fn title(&self) -> Option<String> { Some(UNREFERENCED_IMAGES.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         DescriptionBuilder::new()
@@ -60,9 +60,7 @@ impl ReportDefinition for UnreferencedImagesReport {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL2
-    }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {

@@ -1,10 +1,13 @@
-use crate::constants::DEFAULT_TIMEZONE;
-use crate::utils;
-use chrono::{DateTime, Utc};
 use std::fs::File;
 use std::io::Write;
 use std::path::PathBuf;
+
+use chrono::DateTime;
+use chrono::Utc;
 use tempfile::TempDir;
+
+use crate::constants::DEFAULT_TIMEZONE;
+use crate::utils;
 
 #[derive(Clone)]
 pub enum Content {
@@ -13,58 +16,50 @@ pub enum Content {
 }
 
 impl From<String> for Content {
-    fn from(s: String) -> Self {
-        Content::Text(s)
-    }
+    fn from(s: String) -> Self { Content::Text(s) }
 }
 
 impl From<&str> for Content {
-    fn from(s: &str) -> Self {
-        Content::Text(s.to_string())
-    }
+    fn from(s: &str) -> Self { Content::Text(s.to_string()) }
 }
 
 impl From<Vec<u8>> for Content {
-    fn from(v: Vec<u8>) -> Self {
-        Content::Binary(v)
-    }
+    fn from(v: Vec<u8>) -> Self { Content::Binary(v) }
 }
 
 pub struct TestFileBuilder {
-    aliases: Option<Vec<String>>,
-    content: Content,
-    custom_frontmatter: Option<String>,
-    date_created_fix: Option<String>,
-    frontmatter_created: Option<String>,
+    aliases:              Option<Vec<String>>,
+    content:              Content,
+    custom_frontmatter:   Option<String>,
+    date_created_fix:     Option<String>,
+    frontmatter_created:  Option<String>,
     frontmatter_modified: Option<String>,
-    fs_created: DateTime<Utc>,
-    fs_modified: DateTime<Utc>,
-    tags: Option<Vec<String>>,
-    title: Option<String>,
+    fs_created:           DateTime<Utc>,
+    fs_modified:          DateTime<Utc>,
+    tags:                 Option<Vec<String>>,
+    title:                Option<String>,
 }
 
 impl Default for TestFileBuilder {
     fn default() -> Self {
         let now = Utc::now();
         Self {
-            aliases: None,
-            content: Content::Text("Test content".to_string()),
-            custom_frontmatter: None,
-            date_created_fix: None,
-            frontmatter_created: None,
+            aliases:              None,
+            content:              Content::Text("Test content".to_string()),
+            custom_frontmatter:   None,
+            date_created_fix:     None,
+            frontmatter_created:  None,
             frontmatter_modified: None,
-            fs_created: now,
-            fs_modified: now,
-            tags: None,
-            title: None,
+            fs_created:           now,
+            fs_modified:          now,
+            tags:                 None,
+            title:                None,
         }
     }
 }
 
 impl TestFileBuilder {
-    pub fn new() -> Self {
-        Self::default()
-    }
+    pub fn new() -> Self { Self::default() }
 
     pub fn with_custom_frontmatter(mut self, content: String) -> Self {
         self.custom_frontmatter = Some(content);

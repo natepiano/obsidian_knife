@@ -182,9 +182,7 @@ pub struct DescriptionBuilder {
 
 impl DescriptionBuilder {
     /// Creates a new DescriptionBuilder instance.
-    pub fn new() -> Self {
-        Self { parts: Vec::new() }
-    }
+    pub fn new() -> Self { Self { parts: Vec::new() } }
 
     pub fn text_with_newline(mut self, text: &str) -> Self {
         let new_text = format!("{}{}", text, "\n");
@@ -239,7 +237,5 @@ impl DescriptionBuilder {
     }
 
     /// Builds the final string with all appended parts, adding a newline at the end.
-    pub fn build(self) -> String {
-        self.parts.join(" ")
-    }
+    pub fn build(self) -> String { self.parts.join(" ") }
 }

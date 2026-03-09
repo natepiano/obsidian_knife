@@ -1,3 +1,5 @@
+use tempfile::TempDir;
+
 use super::MarkdownFile;
 use crate::obsidian_repository;
 use crate::test_support;
@@ -5,18 +7,17 @@ use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;
 use crate::DEFAULT_TIMEZONE;
-use tempfile::TempDir;
 
 #[test]
 fn test_alias_priority() {
     let wikilinks = vec![
         Wikilink {
             display_text: "tomatoes".to_string(),
-            target: "tomato".to_string(),
+            target:       "tomato".to_string(),
         },
         Wikilink {
             display_text: "tomatoes".to_string(),
-            target: "tomatoes".to_string(),
+            target:       "tomatoes".to_string(),
         },
     ];
 
@@ -61,7 +62,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
-        target: "William.md".to_string(),
+        target:       "William.md".to_string(),
     };
 
     repository.wikilinks_sorted.clear();
@@ -123,7 +124,7 @@ fn test_no_self_referential_back_population() {
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
-        target: "William.md".to_string(),
+        target:       "William.md".to_string(),
     };
 
     repository.wikilinks_sorted.clear();

@@ -1,7 +1,9 @@
+use std::path::PathBuf;
+
+use tempfile::TempDir;
+
 use super::*;
 use crate::test_support::TestFileBuilder;
-use std::path::PathBuf;
-use tempfile::TempDir;
 
 #[test]
 fn test_image_file_type_from_extension() {
@@ -152,7 +154,7 @@ fn test_incompatible_states() {
     assert!(matches!(
         tiff_image.image_state,
         ImageFileState::Incompatible {
-            reason: IncompatibilityReason::TiffFormat
+            reason: IncompatibilityReason::TiffFormat,
         }
     ));
 
@@ -170,7 +172,7 @@ fn test_incompatible_states() {
     assert!(matches!(
         zero_byte_image.image_state,
         ImageFileState::Incompatible {
-            reason: IncompatibilityReason::ZeroByte
+            reason: IncompatibilityReason::ZeroByte,
         }
     ));
 }

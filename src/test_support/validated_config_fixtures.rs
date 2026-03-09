@@ -1,6 +1,8 @@
-use crate::validated_config::ValidatedConfigBuilder;
-use crate::validated_config::{ValidatedConfig, ValidationError};
 use tempfile::TempDir;
+
+use crate::validated_config::ValidatedConfig;
+use crate::validated_config::ValidatedConfigBuilder;
+use crate::validated_config::ValidationError;
 
 pub fn get_test_validated_config_builder(temp_dir: &TempDir) -> ValidatedConfigBuilder {
     let mut builder = ValidatedConfigBuilder::default();

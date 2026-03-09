@@ -6,20 +6,25 @@ mod markdown_link_tests;
 mod wikilink_creation_tests;
 
 mod wikilink_types;
-pub use wikilink_types::{ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks, ParsedInvalidWikilink, ToWikilink, Wikilink};
-use wikilink_types::WikilinkParseResult;
-
-use crate::{
-    constants::*,
-    markdown_file::InlineCodeExcluder,
-    utils::{EMAIL_REGEX, TAG_REGEX},
-};
-
-use crate::utils::RAW_HTTP_REGEX;
-use lazy_static::lazy_static;
-use regex::Regex;
 use std::iter::Peekable;
 use std::str::CharIndices;
+
+use lazy_static::lazy_static;
+use regex::Regex;
+pub use wikilink_types::ExtractedWikilinks;
+pub use wikilink_types::InvalidWikilink;
+pub use wikilink_types::InvalidWikilinkReason;
+pub use wikilink_types::ParsedExtractedWikilinks;
+pub use wikilink_types::ParsedInvalidWikilink;
+pub use wikilink_types::ToWikilink;
+pub use wikilink_types::Wikilink;
+use wikilink_types::WikilinkParseResult;
+
+use crate::constants::*;
+use crate::markdown_file::InlineCodeExcluder;
+use crate::utils::EMAIL_REGEX;
+use crate::utils::RAW_HTTP_REGEX;
+use crate::utils::TAG_REGEX;
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
     if let Some(test_wikilink) = potential_wikilink {
@@ -37,7 +42,7 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
 
     Wikilink {
         display_text: display_text.clone(),
-        target: display_text,
+        target:       display_text,
     }
 }
 
@@ -90,8 +95,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     let content_slice = line[start_pos..start_idx].trim();
                     extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
-                        reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-                        span: (start_pos, start_pos + content_slice.len()),
+                        reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+                        span:    (start_pos, start_pos + content_slice.len()),
                     });
                     markdown_opening = None;
                 }
@@ -110,10 +115,10 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                             if let Some((pos, _)) = chars.peek() {
                                 last_position = *pos;
                             }
-                        }
+                        },
                         WikilinkParseResult::Invalid(invalid) => {
                             extracted_wikilinks.invalid.push(invalid);
-                        }
+                        },
                     }
                 }
             } else {
@@ -122,8 +127,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     let content_slice = line[start_pos..start_idx].trim();
                     extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                         content: content_slice.to_string(),
-                        reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-                        span: (start_pos, start_pos + content_slice.len()),
+                        reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+                        span:    (start_pos, start_pos + content_slice.len()),
                     });
                 }
                 markdown_opening = Some(start_idx);
@@ -136,8 +141,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         let content_slice = line[start_pos..].trim();
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: content_slice.to_string(),
-            reason: InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-            span: (start_pos, start_pos + content_slice.len()),
+            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+            span:    (start_pos, start_pos + content_slice.len()),
         });
     }
 
@@ -147,8 +152,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         // Add an invalid wikilink for the unclosed code block
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: line[last_position..].to_string(),
-            reason: InvalidWikilinkReason::UnclosedInlineCode,
-            span: (last_position, line.len()),
+            reason:  InvalidWikilinkReason::UnclosedInlineCode,
+            span:    (last_position, line.len()),
         });
     }
 
@@ -202,18 +207,18 @@ fn add_special_patterns(
 #[derive(Debug)]
 enum WikilinkState {
     Target {
-        content: String,
+        content:   String,
         start_pos: usize,
     },
     Display {
-        target: String,
+        target:       String,
         _target_span: (usize, usize),
-        content: String,
-        _start_pos: usize,
+        content:      String,
+        _start_pos:   usize,
     },
     Invalid {
-        reason: InvalidWikilinkReason,
-        content: String,
+        reason:    InvalidWikilinkReason,
+        content:   String,
         start_pos: usize,
     },
 }
@@ -240,10 +245,10 @@ impl WikilinkState {
     fn transition_to_display(&mut self, pipe_pos: usize) {
         if let WikilinkState::Target { content, start_pos } = self {
             *self = WikilinkState::Display {
-                target: content.clone(),
+                target:       content.clone(),
                 _target_span: (*start_pos, pipe_pos),
-                content: String::new(),
-                _start_pos: pipe_pos + 1,
+                content:      String::new(),
+                _start_pos:   pipe_pos + 1,
             };
         }
     }
@@ -272,17 +277,17 @@ impl WikilinkState {
                 if trimmed.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: "[[]]".to_string(),
-                        reason: InvalidWikilinkReason::EmptyWikilink,
+                        reason:  InvalidWikilinkReason::EmptyWikilink,
                         // span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
-                        span: (start_pos.saturating_sub(2), end_pos),
+                        span:    (start_pos.saturating_sub(2), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed.clone(),
-                        target: trimmed,
+                        target:       trimmed,
                     })
                 }
-            }
+            },
             WikilinkState::Display {
                 target,
                 content,
@@ -294,16 +299,16 @@ impl WikilinkState {
                 if trimmed_target.is_empty() || trimmed_display.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: format!("[[{}|{}]]", target, content),
-                        reason: InvalidWikilinkReason::EmptyWikilink,
-                        span: (start_pos.saturating_sub(2), end_pos),
+                        reason:  InvalidWikilinkReason::EmptyWikilink,
+                        span:    (start_pos.saturating_sub(2), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
                         display_text: trimmed_display,
-                        target: trimmed_target,
+                        target:       trimmed_target,
                     })
                 }
-            }
+            },
             WikilinkState::Invalid {
                 content,
                 reason,
@@ -315,10 +320,10 @@ impl WikilinkState {
                 };
                 WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                     content: formatted,
-                    reason: *reason,
-                    span: (*start_pos, end_pos),
+                    reason:  *reason,
+                    span:    (*start_pos, end_pos),
                 })
-            }
+            },
         }
     }
 }
@@ -353,20 +358,20 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
                                 state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
                                 state.push_char('\\');
                                 state.push_char('|');
-                            }
+                            },
                             _ => unreachable!(),
                         }
                     } else {
                         state.push_char(next_c);
                     }
                 }
-            }
+            },
             '|' => match state {
                 WikilinkState::Target { .. } => state.transition_to_display(pos),
                 WikilinkState::Display { .. } => {
                     state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
                     state.push_char(c);
-                }
+                },
                 _ => unreachable!(),
             },
             ']' => {
@@ -376,7 +381,7 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
                 }
-            }
+            },
             '[' => {
                 if is_next_char(chars, '[') {
                     state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
@@ -386,7 +391,7 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
                 }
-            }
+            },
             _ => state.push_char(c),
         }
     }

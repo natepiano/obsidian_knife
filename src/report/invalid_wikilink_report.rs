@@ -1,15 +1,21 @@
-use crate::constants::*;
-use crate::obsidian_repository::ObsidianRepository;
-use super::DescriptionBuilder;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter};
-use crate::validated_config::ValidatedConfig;
-use crate::wikilink::{InvalidWikilink, InvalidWikilinkReason, ToWikilink};
-use itertools::Itertools;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
+
+use itertools::Itertools;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
+use super::DescriptionBuilder;
+use crate::constants::*;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::utils;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::validated_config::ValidatedConfig;
+use crate::wikilink::InvalidWikilink;
+use crate::wikilink::InvalidWikilinkReason;
+use crate::wikilink::ToWikilink;
 
 pub(super) struct InvalidWikilinksTable;
 
@@ -55,9 +61,7 @@ impl ReportDefinition for InvalidWikilinksTable {
             .collect()
     }
 
-    fn title(&self) -> Option<String> {
-        Some(INVALID_WIKILINKS.to_string())
-    }
+    fn title(&self) -> Option<String> { Some(INVALID_WIKILINKS.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_files = items
@@ -78,9 +82,7 @@ impl ReportDefinition for InvalidWikilinksTable {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL2
-    }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {

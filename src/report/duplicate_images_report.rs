@@ -1,17 +1,24 @@
-use crate::constants::*;
-use crate::image_file::{ImageFile, ImageFileState, ImageHash};
-use crate::markdown_files::MarkdownFiles;
-use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
-use crate::validated_config::ValidatedConfig;
-use crate::{report, utils};
 use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
+use crate::constants::*;
+use crate::image_file::ImageFile;
+use crate::image_file::ImageFileState;
+use crate::image_file::ImageHash;
+use crate::markdown_files::MarkdownFiles;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::report;
+use crate::utils;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::utils::VecEnumFilter;
+use crate::validated_config::ValidatedConfig;
+
 pub(super) struct DuplicateImagesTable<'a> {
-    hash: ImageHash,
+    hash:           ImageHash,
     markdown_files: &'a MarkdownFiles,
 }
 
@@ -63,7 +70,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
             let (image_type, action, base_reference_update) = match &image.image_state {
                 ImageFileState::DuplicateKeeper { .. } => {
                     ("keeper", NO_CHANGE.to_string(), NO_CHANGE.to_string())
-                }
+                },
                 ImageFileState::Duplicate { .. } => {
                     let action = if config.apply_changes() {
                         DELETED.to_string()
@@ -79,7 +86,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                     };
 
                     ("duplicate", action, reference_update)
-                }
+                },
                 _ => ("unknown", UNKNOWN.to_string(), UNKNOWN.to_string()),
             };
 
@@ -166,9 +173,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL3
-    }
+    fn level(&self) -> &'static str { LEVEL3 }
 }
 
 impl ObsidianRepository {

@@ -1,5 +1,6 @@
 use super::ObsidianRepository;
-use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MarkdownFile;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;
@@ -13,15 +14,15 @@ fn test_identify_ambiguous_matches() {
     repository.wikilinks_sorted = vec![
         Wikilink {
             display_text: "Ed".to_string(),
-            target: "Ed Barnes".to_string(),
+            target:       "Ed Barnes".to_string(),
         },
         Wikilink {
             display_text: "Ed".to_string(),
-            target: "Ed Stanfield".to_string(),
+            target:       "Ed Stanfield".to_string(),
         },
         Wikilink {
             display_text: "Unique".to_string(),
-            target: "Unique Target".to_string(),
+            target:       "Unique Target".to_string(),
         },
     ];
 
@@ -41,12 +42,12 @@ fn test_identify_ambiguous_matches() {
     )
     .unwrap();
     test_file.matches.unambiguous = vec![BackPopulateMatch {
-        relative_path: "test1.md".to_string(),
-        line_number: 1,
-        line_text: "Ed wrote this".to_string(),
-        found_text: "Ed".to_string(),
-        replacement: "[[Ed Barnes|Ed]]".to_string(),
-        position: 0,
+        relative_path:     "test1.md".to_string(),
+        line_number:       1,
+        line_text:         "Ed wrote this".to_string(),
+        found_text:        "Ed".to_string(),
+        replacement:       "[[Ed Barnes|Ed]]".to_string(),
+        position:          0,
         in_markdown_table: false,
     }];
 
@@ -57,12 +58,12 @@ fn test_identify_ambiguous_matches() {
     )
     .unwrap();
     test_file2.matches.unambiguous = vec![BackPopulateMatch {
-        relative_path: "test2.md".to_string(),
-        line_number: 1,
-        line_text: "Unique wrote this".to_string(),
-        found_text: "Unique".to_string(),
-        replacement: "[[Unique Target]]".to_string(),
-        position: 0,
+        relative_path:     "test2.md".to_string(),
+        line_number:       1,
+        line_text:         "Unique wrote this".to_string(),
+        found_text:        "Unique".to_string(),
+        replacement:       "[[Unique Target]]".to_string(),
+        position:          0,
         in_markdown_table: false,
     }];
 
@@ -239,14 +240,16 @@ Amazon is ambiguous"#,
 }
 
 // This test sets up an **ambiguous alias** (`"Nate"`) mapping to two different targets.
-// It ensures that the `identify_ambiguous_matches` function correctly **classifies** both instances of `"Nate"` as **ambiguous**.
+// It ensures that the `identify_ambiguous_matches` function correctly **classifies** both instances
+// of `"Nate"` as **ambiguous**.
 //
-// Validate that the function can handle **both unambiguous and ambiguous matches simultaneously** without interference.
-// prior to this the real world failure was that it would find Karen as an alias but not karen
-// even though we have a case-insensitive search
+// Validate that the function can handle **both unambiguous and ambiguous matches simultaneously**
+// without interference. prior to this the real world failure was that it would find Karen as an
+// alias but not karen even though we have a case-insensitive search
 // the problem with the old test is that when there wa sno ambiguous matches - then
-// the lower case karen wasn't getting stripped out and the test would pass even though the real world failed
-// so in this case we are creating a more realistic test that has a mix of ambiguous and unambiguous
+// the lower case karen wasn't getting stripped out and the test would pass even though the real
+// world failed so in this case we are creating a more realistic test that has a mix of ambiguous
+// and unambiguous
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
     let (temp_dir, config, _) =

@@ -1,12 +1,15 @@
+use std::collections::HashSet;
+
+use tempfile::TempDir;
+
 use super::MarkdownFile;
 use crate::constants::*;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink;
-use crate::wikilink::{InvalidWikilinkReason, Wikilink};
-use std::collections::HashSet;
-use tempfile::TempDir;
+use crate::wikilink::InvalidWikilinkReason;
+use crate::wikilink::Wikilink;
 
 #[test]
 fn test_find_matches_with_existing_wikilinks() {
@@ -47,11 +50,11 @@ fn test_overlapping_wikilink_matches() {
     let wikilinks = vec![
         Wikilink {
             display_text: "Kyri".to_string(),
-            target: "Kyri".to_string(),
+            target:       "Kyri".to_string(),
         },
         Wikilink {
             display_text: "Kyri".to_string(),
-            target: "Kyriana McCoy".to_string(),
+            target:       "Kyriana McCoy".to_string(),
         },
     ];
 

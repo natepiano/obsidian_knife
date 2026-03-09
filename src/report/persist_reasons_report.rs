@@ -1,34 +1,35 @@
+use std::error::Error;
+use std::path::PathBuf;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils;
-use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
-use std::error::Error;
-use std::path::PathBuf;
 
 pub(super) struct PersistReasonsTable;
 
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
-    back_populate_count: usize,
-    date_created_fix: Option<(String, String)>,
-    date_validation_created: Option<(String, String)>, // (before, after)
+    back_populate_count:      usize,
+    date_created_fix:         Option<(String, String)>,
+    date_validation_created:  Option<(String, String)>, // (before, after)
     date_validation_modified: Option<(String, String)>,
-    full_path: PathBuf, //for sorting
-    image_refs_count: usize,
-    parent_path: String,
-    reason: PersistReason,
-    wikilink: String,
+    full_path:                PathBuf, //for sorting
+    image_refs_count:         usize,
+    parent_path:              String,
+    reason:                   PersistReason,
+    wikilink:                 String,
 }
 
 impl ReportDefinition for PersistReasonsTable {
     type Item = PersistReasonData;
 
-    fn headers(&self) -> Vec<&str> {
-        vec![FILE, PATH, REASON, INFO, BEFORE, AFTER]
-    }
+    fn headers(&self) -> Vec<&str> { vec![FILE, PATH, REASON, INFO, BEFORE, AFTER] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -50,16 +51,16 @@ impl ReportDefinition for PersistReasonsTable {
                         let (before, after) =
                             item.date_validation_created.clone().unwrap_or_default();
                         (before, after, reason.to_string())
-                    }
+                    },
                     PersistReason::DateModifiedUpdated { reason } => {
                         let (before, after) =
                             item.date_validation_modified.clone().unwrap_or_default();
                         (before, after, reason.to_string())
-                    }
+                    },
                     PersistReason::DateCreatedFixApplied => {
                         let (before, after) = item.date_created_fix.clone().unwrap_or_default();
                         (before, after, String::new())
-                    }
+                    },
                     PersistReason::BackPopulated => (
                         String::new(),
                         String::new(),
@@ -84,9 +85,7 @@ impl ReportDefinition for PersistReasonsTable {
             .collect()
     }
 
-    fn title(&self) -> Option<String> {
-        None
-    }
+    fn title(&self) -> Option<String> { None }
 
     fn description(&self, items: &[Self::Item]) -> String {
         DescriptionBuilder::new()
@@ -96,9 +95,7 @@ impl ReportDefinition for PersistReasonsTable {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL2
-    }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {

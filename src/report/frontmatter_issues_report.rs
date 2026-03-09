@@ -1,21 +1,22 @@
-use crate::constants::*;
-use crate::obsidian_repository::ObsidianRepository;
-use super::DescriptionBuilder;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter};
-use crate::validated_config::ValidatedConfig;
-use crate::wikilink::ToWikilink;
 use std::error::Error;
 use std::path::PathBuf;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
+use super::DescriptionBuilder;
+use crate::constants::*;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::validated_config::ValidatedConfig;
+use crate::wikilink::ToWikilink;
 
 pub(super) struct FrontmatterIssuesTable;
 
 impl ReportDefinition for FrontmatterIssuesTable {
     type Item = (PathBuf, String); // (file_path, error_message)
 
-    fn headers(&self) -> Vec<&str> {
-        vec!["file name", "error message"]
-    }
+    fn headers(&self) -> Vec<&str> { vec!["file name", "error message"] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]
@@ -37,9 +38,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
             .collect()
     }
 
-    fn title(&self) -> Option<String> {
-        Some(FRONTMATTER_ISSUES.to_string())
-    }
+    fn title(&self) -> Option<String> { Some(FRONTMATTER_ISSUES.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         DescriptionBuilder::new()
@@ -53,9 +52,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL1
-    }
+    fn level(&self) -> &'static str { LEVEL1 }
 }
 
 impl ObsidianRepository {

@@ -1,7 +1,9 @@
-use crate::constants::*;
+use std::sync::Arc;
+
 use lazy_static::lazy_static;
 use regex::Regex;
-use std::sync::Arc;
+
+use crate::constants::*;
 
 lazy_static! {
     pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();

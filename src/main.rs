@@ -14,6 +14,9 @@ mod validated_config;
 mod wikilink;
 mod yaml_frontmatter;
 
+use std::error::Error;
+use std::path::PathBuf;
+
 use crate::config::Config;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::*;
@@ -23,8 +26,6 @@ use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::Timer;
 use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use std::error::Error;
-use std::path::PathBuf;
 
 // Custom error type for main specific errors
 #[derive(Debug)]

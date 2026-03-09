@@ -1,14 +1,21 @@
-use crate::constants::*;
-use crate::image_file::{ImageFile, ImageFileState, IncompatibilityReason};
-use crate::markdown_file::ImageLinkState;
-use crate::markdown_files::MarkdownFiles;
-use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
-use crate::validated_config::ValidatedConfig;
-use crate::{obsidian_repository, report};
 use std::error::Error;
 use std::path::Path;
+
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
+use crate::constants::*;
+use crate::image_file::ImageFile;
+use crate::image_file::ImageFileState;
+use crate::image_file::IncompatibilityReason;
+use crate::markdown_file::ImageLinkState;
+use crate::markdown_files::MarkdownFiles;
+use crate::obsidian_repository;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::report;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::utils::VecEnumFilter;
+use crate::validated_config::ValidatedConfig;
 
 pub(super) struct IncompatibleImagesReport<'a> {
     markdown_files: &'a MarkdownFiles,
@@ -17,9 +24,7 @@ pub(super) struct IncompatibleImagesReport<'a> {
 impl ReportDefinition for IncompatibleImagesReport<'_> {
     type Item = ImageFile;
 
-    fn headers(&self) -> Vec<&str> {
-        vec![IMAGE_FILE, TYPE, ACTION, FILE, LINE, POSITION, ACTION]
-    }
+    fn headers(&self) -> Vec<&str> { vec![IMAGE_FILE, TYPE, ACTION, FILE, LINE, POSITION, ACTION] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -109,9 +114,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         rows
     }
 
-    fn title(&self) -> Option<String> {
-        Some("incompatible images".to_string())
-    }
+    fn title(&self) -> Option<String> { Some("incompatible images".to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         let tiff_count = items.iter().filter(|i| {
@@ -136,9 +139,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
             .build()
     }
 
-    fn level(&self) -> &'static str {
-        LEVEL2
-    }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {

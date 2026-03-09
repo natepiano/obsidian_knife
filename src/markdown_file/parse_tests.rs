@@ -1,9 +1,12 @@
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+
+use tempfile::TempDir;
+
 use super::MarkdownFile;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
-use std::fs;
-use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
 #[test]
 fn test_parse_content_separation() {

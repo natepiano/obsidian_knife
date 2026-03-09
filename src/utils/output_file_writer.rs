@@ -1,9 +1,11 @@
-use crate::constants::*;
-use std::fs::{File, OpenOptions};
+use std::fs::File;
+use std::fs::OpenOptions;
 use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
+
+use crate::constants::*;
 
 pub struct OutputFileWriter {
     file: Mutex<File>,
@@ -53,7 +55,7 @@ impl OutputFileWriter {
                     })
                     .collect();
                 format!("| {} |", sep.join(" | "))
-            }
+            },
             None => format!(
                 "| {} |",
                 headers

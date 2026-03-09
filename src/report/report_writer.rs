@@ -1,6 +1,8 @@
-use crate::utils::{ColumnAlignment, OutputFileWriter};
-use crate::validated_config::ValidatedConfig;
 use std::error::Error;
+
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
+use crate::validated_config::ValidatedConfig;
 
 /// definition of the elements of a report to write out as a markdown table
 pub(super) trait ReportDefinition<C = ()> {
@@ -29,9 +31,7 @@ pub(super) trait ReportDefinition<C = ()> {
     ) -> Vec<Vec<String>>;
 
     /// Optional table title
-    fn title(&self) -> Option<String> {
-        None
-    }
+    fn title(&self) -> Option<String> { None }
 
     /// Optional table description/summary
     fn description(&self, items: &[Self::Item]) -> String;
@@ -39,9 +39,7 @@ pub(super) trait ReportDefinition<C = ()> {
     /// markdown level
     fn level(&self) -> &'static str;
 
-    fn hide_title_if_no_rows(&self) -> bool {
-        true
-    }
+    fn hide_title_if_no_rows(&self) -> bool { true }
 }
 
 /// writes out the TableDefinition
@@ -52,7 +50,7 @@ pub(super) trait ReportDefinition<C = ()> {
 ///
 /// lifetime attribute required because we're storing a reference to ValidatedConfig - not owning it
 pub(super) struct ReportWriter<'a, T: Clone> {
-    pub(crate) items: Vec<T>,
+    pub(crate) items:            Vec<T>,
     pub(crate) validated_config: Option<&'a ValidatedConfig>,
 }
 

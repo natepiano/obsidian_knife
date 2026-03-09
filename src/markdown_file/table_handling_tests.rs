@@ -1,4 +1,5 @@
-use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MarkdownFile;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
@@ -29,12 +30,12 @@ fn test_back_populate_content() {
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
         vec![BackPopulateMatch {
-            relative_path: "test.md".into(),
-            line_number: 4,
-            line_text: "|Test Link|Sample text|".into(),
-            found_text: "Test Link".into(),
-            replacement: "[[Test Link\\|Another Name]]".into(),
-            position: 1,
+            relative_path:     "test.md".into(),
+            line_number:       4,
+            line_text:         "|Test Link|Sample text|".into(),
+            found_text:        "Test Link".into(),
+            replacement:       "[[Test Link\\|Another Name]]".into(),
+            position:          1,
             in_markdown_table: true,
         }],
         "Table content replacement",
@@ -84,11 +85,11 @@ fn test_process_line_table_escaping_combined() {
     let wikilinks = vec![
         Wikilink {
             display_text: "Another Link".to_string(),
-            target: "Other Page".to_string(),
+            target:       "Other Page".to_string(),
         },
         Wikilink {
             display_text: "Test Link".to_string(),
-            target: "Target Page".to_string(),
+            target:       "Target Page".to_string(),
         },
     ];
 

@@ -1,7 +1,11 @@
-use crate::constants::*;
-use serde::{Deserialize, Serialize};
-use std::cmp::{Ordering, PartialEq};
+use std::cmp::Ordering;
+use std::cmp::PartialEq;
 use std::fmt;
+
+use serde::Deserialize;
+use serde::Serialize;
+
+use crate::constants::*;
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {
@@ -26,38 +30,28 @@ pub trait ToWikilink {
 }
 
 impl ToWikilink for str {
-    fn to_wikilink(&self) -> String {
-        format!("[[{}]]", strip_md_extension(self))
-    }
+    fn to_wikilink(&self) -> String { format!("[[{}]]", strip_md_extension(self)) }
 }
 
 impl ToWikilink for String {
-    fn to_wikilink(&self) -> String {
-        self.as_str().to_wikilink()
-    }
+    fn to_wikilink(&self) -> String { self.as_str().to_wikilink() }
 }
 
 /// Helper function to strip .md extension if present
-fn strip_md_extension(text: &str) -> &str {
-    text.strip_suffix(MARKDOWN_SUFFIX).unwrap_or(text)
-}
+fn strip_md_extension(text: &str) -> &str { text.strip_suffix(MARKDOWN_SUFFIX).unwrap_or(text) }
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Wikilink {
     pub display_text: String,
-    pub target: String,
+    pub target:       String,
 }
 
 impl Wikilink {
-    pub fn is_alias(&self) -> bool {
-        self.display_text != self.target
-    }
+    pub fn is_alias(&self) -> bool { self.display_text != self.target }
 }
 
 impl PartialOrd for Wikilink {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> { Some(self.cmp(other)) }
 }
 
 impl Ord for Wikilink {
@@ -126,11 +120,11 @@ impl fmt::Display for InvalidWikilinkReason {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct InvalidWikilink {
-    pub content: String, // The actual problematic wikilink text
-    pub reason: InvalidWikilinkReason,
-    pub span: (usize, usize), // Start and end positions in the original text
-    pub line: String,         // The full line containing the invalid wikilink
-    pub line_number: usize,   // The line number where the invalid wikilink appears
+    pub content:     String, // The actual problematic wikilink text
+    pub reason:      InvalidWikilinkReason,
+    pub span:        (usize, usize), // Start and end positions in the original text
+    pub line:        String,         // The full line containing the invalid wikilink
+    pub line_number: usize,          // The line number where the invalid wikilink appears
 }
 
 impl fmt::Display for InvalidWikilink {
@@ -152,18 +146,18 @@ pub(super) enum WikilinkParseResult {
 #[derive(Debug, PartialEq)]
 pub struct ParsedInvalidWikilink {
     pub content: String,
-    pub reason: InvalidWikilinkReason,
-    pub span: (usize, usize),
+    pub reason:  InvalidWikilinkReason,
+    pub span:    (usize, usize),
 }
 
 #[derive(Debug, Default)]
 pub struct ExtractedWikilinks {
-    pub valid: Vec<Wikilink>,
+    pub valid:   Vec<Wikilink>,
     pub invalid: Vec<InvalidWikilink>,
 }
 
 #[derive(Debug, Default)]
 pub struct ParsedExtractedWikilinks {
-    pub valid: Vec<Wikilink>,
+    pub valid:   Vec<Wikilink>,
     pub invalid: Vec<ParsedInvalidWikilink>,
 }

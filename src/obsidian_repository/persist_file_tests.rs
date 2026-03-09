@@ -1,30 +1,34 @@
+use std::error::Error;
+use std::fs;
+use std::time::SystemTime;
+
+use chrono::DateTime;
+use chrono::NaiveDate;
+use chrono::Utc;
+use filetime::FileTime;
+use tempfile::TempDir;
+
 use super::*;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
-use chrono::{DateTime, NaiveDate, Utc};
-use filetime::FileTime;
-use std::error::Error;
-use std::fs;
-use std::time::SystemTime;
-use tempfile::TempDir;
 
 #[derive(Debug)]
 struct PersistenceTestCase {
-    name: &'static str,
+    name:                         &'static str,
     // Input state
-    initial_frontmatter_created: Option<String>,
+    initial_frontmatter_created:  Option<String>,
     initial_frontmatter_modified: Option<String>,
-    initial_fs_created: DateTime<Utc>,
-    initial_fs_modified: DateTime<Utc>,
+    initial_fs_created:           DateTime<Utc>,
+    initial_fs_modified:          DateTime<Utc>,
 
     // Expected outcomes
-    expected_frontmatter_created: Option<String>,
+    expected_frontmatter_created:  Option<String>,
     expected_frontmatter_modified: Option<String>,
-    expected_fs_created_date: NaiveDate,
-    expected_fs_modified_date: NaiveDate,
-    should_persist: bool,
+    expected_fs_created_date:      NaiveDate,
+    expected_fs_modified_date:     NaiveDate,
+    should_persist:                bool,
 }
 
 fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) -> PathBuf {
@@ -150,41 +154,41 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
 
     vec![
         PersistenceTestCase {
-            name: "no changes needed - dates match",
+            name:                          "no changes needed - dates match",
             // Both frontmatter and fs should use January 1st
-            initial_frontmatter_created: Some("2024-01-01".to_string()),
-            initial_frontmatter_modified: Some("2024-01-01".to_string()),
-            initial_fs_created: test_utils::eastern_midnight(2024, 1, 1),
-            initial_fs_modified: test_utils::eastern_midnight(2024, 1, 1),
-            expected_frontmatter_created: Some("2024-01-01".to_string()),
+            initial_frontmatter_created:   Some("2024-01-01".to_string()),
+            initial_frontmatter_modified:  Some("2024-01-01".to_string()),
+            initial_fs_created:            test_utils::eastern_midnight(2024, 1, 1),
+            initial_fs_modified:           test_utils::eastern_midnight(2024, 1, 1),
+            expected_frontmatter_created:  Some("2024-01-01".to_string()),
             expected_frontmatter_modified: Some("2024-01-01".to_string()),
-            expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-            expected_fs_modified_date: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-            should_persist: false,
+            expected_fs_created_date:      NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            expected_fs_modified_date:     NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+            should_persist:                false,
         },
         PersistenceTestCase {
-            name: "created date mismatch triggers both dates update",
-            initial_frontmatter_created: Some("2024-01-15".to_string()),
-            initial_frontmatter_modified: Some("2024-01-15".to_string()),
-            initial_fs_created: test_utils::eastern_midnight(2024, 1, 20),
-            initial_fs_modified: test_utils::eastern_midnight(2024, 1, 20),
-            expected_frontmatter_created: Some("2024-01-20".to_string()),
+            name:                          "created date mismatch triggers both dates update",
+            initial_frontmatter_created:   Some("2024-01-15".to_string()),
+            initial_frontmatter_modified:  Some("2024-01-15".to_string()),
+            initial_fs_created:            test_utils::eastern_midnight(2024, 1, 20),
+            initial_fs_modified:           test_utils::eastern_midnight(2024, 1, 20),
+            expected_frontmatter_created:  Some("2024-01-20".to_string()),
             expected_frontmatter_modified: Some("2024-01-20".to_string()),
-            expected_fs_created_date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-            expected_fs_modified_date: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-            should_persist: true,
+            expected_fs_created_date:      NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+            expected_fs_modified_date:     NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+            should_persist:                true,
         },
         PersistenceTestCase {
-            name: "invalid dates fixed from filesystem",
-            initial_frontmatter_created: Some("invalid date".to_string()),
-            initial_frontmatter_modified: Some("also invalid".to_string()),
-            initial_fs_created: last_week,
-            initial_fs_modified: last_week,
-            expected_frontmatter_created: Some(last_week.format("%Y-%m-%d").to_string()),
+            name:                          "invalid dates fixed from filesystem",
+            initial_frontmatter_created:   Some("invalid date".to_string()),
+            initial_frontmatter_modified:  Some("also invalid".to_string()),
+            initial_fs_created:            last_week,
+            initial_fs_modified:           last_week,
+            expected_frontmatter_created:  Some(last_week.format("%Y-%m-%d").to_string()),
             expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()),
-            expected_fs_created_date: last_week.date_naive(),
-            expected_fs_modified_date: last_week.date_naive(),
-            should_persist: true,
+            expected_fs_created_date:      last_week.date_naive(),
+            expected_fs_modified_date:     last_week.date_naive(),
+            should_persist:                true,
         },
     ]
 }

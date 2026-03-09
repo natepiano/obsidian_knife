@@ -1,6 +1,6 @@
-use super::*;
-use super::ToWikilink;
 use super::wikilink_types::WikilinkParseResult;
+use super::ToWikilink;
+use super::*;
 /// Helper function to parse a full wikilink string.
 /// It ensures the input starts with `[[` and ends with `]]`,
 /// extracts the inner content, and passes it to `parse_wikilink`.
@@ -43,13 +43,13 @@ fn assert_valid_wikilink(
                 "Alias flag mismatch for input: {}",
                 input
             );
-        }
+        },
         WikilinkParseResult::Invalid(invalid) => {
             panic!(
                 "Expected valid wikilink for input: {}, but got invalid: {} ({:?})",
                 input, invalid.content, invalid.reason
             );
-        }
+        },
     }
 }
 
@@ -64,19 +64,19 @@ fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) 
                 "Expected reason {:?} but got {:?} for input: {}",
                 expected_reason, invalid.reason, input
             );
-        }
+        },
         Some(WikilinkParseResult::Valid(_)) => {
             panic!(
                 "Expected invalid wikilink for input: {}, but got valid.",
                 input
             );
-        }
+        },
         None => {
             panic!(
                 "Expected invalid wikilink for input: {}, but got None.",
                 input
             );
-        }
+        },
     }
 }
 

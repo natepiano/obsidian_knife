@@ -1,32 +1,30 @@
 #[cfg(test)]
 mod image_file_tests;
 
-use crate::utils::EnumFilter;
-use serde::{Deserialize, Serialize};
 use std::error::Error;
+use std::fmt;
+use std::fs;
 use std::path::PathBuf;
-use std::{fmt, fs};
+
+use serde::Deserialize;
+use serde::Serialize;
 use vecollect::collection;
+
+use crate::utils::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub struct ImageHash(pub String);
 
 impl From<&str> for ImageHash {
-    fn from(hash: &str) -> Self {
-        ImageHash(hash.to_string())
-    }
+    fn from(hash: &str) -> Self { ImageHash(hash.to_string()) }
 }
 
 impl From<String> for ImageHash {
-    fn from(hash: String) -> Self {
-        ImageHash(hash)
-    }
+    fn from(hash: String) -> Self { ImageHash(hash) }
 }
 
 impl fmt::Display for ImageHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
 }
 
 #[derive(Default, Debug, PartialEq)]
@@ -57,21 +55,19 @@ impl ImageFiles {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageFile {
-    pub delete: bool,
-    pub file_type: ImageFileType,
-    pub hash: ImageHash,
-    pub image_state: ImageFileState,
-    pub path: PathBuf,
+    pub delete:                   bool,
+    pub file_type:                ImageFileType,
+    pub hash:                     ImageHash,
+    pub image_state:              ImageFileState,
+    pub path:                     PathBuf,
     pub markdown_file_references: Vec<PathBuf>,
-    pub size: u64,
+    pub size:                     u64,
 }
 
 impl EnumFilter for ImageFile {
     type EnumType = ImageFileState;
 
-    fn as_enum(&self) -> &Self::EnumType {
-        &self.image_state
-    }
+    fn as_enum(&self) -> &Self::EnumType { &self.image_state }
 }
 
 #[derive(Debug, Clone, PartialEq)]

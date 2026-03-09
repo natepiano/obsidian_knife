@@ -1,12 +1,20 @@
-use crate::image_file::ImageHash;
-use serde::{Deserialize, Serialize};
-use sha2::{Digest, Sha256};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
-use std::fs::{self, File};
-use std::io::{BufReader, Read};
-use std::path::{Path, PathBuf};
+use std::fs::File;
+use std::fs::{self};
+use std::io::BufReader;
+use std::io::Read;
+use std::path::Path;
+use std::path::PathBuf;
 use std::time::SystemTime;
+
+use serde::Deserialize;
+use serde::Serialize;
+use sha2::Digest;
+use sha2::Sha256;
+
+use crate::image_file::ImageHash;
 
 #[derive(Debug, Clone, Copy)]
 pub enum CacheFileStatus {
@@ -24,19 +32,19 @@ pub enum CacheEntryStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CachedImageInfo {
-    pub hash: ImageHash,
+    pub hash:       ImageHash,
     pub time_stamp: SystemTime,
 }
 
 #[derive(Debug)]
 pub struct Sha256Cache {
-    cache: HashMap<PathBuf, CachedImageInfo>,
-    cache_file_path: PathBuf,
+    cache:                     HashMap<PathBuf, CachedImageInfo>,
+    cache_file_path:           PathBuf,
     //initial_count: usize,
-    files_read: usize,
-    pub(crate) files_added: usize,
+    files_read:                usize,
+    pub(crate) files_added:    usize,
     pub(crate) files_modified: usize,
-    files_deleted: usize,
+    files_deleted:             usize,
 }
 
 impl Sha256Cache {
@@ -51,7 +59,7 @@ impl Sha256Cache {
                         Ok(parsed_cache) => (parsed_cache, CacheFileStatus::ReadFromCache),
                         Err(_) => (HashMap::new(), CacheFileStatus::CacheCorrupted),
                     }
-                }
+                },
                 Err(_) => (HashMap::new(), CacheFileStatus::CreatedNewCache),
             }
         } else {

@@ -1,11 +1,13 @@
-use super::ValidatedConfigBuilder;
-use crate::test_support::{get_test_validated_config, get_test_validated_config_result};
 use std::fs;
 use std::path::PathBuf;
 
+use tempfile::TempDir;
+
+use super::ValidatedConfigBuilder;
 use super::*;
 use crate::config::Config;
-use tempfile::TempDir;
+use crate::test_support::get_test_validated_config;
+use crate::test_support::get_test_validated_config_result;
 
 #[test]
 fn test_back_populate_file_filter() {

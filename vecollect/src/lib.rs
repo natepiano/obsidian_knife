@@ -1,9 +1,15 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::parse::{Parse, ParseStream};
+use syn::parse::Parse;
+use syn::parse::ParseStream;
+use syn::parse_macro_input;
 use syn::punctuated::Punctuated;
+use syn::Data;
+use syn::DeriveInput;
+use syn::Fields;
+use syn::Ident;
 use syn::Token;
-use syn::{parse_macro_input, Data, DeriveInput, Fields, Ident, Type};
+use syn::Type;
 
 struct CollectionArgs {
     field: String,

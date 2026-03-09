@@ -1,11 +1,18 @@
-use crate::{constants::*, ValidatedConfig};
-use chrono::{DateTime, Utc};
-use filetime::FileTime;
-use rayon::iter::{IntoParallelIterator, ParallelIterator};
 use std::error::Error;
-use std::path::{Path, PathBuf};
+use std::fs;
+use std::io;
+use std::path::Path;
+use std::path::PathBuf;
 use std::sync::Mutex;
-use std::{fs, io};
+
+use chrono::DateTime;
+use chrono::Utc;
+use filetime::FileTime;
+use rayon::iter::IntoParallelIterator;
+use rayon::iter::ParallelIterator;
+
+use crate::constants::*;
+use crate::ValidatedConfig;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
@@ -54,9 +61,9 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 pub struct RepositoryFiles {
-    pub image_files: Vec<PathBuf>,
+    pub image_files:    Vec<PathBuf>,
     pub markdown_files: Vec<PathBuf>,
-    pub other_files: Vec<PathBuf>,
+    pub other_files:    Vec<PathBuf>,
 }
 
 // using rayon (.into_par_iter()) and not using walkdir
@@ -126,8 +133,8 @@ pub fn collect_repository_files(
 
     Ok(RepositoryFiles {
         markdown_files: md_files.into_inner().unwrap(),
-        image_files: img_files.into_inner().unwrap(),
-        other_files: other_files.into_inner().unwrap(),
+        image_files:    img_files.into_inner().unwrap(),
+        other_files:    other_files.into_inner().unwrap(),
     })
 }
 
@@ -233,10 +240,13 @@ mod expand_tilde_tests {
 
 #[cfg(test)]
 mod set_file_dates_tests {
-    use super::*;
-    use chrono::{TimeZone, Utc};
     use std::fs::File;
+
+    use chrono::TimeZone;
+    use chrono::Utc;
     use tempfile::tempdir;
+
+    use super::*;
 
     #[test]
     fn test_set_file_dates_with_operational_timezone() {

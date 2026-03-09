@@ -1,18 +1,21 @@
+use std::error::Error;
+use std::str::FromStr;
+
+use chrono::TimeZone;
+use chrono::Utc;
+use tempfile::TempDir;
+
 use super::ObsidianRepository;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
-use chrono::{TimeZone, Utc};
-use std::error::Error;
-use std::str::FromStr;
-use tempfile::TempDir;
 
 #[derive(Debug)]
 struct FileLimitTestCase {
-    name: &'static str,
-    file_count: usize,
-    process_limit: Option<usize>,
+    name:               &'static str,
+    file_count:         usize,
+    process_limit:      Option<usize>,
     expected_processed: usize,
 }
 
@@ -47,27 +50,27 @@ fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
 fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = vec![
         FileLimitTestCase {
-            name: "no limit processes all files",
-            file_count: 3,
-            process_limit: None,
+            name:               "no limit processes all files",
+            file_count:         3,
+            process_limit:      None,
             expected_processed: 3,
         },
         FileLimitTestCase {
-            name: "limit of 1 processes single file",
-            file_count: 3,
-            process_limit: Some(1),
+            name:               "limit of 1 processes single file",
+            file_count:         3,
+            process_limit:      Some(1),
             expected_processed: 1,
         },
         FileLimitTestCase {
-            name: "limit of 2 processes two files",
-            file_count: 3,
-            process_limit: Some(2),
+            name:               "limit of 2 processes two files",
+            file_count:         3,
+            process_limit:      Some(2),
             expected_processed: 2,
         },
         FileLimitTestCase {
-            name: "limit larger than file count processes all files",
-            file_count: 2,
-            process_limit: Some(5),
+            name:               "limit larger than file count processes all files",
+            file_count:         2,
+            process_limit:      Some(5),
             expected_processed: 2,
         },
     ];

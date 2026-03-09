@@ -1,15 +1,20 @@
+use std::fs;
+use std::path::Path;
+use std::path::PathBuf;
+
+use tempfile::TempDir;
+
 use super::ObsidianRepository;
 use crate::constants::*;
 use crate::image_file::ImageFileState;
-use crate::markdown_file::{ImageLinkState, MarkdownFile, PersistReason};
+use crate::markdown_file::ImageLinkState;
+use crate::markdown_file::MarkdownFile;
+use crate::markdown_file::PersistReason;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::utils::VecEnumFilter;
-use std::fs;
-use std::path::{Path, PathBuf};
-use tempfile::TempDir;
 
 impl MarkdownFiles {
     fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
@@ -18,23 +23,23 @@ impl MarkdownFiles {
 }
 
 struct ImageTestCase {
-    _name: &'static str,
-    setup: TestSetup,
+    _name:  &'static str,
+    setup:  TestSetup,
     verify: VerifyOutcome,
 }
 
 struct TestSetup {
-    images: Vec<TestImage>,
+    images:         Vec<TestImage>,
     markdown_files: Vec<TestMarkdown>,
 }
 
 struct TestImage {
-    name: String,
+    name:    String,
     content: Vec<u8>,
 }
 
 struct TestMarkdown {
-    name: String,
+    name:    String,
     content: String,
 }
 
@@ -123,14 +128,14 @@ fn test_image_replacement_outcomes() {
 
     let test_cases = vec![
         ImageTestCase {
-            _name: "zero_byte_images",
-            setup: TestSetup {
-                images: vec![TestImage {
-                    name: "empty.jpg".into(),
+            _name:  "zero_byte_images",
+            setup:  TestSetup {
+                images:         vec![TestImage {
+                    name:    "empty.jpg".into(),
                     content: empty_content.clone(),
                 }],
                 markdown_files: vec![TestMarkdown {
-                    name: "test.md".into(),
+                    name:    "test.md".into(),
                     content: "# Doc\n![[empty.jpg]]\nSome content".into(),
                 }],
             },
@@ -142,25 +147,25 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name: "duplicate_images",
-            setup: TestSetup {
-                images: vec![
+            _name:  "duplicate_images",
+            setup:  TestSetup {
+                images:         vec![
                     TestImage {
-                        name: "image1.jpg".into(),
+                        name:    "image1.jpg".into(),
                         content: jpeg_header.clone(),
                     },
                     TestImage {
-                        name: "image2.jpg".into(),
+                        name:    "image2.jpg".into(),
                         content: jpeg_header.clone(),
                     },
                 ],
                 markdown_files: vec![
                     TestMarkdown {
-                        name: "test1.md".into(),
+                        name:    "test1.md".into(),
                         content: "# Doc1\n![[image1.jpg]]".into(),
                     },
                     TestMarkdown {
-                        name: "test2.md".into(),
+                        name:    "test2.md".into(),
                         content: "# Doc2\n![[image2.jpg]]".into(),
                     },
                 ],
@@ -195,14 +200,14 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name: "tiff_images",
-            setup: TestSetup {
-                images: vec![TestImage {
-                    name: "image.tiff".into(),
+            _name:  "tiff_images",
+            setup:  TestSetup {
+                images:         vec![TestImage {
+                    name:    "image.tiff".into(),
                     content: tiff_header,
                 }],
                 markdown_files: vec![TestMarkdown {
-                    name: "test.md".into(),
+                    name:    "test.md".into(),
                     content: "# Doc\n![[image.tiff]]\nOther content".into(),
                 }],
             },
@@ -214,10 +219,10 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name: "unreferenced_images",
-            setup: TestSetup {
-                images: vec![TestImage {
-                    name: "unused.jpg".into(),
+            _name:  "unreferenced_images",
+            setup:  TestSetup {
+                images:         vec![TestImage {
+                    name:    "unused.jpg".into(),
                     content: jpeg_header.clone(),
                 }],
                 markdown_files: vec![],
@@ -421,17 +426,17 @@ fn test_multiple_file_deletion() {
     // Create multiple files marked for deletion
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
     let test_setup = TestSetup {
-        images: vec![
+        images:         vec![
             TestImage {
-                name: "unused1.jpg".into(),
+                name:    "unused1.jpg".into(),
                 content: jpeg_header.clone(),
             },
             TestImage {
-                name: "unused2.jpg".into(),
+                name:    "unused2.jpg".into(),
                 content: jpeg_header.clone(),
             },
             TestImage {
-                name: "empty.jpg".into(),
+                name:    "empty.jpg".into(),
                 content: vec![],
             },
         ],
@@ -464,28 +469,28 @@ fn test_referenced_and_unreferenced_duplicates() {
 
     // Create two sets of duplicate files with different content
     let test_setup = TestSetup {
-        images: vec![
+        images:         vec![
             // First set - both unreferenced
             TestImage {
-                name: "unreferenced1.jpg".into(),
+                name:    "unreferenced1.jpg".into(),
                 content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
             },
             TestImage {
-                name: "unreferenced2.jpg".into(),
+                name:    "unreferenced2.jpg".into(),
                 content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
             },
             // Second set - one will be referenced
             TestImage {
-                name: "referenced1.jpg".into(),
+                name:    "referenced1.jpg".into(),
                 content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
             },
             TestImage {
-                name: "referenced2.jpg".into(),
+                name:    "referenced2.jpg".into(),
                 content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
             },
         ],
         markdown_files: vec![TestMarkdown {
-            name: "test.md".into(),
+            name:    "test.md".into(),
             content: "# Test\n![[referenced1.jpg]]".into(),
         }],
     };

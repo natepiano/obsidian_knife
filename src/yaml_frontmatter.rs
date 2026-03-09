@@ -1,6 +1,8 @@
-use serde::{de::DeserializeOwned, Serialize};
-use serde_yaml::Value;
 use std::error::Error;
+
+use serde::de::DeserializeOwned;
+use serde::Serialize;
+use serde_yaml::Value;
 /// this macro allows us to persist any extra fields not specifically implemented in
 /// a struct you want to deserialize into the yaml frontmatter of a markdown file
 ///
@@ -155,7 +157,7 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
                                 .collect();
                             sorted_seq.sort();
                             Value::Sequence(sorted_seq.into_iter().map(Value::String).collect())
-                        }
+                        },
                         _ => value.clone(),
                     };
                     sorted_map.insert(Value::String(key), sorted_value);
@@ -215,10 +217,13 @@ pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFron
 
 #[cfg(test)]
 mod tests {
+    use std::cmp::PartialEq;
+
+    use serde::Deserialize;
+    use serde::Serialize;
+
     use super::*;
     use crate::test_support::assert_result;
-    use serde::{Deserialize, Serialize};
-    use std::cmp::PartialEq;
 
     yaml_frontmatter_struct! {
         #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -229,8 +234,8 @@ mod tests {
     }
 
     struct YamlTestCase {
-        name: &'static str,
-        input: &'static str,
+        name:     &'static str,
+        input:    &'static str,
         expected: Result<TestFrontMatter, YamlFrontMatterError>,
     }
 
@@ -238,20 +243,20 @@ mod tests {
     fn test_yaml_frontmatter_parsing() {
         let test_cases = vec![
             YamlTestCase {
-                name: "valid frontmatter",
-                input: r#"title: test doc
+                name:     "valid frontmatter",
+                input:    r#"title: test doc
 tags:
   - tag1
   - tag2"#,
                 expected: Ok(TestFrontMatter {
-                    title: "test doc".to_string(),
-                    tags: vec!["tag1".to_string(), "tag2".to_string()],
+                    title:        "test doc".to_string(),
+                    tags:         vec!["tag1".to_string(), "tag2".to_string()],
                     other_fields: Default::default(),
                 }),
             },
             YamlTestCase {
-                name: "invalid yaml structure",
-                input: r#"title: "unclosed string
+                name:     "invalid yaml structure",
+                input:    r#"title: "unclosed string
 tags: [not, valid, yaml"#,
                 expected: Err(YamlFrontMatterError::Parse(
                     "found unexpected end of stream".to_string(),
@@ -270,8 +275,8 @@ tags: [not, valid, yaml"#,
     }
 
     struct SerializeTestCase {
-        name: &'static str,
-        input: TestFrontMatter,
+        name:              &'static str,
+        input:             TestFrontMatter,
         expected_contains: Vec<&'static str>,
     }
 
@@ -279,19 +284,19 @@ tags: [not, valid, yaml"#,
     fn test_yaml_frontmatter_serialization() {
         let test_cases = vec![
             SerializeTestCase {
-                name: "basic serialization",
-                input: TestFrontMatter {
-                    title: "test doc".to_string(),
-                    tags: vec!["tag1".to_string(), "tag2".to_string()],
+                name:              "basic serialization",
+                input:             TestFrontMatter {
+                    title:        "test doc".to_string(),
+                    tags:         vec!["tag1".to_string(), "tag2".to_string()],
                     other_fields: Default::default(),
                 },
                 expected_contains: vec!["title: test doc", "tags:", "- tag1", "- tag2"],
             },
             SerializeTestCase {
-                name: "empty tags",
-                input: TestFrontMatter {
-                    title: "no tags".to_string(),
-                    tags: vec![],
+                name:              "empty tags",
+                input:             TestFrontMatter {
+                    title:        "no tags".to_string(),
+                    tags:         vec![],
                     other_fields: Default::default(),
                 },
                 expected_contains: vec!["title: no tags", "tags: []"],
@@ -315,35 +320,39 @@ tags: [not, valid, yaml"#,
     #[test]
     fn test_yaml_frontmatter_sorted_serialization() {
         struct SerializationOrderTestCase {
-            name: &'static str,
-            input: TestFrontMatter,
+            name:     &'static str,
+            input:    TestFrontMatter,
             expected: Result<String, YamlFrontMatterError>,
         }
 
         let test_cases = vec![
             SerializationOrderTestCase {
-                name: "fields and lists should be sorted alphabetically",
-                input: TestFrontMatter {
-                    tags: vec!["zebra".to_string(), "alpha".to_string(), "beta".to_string()],
-                    title: "test doc".to_string(),
+                name:     "fields and lists should be sorted alphabetically",
+                input:    TestFrontMatter {
+                    tags:         vec![
+                        "zebra".to_string(),
+                        "alpha".to_string(),
+                        "beta".to_string(),
+                    ],
+                    title:        "test doc".to_string(),
                     other_fields: Default::default(),
                 },
                 expected: Ok("tags:\n- alpha\n- beta\n- zebra\ntitle: test doc".to_string()),
             },
             SerializationOrderTestCase {
-                name: "empty lists should maintain alphabetical field order",
-                input: TestFrontMatter {
-                    tags: vec![],
-                    title: "no tags".to_string(),
+                name:     "empty lists should maintain alphabetical field order",
+                input:    TestFrontMatter {
+                    tags:         vec![],
+                    title:        "no tags".to_string(),
                     other_fields: Default::default(),
                 },
                 expected: Ok("tags: []\ntitle: no tags".to_string()),
             },
             SerializationOrderTestCase {
-                name: "single item lists should be sorted",
-                input: TestFrontMatter {
-                    tags: vec!["tag1".to_string()],
-                    title: "one tag".to_string(),
+                name:     "single item lists should be sorted",
+                input:    TestFrontMatter {
+                    tags:         vec!["tag1".to_string()],
+                    title:        "one tag".to_string(),
                     other_fields: Default::default(),
                 },
                 expected: Ok("tags:\n- tag1\ntitle: one tag".to_string()),

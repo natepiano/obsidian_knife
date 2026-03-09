@@ -1,3 +1,8 @@
+use std::fs;
+use std::path::PathBuf;
+
+use tempfile::TempDir;
+
 use super::Config;
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
@@ -5,9 +10,6 @@ use crate::markdown_file::MarkdownFile;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use std::fs;
-use std::path::PathBuf;
-use tempfile::TempDir;
 
 fn create_test_environment() -> (TempDir, PathBuf) {
     let temp_dir = TempDir::new().unwrap();

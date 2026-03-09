@@ -1,8 +1,9 @@
+use filetime::FileTime;
+use tempfile::TempDir;
+
 use super::*;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
-use filetime::FileTime;
-use tempfile::TempDir;
 
 #[test]
 fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -19,12 +20,12 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::Missing
+            reason: DateValidationIssue::Missing,
         }));
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::DateModifiedUpdated {
-            reason: DateValidationIssue::Missing
+            reason: DateValidationIssue::Missing,
         }));
 
     // Test invalid format dates
@@ -40,12 +41,12 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::InvalidDateFormat
+            reason: DateValidationIssue::InvalidDateFormat,
         }));
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::DateModifiedUpdated {
-            reason: DateValidationIssue::InvalidDateFormat
+            reason: DateValidationIssue::InvalidDateFormat,
         }));
 
     Ok(())
@@ -128,7 +129,7 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     assert!(file_info
         .persist_reasons
         .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::Missing
+            reason: DateValidationIssue::Missing,
         }));
 
     // Add back populate reason
@@ -138,8 +139,9 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
     // Verify all reasons are present
-    // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated, ImageReferencesModified
-    // we don't have an update date missing because if we BackPopulate we automatically remove the modified date reason
+    // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated,
+    // ImageReferencesModified we don't have an update date missing because if we BackPopulate
+    // we automatically remove the modified date reason
     assert_eq!(file_info.persist_reasons.len(), 3);
     assert!(file_info
         .persist_reasons

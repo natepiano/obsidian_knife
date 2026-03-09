@@ -1,20 +1,24 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 
+use super::report_writer::ReportDefinition;
+use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use super::report_writer::{ReportDefinition, ReportWriter};
-use crate::utils::{ColumnAlignment, OutputFileWriter};
+use crate::report;
+use crate::utils;
+use crate::utils::ColumnAlignment;
+use crate::utils::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
-use crate::{report, utils};
 
 struct BackPopulateTable {
-    display_text: String,
+    display_text:      String,
     total_occurrences: usize,
-    file_count: usize,
+    file_count:        usize,
 }
 
 impl ReportDefinition for BackPopulateTable {
@@ -94,13 +98,9 @@ impl ReportDefinition for BackPopulateTable {
         Some(title)
     }
 
-    fn description(&self, _items: &[Self::Item]) -> String {
-        String::new()
-    }
+    fn description(&self, _items: &[Self::Item]) -> String { String::new() }
 
-    fn level(&self) -> &'static str {
-        LEVEL3
-    }
+    fn level(&self) -> &'static str { LEVEL3 }
 }
 
 impl ObsidianRepository {
@@ -170,17 +170,17 @@ impl ObsidianRepository {
 
 #[derive(Debug, Clone)]
 struct ConsolidatedMatch {
-    file_path: String,
-    line_info: Vec<LineInfo>,
-    replacement: String,
+    file_path:         String,
+    line_info:         Vec<LineInfo>,
+    replacement:       String,
     in_markdown_table: bool,
 }
 
 #[derive(Debug, Clone)]
 struct LineInfo {
     line_number: usize,
-    line_text: String,
-    positions: Vec<usize>,
+    line_text:   String,
+    positions:   Vec<usize>,
 }
 
 fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> {
@@ -192,8 +192,8 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
 
         let line_info = line_map.entry(key).or_insert(LineInfo {
             line_number: match_info.line_number,
-            line_text: match_info.line_text.clone(),
-            positions: Vec::new(),
+            line_text:   match_info.line_text.clone(),
+            positions:   Vec::new(),
         });
         line_info.positions.push(match_info.position);
 

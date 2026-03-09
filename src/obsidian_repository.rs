@@ -13,35 +13,45 @@ mod scan_tests;
 #[cfg(test)]
 mod update_modified_tests;
 
-use crate::{
-    constants::*,
-    image_file::{ImageFile, ImageFileState, ImageFiles},
-    markdown_file::BackPopulateMatch,
-    markdown_file::{ImageLinkState, MarkdownFile, MatchType, ReplaceableContent},
-    markdown_files::MarkdownFiles,
-    utils,
-    utils::Timer,
-    utils::VecEnumFilter,
-    validated_config::ValidatedConfig,
-    wikilink::Wikilink,
-};
-
-use crate::image_file::ImageHash;
-use crate::utils::Sha256Cache;
-use aho_corasick::{AhoCorasick, AhoCorasickBuilder, MatchKind};
-use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
+use std::path::Path;
+use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::Mutex;
+
+use aho_corasick::AhoCorasick;
+use aho_corasick::AhoCorasickBuilder;
+use aho_corasick::MatchKind;
+use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::ParallelIterator;
+
+use crate::constants::*;
+use crate::image_file::ImageFile;
+use crate::image_file::ImageFileState;
+use crate::image_file::ImageFiles;
+use crate::image_file::ImageHash;
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::ImageLinkState;
+use crate::markdown_file::MarkdownFile;
+use crate::markdown_file::MatchType;
+use crate::markdown_file::ReplaceableContent;
+use crate::markdown_files::MarkdownFiles;
+use crate::utils;
+use crate::utils::Sha256Cache;
+use crate::utils::Timer;
+use crate::utils::VecEnumFilter;
+use crate::validated_config::ValidatedConfig;
+use crate::wikilink::Wikilink;
 
 #[derive(Default)]
 pub struct ObsidianRepository {
-    pub markdown_files: MarkdownFiles,
-    pub image_files: ImageFiles,
+    pub markdown_files:   MarkdownFiles,
+    pub image_files:      ImageFiles,
     #[allow(dead_code)]
-    pub other_files: Vec<PathBuf>,
-    pub wikilinks_ac: Option<AhoCorasick>,
+    pub other_files:      Vec<PathBuf>,
+    pub wikilinks_ac:     Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
 }
 
@@ -91,11 +101,11 @@ impl ObsidianRepository {
                 Ok(file_info) => {
                     markdown_files.lock().unwrap().push(file_info);
                     Ok(())
-                }
+                },
                 Err(e) => {
                     eprintln!("Error processing file {:?}: {}", file_path, e);
                     Err(e)
-                }
+                },
             }
         })?;
 
@@ -505,8 +515,9 @@ impl ObsidianRepository {
             matches!(image_file_state, ImageFileState::Incompatible { .. })
         });
 
-        // match tiff/zero_byte image files to image_links that refer to them so we can mark the image_link as incompatible
-        // the image_link will then be collected as a ReplaceableContent match which happens in the next step
+        // match tiff/zero_byte image files to image_links that refer to them so we can mark the
+        // image_link as incompatible the image_link will then be collected as a
+        // ReplaceableContent match which happens in the next step
         for image_file in incompatible.files {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
                 let image_file_name = image_file.path.file_name().unwrap().to_str().unwrap();
@@ -573,19 +584,19 @@ impl ObsidianRepository {
             match &image_file.image_state {
                 ImageFileState::Unreferenced => {
                     image_file.delete = true;
-                }
+                },
                 ImageFileState::Incompatible { .. } => {
                     if image_file.markdown_file_references.is_empty()
                         || can_delete(&files_to_persist, image_file)
                     {
                         image_file.delete = true;
                     }
-                }
+                },
                 ImageFileState::Duplicate { .. } => {
                     if can_delete(&files_to_persist, image_file) {
                         image_file.delete = true;
                     }
-                }
+                },
                 ImageFileState::DuplicateKeeper { .. } => (), // No deletion for keepers
                 ImageFileState::Valid => (),                  // No deletion for valid files
             }
@@ -656,9 +667,7 @@ fn apply_line_replacements(
     }
 }
 
-fn normalize_spaces(text: &str) -> String {
-    text.split_whitespace().collect::<Vec<_>>().join(" ")
-}
+fn normalize_spaces(text: &str) -> String { text.split_whitespace().collect::<Vec<_>>().join(" ") }
 
 pub fn format_relative_path(path: &Path, base_path: &Path) -> String {
     path.strip_prefix(base_path)

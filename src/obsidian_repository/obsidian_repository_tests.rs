@@ -1,11 +1,17 @@
-use super::ObsidianRepository;
-use crate::image_file::{ImageFile, ImageFileState, ImageFiles, IncompatibilityReason};
-use crate::test_support::TestFileBuilder;
-use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+
 use tempfile::TempDir;
+
+use super::ObsidianRepository;
+use crate::image_file::ImageFile;
+use crate::image_file::ImageFileState;
+use crate::image_file::ImageFiles;
+use crate::image_file::IncompatibilityReason;
+use crate::test_support::TestFileBuilder;
+use crate::validated_config::ValidatedConfig;
+use crate::validated_config::ValidatedConfigBuilder;
 
 fn setup_test_repo() -> (TempDir, ValidatedConfig) {
     let temp_dir = TempDir::new().unwrap();
@@ -103,7 +109,7 @@ date_modified: 2024-01-01
             assert_eq!(
                 image.image_state,
                 ImageFileState::Incompatible {
-                    reason: expected_reason
+                    reason: expected_reason,
                 },
                 "{}",
                 message
