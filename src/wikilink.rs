@@ -6,7 +6,10 @@ mod markdown_link_tests;
 mod wikilink_creation_tests;
 
 mod wikilink_types;
-pub use wikilink_types::*;
+pub use wikilink_types::{
+    ExtractedWikilinks, InvalidWikilink, InvalidWikilinkReason, ParsedExtractedWikilinks,
+    ParsedInvalidWikilink, ToWikilink, Wikilink, WikilinkParseResult,
+};
 
 use crate::{
     constants::*,

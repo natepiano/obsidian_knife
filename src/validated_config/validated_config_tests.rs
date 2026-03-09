@@ -1,7 +1,5 @@
-use crate::test_support::{
-    get_test_validated_config, get_test_validated_config_result,
-};
 use super::ValidatedConfigBuilder;
+use crate::test_support::{get_test_validated_config, get_test_validated_config_result};
 use std::fs;
 use std::path::PathBuf;
 

@@ -1,8 +1,8 @@
+use super::ObsidianRepository;
 use crate::constants::*;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::{ImageLinkState, MarkdownFile, PersistReason};
 use crate::markdown_files::MarkdownFiles;
-use super::ObsidianRepository;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;

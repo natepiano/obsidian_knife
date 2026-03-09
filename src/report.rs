@@ -10,7 +10,7 @@ mod unreferenced_images_report;
 
 mod report_writer;
 
-pub use report_writer::*;
+pub use report_writer::{ReportDefinition, ReportWriter};
 
 use crate::constants::*;
 use crate::image_file::ImageFileState;

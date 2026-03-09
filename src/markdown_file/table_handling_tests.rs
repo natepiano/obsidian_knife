@@ -7,8 +7,7 @@ use crate::wikilink::Wikilink;
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, config, _) =
-        test_support::create_test_environment(false, None, None, None);
+    let (temp_dir, config, _) = test_support::create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
     let markdown_file =

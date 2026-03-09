@@ -41,7 +41,11 @@ pub fn create_test_environment(
 
     let file_path = test_support::TestFileBuilder::new()
         .with_matching_dates(test_support::eastern_midnight(2024, 1, 2))
-        .with_content(initial_content.unwrap_or("Initial test content").to_string())
+        .with_content(
+            initial_content
+                .unwrap_or("Initial test content")
+                .to_string(),
+        )
         .create(&temp_dir, "test.md");
 
     let markdown_info = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();

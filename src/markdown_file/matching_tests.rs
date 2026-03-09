@@ -1,5 +1,5 @@
-use crate::constants::*;
 use super::MarkdownFile;
+use crate::constants::*;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;

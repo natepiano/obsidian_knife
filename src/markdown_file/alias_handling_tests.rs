@@ -24,12 +24,7 @@ fn test_alias_priority() {
         test_support::create_test_environment(false, None, Some(wikilinks), None);
 
     let content = "I love tomatoes in my salad";
-    test_support::create_markdown_test_file(
-        &temp_dir,
-        "salad.md",
-        content,
-        &mut repository_info,
-    );
+    test_support::create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
 
     repository_info.find_all_back_populate_matches(&config);
 
@@ -154,12 +149,8 @@ fn test_no_self_referential_back_population() {
         "Should not find matches on page's own name"
     );
 
-    let other_file_path = test_support::create_markdown_test_file(
-        &temp_dir,
-        "Other.md",
-        content,
-        &mut repository,
-    );
+    let other_file_path =
+        test_support::create_markdown_test_file(&temp_dir, "Other.md", content, &mut repository);
 
     repository.find_all_back_populate_matches(&config);
 

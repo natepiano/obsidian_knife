@@ -1,5 +1,5 @@
-use crate::markdown_file::MarkdownFile;
 use super::ObsidianRepository;
+use crate::markdown_file::MarkdownFile;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;

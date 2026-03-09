@@ -1,5 +1,5 @@
-use super::*;
 use super::InvalidWikilinkReason;
+use super::*;
 
 struct WikilinkTestCase {
     description: &'static str,
