@@ -84,7 +84,7 @@ impl FrontMatter {
         self.needs_persist = true;
     }
 
-    pub(crate) fn needs_persist(&self) -> bool {
+    pub fn needs_persist(&self) -> bool {
         self.needs_persist
     }
 

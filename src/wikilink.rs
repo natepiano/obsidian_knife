@@ -405,7 +405,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
     }
 }
 
-pub(crate) fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
+pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     lazy_static! {
         static ref WIKILINK_FINDER: Regex = Regex::new(r"\[\[.*?\]\]").unwrap();
     }

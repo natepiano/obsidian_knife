@@ -91,7 +91,7 @@ impl ObsidianRepository {
         report.write(&InvalidWikilinksTable, writer)
     }
 
-    pub(crate) fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {
+    fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {
         let invalid_wikilinks: Vec<(PathBuf, InvalidWikilink)> = self
             .markdown_files
             .iter()

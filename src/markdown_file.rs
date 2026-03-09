@@ -190,7 +190,7 @@ impl MarkdownFile {
             .push(PersistReason::ImageReferencesModified);
     }
 
-    pub(crate) fn process_file_for_back_populate_replacements(
+    pub fn process_file_for_back_populate_replacements(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,

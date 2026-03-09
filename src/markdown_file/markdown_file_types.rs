@@ -79,7 +79,7 @@ pub struct DateCreatedFixValidation {
 }
 
 impl DateCreatedFixValidation {
-    pub(crate) fn from_frontmatter(
+    pub(super) fn from_frontmatter(
         frontmatter: &Option<FrontMatter>,
         file_created_date: DateTime<Utc>,
         operational_timezone: &str,
