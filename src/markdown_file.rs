@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod alias_handling_tests;
 #[cfg(test)]
-pub mod back_populate_tests;
+mod back_populate_tests;
 #[cfg(test)]
 mod case_sensitivity_tests;
 #[cfg(test)]

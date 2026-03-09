@@ -1,29 +1,23 @@
 mod assert_utils;
+mod markdown_file_fixtures;
 mod test_file_builder;
+mod validated_config_fixtures;
 
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::markdown_file::MarkdownFile;
-use crate::DEFAULT_TIMEZONE;
 use chrono::{DateTime, NaiveDate, NaiveDateTime, TimeZone, Utc};
 use std::path::PathBuf;
 
 pub use assert_utils::*;
+pub use markdown_file_fixtures::{
+    build_aho_corasick, create_markdown_test_file, create_test_environment,
+};
 pub use test_file_builder::TestFileBuilder;
+pub use validated_config_fixtures::{
+    get_test_validated_config, get_test_validated_config_builder, get_test_validated_config_result,
+};
 
-/// Creates a DateTime<Utc> set to midnight Eastern time (05:00 UTC) for the given date
-/// This ensures consistent time handling across the codebase for matching filesystem dates
-/// with date strings like "[[2024-01-15]]" when viewed in Eastern timezone
-///
-/// # Arguments
-/// * `year` - The year (e.g., 2024)
-/// * `month` - The month (1-12)
-/// * `day` - The day of the month (1-31)
-///
-/// # Returns
-/// DateTime<Utc> set to 05:00:00 UTC (midnight Eastern) for the given date
-///
 pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
-    // Using 05:00 UTC (midnight Eastern) ensures dates like "[[2024-01-15]]" match
-    // the filesystem dates when viewed in Eastern timezone
     Utc.with_ymd_and_hms(year, month, day, 5, 0, 0).unwrap()
 }
 

@@ -1,8 +1,8 @@
-use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;
 use crate::DEFAULT_TIMEZONE;
 use tempfile::TempDir;
@@ -21,10 +21,10 @@ fn test_alias_priority() {
     ];
 
     let (temp_dir, config, mut repository_info) =
-        back_populate_tests::create_test_environment(false, None, Some(wikilinks), None);
+        test_support::create_test_environment(false, None, Some(wikilinks), None);
 
     let content = "I love tomatoes in my salad";
-    back_populate_tests::create_markdown_test_file(
+    test_support::create_markdown_test_file(
         &temp_dir,
         "salad.md",
         content,
@@ -62,7 +62,7 @@ fn test_alias_priority() {
 #[test]
 fn test_no_matches_for_frontmatter_aliases() {
     let (temp_dir, config, mut repository) =
-        back_populate_tests::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(false, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
@@ -71,7 +71,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
     repository.wikilinks_sorted.clear();
     repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_ac = Some(back_populate_tests::build_aho_corasick(
+    repository.wikilinks_ac = Some(test_support::build_aho_corasick(
         &repository.wikilinks_sorted,
     ));
 
@@ -124,7 +124,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 #[test]
 fn test_no_self_referential_back_population() {
     let (temp_dir, config, mut repository) =
-        back_populate_tests::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(false, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
@@ -133,12 +133,12 @@ fn test_no_self_referential_back_population() {
 
     repository.wikilinks_sorted.clear();
     repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_ac = Some(back_populate_tests::build_aho_corasick(
+    repository.wikilinks_ac = Some(test_support::build_aho_corasick(
         &repository.wikilinks_sorted,
     ));
 
     let content = "Will is mentioned here but should not be replaced";
-    back_populate_tests::create_markdown_test_file(&temp_dir, "Will.md", content, &mut repository);
+    test_support::create_markdown_test_file(&temp_dir, "Will.md", content, &mut repository);
 
     repository.find_all_back_populate_matches(&config);
 
@@ -154,7 +154,7 @@ fn test_no_self_referential_back_population() {
         "Should not find matches on page's own name"
     );
 
-    let other_file_path = back_populate_tests::create_markdown_test_file(
+    let other_file_path = test_support::create_markdown_test_file(
         &temp_dir,
         "Other.md",
         content,

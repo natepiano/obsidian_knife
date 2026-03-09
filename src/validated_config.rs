@@ -1,5 +1,5 @@
 #[cfg(test)]
-pub(crate) mod validated_config_tests;
+mod validated_config_tests;
 
 use crate::{constants::*, utils};
 use chrono_tz::Tz;

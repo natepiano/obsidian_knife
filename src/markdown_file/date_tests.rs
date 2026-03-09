@@ -1,8 +1,8 @@
 use super::*;
 use crate::frontmatter::FrontMatter;
 
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::DEFAULT_TIMEZONE;
 use chrono::TimeZone;

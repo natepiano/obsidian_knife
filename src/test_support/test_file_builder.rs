@@ -93,7 +93,6 @@ impl TestFileBuilder {
     }
 
     pub fn with_matching_dates(mut self, datetime: DateTime<Utc>) -> Self {
-        // Add wikilinks around the dates
         self.frontmatter_created = Some(format!("[[{}]]", datetime.format("%Y-%m-%d")));
         self.frontmatter_modified = Some(format!("[[{}]]", datetime.format("%Y-%m-%d")));
         self.fs_created = datetime;
@@ -116,7 +115,6 @@ impl TestFileBuilder {
         self
     }
 
-    // Modified to accept anything that can convert into Content
     pub fn with_content<T: Into<Content>>(mut self, content: T) -> Self {
         self.content = content.into();
         self
@@ -161,7 +159,7 @@ impl TestFileBuilder {
                 writeln!(file, "title: {}", title).unwrap();
             }
             if let Some(custom) = self.custom_frontmatter {
-                writeln!(file, "{}", custom).unwrap(); // Note: using write! not writeln! to preserve formatting
+                writeln!(file, "{}", custom).unwrap();
             }
             writeln!(file, "---").unwrap();
         }
@@ -173,8 +171,8 @@ impl TestFileBuilder {
 
         utils::set_file_dates(
             &file_path,
-            Some(self.fs_created), // Pass DateTime<Utc> directly
-            self.fs_modified,      // Pass DateTime<Utc> directly
+            Some(self.fs_created),
+            self.fs_modified,
             DEFAULT_TIMEZONE,
         )
         .unwrap();

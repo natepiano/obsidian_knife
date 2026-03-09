@@ -1,7 +1,7 @@
-use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::{BackPopulateMatch, MarkdownFile};
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support;
+use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;
 
 // Helper struct for test cases
@@ -94,7 +94,7 @@ pub(crate) fn verify_match(
 fn test_case_insensitive_targets() {
     // Create test environment
     let (temp_dir, config, _) =
-        back_populate_tests::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(false, None, Some(vec![]), None);
 
     // Create test files with case variations using TestFileBuilder
     TestFileBuilder::new()
@@ -146,10 +146,10 @@ fn test_case_insensitive_targets() {
 fn test_case_sensitivity_behavior() {
     // Initialize test environment without specific wikilinks
     let (temp_dir, config, mut repository) =
-        back_populate_tests::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(false, None, None, None);
 
     for case in get_case_sensitivity_test_cases() {
-        let file_path = back_populate_tests::create_markdown_test_file(
+        let file_path = test_support::create_markdown_test_file(
             &temp_dir,
             "test.md",
             case.content,
@@ -158,7 +158,7 @@ fn test_case_sensitivity_behavior() {
 
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;
-        let ac = back_populate_tests::build_aho_corasick(std::slice::from_ref(&wikilink));
+        let ac = test_support::build_aho_corasick(std::slice::from_ref(&wikilink));
 
         let markdown_info =
             MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();

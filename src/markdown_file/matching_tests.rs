@@ -1,9 +1,8 @@
 use crate::constants::*;
-use crate::markdown_file::back_populate_tests;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils::TestFileBuilder;
-use crate::validated_config::validated_config_tests;
+use crate::test_support;
+use crate::test_support::TestFileBuilder;
 use crate::wikilink;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use std::collections::HashSet;
@@ -18,7 +17,7 @@ fn test_find_matches_with_existing_wikilinks() {
            But this Test Link should match";
 
     let (_temp_dir, config, mut repository) =
-        back_populate_tests::create_test_environment(false, None, None, Some(content));
+        test_support::create_test_environment(false, None, None, Some(content));
 
     // Find matches - this now stores them in repository.markdown_files
     repository.find_all_back_populate_matches(&config);
@@ -57,7 +56,7 @@ fn test_overlapping_wikilink_matches() {
     ];
 
     let (_temp_dir, config, mut repository) =
-        back_populate_tests::create_test_environment(false, None, Some(wikilinks), Some(content));
+        test_support::create_test_environment(false, None, Some(wikilinks), Some(content));
 
     // Find matches - this now stores them in repository.markdown_files
     repository.find_all_back_populate_matches(&config);
@@ -235,7 +234,7 @@ fn test_scan_folders_wikilink_collection() {
         .create(&temp_dir, "note2.md");
 
     // Create minimal validated config
-    let config = validated_config_tests::get_test_validated_config(&temp_dir, None);
+    let config = test_support::get_test_validated_config(&temp_dir, None);
 
     // Scan the folders
     let repository = ObsidianRepository::new(&config).unwrap();

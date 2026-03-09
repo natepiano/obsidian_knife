@@ -1,8 +1,8 @@
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
-use crate::validated_config::validated_config_tests;
+use crate::test_support;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use chrono::{TimeZone, Utc};
 use std::error::Error;
 use std::str::FromStr;
@@ -75,7 +75,7 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
     for case in test_cases {
         let temp_dir = TempDir::new()?;
 
-        let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+        let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
         builder.file_limit(case.process_limit);
         let config = builder.build()?;
 

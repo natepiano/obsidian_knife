@@ -1,6 +1,6 @@
 use crate::markdown_file::MarkdownFile;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;

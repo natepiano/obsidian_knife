@@ -1,6 +1,6 @@
 use crate::image_file::{ImageFile, ImageFileState, ImageFiles, IncompatibilityReason};
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support::TestFileBuilder;
 use crate::validated_config::{ValidatedConfig, ValidatedConfigBuilder};
 use std::error::Error;
 use std::fs;

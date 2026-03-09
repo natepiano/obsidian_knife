@@ -1,98 +1,15 @@
 use crate::markdown_file::MarkdownFile;
-use crate::obsidian_repository::ObsidianRepository;
-use crate::wikilink::Wikilink;
-use crate::{ValidatedConfig, DEFAULT_TIMEZONE};
+use crate::DEFAULT_TIMEZONE;
 
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
-use crate::validated_config::ValidatedConfigBuilder;
-use aho_corasick::AhoCorasick;
-use aho_corasick::{AhoCorasickBuilder, MatchKind};
-use std::fs::File;
-use std::io::Write;
-use std::path::PathBuf;
+use crate::test_support;
+use crate::test_support::TestFileBuilder;
 use tempfile::TempDir;
-
-// Common helper function to build Aho-Corasick automaton from CompiledWikilinks
-pub fn build_aho_corasick(wikilinks: &[Wikilink]) -> AhoCorasick {
-    let patterns: Vec<&str> = wikilinks.iter().map(|w| w.display_text.as_str()).collect();
-
-    AhoCorasickBuilder::new()
-        .ascii_case_insensitive(true)
-        .match_kind(MatchKind::LeftmostLongest)
-        .build(&patterns)
-        .expect("Failed to build Aho-Corasick automaton")
-}
-
-pub(crate) fn create_test_environment(
-    apply_changes: bool,
-    do_not_back_populate: Option<Vec<String>>,
-    wikilinks: Option<Vec<Wikilink>>,
-    initial_content: Option<&str>,
-) -> (TempDir, ValidatedConfig, ObsidianRepository) {
-    let temp_dir = TempDir::new().unwrap();
-
-    let config = ValidatedConfigBuilder::default()
-        .apply_changes(apply_changes)
-        .do_not_back_populate(do_not_back_populate)
-        .obsidian_path(temp_dir.path().to_path_buf())
-        .output_folder(temp_dir.path().join("output"))
-        .build()
-        .unwrap();
-
-    let mut repository = ObsidianRepository::default();
-
-    // Create test file using TestFileBuilder but WITHOUT frontmatter
-    let file_path = TestFileBuilder::new()
-        //.with_matching_dates(test_utils::parse_datetime("2024-01-02 00:00:00"))
-        .with_matching_dates(test_utils::eastern_midnight(2024, 1, 2))
-        .with_content(
-            initial_content
-                .unwrap_or("Initial test content")
-                .to_string(),
-        )
-        .create(&temp_dir, "test.md");
-
-    let markdown_info = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
-    repository.markdown_files.push(markdown_info);
-
-    // Set up wikilinks
-    if let Some(wikilinks) = wikilinks {
-        repository.wikilinks_sorted = wikilinks;
-    } else {
-        repository.wikilinks_sorted = vec![Wikilink {
-            display_text: "Test Link".to_string(),
-            target: "Test Link".to_string(),
-        }];
-    }
-
-    repository.wikilinks_ac = Some(build_aho_corasick(&repository.wikilinks_sorted));
-
-    (temp_dir, config, repository)
-}
-
-pub fn create_markdown_test_file(
-    temp_dir: &TempDir,
-    file_name: &str,
-    content: &str,
-    repository: &mut ObsidianRepository,
-) -> PathBuf {
-    let file_path = temp_dir.path().join(file_name);
-    let mut file = File::create(&file_path).unwrap();
-    write!(file, "{}", content).unwrap();
-
-    let markdown_file = test_utils::get_test_markdown_file(file_path.clone());
-
-    repository.markdown_files.push(markdown_file);
-
-    file_path
-}
 
 #[test]
 fn test_apply_changes() {
     let initial_content = "This is Test Link in a sentence.";
     let (_temp_dir, config, mut repository) =
-        create_test_environment(true, None, None, Some(initial_content));
+        test_support::create_test_environment(true, None, None, Some(initial_content));
 
     // First find the matches
     repository.find_all_back_populate_matches(&config);
@@ -110,16 +27,17 @@ fn test_apply_changes() {
 #[test]
 fn test_config_creation() {
     // Basic usage with defaults
-    let (_, basic_config, _) = create_test_environment(false, None, None, None);
+    let (_, basic_config, _) = test_support::create_test_environment(false, None, None, None);
     assert!(!basic_config.apply_changes());
 
     // With apply_changes set to true
-    let (_, apply_config, _) = create_test_environment(true, None, None, None);
+    let (_, apply_config, _) = test_support::create_test_environment(true, None, None, None);
     assert!(apply_config.apply_changes());
 
     // With do_not_back_populate patterns
     let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
-    let (_, pattern_config, _) = create_test_environment(false, Some(patterns.clone()), None, None);
+    let (_, pattern_config, _) =
+        test_support::create_test_environment(false, Some(patterns.clone()), None, None);
     assert_eq!(
         pattern_config.do_not_back_populate(),
         Some(patterns.as_slice())
@@ -127,7 +45,7 @@ fn test_config_creation() {
 
     // With both parameters
     let (_, full_config, _) =
-        create_test_environment(true, Some(vec!["pattern".to_string()]), None, None);
+        test_support::create_test_environment(true, Some(vec!["pattern".to_string()]), None, None);
     assert!(full_config.apply_changes());
     assert!(full_config.do_not_back_populate().is_some());
 }

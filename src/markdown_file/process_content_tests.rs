@@ -1,7 +1,7 @@
 use crate::markdown_file::{
     ImageLink, ImageLinkRendering, ImageLinkTarget, ImageLinkType, MarkdownFile,
 };
-use crate::test_utils::TestFileBuilder;
+use crate::test_support::TestFileBuilder;
 use crate::utils::IMAGE_REGEX;
 use crate::wikilink::{InvalidWikilinkReason, Wikilink};
 use tempfile::TempDir;

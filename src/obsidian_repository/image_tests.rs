@@ -3,10 +3,10 @@ use crate::image_file::ImageFileState;
 use crate::markdown_file::{ImageLinkState, MarkdownFile, PersistReason};
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use crate::utils::VecEnumFilter;
-use crate::validated_config::validated_config_tests;
 use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
@@ -68,7 +68,7 @@ fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -230,7 +230,7 @@ fn test_image_replacement_outcomes() {
 
     for test_case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+        let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
         let config = builder.apply_changes(true).build().unwrap();
         fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -259,7 +259,7 @@ fn test_image_replacement_outcomes() {
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -287,7 +287,7 @@ fn test_analyze_wikilink_errors() {
 #[test]
 fn test_handle_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -335,7 +335,7 @@ fn test_handle_missing_references() {
 #[cfg_attr(target_os = "linux", ignore)]
 fn test_duplicate_grouping() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
     fs::create_dir_all(config.output_folder()).unwrap();
 
@@ -415,7 +415,7 @@ fn test_duplicate_grouping() {
 #[test]
 fn test_multiple_file_deletion() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
 
     // Create multiple files marked for deletion
@@ -459,7 +459,7 @@ fn test_multiple_file_deletion() {
 #[test]
 fn test_referenced_and_unreferenced_duplicates() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = validated_config_tests::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
     let config = builder.apply_changes(true).build().unwrap();
 
     // Create two sets of duplicate files with different content

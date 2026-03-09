@@ -1,6 +1,6 @@
 use super::*;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use filetime::FileTime;
 use tempfile::TempDir;
 

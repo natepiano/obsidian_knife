@@ -216,7 +216,7 @@ pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFron
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_utils::assert_result;
+    use crate::test_support::assert_result;
     use serde::{Deserialize, Serialize};
     use std::cmp::PartialEq;
 

@@ -1,8 +1,8 @@
 use super::*;
 use crate::markdown_file::MarkdownFile;
-use crate::test_utils;
-use crate::test_utils::TestFileBuilder;
-use crate::validated_config::validated_config_tests;
+use crate::test_support;
+use crate::test_support as test_utils;
+use crate::test_support::TestFileBuilder;
 use chrono::{DateTime, NaiveDate, Utc};
 use filetime::FileTime;
 use std::error::Error;
@@ -126,7 +126,7 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
     for case in test_cases {
         // temp_dir needs to go out of scope each time for the file to be cleaned up
         let temp_dir = TempDir::new()?;
-        let config = validated_config_tests::get_test_validated_config(&temp_dir, None);
+        let config = test_support::get_test_validated_config(&temp_dir, None);
 
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
