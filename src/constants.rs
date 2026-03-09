@@ -9,7 +9,6 @@ pub const MILLISECONDS: &str = "ms";
 pub const MODE_APPLY_CHANGES: &str = "apply changes is on - changes will be applied";
 pub const MODE_APPLY_CHANGES_OFF: &str = "apply changes is off - no changes will be applied";
 pub const OBSIDIAN_KNIFE: &str = "obsidian knife - aka \"ok\"";
-pub const RELEASE: &str = "release";
 pub const TOTAL_TIME: &str = "total time";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
@@ -20,16 +19,11 @@ pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub const DEFAULT_TIMEZONE: &str = "America/New_York";
 pub const ERROR_NOT_FOUND: &str = "file not found: ";
 pub const ERROR_READING: &str = "error reading config file ";
-pub const ERROR_BACK_POPULATE_FILE_FILTER: &str = "back_populate_filter_filter cannot be empty";
-pub const ERROR_OUTPUT_FOLDER: &str = "output_folder cannot be empty";
-pub const OBSIDIAN_HIDDEN_FOLDER: &str = ".obsidian";
 pub const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // cache stuff
 pub const CACHE_FOLDER: &str = ".ok";
 pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
-pub const CACHE_INFO_CREATE_NEW: &str = "cache file missing - creating new cache:";
-pub const CACHE_INFO_CORRUPTED: &str = "cache corrupted, creating new cache:";
 
 //markdown outline levels
 pub const LEVEL1: &str = "#";
@@ -42,16 +36,11 @@ pub const DS_STORE: &str = ".DS_Store";
 pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
 pub const MARKDOWN_EXTENSION: &str = "md";
 pub const MARKDOWN_SUFFIX: &str = ".md";
-pub const TIFF_EXTENSION: &str = "tiff";
 
 // matching stuff
-pub const CLOSING_BRACKET: char = ']';
 pub const CLOSING_WIKILINK: &str = "]]";
 pub const FORWARD_SLASH: char = '/';
-pub const IMAGE_ALT_TEXT_DEFAULT: &str = "image";
 pub const OPENING_BRACKET: char = '[';
-pub const OPENING_IMAGE_LINK_BRACKET: &str = "!["; // for external style "![]()"
-pub const OPENING_IMAGE_WIKILINK_BRACKET: &str = "![[";
 pub const OPENING_PAREN: char = '(';
 pub const OPENING_WIKILINK: &str = "[[";
 
@@ -68,13 +57,11 @@ pub const COLON: &str = ":";
 pub const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";
 pub const DELETED: &str = "deleted";
 pub const DUPLICATE: &str = "duplicate";
-pub const DUPLICATES: &str = "duplicates";
 pub const DUPLICATE_IMAGES: &str = "duplicate images";
 pub const FILE: &str = "file";
 pub const FOUND: &str = "found";
 pub const FRONTMATTER: &str = "frontmatter";
 pub const FRONTMATTER_ISSUES: &str = "frontmatter issues";
-pub const IMAGE: &str = "image";
 pub const IMAGES: &str = "images";
 pub const IMAGE_FILE: &str = "image file";
 pub const IMAGE_FILE_HASH: &str = "image file hash";
@@ -89,9 +76,7 @@ pub const MATCHES_AMBIGUOUS: &str = "ambiguous matches";
 pub const MISSING_IMAGE: &str = "missing image";
 pub const MISSING_IMAGE_REFERENCES: &str = "files that refer to images that don't exist";
 pub const NOT_REFERENCED: &str = "not referenced";
-pub const NOT_VALID: &str = "- these are probably corrupted";
 pub const NO_CHANGE: &str = "no change";
-pub const NO_RENDER: &str = "- these won't render in obsidian";
 pub const OCCURRENCES: &str = "occurrences";
 pub const OF: &str = "of";
 pub const PATH: &str = "path";
@@ -101,20 +86,16 @@ pub const REFERENCED_BY: &str = "referenced by";
 pub const REFERENCE_CHANGE: &str = "reference change";
 pub const REFERENCE_REMOVED: &str = " - reference removed";
 pub const REFERENCE_WILL_BE_REMOVED: &str = "reference will be removed";
-pub const SAMPLE: &str = "sample";
 pub const SOURCE_TEXT: &str = "source text";
 pub const TEXT: &str = "text";
 pub const THUMBNAIL: &str = "thumbnail";
 pub const TIFF: &str = "TIFF";
-pub const TIFF_IMAGES: &str = "TIFF images";
 pub const TYPE: &str = "type";
 pub const UNKNOWN: &str = "unknown";
 pub const UNREFERENCED_IMAGES: &str = "unreferenced images";
 pub const UPDATE: &str = "update";
-pub const UPDATED: &str = " - updated";
 pub const WIKILINKS: &str = "wikilinks";
 pub const WILL_BE_BACK_POPULATED: &str = "will be back populated";
-pub const WILL_BE_UPDATED: &str = " - will be updated";
 pub const WILL_DELETE: &str = "will delete";
 pub const WILL_REPLACE_WITH: &str = "will replace with";
 pub const YAML_APPLY_CHANGES: &str = "apply_changes: ";

@@ -3,10 +3,6 @@ name = "obsidian_knife"
 version = "0.1.2"
 edition = "2021"
 
-[lib]
-name = "ok"
-path = "src/lib.rs"
-
 [[bin]]
 name = "ok"
 path = "src/main.rs"
