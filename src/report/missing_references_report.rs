@@ -1,7 +1,7 @@
 use crate::constants::*;
 use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{ReportDefinition, ReportWriter};
+use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils;
 use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;

@@ -2,7 +2,7 @@ use crate::constants::*;
 use crate::image_file::{ImageFile, ImageFileState, ImageHash};
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{ReportDefinition, ReportWriter};
+use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
 use crate::{report, utils};

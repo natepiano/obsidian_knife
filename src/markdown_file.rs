@@ -27,7 +27,8 @@ pub use markdown_file_types::{
     DateValidationIssue, ImageLink, ImageLinkRendering, ImageLinkState, ImageLinkTarget,
     ImageLinkType, ImageLinks, MatchType, PersistReason, ReplaceableContent, Wikilinks,
 };
-pub use text_excluder::{CodeBlockExcluder, InlineCodeExcluder};
+pub use text_excluder::InlineCodeExcluder;
+use text_excluder::CodeBlockExcluder;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;

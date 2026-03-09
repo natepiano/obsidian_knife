@@ -3,7 +3,7 @@ use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 
 /// definition of the elements of a report to write out as a markdown table
-pub trait ReportDefinition<C = ()> {
+pub(super) trait ReportDefinition<C = ()> {
     /// The type of data being displayed in the table
     type Item;
     /// Get the table headers
@@ -51,7 +51,7 @@ pub trait ReportDefinition<C = ()> {
 /// where the definition will do the work to transform items into rows
 ///
 /// lifetime attribute required because we're storing a reference to ValidatedConfig - not owning it
-pub struct ReportWriter<'a, T: Clone> {
+pub(super) struct ReportWriter<'a, T: Clone> {
     pub(crate) items: Vec<T>,
     pub(crate) validated_config: Option<&'a ValidatedConfig>,
 }

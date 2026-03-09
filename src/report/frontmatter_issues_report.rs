@@ -1,6 +1,7 @@
 use crate::constants::*;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report::{DescriptionBuilder, ReportDefinition, ReportWriter};
+use super::DescriptionBuilder;
+use super::report_writer::{ReportDefinition, ReportWriter};
 use crate::utils::{ColumnAlignment, OutputFileWriter};
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;

@@ -109,7 +109,7 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     }
 }
 
-pub type CodeBlockExcluder = BlockTracker<TripleBacktickDelimiter>;
+pub(super) type CodeBlockExcluder = BlockTracker<TripleBacktickDelimiter>;
 pub type InlineCodeExcluder = BlockTracker<SingleBacktickDelimiter>;
 
 impl CodeBlockExcluder {

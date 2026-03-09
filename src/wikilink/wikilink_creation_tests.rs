@@ -1,5 +1,6 @@
 use super::*;
-use crate::wikilink::{ToWikilink, WikilinkParseResult};
+use super::ToWikilink;
+use super::wikilink_types::WikilinkParseResult;
 /// Helper function to parse a full wikilink string.
 /// It ensures the input starts with `[[` and ends with `]]`,
 /// extracts the inner content, and passes it to `parse_wikilink`.
