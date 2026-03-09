@@ -8,7 +8,7 @@ use crate::utils::{ColumnAlignment, OutputFileWriter, VecEnumFilter};
 use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 
-pub struct UnreferencedImagesReport;
+pub(super) struct UnreferencedImagesReport;
 
 impl ReportDefinition for UnreferencedImagesReport {
     type Item = ImageFile;
@@ -66,7 +66,7 @@ impl ReportDefinition for UnreferencedImagesReport {
 }
 
 impl ObsidianRepository {
-    pub fn write_unreferenced_images_report(
+    pub(super) fn write_unreferenced_images_report(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,

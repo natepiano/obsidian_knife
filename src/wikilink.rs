@@ -155,6 +155,18 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     extracted_wikilinks
 }
 
+impl ParsedInvalidWikilink {
+    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
+        InvalidWikilink {
+            content: self.content,
+            reason: self.reason,
+            span: self.span,
+            line,
+            line_number,
+        }
+    }
+}
+
 fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
     // Add email addresses as invalid wikilinks
     let reason = InvalidWikilinkReason::EmailAddress;

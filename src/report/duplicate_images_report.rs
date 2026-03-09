@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
-pub struct DuplicateImagesTable<'a> {
+pub(super) struct DuplicateImagesTable<'a> {
     hash: ImageHash,
     markdown_files: &'a MarkdownFiles,
 }
@@ -172,7 +172,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
 }
 
 impl ObsidianRepository {
-    pub fn write_duplicate_images_report(
+    pub(super) fn write_duplicate_images_report(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,

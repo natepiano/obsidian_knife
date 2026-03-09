@@ -8,7 +8,7 @@ use crate::wikilink::ToWikilink;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub struct FrontmatterIssuesTable;
+pub(super) struct FrontmatterIssuesTable;
 
 impl ReportDefinition for FrontmatterIssuesTable {
     type Item = (PathBuf, String); // (file_path, error_message)
@@ -59,7 +59,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_frontmatter_issues_report(
+    pub(super) fn write_frontmatter_issues_report(
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {

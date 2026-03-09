@@ -57,14 +57,14 @@ pub(super) struct ReportWriter<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> ReportWriter<'a, T> {
-    pub fn new(items: Vec<T>) -> Self {
+    pub(super) fn new(items: Vec<T>) -> Self {
         Self {
             items,
             validated_config: None,
         }
     }
 
-    pub fn with_validated_config(self, config: &'a ValidatedConfig) -> Self {
+    pub(super) fn with_validated_config(self, config: &'a ValidatedConfig) -> Self {
         Self {
             validated_config: Some(config),
             ..self
@@ -72,7 +72,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
     }
 
     /// Write the table using the provided builder and writer
-    pub fn write<B: ReportDefinition<Item = T>>(
+    pub(super) fn write<B: ReportDefinition<Item = T>>(
         &self,
         report: &B,
         writer: &OutputFileWriter,

@@ -8,10 +8,10 @@ use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub struct PersistReasonsTable;
+pub(super) struct PersistReasonsTable;
 
 #[derive(Clone)]
-pub struct PersistReasonData {
+pub(super) struct PersistReasonData {
     back_populate_count: usize,
     date_created_fix: Option<(String, String)>,
     date_validation_created: Option<(String, String)>, // (before, after)
@@ -102,7 +102,7 @@ impl ReportDefinition for PersistReasonsTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_persist_reasons_report(
+    pub(super) fn write_persist_reasons_report(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,

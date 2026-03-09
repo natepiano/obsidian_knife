@@ -142,7 +142,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_ambiguous_matches_report(
+    pub(super) fn write_ambiguous_matches_report(
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {

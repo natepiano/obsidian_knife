@@ -156,18 +156,6 @@ pub struct ParsedInvalidWikilink {
     pub span: (usize, usize),
 }
 
-impl ParsedInvalidWikilink {
-    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
-        InvalidWikilink {
-            content: self.content,
-            reason: self.reason,
-            span: self.span,
-            line,
-            line_number,
-        }
-    }
-}
-
 #[derive(Debug, Default)]
 pub struct ExtractedWikilinks {
     pub valid: Vec<Wikilink>,

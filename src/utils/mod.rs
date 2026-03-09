@@ -8,14 +8,13 @@ mod vec_enum_filter;
 
 pub use file_utils::{
     collect_repository_files, expand_tilde, read_contents_from_file, set_file_dates,
-    RepositoryFiles,
 };
 pub use output_file_writer::{ColumnAlignment, OutputFileWriter};
 pub use regex_utils::{
     build_case_insensitive_word_finder, EMAIL_REGEX, IMAGE_REGEX, MARKDOWN_REGEX, RAW_HTTP_REGEX,
     TAG_REGEX,
 };
-pub use sha256_cache::{CacheEntryStatus, CacheFileStatus, CachedImageInfo, Sha256Cache};
+pub use sha256_cache::Sha256Cache;
 pub use timer::Timer;
 pub use vec_enum_filter::{EnumFilter, VecEnumFilter};
 

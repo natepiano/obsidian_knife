@@ -1,11 +1,11 @@
 use crate::constants::*;
 use crate::test_support::TestFileBuilder;
-use crate::utils::CachedImageInfo;
 
 use super::ObsidianRepository;
 use crate::markdown_file::{ImageLink, MarkdownFile};
 use crate::test_support;
 use crate::test_support as test_utils;
+use serde_json::Value;
 
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -169,8 +169,10 @@ fn test_cache_file_cleanup() {
 
         // Verify cache was cleaned up
         let cache_content = std::fs::read_to_string(&cache_path).unwrap();
-        let cache: HashMap<PathBuf, CachedImageInfo> =
-            serde_json::from_str(&cache_content).unwrap();
+        let cache: Value = serde_json::from_str(&cache_content).unwrap();
+        let cache = cache
+            .as_object()
+            .expect("cache file should deserialize to a JSON object");
         assert!(cache.is_empty(), "Cache should be empty after cleanup");
 
         // temp_dir will be dropped here

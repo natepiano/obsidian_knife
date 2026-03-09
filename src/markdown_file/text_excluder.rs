@@ -1,5 +1,5 @@
 #[derive(Debug, PartialEq)]
-pub enum CodeBlockDelimiter {
+enum CodeBlockDelimiter {
     Backtick,
     TripleBacktick,
 }
@@ -34,17 +34,19 @@ enum BlockLocation {
     ClosingDelimiterFound,
 }
 
-pub trait BlockDelimiter {
+trait BlockDelimiter {
     fn delimiter_type(&self) -> CodeBlockDelimiter;
 }
 
-pub struct TripleBacktickDelimiter;
+#[derive(Debug)]
+struct TripleBacktickDelimiter;
 impl BlockDelimiter for TripleBacktickDelimiter {
     fn delimiter_type(&self) -> CodeBlockDelimiter {
         CodeBlockDelimiter::TripleBacktick
     }
 }
 
+#[derive(Debug)]
 pub struct SingleBacktickDelimiter;
 impl BlockDelimiter for SingleBacktickDelimiter {
     fn delimiter_type(&self) -> CodeBlockDelimiter {
@@ -53,13 +55,13 @@ impl BlockDelimiter for SingleBacktickDelimiter {
 }
 
 #[derive(Debug)]
-pub struct BlockTracker<D: BlockDelimiter> {
+struct BlockTracker<D: BlockDelimiter> {
     location: BlockLocation,
     delimiter: D,
 }
 
 impl<D: BlockDelimiter> BlockTracker<D> {
-    pub fn new_with_delimiter(delimiter: D) -> Self {
+    fn new_with_delimiter(delimiter: D) -> Self {
         Self {
             location: BlockLocation::Outside,
             delimiter,
@@ -70,7 +72,7 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     /// encounter a delimiter, we go back to inside - this is intentional for the case
     /// where another code block is opened up right after the last one - it's possible in markdown
     /// so we don't treat this as a "nested" case we treat it as an opening of a code block
-    pub fn update<T>(&mut self, content: T)
+    fn update<T>(&mut self, content: T)
     where
         T: TryInto<CodeBlockDelimiter>,
     {
@@ -97,30 +99,53 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     // if we didn't skip it then the closing TripleBacktickDelimiter ``` would be
     // considered "outside" and it would then be prased by the
     // character iterator and would treat this as an open/close/open of a code block
-    pub fn is_in_code_block(&self) -> bool {
+    fn is_in_code_block(&self) -> bool {
         matches!(
             self.location,
             BlockLocation::Inside | BlockLocation::ClosingDelimiterFound
         )
     }
 
-    pub fn is_inside(&self) -> bool {
+    fn is_inside(&self) -> bool {
         self.location == BlockLocation::Inside
     }
 }
 
-pub(super) type CodeBlockExcluder = BlockTracker<TripleBacktickDelimiter>;
-pub type InlineCodeExcluder = BlockTracker<SingleBacktickDelimiter>;
+#[derive(Debug)]
+pub(super) struct CodeBlockExcluder(BlockTracker<TripleBacktickDelimiter>);
 
 impl CodeBlockExcluder {
-    pub fn new() -> Self {
-        Self::new_with_delimiter(TripleBacktickDelimiter)
+    pub(super) fn new() -> Self {
+        Self(BlockTracker::new_with_delimiter(TripleBacktickDelimiter))
+    }
+
+    pub(super) fn update(&mut self, content: &str) {
+        self.0.update(content);
+    }
+
+    pub(super) fn is_in_code_block(&self) -> bool {
+        self.0.is_in_code_block()
     }
 }
 
+#[derive(Debug)]
+pub struct InlineCodeExcluder(BlockTracker<SingleBacktickDelimiter>);
+
 impl InlineCodeExcluder {
     pub fn new() -> Self {
-        Self::new_with_delimiter(SingleBacktickDelimiter)
+        Self(BlockTracker::new_with_delimiter(SingleBacktickDelimiter))
+    }
+
+    pub fn update(&mut self, content: char) {
+        self.0.update(content);
+    }
+
+    pub fn is_in_code_block(&self) -> bool {
+        self.0.is_in_code_block()
+    }
+
+    pub fn is_inside(&self) -> bool {
+        self.0.is_inside()
     }
 }
 

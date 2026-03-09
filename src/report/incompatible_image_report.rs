@@ -10,7 +10,7 @@ use crate::{obsidian_repository, report};
 use std::error::Error;
 use std::path::Path;
 
-pub struct IncompatibleImagesReport<'a> {
+pub(super) struct IncompatibleImagesReport<'a> {
     markdown_files: &'a MarkdownFiles,
 }
 
@@ -142,7 +142,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
 }
 
 impl ObsidianRepository {
-    pub fn write_incompatible_image_report(
+    pub(super) fn write_incompatible_image_report(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,

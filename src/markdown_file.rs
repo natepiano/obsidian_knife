@@ -24,8 +24,8 @@ mod text_excluder;
 
 pub use markdown_file_types::{
     BackPopulateMatch, BackPopulateMatches, DateCreatedFixValidation, DateValidation,
-    DateValidationIssue, ImageLink, ImageLinkRendering, ImageLinkState, ImageLinkTarget,
-    ImageLinkType, ImageLinks, MatchType, PersistReason, ReplaceableContent, Wikilinks,
+    DateValidationIssue, ImageLink, ImageLinkState, ImageLinkTarget, ImageLinkType, ImageLinks,
+    MatchType, PersistReason, ReplaceableContent, Wikilinks,
 };
 pub use text_excluder::InlineCodeExcluder;
 use text_excluder::CodeBlockExcluder;

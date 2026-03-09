@@ -11,7 +11,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
-pub struct InvalidWikilinksTable;
+pub(super) struct InvalidWikilinksTable;
 
 impl ReportDefinition for InvalidWikilinksTable {
     type Item = (PathBuf, InvalidWikilink);
@@ -84,7 +84,7 @@ impl ReportDefinition for InvalidWikilinksTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_invalid_wikilinks_report(
+    pub(super) fn write_invalid_wikilinks_report(
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {

@@ -8,7 +8,7 @@ use crate::validated_config::ValidatedConfig;
 use std::error::Error;
 use std::path::PathBuf;
 
-pub struct MissingReferencesTable;
+pub(super) struct MissingReferencesTable;
 
 impl ReportDefinition for MissingReferencesTable {
     type Item = (PathBuf, String, usize, usize); // (markdown_path, extracted_filename, line, position)
@@ -89,7 +89,7 @@ impl ReportDefinition for MissingReferencesTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_missing_references_report(
+    pub(super) fn write_missing_references_report(
         &self,
         config: &ValidatedConfig,
         writer: &OutputFileWriter,

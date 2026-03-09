@@ -104,7 +104,7 @@ impl ReportDefinition for BackPopulateTable {
 }
 
 impl ObsidianRepository {
-    pub fn write_back_populate_report(
+    pub(super) fn write_back_populate_report(
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
