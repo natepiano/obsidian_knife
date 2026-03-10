@@ -10,7 +10,6 @@ use crate::image_file::ImageFileState;
 use crate::image_file::ImageHash;
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report;
 use crate::utils;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
@@ -103,8 +102,11 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                 ]);
             } else {
                 for ref_path in &image.markdown_file_references {
-                    let file_link =
-                        report::format_wikilink(Path::new(ref_path), config.obsidian_path(), false);
+                    let file_link = super::orchestration::format_wikilink(
+                        Path::new(ref_path),
+                        config.obsidian_path(),
+                        false,
+                    );
 
                     // Get line number and position from markdown files
                     let (line_number, position) = self

@@ -11,7 +11,6 @@ use crate::markdown_file::ImageLinkState;
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
@@ -83,7 +82,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                         .iter()
                         .find(|f| f.path == Path::new(ref_path))
                     {
-                        let file_link = report::format_wikilink(
+                        let file_link = super::orchestration::format_wikilink(
                             Path::new(ref_path),
                             config.obsidian_path(),
                             false,

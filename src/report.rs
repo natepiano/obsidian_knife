@@ -11,7 +11,15 @@ mod unreferenced_images_report;
 
 mod report_writer;
 
-pub(super) use orchestration::format_wikilink;
-pub(super) use orchestration::highlight_matches;
-
 use crate::constants::*;
+use crate::obsidian_repository::ObsidianRepository;
+use crate::validated_config::ValidatedConfig;
+
+impl ObsidianRepository {
+    pub fn write_reports(
+        &self,
+        validated_config: &ValidatedConfig,
+    ) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+        self.write_reports_impl(validated_config)
+    }
+}

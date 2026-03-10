@@ -40,7 +40,7 @@ impl ReportDefinition for MissingReferencesTable {
             .iter()
             .map(
                 |(markdown_path, extracted_filename, line_number, position)| {
-                    let markdown_link = crate::report::format_wikilink(
+                    let markdown_link = super::orchestration::format_wikilink(
                         markdown_path,
                         config.obsidian_path(),
                         false,

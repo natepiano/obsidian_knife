@@ -1,5 +1,5 @@
-use crate::markdown_file::BackPopulateMatch;
-use crate::markdown_file::MarkdownFile;
+use super::BackPopulateMatch;
+use super::MarkdownFile;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;

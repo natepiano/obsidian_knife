@@ -15,7 +15,7 @@ use crate::wikilink::ToWikilink;
 use crate::ObsidianRepository;
 
 impl ObsidianRepository {
-    pub fn write_reports(
+    pub(super) fn write_reports_impl(
         &self,
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -35,7 +35,7 @@ impl ObsidianRepository {
         Ok(())
     }
 
-    pub fn write_back_populate_reports(
+    fn write_back_populate_reports(
         &self,
         validated_config: &ValidatedConfig,
         writer: &OutputFileWriter,
@@ -112,7 +112,7 @@ impl ObsidianRepository {
         Ok(())
     }
 
-    pub fn write_execution_start(
+    fn write_execution_start(
         &self,
         validated_config: &ValidatedConfig,
         writer: &OutputFileWriter,
@@ -189,7 +189,11 @@ fn write_back_populate_report_header(
     Ok(())
 }
 
-pub fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: bool) -> String {
+pub(super) fn format_wikilink(
+    path: &Path,
+    obsidian_path: &Path,
+    use_full_filename: bool,
+) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
     let display_name = if use_full_filename {
         path.file_name().unwrap_or_default().to_string_lossy()
@@ -200,7 +204,7 @@ pub fn format_wikilink(path: &Path, obsidian_path: &Path, use_full_filename: boo
     format!("[[{}\\|{}]]", relative_path.display(), display_name)
 }
 
-pub fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
+pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
     let mut result = String::with_capacity(text.len() * 2);
     let mut last_end = 0;
 

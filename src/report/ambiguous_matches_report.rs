@@ -8,7 +8,6 @@ use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report;
 use crate::utils;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
@@ -62,8 +61,11 @@ impl ReportDefinition for AmbiguousMatchesTable {
                 .and_then(|s| s.to_str())
                 .unwrap_or_default();
 
-            let highlighted_line =
-                report::highlight_matches(&line_text, &positions, self.display_text.len());
+            let highlighted_line = super::orchestration::highlight_matches(
+                &line_text,
+                &positions,
+                self.display_text.len(),
+            );
 
             rows.push(vec![
                 file_stem.to_wikilink(),

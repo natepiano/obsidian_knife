@@ -8,7 +8,6 @@ use super::report_writer::ReportWriter;
 use crate::constants::*;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::report;
 use crate::utils;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
@@ -55,7 +54,7 @@ impl ReportDefinition for BackPopulateTable {
             let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
             for line_info in m.line_info {
-                let highlighted_line = report::highlight_matches(
+                let highlighted_line = super::orchestration::highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
                     self.display_text.len(),
