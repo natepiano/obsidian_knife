@@ -15,7 +15,7 @@ pub use wikilink_types::ExtractedWikilinks;
 pub use wikilink_types::InvalidWikilink;
 pub use wikilink_types::InvalidWikilinkReason;
 pub use wikilink_types::ParsedExtractedWikilinks;
-pub use wikilink_types::ParsedInvalidWikilink;
+use wikilink_types::ParsedInvalidWikilink;
 pub use wikilink_types::ToWikilink;
 pub use wikilink_types::Wikilink;
 use wikilink_types::WikilinkParseResult;

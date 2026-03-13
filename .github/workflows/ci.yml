@@ -12,6 +12,8 @@ env:
   CARGO_TERM_COLOR: always
   CARGO_TERM_PROGRESS_WHEN: always
   CARGO_TERM_PROGRESS_WIDTH: 80
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+  TAPLO_VERSION: 0.10.0
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -22,7 +24,7 @@ jobs:
     name: Format Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust nightly
         uses: dtolnay/rust-toolchain@master
@@ -30,14 +32,28 @@ jobs:
           toolchain: nightly
           components: rustfmt
 
-      - name: Check Rust formatting
+      - name: Check formatting
         run: cargo +nightly fmt --all --check
+
+  taplo:
+    name: Taplo Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Taplo
+        uses: taiki-e/install-action@v2
+        with:
+          tool: taplo@${{ env.TAPLO_VERSION }}
+
+      - name: Check TOML formatting
+        run: taplo fmt --check
 
   clippy:
     name: Clippy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@master
@@ -49,13 +65,13 @@ jobs:
         uses: Swatinem/rust-cache@v2
 
       - name: Run clippy
-        run: cargo clippy --all-targets
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
 
   build:
     name: Build Check
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@master
@@ -65,14 +81,14 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Build release
-        run: cargo build --release
+      - name: Build workspace release targets
+        run: cargo build --release --all-features --workspace
 
   test:
     name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install Rust stable
         uses: dtolnay/rust-toolchain@master
@@ -85,5 +101,30 @@ jobs:
       - name: Cache Rust dependencies
         uses: Swatinem/rust-cache@v2
 
-      - name: Run tests
-        run: cargo nextest run
+      - name: Run test targets
+        run: cargo nextest run --all-features --workspace --tests
+
+  mend:
+    name: Mend Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: rust-src, rustc-dev, llvm-tools-preview
+
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install cargo-mend
+        run: cargo install cargo-mend
+        env:
+          RUSTC_BOOTSTRAP: 1
+
+      - name: Run cargo mend
+        run: cargo mend --fail-on-warn
+        env:
+          CARGO_TERM_COLOR: never
