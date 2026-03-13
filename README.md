@@ -1,4 +1,7 @@
 # obsidian_knife - aka "ok"
+
+[![CI](https://github.com/pianonate/obsidian_knife/actions/workflows/ci.yml/badge.svg)](https://github.com/pianonate/obsidian_knife/actions/workflows/ci.yml)
+
 CLI utility to maintain [Obsidian](https://obsidian.md) repositories by automating backlinks, image cleanup, and date maintenance.
 # usage
 the binary for obsidian knife is "ok" - clever, eh?
