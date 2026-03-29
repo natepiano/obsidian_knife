@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::fs;
+
 use filetime::FileTime;
 use tempfile::TempDir;
 

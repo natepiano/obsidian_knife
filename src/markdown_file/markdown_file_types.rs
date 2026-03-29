@@ -9,6 +9,7 @@ use derive_more::Deref;
 use derive_more::DerefMut;
 use derive_more::IntoIterator;
 
+use super::date_validation;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
 use crate::constants::FORWARD_SLASH;
@@ -17,7 +18,6 @@ use crate::constants::OPENING_PAREN;
 use crate::constants::OPENING_WIKILINK;
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
-use crate::markdown_file;
 use crate::utils::EnumFilter;
 use crate::wikilink;
 use crate::wikilink::InvalidWikilink;
@@ -102,7 +102,7 @@ impl DateCreatedFixValidation {
 
         let parsed_date = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
-                markdown_file::extract_date(date_str)
+                date_validation::extract_date(date_str)
             } else {
                 date_str.trim().trim_matches('"')
             };
