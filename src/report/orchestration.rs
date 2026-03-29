@@ -26,12 +26,29 @@ impl ObsidianRepository {
         self.write_frontmatter_issues_report(&writer)?;
 
         self.write_image_reports(validated_config, &writer)?;
+        self.write_ambiguous_matches_reports(&writer)?;
         self.write_back_populate_reports(validated_config, &writer)?;
 
         // This report is slightly duplicative because image reference updates and back-populate
         // updates already have dedicated reports. It still captures date changes clearly, so it
         // remains useful as an audit trail.
         self.write_persist_reasons_report(validated_config, &writer)?;
+
+        Ok(())
+    }
+
+    fn write_ambiguous_matches_reports(
+        &self,
+        writer: &OutputFileWriter,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        let has_ambiguous_matches = self
+            .markdown_files
+            .iter()
+            .any(|file| file.has_ambiguous_matches());
+
+        if has_ambiguous_matches {
+            self.write_ambiguous_matches_report(writer)?;
+        }
 
         Ok(())
     }
@@ -46,11 +63,6 @@ impl ObsidianRepository {
             .files_to_persist()
             .iter()
             .any(|file| file.has_unambiguous_matches());
-
-        let has_ambiguous_matches = self
-            .markdown_files
-            .iter()
-            .any(|file| file.has_ambiguous_matches());
 
         let has_invalid_wikilinks = self.markdown_files.iter().any(|file| {
             file.wikilinks.invalid.iter().any(|wikilink| {
@@ -69,11 +81,7 @@ impl ObsidianRepository {
                 .any(|r| matches!(r, PersistReason::FrontmatterCreated))
         });
 
-        if has_back_populate_entries
-            || has_invalid_wikilinks
-            || has_ambiguous_matches
-            || has_frontmatter_created
-        {
+        if has_back_populate_entries || has_invalid_wikilinks || has_frontmatter_created {
             write_back_populate_report_header(validated_config, writer)?;
 
             if has_frontmatter_created {
@@ -82,10 +90,6 @@ impl ObsidianRepository {
 
             if has_invalid_wikilinks {
                 self.write_invalid_wikilinks_report(writer)?;
-            }
-
-            if has_ambiguous_matches {
-                self.write_ambiguous_matches_report(writer)?;
             }
 
             if has_back_populate_entries {

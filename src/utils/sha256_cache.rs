@@ -67,7 +67,7 @@ impl Sha256Cache {
         };
 
         Ok((
-            Sha256Cache {
+            Self {
                 cache,
                 cache_file_path,
                 files_read: 0,

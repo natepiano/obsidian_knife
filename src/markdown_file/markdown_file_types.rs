@@ -31,12 +31,12 @@ pub enum PersistReason {
 impl fmt::Display for PersistReason {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            PersistReason::DateCreatedUpdated { .. } => write!(f, "date_created updated"),
-            PersistReason::DateModifiedUpdated { .. } => write!(f, "date_modified updated"),
-            PersistReason::DateCreatedFixApplied => write!(f, "date_created_fix applied"),
-            PersistReason::BackPopulated => write!(f, "back populated"),
-            PersistReason::FrontmatterCreated => write!(f, "frontmatter created"),
-            PersistReason::ImageReferencesModified => write!(f, "image references updated"),
+            Self::DateCreatedUpdated { .. } => write!(f, "date_created updated"),
+            Self::DateModifiedUpdated { .. } => write!(f, "date_modified updated"),
+            Self::DateCreatedFixApplied => write!(f, "date_created_fix applied"),
+            Self::BackPopulated => write!(f, "back populated"),
+            Self::FrontmatterCreated => write!(f, "frontmatter created"),
+            Self::ImageReferencesModified => write!(f, "image references updated"),
         }
     }
 }
@@ -52,10 +52,10 @@ pub enum DateValidationIssue {
 impl fmt::Display for DateValidationIssue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let description = match self {
-            DateValidationIssue::Missing => "missing",
-            DateValidationIssue::InvalidDateFormat => "invalid date format",
-            DateValidationIssue::InvalidWikilink => "invalid wikilink",
-            DateValidationIssue::FileSystemMismatch => "doesn't match file system",
+            Self::Missing => "missing",
+            Self::InvalidDateFormat => "invalid date format",
+            Self::InvalidWikilink => "invalid wikilink",
+            Self::FileSystemMismatch => "doesn't match file system",
         };
         write!(f, "{}", description)
     }
@@ -138,7 +138,7 @@ impl DateCreatedFixValidation {
                 })
         });
 
-        DateCreatedFixValidation {
+        Self {
             date_string: fix_str,
             fix_date:    parsed_date,
         }

@@ -128,7 +128,7 @@ impl MarkdownFile {
             .as_ref()
             .and_then(|fm| fm.get_do_not_back_populate_regexes());
 
-        let mut file_info = MarkdownFile {
+        let mut file_info = Self {
             content,
             date_created_fix,
             do_not_back_populate_regexes,

@@ -36,7 +36,7 @@ enum MainError {
 impl std::fmt::Display for MainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MainError::Usage(msg) => write!(f, "{}", msg),
+            Self::Usage(msg) => write!(f, "{}", msg),
         }
     }
 }

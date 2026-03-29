@@ -266,6 +266,37 @@ fn test_unclosed_markdown_links() {
 }
 
 #[test]
+fn test_markdown_clickable_image_not_flagged() {
+    // CI badge: [![alt](image-url)](link-url) is valid markdown, not an invalid wikilink
+    let test_cases = vec![
+        WikilinkTestCase {
+            description:      "CI badge should not produce UnmatchedMarkdownLinkOpening",
+            input:            "[![CI](https://example.com/badge.svg)](https://example.com/ci)",
+            expected_valid:   vec![],
+            expected_invalid: vec![(
+                "https://example.com/badge.svg)](https://example.com/ci)",
+                InvalidWikilinkReason::RawHttpLink,
+                (7, 62),
+            )],
+        },
+        WikilinkTestCase {
+            description:      "Badge with surrounding text",
+            input:            "Check out [![Build](https://example.com/b.svg)](https://example.com) the project",
+            expected_valid:   vec![],
+            expected_invalid: vec![(
+                "https://example.com/b.svg)](https://example.com)",
+                InvalidWikilinkReason::RawHttpLink,
+                (20, 68),
+            )],
+        },
+    ];
+
+    for test_case in test_cases {
+        assert_wikilink_extraction(test_case);
+    }
+}
+
+#[test]
 fn test_email_detection() {
     let test_cases = vec![
         WikilinkTestCase {

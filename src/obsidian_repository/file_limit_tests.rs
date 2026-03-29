@@ -25,7 +25,7 @@ fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
 
     let _: Vec<MarkdownFile> = (0..count)
         .map(|i| {
-            let created = base_date + chrono::Duration::days(i as i64);
+            let created = base_date + chrono::Duration::days(i64::try_from(i).expect("test index"));
             let modified = created + chrono::Duration::hours(1);
 
             // Convert to UTC for the filesystem dates

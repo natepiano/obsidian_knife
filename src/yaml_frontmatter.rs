@@ -85,20 +85,11 @@ impl PartialEq for YamlFrontMatterError {
     fn eq(&self, other: &Self) -> bool {
         matches!(
             (self, other),
-            (YamlFrontMatterError::Empty, YamlFrontMatterError::Empty)
-                | (YamlFrontMatterError::Missing, YamlFrontMatterError::Missing)
-                | (
-                    YamlFrontMatterError::Invalid(_),
-                    YamlFrontMatterError::Invalid(_)
-                )
-                | (
-                    YamlFrontMatterError::Parse(_),
-                    YamlFrontMatterError::Parse(_)
-                )
-                | (
-                    YamlFrontMatterError::Serialize(_),
-                    YamlFrontMatterError::Serialize(_)
-                )
+            (Self::Empty, Self::Empty)
+                | (Self::Missing, Self::Missing)
+                | (Self::Invalid(_), Self::Invalid(_))
+                | (Self::Parse(_), Self::Parse(_))
+                | (Self::Serialize(_), Self::Serialize(_))
         )
     }
 }

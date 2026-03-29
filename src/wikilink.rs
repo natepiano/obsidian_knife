@@ -124,12 +124,16 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
             } else {
                 // Handle markdown link opening as before...
                 if let Some(start_pos) = markdown_opening {
-                    let content_slice = line[start_pos..start_idx].trim();
-                    extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-                        content: content_slice.to_string(),
-                        reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-                        span:    (start_pos, start_pos + content_slice.len()),
-                    });
+                    let between = &line[start_pos..start_idx];
+                    // `[!` between brackets is a `[![` markdown clickable image, not invalid
+                    if between != "[!" {
+                        let content_slice = between.trim();
+                        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+                            content: content_slice.to_string(),
+                            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+                            span:    (start_pos, start_pos + content_slice.len()),
+                        });
+                    }
                 }
                 markdown_opening = Some(start_idx);
             }
@@ -226,25 +230,25 @@ enum WikilinkState {
 impl WikilinkState {
     fn formatted_content(&self) -> String {
         match self {
-            WikilinkState::Target { content, .. } => content.to_string(),
-            WikilinkState::Display {
+            Self::Target { content, .. } => content.to_string(),
+            Self::Display {
                 target, content, ..
             } => format!("{}|{}", target, content),
-            WikilinkState::Invalid { content, .. } => content.to_string(),
+            Self::Invalid { content, .. } => content.to_string(),
         }
     }
 
     fn push_char(&mut self, c: char) {
         match self {
-            WikilinkState::Target { content, .. } => content.push(c),
-            WikilinkState::Display { content, .. } => content.push(c),
-            WikilinkState::Invalid { content, .. } => content.push(c),
+            Self::Target { content, .. } => content.push(c),
+            Self::Display { content, .. } => content.push(c),
+            Self::Invalid { content, .. } => content.push(c),
         }
     }
 
     fn transition_to_display(&mut self, pipe_pos: usize) {
-        if let WikilinkState::Target { content, start_pos } = self {
-            *self = WikilinkState::Display {
+        if let Self::Target { content, start_pos } = self {
+            *self = Self::Display {
                 target:       content.clone(),
                 _target_span: (*start_pos, pipe_pos),
                 content:      String::new(),
@@ -256,14 +260,14 @@ impl WikilinkState {
     fn transition_to_invalid(&mut self, reason: InvalidWikilinkReason) {
         let content = self.formatted_content();
         let start_pos = match self {
-            WikilinkState::Target { start_pos, .. } => *start_pos,
-            WikilinkState::Display {
+            Self::Target { start_pos, .. } => *start_pos,
+            Self::Display {
                 _target_span: (start, _),
                 ..
             } => *start,
-            WikilinkState::Invalid { start_pos, .. } => *start_pos,
+            Self::Invalid { start_pos, .. } => *start_pos,
         };
-        *self = WikilinkState::Invalid {
+        *self = Self::Invalid {
             content,
             reason,
             start_pos,
@@ -272,7 +276,7 @@ impl WikilinkState {
 
     fn to_wikilink(&self, end_pos: usize) -> WikilinkParseResult {
         match self {
-            WikilinkState::Target { content, start_pos } => {
+            Self::Target { content, start_pos } => {
                 let trimmed = content.trim().to_string();
                 if trimmed.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
@@ -288,7 +292,7 @@ impl WikilinkState {
                     })
                 }
             },
-            WikilinkState::Display {
+            Self::Display {
                 target,
                 content,
                 _target_span: (start_pos, _),
@@ -309,7 +313,7 @@ impl WikilinkState {
                     })
                 }
             },
-            WikilinkState::Invalid {
+            Self::Invalid {
                 content,
                 reason,
                 start_pos,

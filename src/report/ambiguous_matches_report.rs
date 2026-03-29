@@ -129,7 +129,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
             .build();
 
         let stats_message = DescriptionBuilder::new()
-            .text(LEVEL4)
+            .text(LEVEL3)
             .text(FOUND)
             .no_space(COLON)
             .quoted_text(&self.display_text)
@@ -143,7 +143,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         result
     }
 
-    fn level(&self) -> &'static str { LEVEL3 }
+    fn level(&self) -> &'static str { LEVEL2 }
 }
 
 impl ObsidianRepository {
@@ -151,7 +151,7 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        writer.writeln(LEVEL2, MATCHES_AMBIGUOUS)?;
+        writer.writeln(LEVEL1, MATCHES_AMBIGUOUS)?;
 
         // Create a map to group ambiguous matches by their display text (case-insensitive)
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();

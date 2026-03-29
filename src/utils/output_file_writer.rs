@@ -28,7 +28,7 @@ impl OutputFileWriter {
             .truncate(true)
             .open(file_path)?;
 
-        Ok(OutputFileWriter {
+        Ok(Self {
             file: Mutex::new(file),
         })
     }

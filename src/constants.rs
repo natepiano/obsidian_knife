@@ -32,7 +32,6 @@ pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub const LEVEL1: &str = "#";
 pub const LEVEL2: &str = "##";
 pub const LEVEL3: &str = "###";
-pub const LEVEL4: &str = "####";
 
 // files and extensions
 pub const DS_STORE: &str = ".DS_Store";
@@ -131,47 +130,47 @@ pub enum Phrase {
 impl Phrase {
     pub const fn pluralize(&self) -> &'static str {
         match self {
-            Phrase::File(1) => "file",
-            Phrase::File(_) => "files",
-            Phrase::Has(1) => "has a",
-            Phrase::Has(_) => "have",
-            Phrase::Image(1) => "image",
-            Phrase::Image(_) => "images",
-            Phrase::Issue(1) => "issue",
-            Phrase::Issue(_) => "issues",
-            Phrase::Is(1) => "is",
-            Phrase::Is(_) => "are",
-            Phrase::Match(1) => "match",
-            Phrase::Match(_) => "matches",
-            Phrase::Reason(1) => "reason",
-            Phrase::Reason(_) => "reasons",
-            Phrase::Reference(1) => "reference",
-            Phrase::Reference(_) => "references",
-            Phrase::Target(1) => "target",
-            Phrase::Target(_) => "targets",
-            Phrase::Time(1) => "time",
-            Phrase::Time(_) => "times",
-            Phrase::Wikilink(1) => "wikilink",
-            Phrase::Wikilink(_) => "wikilinks",
-            Phrase::With(1) => "with a",
-            Phrase::With(_) => "with",
+            Self::File(1) => "file",
+            Self::File(_) => "files",
+            Self::Has(1) => "has a",
+            Self::Has(_) => "have",
+            Self::Image(1) => "image",
+            Self::Image(_) => "images",
+            Self::Issue(1) => "issue",
+            Self::Issue(_) => "issues",
+            Self::Is(1) => "is",
+            Self::Is(_) => "are",
+            Self::Match(1) => "match",
+            Self::Match(_) => "matches",
+            Self::Reason(1) => "reason",
+            Self::Reason(_) => "reasons",
+            Self::Reference(1) => "reference",
+            Self::Reference(_) => "references",
+            Self::Target(1) => "target",
+            Self::Target(_) => "targets",
+            Self::Time(1) => "time",
+            Self::Time(_) => "times",
+            Self::Wikilink(1) => "wikilink",
+            Self::Wikilink(_) => "wikilinks",
+            Self::With(1) => "with a",
+            Self::With(_) => "with",
         }
     }
 
     pub const fn value(&self) -> usize {
         match self {
-            Phrase::File(value)
-            | Phrase::Has(value)
-            | Phrase::Image(value)
-            | Phrase::Issue(value)
-            | Phrase::Is(value)
-            | Phrase::Match(value)
-            | Phrase::Reason(value)
-            | Phrase::Reference(value)
-            | Phrase::Target(value)
-            | Phrase::Time(value)
-            | Phrase::Wikilink(value)
-            | Phrase::With(value) => *value,
+            Self::File(value)
+            | Self::Has(value)
+            | Self::Image(value)
+            | Self::Issue(value)
+            | Self::Is(value)
+            | Self::Match(value)
+            | Self::Reason(value)
+            | Self::Reference(value)
+            | Self::Target(value)
+            | Self::Time(value)
+            | Self::Wikilink(value)
+            | Self::With(value) => *value,
         }
     }
 }

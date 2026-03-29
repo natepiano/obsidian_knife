@@ -42,7 +42,7 @@ impl Config {
         frontmatter: FrontMatter,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let yaml_str = frontmatter.to_yaml_str()?;
-        Config::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+        Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
     pub fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {

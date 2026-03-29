@@ -18,11 +18,11 @@ use crate::utils::EnumFilter;
 pub struct ImageHash(pub String);
 
 impl From<&str> for ImageHash {
-    fn from(hash: &str) -> Self { ImageHash(hash.to_string()) }
+    fn from(hash: &str) -> Self { Self(hash.to_string()) }
 }
 
 impl From<String> for ImageHash {
-    fn from(hash: String) -> Self { ImageHash(hash) }
+    fn from(hash: String) -> Self { Self(hash) }
 }
 
 impl fmt::Display for ImageHash {
@@ -86,12 +86,12 @@ pub enum ImageFileType {
 impl ImageFileType {
     pub fn from_extension(ext: &str) -> Self {
         match ext.to_lowercase().as_str() {
-            "tiff" | "tif" => ImageFileType::Tiff,
-            "jpg" | "jpeg" => ImageFileType::Jpeg,
-            "png" => ImageFileType::Png,
-            "gif" => ImageFileType::Gif,
-            "webp" => ImageFileType::WebP,
-            other => ImageFileType::Other(other.to_string()),
+            "tiff" | "tif" => Self::Tiff,
+            "jpg" | "jpeg" => Self::Jpeg,
+            "png" => Self::Png,
+            "gif" => Self::Gif,
+            "webp" => Self::WebP,
+            other => Self::Other(other.to_string()),
         }
     }
 }
@@ -157,7 +157,7 @@ impl ImageFile {
             ImageFileState::Valid
         };
 
-        ImageFile {
+        Self {
             delete: false,
             file_type,
             hash,

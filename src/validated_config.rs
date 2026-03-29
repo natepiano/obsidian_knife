@@ -32,7 +32,7 @@ pub enum ValidationError {
 
 impl From<derive_builder::UninitializedFieldError> for ValidationError {
     fn from(err: derive_builder::UninitializedFieldError) -> Self {
-        ValidationError::UninitializedField(err.field_name().to_string())
+        Self::UninitializedField(err.field_name().to_string())
     }
 }
 

@@ -97,12 +97,14 @@ fn verify_dates(
 
     // Convert to UTC for comparison
     let fs_created_date = DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_created.unix_seconds() as u64),
+        SystemTime::UNIX_EPOCH
+            + std::time::Duration::from_secs(fs_created.unix_seconds().cast_unsigned()),
     )
     .date_naive();
 
     let fs_modified_date = DateTime::<Utc>::from(
-        SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(fs_modified.unix_seconds() as u64),
+        SystemTime::UNIX_EPOCH
+            + std::time::Duration::from_secs(fs_modified.unix_seconds().cast_unsigned()),
     )
     .date_naive();
 

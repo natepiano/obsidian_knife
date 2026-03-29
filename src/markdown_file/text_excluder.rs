@@ -9,7 +9,7 @@ impl TryFrom<&str> for CodeBlockDelimiter {
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
         if s.trim().starts_with("```") {
-            Ok(CodeBlockDelimiter::TripleBacktick)
+            Ok(Self::TripleBacktick)
         } else {
             Err(())
         }
@@ -21,7 +21,7 @@ impl TryFrom<char> for CodeBlockDelimiter {
 
     fn try_from(c: char) -> Result<Self, Self::Error> {
         match c {
-            '`' => Ok(CodeBlockDelimiter::Backtick),
+            '`' => Ok(Self::Backtick),
             _ => Err(()),
         }
     }
