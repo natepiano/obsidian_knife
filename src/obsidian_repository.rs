@@ -408,7 +408,10 @@ impl ObsidianRepository {
                     .map(|m| m.as_ref()) // Dereference Box to &dyn ReplaceableContent
                     .collect();
 
-                if !line_matches.is_empty() {
+                if line_matches.is_empty() {
+                    updated_content.push_str(line);
+                    updated_content.push('\n');
+                } else {
                     let updated_line =
                         apply_line_replacements(line, &line_matches, &markdown_file.path);
 
@@ -424,9 +427,6 @@ impl ObsidianRepository {
                         updated_content.push_str(&updated_line);
                         updated_content.push('\n');
                     }
-                } else {
-                    updated_content.push_str(line);
-                    updated_content.push('\n');
                 }
                 content_line_number += 1;
             }
@@ -600,7 +600,7 @@ impl ObsidianRepository {
 fn apply_line_replacements(
     line: &str,
     line_matches: &[&dyn ReplaceableContent],
-    file_path: &PathBuf,
+    file_path: &Path,
 ) -> String {
     let mut updated_line = line.to_string();
     let mut has_image_replacement = false;

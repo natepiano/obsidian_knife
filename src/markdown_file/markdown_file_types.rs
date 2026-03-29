@@ -92,13 +92,11 @@ pub struct DateCreatedFixValidation {
 
 impl DateCreatedFixValidation {
     pub(super) fn from_frontmatter(
-        frontmatter: &Option<FrontMatter>,
+        frontmatter: Option<&FrontMatter>,
         file_created_date: DateTime<Utc>,
         operational_timezone: &str,
     ) -> Self {
-        let fix_str = frontmatter
-            .as_ref()
-            .and_then(|fm| fm.date_created_fix().cloned());
+        let fix_str = frontmatter.and_then(|fm| fm.date_created_fix().cloned());
 
         let parsed_date = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
@@ -120,8 +118,7 @@ impl DateCreatedFixValidation {
                     let fixed_date = tz
                         .from_local_datetime(&naive_datetime)
                         .single()
-                        .map(|dt| dt.with_timezone(&Utc))
-                        .unwrap_or_else(|| file_created_date);
+                        .map_or_else(|| file_created_date, |dt| dt.with_timezone(&Utc));
 
                     // Assert that the date in operational timezone matches the requested fix date
                     let fixed_date_local = fixed_date.with_timezone(&tz);
@@ -359,7 +356,7 @@ impl ImageLink {
                 .map(|alt_end| raw_link[2..alt_end].to_string())
                 .unwrap_or_default();
 
-            let url_start = raw_link.find("](").map(|i| i + 2).unwrap_or(0);
+            let url_start = raw_link.find("](").map_or(0, |i| i + 2);
             let url = &raw_link[url_start..raw_link.len() - 1];
 
             let location = if url.starts_with("http://") || url.starts_with("https://") {
@@ -410,8 +407,7 @@ fn extract_relative_path(matched: &str) -> String {
     // Extract the portion before the last '/' (potential path).
     let prefix = matched
         .rsplit_once(FORWARD_SLASH)
-        .map(|(prefix, _)| prefix)
-        .unwrap_or(matched);
+        .map_or(matched, |(prefix, _)| prefix);
 
     // Find the position of the last opening '(' or '[' and take the path after it.
     prefix

@@ -278,7 +278,7 @@ impl ObsidianRepository {
                 .clone();
 
             // collect out all possible targets to display in the description
-            let mut sorted_targets: Vec<String> = targets.iter().map(|s| s.to_string()).collect();
+            let mut sorted_targets: Vec<String> = targets.iter().map(|s| s.clone()).collect();
             sorted_targets.sort();
 
             let table = AmbiguousMatchesTable {

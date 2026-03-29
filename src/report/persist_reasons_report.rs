@@ -167,8 +167,7 @@ impl ObsidianRepository {
             .strip_prefix(config.obsidian_path())
             .unwrap_or(&file.path)
             .parent()
-            .map(|p| p.to_string_lossy().to_string())
-            .unwrap_or_else(|| "/".to_string());
+            .map_or_else(|| "/".to_string(), |p| p.to_string_lossy().to_string());
 
         let wikilink = if relative_path == file_name {
             format!("[[{file_name}]]")

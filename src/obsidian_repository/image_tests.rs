@@ -338,7 +338,7 @@ fn test_handle_missing_references() {
     assert!(
         &markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
         "needs persist should better well be true, boyo"
-    )
+    );
 }
 
 #[test]

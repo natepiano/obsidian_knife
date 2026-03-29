@@ -129,11 +129,10 @@ impl ImageFile {
         let metadata = fs::metadata(&path).expect("Failed to get metadata");
         let size = metadata.len();
 
-        let file_type = path
-            .extension()
-            .and_then(|ext| ext.to_str())
-            .map(ImageFileType::from_extension)
-            .unwrap_or_else(|| ImageFileType::Other("unknown".to_string()));
+        let file_type = path.extension().and_then(|ext| ext.to_str()).map_or_else(
+            || ImageFileType::Other("unknown".to_string()),
+            ImageFileType::from_extension,
+        );
 
         let initial_state = if matches!(file_type, ImageFileType::Tiff) {
             ImageFileState::Incompatible {

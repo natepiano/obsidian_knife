@@ -46,9 +46,8 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
 
         let mut rows = Vec::new();
         for image in items {
-            let reason = match &image.image_state {
-                ImageFileState::Incompatible { reason } => reason,
-                _ => unreachable!("Only incompatible images should be in this report"),
+            let ImageFileState::Incompatible { reason } = &image.image_state else {
+                unreachable!("Only incompatible images should be in this report")
             };
 
             let relative_path =
@@ -93,8 +92,10 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                             .find(|l| {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
                             })
-                            .map(|image_link| (image_link.line_number.to_string(), image_link.position.to_string()))
-                            .unwrap_or_else(|| ("".to_string(), "".to_string()));
+                            .map_or_else(
+                                || ("".to_string(), "".to_string()),
+                                |image_link| (image_link.line_number.to_string(), image_link.position.to_string()),
+                            );
 
                         rows.push(vec![
                             image_file_link.clone(),

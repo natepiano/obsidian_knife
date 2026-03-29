@@ -69,9 +69,8 @@ pub struct ValidatedConfig {
 impl ValidatedConfigBuilder {
     fn validate(&self) -> Result<(), ValidationError> {
         // First check if we have a path at all
-        let path = match self.obsidian_path.as_ref() {
-            None => return Err(ValidationError::MissingObsidianPath),
-            Some(p) => p,
+        let Some(path) = self.obsidian_path.as_ref() else {
+            return Err(ValidationError::MissingObsidianPath);
         };
 
         // Then check if the path exists
@@ -123,14 +122,14 @@ impl ValidatedConfigBuilder {
                 .filter(|p| !p.is_empty())
                 .collect();
 
-            if !validated.is_empty() {
-                self.do_not_back_populate = Some(Some(validated.clone()));
-                self.do_not_back_populate_regexes = Some(Some(
-                    utils::build_case_insensitive_word_finder(&Some(validated)).unwrap(),
-                ));
-            } else {
+            if validated.is_empty() {
                 self.do_not_back_populate = Some(None);
                 self.do_not_back_populate_regexes = Some(Some(Vec::new()));
+            } else {
+                self.do_not_back_populate = Some(Some(validated.clone()));
+                self.do_not_back_populate_regexes = Some(Some(
+                    utils::build_case_insensitive_word_finder(Some(&validated)).unwrap(),
+                ));
             }
         } else {
             self.do_not_back_populate = Some(None);
@@ -213,10 +212,10 @@ impl ValidatedConfig {
             };
 
             // Add .md extension if not present
-            if !filter_text.ends_with(MARKDOWN_SUFFIX) {
-                format!("{}.md", filter_text)
-            } else {
+            if filter_text.ends_with(MARKDOWN_SUFFIX) {
                 filter_text.to_string()
+            } else {
+                format!("{}.md", filter_text)
             }
         })
     }

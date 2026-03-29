@@ -209,6 +209,7 @@ pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFron
 #[cfg(test)]
 mod tests {
     use std::cmp::PartialEq;
+    use std::collections::HashMap;
 
     use serde::Deserialize;
     use serde::Serialize;
@@ -242,7 +243,7 @@ tags:
                 expected: Ok(TestFrontMatter {
                     title:        "test doc".to_string(),
                     tags:         vec!["tag1".to_string(), "tag2".to_string()],
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 }),
             },
             YamlTestCase {
@@ -279,7 +280,7 @@ tags: [not, valid, yaml"#,
                 input:             TestFrontMatter {
                     title:        "test doc".to_string(),
                     tags:         vec!["tag1".to_string(), "tag2".to_string()],
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 },
                 expected_contains: vec!["title: test doc", "tags:", "- tag1", "- tag2"],
             },
@@ -288,7 +289,7 @@ tags: [not, valid, yaml"#,
                 input:             TestFrontMatter {
                     title:        "no tags".to_string(),
                     tags:         vec![],
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 },
                 expected_contains: vec!["title: no tags", "tags: []"],
             },
@@ -326,7 +327,7 @@ tags: [not, valid, yaml"#,
                         "beta".to_string(),
                     ],
                     title:        "test doc".to_string(),
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 },
                 expected: Ok("tags:\n- alpha\n- beta\n- zebra\ntitle: test doc".to_string()),
             },
@@ -335,7 +336,7 @@ tags: [not, valid, yaml"#,
                 input:    TestFrontMatter {
                     tags:         vec![],
                     title:        "no tags".to_string(),
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 },
                 expected: Ok("tags: []\ntitle: no tags".to_string()),
             },
@@ -344,7 +345,7 @@ tags: [not, valid, yaml"#,
                 input:    TestFrontMatter {
                     tags:         vec!["tag1".to_string()],
                     title:        "one tag".to_string(),
-                    other_fields: Default::default(),
+                    other_fields: HashMap::default(),
                 },
                 expected: Ok("tags:\n- tag1\ntitle: one tag".to_string()),
             },
@@ -361,7 +362,7 @@ tags: [not, valid, yaml"#,
                         expected.trim(),
                         "Failed test: {}",
                         test_case.name
-                    )
+                    );
                 },
             );
         }

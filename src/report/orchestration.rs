@@ -141,8 +141,7 @@ impl ObsidianRepository {
 
         let limit_string = validated_config
             .file_limit()
-            .map(|value| value.to_string())
-            .unwrap_or_else(|| "None".to_string());
+            .map_or_else(|| "None".to_string(), |value| value.to_string());
 
         let apply_changes = validated_config.apply_changes();
 

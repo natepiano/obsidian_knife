@@ -92,11 +92,11 @@ impl FrontMatter {
         }
 
         // if we have values then return them along with their regexes
-        if !do_not_populate.is_empty() {
-            utils::build_case_insensitive_word_finder(&Some(do_not_populate))
-        } else {
+        if do_not_populate.is_empty() {
             // we got nothing from valid frontmatter
             None
+        } else {
+            utils::build_case_insensitive_word_finder(Some(&do_not_populate))
         }
     }
 }

@@ -202,13 +202,13 @@ impl DescriptionBuilder {
     }
 
     pub fn no_space(mut self, text: &str) -> Self {
-        if !self.parts.is_empty() {
+        if self.parts.is_empty() {
+            // If this is the first part, just push it normally
+            self.parts.push(text.to_string());
+        } else {
             // If we have previous parts, directly append to the last one
             let last = self.parts.last_mut().unwrap();
             last.push_str(text);
-        } else {
-            // If this is the first part, just push it normally
-            self.parts.push(text.to_string());
         }
         self
     }

@@ -125,13 +125,15 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                                 .iter()
                                 .find(|l| l.filename == filename)
                         })
-                        .map(|image_link| {
-                            (
-                                image_link.line_number.to_string(),
-                                image_link.position.to_string(),
-                            )
-                        })
-                        .unwrap_or((String::new(), String::new()));
+                        .map_or_else(
+                            || (String::new(), String::new()),
+                            |image_link| {
+                                (
+                                    image_link.line_number.to_string(),
+                                    image_link.position.to_string(),
+                                )
+                            },
+                        );
 
                     rows.push(vec![
                         thumbnail.clone(),

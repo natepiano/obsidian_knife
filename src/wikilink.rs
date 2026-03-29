@@ -230,11 +230,11 @@ enum WikilinkState {
 impl WikilinkState {
     fn formatted_content(&self) -> String {
         match self {
-            Self::Target { content, .. } => content.to_string(),
+            Self::Target { content, .. } => content.clone(),
             Self::Display {
                 target, content, ..
             } => format!("{}|{}", target, content),
-            Self::Invalid { content, .. } => content.to_string(),
+            Self::Invalid { content, .. } => content.clone(),
         }
     }
 
@@ -363,7 +363,7 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
                                 state.push_char('\\');
                                 state.push_char('|');
                             },
-                            _ => unreachable!(),
+                            WikilinkState::Invalid { .. } => unreachable!(),
                         }
                     } else {
                         state.push_char(next_c);
@@ -376,7 +376,7 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
                     state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
                     state.push_char(c);
                 },
-                _ => unreachable!(),
+                WikilinkState::Invalid { .. } => unreachable!(),
             },
             ']' => {
                 if is_next_char(chars, ']') {

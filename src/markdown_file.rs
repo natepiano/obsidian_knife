@@ -25,6 +25,7 @@ mod text_excluder;
 use std::error::Error;
 use std::fs;
 use std::io;
+use std::path::Path;
 use std::path::PathBuf;
 
 use aho_corasick::AhoCorasick;
@@ -108,10 +109,10 @@ impl MarkdownFile {
         };
 
         let (date_validation_created, date_validation_modified) =
-            get_date_validations(&frontmatter, &path, operational_timezone)?;
+            get_date_validations(frontmatter.as_ref(), &path, operational_timezone)?;
 
         let date_created_fix = DateCreatedFixValidation::from_frontmatter(
-            &frontmatter,
+            frontmatter.as_ref(),
             date_validation_created.file_system_date,
             operational_timezone,
         );
@@ -337,9 +338,9 @@ impl MarkdownFile {
                     match image_link.link_type {
                         ImageLinkType::Wikilink(_)
                         | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
-                            image_links.push(image_link)
+                            image_links.push(image_link);
                         },
-                        _ => {},
+                        ImageLinkType::MarkdownLink(..) => {},
                     }
                 }
             }
@@ -489,23 +490,19 @@ impl MarkdownFile {
 }
 
 fn get_date_validations(
-    frontmatter: &Option<FrontMatter>,
-    path: &PathBuf,
+    frontmatter: Option<&FrontMatter>,
+    path: &Path,
     operational_timezone: &str,
 ) -> Result<(DateValidation, DateValidation), io::Error> {
     let metadata = fs::metadata(path)?;
 
     let dates = [
         (
-            frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_created().cloned()),
+            frontmatter.and_then(|fm| fm.date_created().cloned()),
             metadata.created().map_or_else(|_| Utc::now(), Into::into),
         ),
         (
-            frontmatter
-                .as_ref()
-                .and_then(|fm| fm.date_modified().cloned()),
+            frontmatter.and_then(|fm| fm.date_modified().cloned()),
             metadata.modified().map_or_else(|_| Utc::now(), Into::into),
         ),
     ];
@@ -537,9 +534,8 @@ fn get_date_validation_issue(
     operational_timezone: &str,
 ) -> Option<DateValidationIssue> {
     // Check if the date is missing
-    let date_str = match date_opt {
-        Some(s) => s,
-        None => return Some(DateValidationIssue::Missing),
+    let Some(date_str) = date_opt else {
+        return Some(DateValidationIssue::Missing);
     };
 
     // Check if the date string is a valid wikilink
@@ -555,15 +551,13 @@ fn get_date_validation_issue(
     }
 
     // Parse the frontmatter date string into a NaiveDate
-    let frontmatter_date = match NaiveDate::parse_from_str(extracted_date.trim(), "%Y-%m-%d") {
-        Ok(date) => date,
-        Err(_) => return Some(DateValidationIssue::InvalidDateFormat),
+    let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), "%Y-%m-%d") else {
+        return Some(DateValidationIssue::InvalidDateFormat);
     };
 
     // Parse timezone string into a Tz
-    let tz = match operational_timezone.parse::<chrono_tz::Tz>() {
-        Ok(tz) => tz,
-        Err(_) => return Some(DateValidationIssue::InvalidDateFormat),
+    let Ok(tz) = operational_timezone.parse::<chrono_tz::Tz>() else {
+        return Some(DateValidationIssue::InvalidDateFormat);
     };
 
     // Convert UTC fs_date to the specified timezone

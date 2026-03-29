@@ -77,7 +77,7 @@ where
     E: std::fmt::Debug,
 {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        compare_fn(&actual, &expected)
+        compare_fn(&actual, &expected);
     }));
 
     assert!(

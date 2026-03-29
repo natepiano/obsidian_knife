@@ -28,8 +28,8 @@ pub static IMAGE_REGEX: LazyLock<Arc<Regex>> = LazyLock::new(|| {
     )
 });
 
-pub fn build_case_insensitive_word_finder(patterns: &Option<Vec<String>>) -> Option<Vec<Regex>> {
-    patterns.as_ref().map(|patterns| {
+pub fn build_case_insensitive_word_finder(patterns: Option<&Vec<String>>) -> Option<Vec<Regex>> {
+    patterns.map(|patterns| {
         patterns
             .iter()
             .map(|pattern| {

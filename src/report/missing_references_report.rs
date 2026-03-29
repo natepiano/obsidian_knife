@@ -46,9 +46,8 @@ impl ReportDefinition for MissingReferencesTable {
                         false,
                     );
 
-                    let image_link = utils::escape_pipe(&utils::escape_brackets(
-                        &extracted_filename.to_string(),
-                    ));
+                    let image_link =
+                        utils::escape_pipe(&utils::escape_brackets(&extracted_filename.clone()));
 
                     let action = if config.apply_changes() {
                         REFERENCE_REMOVED
