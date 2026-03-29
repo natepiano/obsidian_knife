@@ -6,9 +6,11 @@ use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
+use derive_more::Deref;
+use derive_more::DerefMut;
+use derive_more::IntoIterator;
 use serde::Deserialize;
 use serde::Serialize;
-use vecollect::collection;
 
 use crate::utils::EnumFilter;
 
@@ -27,10 +29,20 @@ impl fmt::Display for ImageHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
 }
 
-#[derive(Default, Debug, PartialEq)]
-#[collection(field = "files")]
+#[derive(Default, Debug, PartialEq, Deref, DerefMut, IntoIterator)]
 pub struct ImageFiles {
+    #[deref]
+    #[deref_mut]
+    #[into_iterator]
     pub(crate) files: Vec<ImageFile>,
+}
+
+impl FromIterator<ImageFile> for ImageFiles {
+    fn from_iter<I: IntoIterator<Item = ImageFile>>(iter: I) -> Self {
+        Self {
+            files: iter.into_iter().collect(),
+        }
+    }
 }
 
 impl ImageFiles {
@@ -41,15 +53,6 @@ impl ImageFiles {
             .try_for_each(|file| fs::remove_file(&file.path))?;
 
         Ok(())
-    }
-}
-
-impl ImageFiles {
-    pub fn normalize(&mut self) {
-        self.files.sort_by(|a, b| a.path.cmp(&b.path));
-        for file in &mut self.files {
-            file.markdown_file_references.sort();
-        }
     }
 }
 

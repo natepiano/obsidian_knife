@@ -1,19 +1,46 @@
 use std::error::Error;
 
 use aho_corasick::AhoCorasick;
+use derive_more::Deref;
+use derive_more::DerefMut;
+use derive_more::IntoIterator;
 use rayon::prelude::*;
-use vecollect::collection;
 
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MarkdownFile;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
-#[derive(Debug, Default)]
-#[collection(field = "files")]
+#[derive(Debug, Default, Deref, DerefMut, IntoIterator)]
 pub struct MarkdownFiles {
+    #[deref]
+    #[deref_mut]
+    #[into_iterator]
     pub(crate) files:      Vec<MarkdownFile>,
     pub(crate) file_limit: Option<usize>,
+}
+
+impl FromIterator<MarkdownFile> for MarkdownFiles {
+    fn from_iter<I: IntoIterator<Item = MarkdownFile>>(iter: I) -> Self {
+        Self {
+            files:      iter.into_iter().collect(),
+            file_limit: None,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a MarkdownFiles {
+    type Item = &'a MarkdownFile;
+    type IntoIter = std::slice::Iter<'a, MarkdownFile>;
+
+    fn into_iter(self) -> Self::IntoIter { self.files.iter() }
+}
+
+impl<'a> IntoIterator for &'a mut MarkdownFiles {
+    type Item = &'a mut MarkdownFile;
+    type IntoIter = std::slice::IterMut<'a, MarkdownFile>;
+
+    fn into_iter(self) -> Self::IntoIter { self.files.iter_mut() }
 }
 
 impl MarkdownFiles {

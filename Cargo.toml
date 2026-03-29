@@ -14,13 +14,13 @@ name = "ok"
 path = "src/main.rs"
 
 [workspace]
-members = ["vecollect"]
 
 [dependencies]
 aho-corasick = "1.1.3"
 chrono = "0.4.39"
 chrono-tz = "0.10.0"
 derive_builder = "0.20.2"
+derive_more = { version = "2", features = ["deref", "deref_mut", "into_iterator"] }
 filetime = "0.2.25"
 itertools = "0.14.0"
 lazy_static = "1.5.0"
@@ -31,7 +31,6 @@ serde_json = "1.0.135"
 serde_yaml = "~0.9.34"
 sha2 = "0.10.8"
 thiserror = "2.0.11"
-vecollect = { path = "./vecollect" }
 
 [dev-dependencies]
 tempfile = "3.15.0"

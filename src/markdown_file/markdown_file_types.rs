@@ -5,7 +5,9 @@ use chrono::DateTime;
 use chrono::NaiveDate;
 use chrono::TimeZone;
 use chrono::Utc;
-use vecollect::collection;
+use derive_more::Deref;
+use derive_more::DerefMut;
+use derive_more::IntoIterator;
 
 use crate::constants::*;
 use crate::frontmatter::FrontMatter;
@@ -208,10 +210,20 @@ pub struct Wikilinks {
     pub invalid: Vec<InvalidWikilink>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
-#[collection(field = "links")]
+#[derive(Debug, Default, Clone, PartialEq, Deref, DerefMut, IntoIterator)]
 pub struct ImageLinks {
+    #[deref]
+    #[deref_mut]
+    #[into_iterator]
     pub links: Vec<ImageLink>,
+}
+
+impl FromIterator<ImageLink> for ImageLinks {
+    fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
+        Self {
+            links: iter.into_iter().collect(),
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone, PartialEq)]

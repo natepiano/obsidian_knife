@@ -6,7 +6,6 @@ pub trait EnumFilter {
 }
 
 // Trait that automatically implements filter_by_variant for any type that Derefs to Vec<T>
-// mine do because of the vecollect::collection proc_macro which adds a Deref to a Vec<T>
 pub trait VecEnumFilter<T>
 where
     T: EnumFilter + Clone,
