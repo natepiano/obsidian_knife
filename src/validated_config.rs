@@ -50,7 +50,7 @@ pub struct ValidatedConfig {
     #[builder(default)]
     back_populate_file_filter:    Option<String>,
     #[builder(setter(custom), default)]
-    #[allow(dead_code)]
+    #[allow(dead_code, reason = "read only in tests via #[cfg(test)] getter")]
     do_not_back_populate:         Option<Vec<String>>,
     #[builder(setter(strip_option), default)]
     do_not_back_populate_regexes: Option<Vec<Regex>>,
