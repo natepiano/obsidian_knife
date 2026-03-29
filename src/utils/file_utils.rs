@@ -63,7 +63,6 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 pub struct RepositoryFiles {
     pub image_files:    Vec<PathBuf>,
     pub markdown_files: Vec<PathBuf>,
-    pub other_files:    Vec<PathBuf>,
 }
 
 // using rayon (.into_par_iter()) and not using walkdir
@@ -80,14 +79,12 @@ pub fn collect_repository_files(
 
     let md_files = Mutex::new(Vec::new());
     let img_files = Mutex::new(Vec::new());
-    let other_files = Mutex::new(Vec::new());
 
     fn visit_dirs(
         dirs: Vec<PathBuf>,
         ignore_folders: &[PathBuf],
         md_files: &Mutex<Vec<PathBuf>>,
         img_files: &Mutex<Vec<PathBuf>>,
-        other_files: &Mutex<Vec<PathBuf>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         dirs.into_par_iter().try_for_each(|dir| {
             if is_ignored(&dir, ignore_folders) {
@@ -103,21 +100,18 @@ pub fn collect_repository_files(
                         .and_then(|s| s.to_str())
                         .map(|s| s.to_lowercase())
                     {
-                        let mutex = if ext == MARKDOWN_EXTENSION {
-                            md_files
+                        if ext == MARKDOWN_EXTENSION {
+                            md_files.lock().unwrap().push(path.clone());
                         } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-                            img_files
-                        } else {
-                            other_files
-                        };
-                        mutex.lock().unwrap().push(path.clone());
+                            img_files.lock().unwrap().push(path.clone());
+                        }
                     }
                 })
                 .filter(|path| path.is_dir())
                 .collect();
 
             if !subdirs.is_empty() {
-                visit_dirs(subdirs, ignore_folders, md_files, img_files, other_files)?;
+                visit_dirs(subdirs, ignore_folders, md_files, img_files)?;
             }
             Ok(())
         })
@@ -128,13 +122,11 @@ pub fn collect_repository_files(
         ignore_folders,
         &md_files,
         &img_files,
-        &other_files,
     )?;
 
     Ok(RepositoryFiles {
         markdown_files: md_files.into_inner().unwrap(),
         image_files:    img_files.into_inner().unwrap(),
-        other_files:    other_files.into_inner().unwrap(),
     })
 }
 

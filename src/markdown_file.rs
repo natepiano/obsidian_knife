@@ -422,6 +422,23 @@ impl MarkdownFile {
             }
         }
 
+        // Add inline code spans as exclusion zones
+        let mut inline_code = InlineCodeExcluder::new();
+        let mut span_start = None;
+        for (byte_offset, ch) in line.char_indices() {
+            let was_inside = inline_code.is_in_code_block();
+            inline_code.update(ch);
+            let is_inside = inline_code.is_in_code_block();
+
+            if !was_inside && is_inside {
+                span_start = Some(byte_offset);
+            } else if was_inside && !is_inside {
+                if let Some(start) = span_start.take() {
+                    exclusion_zones.push((start, byte_offset + ch.len_utf8()));
+                }
+            }
+        }
+
         // Add Markdown links as exclusion zones
         for mat in MARKDOWN_REGEX.find_iter(line) {
             exclusion_zones.push((mat.start(), mat.end()));

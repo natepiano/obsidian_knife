@@ -49,8 +49,6 @@ use crate::wikilink::Wikilink;
 pub struct ObsidianRepository {
     pub markdown_files:   MarkdownFiles,
     pub image_files:      ImageFiles,
-    #[allow(dead_code)]
-    pub other_files:      Vec<PathBuf>,
     pub wikilinks_ac:     Option<AhoCorasick>,
     pub wikilinks_sorted: Vec<Wikilink>,
 }
@@ -75,7 +73,6 @@ impl ObsidianRepository {
         let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::default(),
-            other_files: files.other_files,
             wikilinks_ac: Some(ac),
             wikilinks_sorted: sorted,
         };
