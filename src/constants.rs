@@ -205,9 +205,8 @@ impl DescriptionBuilder {
         if self.parts.is_empty() {
             // If this is the first part, just push it normally
             self.parts.push(text.to_string());
-        } else {
+        } else if let Some(last) = self.parts.last_mut() {
             // If we have previous parts, directly append to the last one
-            let last = self.parts.last_mut().unwrap();
             last.push_str(text);
         }
         self

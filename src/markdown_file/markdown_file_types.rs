@@ -112,6 +112,7 @@ impl DateCreatedFixValidation {
                     let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
 
                     // Create naive datetime at noon to ensure date consistency
+                    #[allow(clippy::unwrap_used, reason = "noon (12:00:00) is always a valid time")]
                     let naive_datetime = naive_date.and_hms_opt(12, 0, 0).unwrap();
 
                     // Convert to UTC
@@ -308,6 +309,10 @@ impl ReplaceableContent for ImageLink {
 
 // handle links of type ![[somefile.png]] or ![[somefile.png|300]] or ![alt](somefile.png)
 impl ImageLink {
+    #[allow(
+        clippy::panic,
+        reason = "invalid image link format indicates a bug in the regex that calls this constructor"
+    )]
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
         let relative_path = extract_relative_path(&raw_link);
 

@@ -70,6 +70,10 @@ pub struct RepositoryFiles {
 
 // using rayon (.into_par_iter()) and not using walkdir
 // takes this from 12ms down to 4ms
+#[allow(
+    clippy::unwrap_used,
+    reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
+)]
 pub fn collect_repository_files(
     validated_config: &ValidatedConfig,
     ignore_folders: &[PathBuf],
@@ -187,7 +191,8 @@ pub fn set_file_dates(
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod expand_tilde_tests {
     use super::*;
@@ -242,7 +247,8 @@ mod expand_tilde_tests {
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod set_file_dates_tests {
     use std::fs::File;

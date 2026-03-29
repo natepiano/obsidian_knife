@@ -2,7 +2,8 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod test_support;
 
@@ -24,12 +25,15 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::constants::DEFAULT_TIMEZONE;
+#[cfg(debug_assertions)]
 use crate::constants::DEV;
 use crate::constants::ERROR_DETAILS;
 use crate::constants::ERROR_OCCURRED;
 use crate::constants::ERROR_SOURCE;
 use crate::constants::ERROR_TYPE;
 use crate::constants::OBSIDIAN_KNIFE;
+#[cfg(not(debug_assertions))]
+use crate::constants::RELEASE;
 use crate::constants::TOTAL_TIME;
 use crate::constants::USAGE;
 use crate::frontmatter::FrontMatter;
@@ -92,11 +96,9 @@ fn reset_apply_changes(
         .as_ref()
         .map_or(DEFAULT_TIMEZONE, |time_zone| time_zone.as_str());
 
-    markdown_file
-        .frontmatter
-        .as_mut()
-        .unwrap()
-        .set_date_modified_now(operational_timezone);
+    if let Some(fm) = markdown_file.frontmatter.as_mut() {
+        fm.set_date_modified_now(operational_timezone);
+    }
     markdown_file.persist()?;
     Ok(())
 }
@@ -149,7 +151,8 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod main_tests {
     use super::*;

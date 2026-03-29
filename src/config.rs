@@ -2,7 +2,8 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod config_tests;
 

@@ -2,49 +2,56 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod ambiguous_matches_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod file_limit_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod image_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod obsidian_repository_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod persist_file_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod scan_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod update_modified_tests;
 
@@ -121,6 +128,10 @@ impl ObsidianRepository {
         Ok(repository)
     }
 
+    #[allow(
+        clippy::unwrap_used,
+        reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
+    )]
     fn initialize_markdown_files(
         markdown_paths: &[PathBuf],
         timezone: &str,
@@ -304,6 +315,10 @@ impl ObsidianRepository {
     }
 }
 
+#[allow(
+    clippy::expect_used,
+    reason = "AhoCorasick build from valid wikilink strings cannot fail"
+)]
 fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
     let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
     // uses
@@ -385,6 +400,10 @@ impl ObsidianRepository {
         }
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "wikilinks_ac is always initialized in ObsidianRepository::new"
+    )]
     pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
         let ac = self
             .wikilinks_ac
@@ -552,7 +571,12 @@ impl ObsidianRepository {
         // ReplaceableContent match which happens in the next step
         for image_file in incompatible.files {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
-                let image_file_name = image_file.path.file_name().unwrap().to_str().unwrap();
+                let image_file_name = image_file
+                    .path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap_or_default();
                 for markdown_file in &mut self.markdown_files {
                     if let Some(image_link) = markdown_file
                         .image_links
@@ -576,7 +600,12 @@ impl ObsidianRepository {
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
         for duplicate in duplicates.files {
-            let duplicate_file_name = duplicate.path.file_name().unwrap().to_str().unwrap();
+            let duplicate_file_name = duplicate
+                .path
+                .file_name()
+                .unwrap_or_default()
+                .to_str()
+                .unwrap_or_default();
             if let ImageFileState::Duplicate { hash } = &duplicate.image_state {
                 // Find the keeper with matching hash
                 if let Some(keeper) = keepers.iter().find(|k| {
@@ -635,6 +664,10 @@ impl ObsidianRepository {
     }
 }
 
+#[allow(
+    clippy::panic,
+    reason = "UTF-8 boundary violation indicates a bug in position calculation"
+)]
 fn apply_line_replacements(
     line: &str,
     line_matches: &[&dyn ReplaceableContent],

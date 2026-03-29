@@ -2,21 +2,24 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod extract_wikilink_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod markdown_link_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod wikilink_creation_tests;
 
@@ -437,6 +440,10 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 }
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
+    #[allow(
+        clippy::unwrap_used,
+        reason = "static regex pattern is validated at development time"
+    )]
     static WIKILINK_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[.*?\]\]").unwrap());
 
     for mat in WIKILINK_FINDER.find_iter(line) {

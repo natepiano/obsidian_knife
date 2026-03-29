@@ -2,7 +2,8 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod image_file_tests;
 
@@ -124,6 +125,10 @@ pub enum IncompatibilityReason {
 }
 
 impl ImageFile {
+    #[allow(
+        clippy::expect_used,
+        reason = "path existence is validated before ImageFile construction"
+    )]
     pub fn new(
         path: PathBuf,
         hash: ImageHash,

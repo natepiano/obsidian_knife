@@ -40,6 +40,10 @@ impl ReportDefinition for MissingReferencesTable {
         ]
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "config is structurally guaranteed Some by callers of this report"
+    )]
     fn build_rows(
         &self,
         items: &[Self::Item],

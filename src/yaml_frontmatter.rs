@@ -210,7 +210,8 @@ pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFron
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod tests {
     use std::cmp::PartialEq;

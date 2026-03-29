@@ -18,6 +18,10 @@ pub enum ColumnAlignment {
     Right,
 }
 
+#[allow(
+    clippy::unwrap_used,
+    reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
+)]
 impl OutputFileWriter {
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
         let file_path = obsidian_path.join(OUTPUT_MARKDOWN_FILE);

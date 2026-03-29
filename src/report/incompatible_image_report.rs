@@ -51,6 +51,10 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         ]
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "config is structurally guaranteed Some by callers of this report"
+    )]
     fn build_rows(
         &self,
         items: &[Self::Item],
@@ -68,7 +72,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                 obsidian_repository::format_relative_path(&image.path, config.obsidian_path());
             let image_file_link = format!(
                 "[{}]({})",
-                image.path.file_name().unwrap().to_string_lossy(),
+                image.path.file_name().unwrap_or_default().to_string_lossy(),
                 relative_path
             );
 

@@ -2,70 +2,80 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod alias_handling_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod back_populate_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod case_sensitivity_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod date_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod exclusion_zone_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod matching_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod parse_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod persist_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod process_content_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    reason = "test assertions use unwrap/expect for clarity"
+    clippy::panic,
+    reason = "test assertions use unwrap/expect/panic for clarity"
 )]
 mod table_handling_tests;
 
@@ -220,6 +230,10 @@ impl MarkdownFile {
         )
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "persist is only called on files with frontmatter"
+    )]
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         // Write the updated content to the file
         fs::write(&self.path, self.to_full_content())?;
@@ -237,6 +251,10 @@ impl MarkdownFile {
         Ok(())
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "ensure_frontmatter guarantees frontmatter is present"
+    )]
     pub fn mark_as_back_populated(&mut self, operational_timezone: &str) {
         self.ensure_frontmatter(operational_timezone);
 
@@ -252,6 +270,10 @@ impl MarkdownFile {
         self.persist_reasons.push(PersistReason::BackPopulated);
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "ensure_frontmatter guarantees frontmatter is present"
+    )]
     pub fn mark_image_reference_as_updated(&mut self, operational_timezone: &str) {
         self.ensure_frontmatter(operational_timezone);
 
@@ -539,6 +561,10 @@ impl MarkdownFile {
     pub const fn has_unambiguous_matches(&self) -> bool { !self.matches.unambiguous.is_empty() }
 }
 
+#[allow(
+    clippy::unwrap_used,
+    reason = "iterator always yields exactly 2 elements from fixed-size array"
+)]
 fn get_date_validations(
     frontmatter: Option<&FrontMatter>,
     path: &Path,

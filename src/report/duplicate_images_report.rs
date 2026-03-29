@@ -74,6 +74,10 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         ]
     }
 
+    #[allow(
+        clippy::expect_used,
+        reason = "config is structurally guaranteed Some by callers of this report"
+    )]
     fn build_rows(
         &self,
         items: &[Self::Item],
@@ -86,7 +90,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
 
         let mut rows = Vec::new();
         for image in items {
-            let filename = image.path.file_name().unwrap().to_string_lossy();
+            let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
             let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
             let image_link = format!("[[{filename}]]");
 
@@ -104,8 +108,11 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                     let reference_update = keeper.map_or_else(
                         || UNKNOWN.to_string(),
                         |keeper_img| {
-                            let keeper_name =
-                                keeper_img.path.file_name().unwrap().to_string_lossy();
+                            let keeper_name = keeper_img
+                                .path
+                                .file_name()
+                                .unwrap_or_default()
+                                .to_string_lossy();
                             utils::escape_brackets(&format!("![[{keeper_name}]]"))
                         },
                     );
@@ -143,7 +150,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                             let filename = image
                                 .path
                                 .file_name()
-                                .unwrap()
+                                .unwrap_or_default()
                                 .to_string_lossy()
                                 .to_string();
                             markdown_file

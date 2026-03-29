@@ -281,7 +281,9 @@ impl ObsidianRepository {
 
         // Write a table for each group of matches
         for key in sorted_keys {
-            let matches = matches_by_text.get(&key).unwrap();
+            let Some(matches) = matches_by_text.get(&key) else {
+                continue;
+            };
             let display_text = &matches[0].found_text;
             let default_targets = HashSet::new();
             let targets = targets_by_text
