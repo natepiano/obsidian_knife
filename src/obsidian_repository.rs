@@ -71,6 +71,8 @@ use rayon::iter::ParallelIterator;
 
 use crate::constants::CACHE_FILE;
 use crate::constants::CACHE_FOLDER;
+use crate::image_file::DeletionStatus;
+use crate::image_file::DuplicateRole;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::ImageFiles;
@@ -235,13 +237,14 @@ impl ObsidianRepository {
                     .map(move |(idx, (path, references))| {
                         let path_references: Vec<PathBuf> =
                             references.into_iter().map(PathBuf::from).collect();
-                        ImageFile::new(
-                            path,
-                            hash.clone(),
-                            path_references, // Pass PathBuf references here
-                            is_duplicate_group,
-                            is_duplicate_group && should_have_keeper && idx == 0,
-                        )
+                        let duplicate_role = if !is_duplicate_group {
+                            DuplicateRole::NotDuplicate
+                        } else if should_have_keeper && idx == 0 {
+                            DuplicateRole::Original
+                        } else {
+                            DuplicateRole::Duplicate
+                        };
+                        ImageFile::new(path, hash.clone(), path_references, duplicate_role)
                     })
             })
             .collect()
@@ -644,18 +647,18 @@ impl ObsidianRepository {
         for image_file in &mut self.image_files.files {
             match &image_file.image_state {
                 ImageFileState::Unreferenced => {
-                    image_file.delete = true;
+                    image_file.deletion = DeletionStatus::Delete;
                 },
                 ImageFileState::Incompatible { .. } => {
                     if image_file.markdown_file_references.is_empty()
                         || can_delete(&files_to_persist, image_file)
                     {
-                        image_file.delete = true;
+                        image_file.deletion = DeletionStatus::Delete;
                     }
                 },
                 ImageFileState::Duplicate { .. } => {
                     if can_delete(&files_to_persist, image_file) {
-                        image_file.delete = true;
+                        image_file.deletion = DeletionStatus::Delete;
                     }
                 },
                 ImageFileState::DuplicateKeeper { .. } | ImageFileState::Valid => (),

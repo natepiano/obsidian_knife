@@ -47,8 +47,7 @@ fn test_create_image_file() {
             vec!["note1.md", "note2.md"],
             ImageFileType::Jpeg,
             ImageFileState::Valid,
-            false,
-            false,
+            DuplicateRole::NotDuplicate,
         ),
         // PNG with no references
         (
@@ -58,8 +57,7 @@ fn test_create_image_file() {
             vec![],
             ImageFileType::Png,
             ImageFileState::Unreferenced,
-            false,
-            false,
+            DuplicateRole::NotDuplicate,
         ),
         // TIFF file (should be incompatible regardless of references)
         (
@@ -71,8 +69,7 @@ fn test_create_image_file() {
             ImageFileState::Incompatible {
                 reason: IncompatibilityReason::TiffFormat,
             },
-            false,
-            false,
+            DuplicateRole::NotDuplicate,
         ),
         // Zero-byte file (should be incompatible regardless of references)
         (
@@ -84,8 +81,7 @@ fn test_create_image_file() {
             ImageFileState::Incompatible {
                 reason: IncompatibilityReason::ZeroByte,
             },
-            false,
-            false,
+            DuplicateRole::NotDuplicate,
         ),
         // Unknown type with references
         (
@@ -95,21 +91,12 @@ fn test_create_image_file() {
             vec!["note5.md"],
             ImageFileType::Other("unknown".to_string()),
             ImageFileState::Valid,
-            false,
-            false,
+            DuplicateRole::NotDuplicate,
         ),
     ];
 
-    for (
-        filename,
-        hash,
-        content,
-        references,
-        expected_type,
-        expected_state,
-        is_duplicate_group,
-        is_keeper,
-    ) in test_cases
+    for (filename, hash, content, references, expected_type, expected_state, duplicate_role) in
+        test_cases
     {
         let path = TestFileBuilder::new()
             .with_content(content)
@@ -119,13 +106,8 @@ fn test_create_image_file() {
 
         let image_hash = ImageHash::from(hash);
 
-        let image_file = ImageFile::new(
-            path.clone(),
-            image_hash.clone(),
-            references,
-            is_duplicate_group,
-            is_keeper,
-        );
+        let image_file =
+            ImageFile::new(path.clone(), image_hash.clone(), references, duplicate_role);
 
         assert_eq!(image_file.path, path);
         assert_eq!(image_file.hash, image_hash);
@@ -147,8 +129,7 @@ fn test_incompatible_states() {
         tiff_path,
         ImageHash::from("hash1"),
         vec![], // No references
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
     assert!(matches!(
         tiff_image.image_state,
@@ -165,8 +146,7 @@ fn test_incompatible_states() {
         zero_byte_path,
         ImageHash::from("hash2"),
         vec![PathBuf::from("note.md")], // Single reference
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
     assert!(matches!(
         zero_byte_image.image_state,
@@ -184,7 +164,12 @@ fn test_reference_state_determination() {
         .create(&temp_dir, "test.jpg");
 
     // Test with no references
-    let unreferenced = ImageFile::new(path.clone(), ImageHash::from("hash1"), vec![], false, false);
+    let unreferenced = ImageFile::new(
+        path.clone(),
+        ImageHash::from("hash1"),
+        vec![],
+        DuplicateRole::NotDuplicate,
+    );
     assert_eq!(unreferenced.image_state, ImageFileState::Unreferenced);
 
     // Test with references
@@ -192,8 +177,7 @@ fn test_reference_state_determination() {
         path,
         ImageHash::from("hash2"),
         vec![PathBuf::from("note.md")], // Use Vec<PathBuf>
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
     assert_eq!(referenced.image_state, ImageFileState::Valid);
 }
@@ -212,8 +196,7 @@ fn test_equality_and_cloning() {
         original_path,
         ImageHash::from("testhash"),
         references.clone(), // Use references directly
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
 
     let cloned = original.clone();
@@ -228,8 +211,7 @@ fn test_equality_and_cloning() {
         different_path,
         ImageHash::from("differenthash"),
         references, // Same references
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
     assert_ne!(
         original, different,
@@ -251,8 +233,7 @@ fn test_image_file_debug() {
         path.clone(),
         ImageHash::from("testhash"),
         references, // Directly pass references
-        false,
-        false,
+        DuplicateRole::NotDuplicate,
     );
 
     let debug_str = format!("{info:?}");

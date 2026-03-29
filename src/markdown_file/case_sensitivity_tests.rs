@@ -1,5 +1,6 @@
 use super::BackPopulateMatch;
 use super::MarkdownFile;
+use super::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
@@ -73,7 +74,7 @@ pub fn verify_match(
         "Wrong matched text for case: {case_description}"
     );
 
-    let expected_replacement = if actual_match.in_markdown_table {
+    let expected_replacement = if actual_match.match_context == MatchContext::MarkdownTable {
         expected_base_replacement.replace('|', r"\|")
     } else {
         expected_base_replacement.to_string()
@@ -86,7 +87,7 @@ pub fn verify_match(
         case_description,
         expected_replacement,
         actual_match.replacement,
-        actual_match.in_markdown_table
+        actual_match.match_context == MatchContext::MarkdownTable
     );
 }
 

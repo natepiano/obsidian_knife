@@ -21,6 +21,13 @@ use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;
 use crate::utils;
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ChangeMode {
+    #[default]
+    DryRun,
+    Apply,
+}
+
 #[derive(Error, Debug)]
 pub enum ValidationError {
     #[error("Empty back populate file filter")]
@@ -54,8 +61,8 @@ impl From<derive_builder::UninitializedFieldError> for ValidationError {
     )
 )]
 pub struct ValidatedConfig {
-    #[builder(default = "false")]
-    apply_changes:                bool,
+    #[builder(default)]
+    change_mode:                  ChangeMode,
     #[builder(default)]
     back_populate_file_filter:    Option<String>,
     #[builder(setter(custom), default)]
@@ -205,7 +212,14 @@ impl ValidatedConfigBuilder {
 }
 
 impl ValidatedConfig {
-    pub const fn apply_changes(&self) -> bool { self.apply_changes }
+    pub const fn change_mode(&self) -> ChangeMode { self.change_mode }
+
+    pub const fn apply_changes(&self) -> bool {
+        match self.change_mode {
+            ChangeMode::Apply => true,
+            ChangeMode::DryRun => false,
+        }
+    }
 
     pub const fn file_limit(&self) -> Option<usize> { self.file_limit }
 

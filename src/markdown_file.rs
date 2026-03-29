@@ -103,6 +103,7 @@ pub use markdown_file_types::ImageLinkState;
 pub use markdown_file_types::ImageLinkTarget;
 pub use markdown_file_types::ImageLinkType;
 pub use markdown_file_types::ImageLinks;
+pub use markdown_file_types::MatchContext;
 pub use markdown_file_types::MatchType;
 pub use markdown_file_types::PersistReason;
 pub use markdown_file_types::ReplaceableContent;
@@ -455,8 +456,12 @@ impl MarkdownFile {
                     wikilink.target.to_aliased_wikilink(matched_text)
                 };
 
-                let in_markdown_table = is_in_markdown_table(line, matched_text);
-                if in_markdown_table {
+                let match_context = if is_in_markdown_table(line, matched_text) {
+                    MatchContext::MarkdownTable
+                } else {
+                    MatchContext::Plaintext
+                };
+                if match_context == MatchContext::MarkdownTable {
                     replacement = replacement.replace('|', r"\|");
                 }
 
@@ -468,7 +473,7 @@ impl MarkdownFile {
                     line_number: self.get_real_line_number(line_idx),
                     line_text: line.to_string(),
                     position: starts_at,
-                    in_markdown_table,
+                    match_context,
                     relative_path,
                     replacement,
                 });

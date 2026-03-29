@@ -21,6 +21,7 @@ use crate::constants::WIKILINKS;
 use crate::constants::WILL_BE_BACK_POPULATED;
 use crate::constants::WILL_REPLACE_WITH;
 use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils;
 use crate::utils::ColumnAlignment;
@@ -74,7 +75,7 @@ impl ReportDefinition for BackPopulateTable {
                     self.display_text.len(),
                 );
 
-                let replacement = if m.in_markdown_table {
+                let replacement = if m.match_context == MatchContext::MarkdownTable {
                     m.replacement.clone()
                 } else {
                     utils::escape_pipe(&m.replacement)
@@ -183,10 +184,10 @@ impl ObsidianRepository {
 
 #[derive(Debug, Clone)]
 struct ConsolidatedMatch {
-    file_path:         String,
-    line_info:         Vec<LineInfo>,
-    replacement:       String,
-    in_markdown_table: bool,
+    file_path:     String,
+    line_info:     Vec<LineInfo>,
+    replacement:   String,
+    match_context: MatchContext,
 }
 
 #[derive(Debug, Clone)]
@@ -198,7 +199,7 @@ struct LineInfo {
 
 fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> {
     let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
-    let mut file_info: HashMap<String, (String, bool)> = HashMap::new();
+    let mut file_info: HashMap<String, (String, MatchContext)> = HashMap::new();
 
     for match_info in matches {
         let key = (match_info.relative_path.clone(), match_info.line_number);
@@ -212,12 +213,15 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
 
         file_info.insert(
             match_info.relative_path.clone(),
-            (match_info.replacement.clone(), match_info.in_markdown_table),
+            (
+                match_info.replacement.clone(),
+                match_info.match_context.clone(),
+            ),
         );
     }
 
     let mut result = Vec::new();
-    for (file_path, (replacement, in_markdown_table)) in file_info {
+    for (file_path, (replacement, match_context)) in file_info {
         let mut file_lines: Vec<LineInfo> = line_map
             .iter()
             .filter(|((path, _), _)| path == &file_path)
@@ -230,7 +234,7 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
             file_path,
             line_info: file_lines,
             replacement,
-            in_markdown_table,
+            match_context,
         });
     }
 

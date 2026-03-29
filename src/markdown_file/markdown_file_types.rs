@@ -145,6 +145,13 @@ impl DateCreatedFixValidation {
     }
 }
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum MatchContext {
+    #[default]
+    Plaintext,
+    MarkdownTable,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MatchType {
     BackPopulate,
@@ -161,13 +168,13 @@ pub trait ReplaceableContent {
 
 #[derive(Clone, Debug, Default)]
 pub struct BackPopulateMatch {
-    pub found_text:        String,
-    pub in_markdown_table: bool,
-    pub line_number:       usize,
-    pub line_text:         String,
-    pub position:          usize,
-    pub relative_path:     String,
-    pub replacement:       String,
+    pub found_text:    String,
+    pub match_context: MatchContext,
+    pub line_number:   usize,
+    pub line_text:     String,
+    pub position:      usize,
+    pub relative_path: String,
+    pub replacement:   String,
 }
 
 impl ReplaceableContent for BackPopulateMatch {

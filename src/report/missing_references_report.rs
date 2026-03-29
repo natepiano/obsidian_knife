@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use super::orchestration::WikilinkFormat;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -58,7 +59,7 @@ impl ReportDefinition for MissingReferencesTable {
                     let markdown_link = super::orchestration::format_wikilink(
                         markdown_path,
                         config.obsidian_path(),
-                        false,
+                        WikilinkFormat::StemOnly,
                     );
 
                     let image_link =

@@ -11,6 +11,7 @@ use crate::ValidatedConfig;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
+use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfigBuilder;
 use crate::wikilink::Wikilink;
 
@@ -33,7 +34,11 @@ pub fn create_test_environment(
     let temp_dir = TempDir::new().unwrap();
 
     let config = ValidatedConfigBuilder::default()
-        .apply_changes(apply_changes)
+        .change_mode(if apply_changes {
+            ChangeMode::Apply
+        } else {
+            ChangeMode::DryRun
+        })
         .do_not_back_populate(do_not_back_populate)
         .obsidian_path(temp_dir.path().to_path_buf())
         .output_folder(temp_dir.path().join("output"))

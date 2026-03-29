@@ -1,6 +1,7 @@
 use super::ObsidianRepository;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MarkdownFile;
+use crate::markdown_file::MatchContext;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink::Wikilink;
@@ -42,13 +43,13 @@ fn test_identify_ambiguous_matches() {
     )
     .unwrap();
     test_file.matches.unambiguous = vec![BackPopulateMatch {
-        relative_path:     "test1.md".to_string(),
-        line_number:       1,
-        line_text:         "Ed wrote this".to_string(),
-        found_text:        "Ed".to_string(),
-        replacement:       "[[Ed Barnes|Ed]]".to_string(),
-        position:          0,
-        in_markdown_table: false,
+        relative_path: "test1.md".to_string(),
+        line_number:   1,
+        line_text:     "Ed wrote this".to_string(),
+        found_text:    "Ed".to_string(),
+        replacement:   "[[Ed Barnes|Ed]]".to_string(),
+        position:      0,
+        match_context: MatchContext::Plaintext,
     }];
 
     // Set up initial matches in test2.md
@@ -58,13 +59,13 @@ fn test_identify_ambiguous_matches() {
     )
     .unwrap();
     test_file2.matches.unambiguous = vec![BackPopulateMatch {
-        relative_path:     "test2.md".to_string(),
-        line_number:       1,
-        line_text:         "Unique wrote this".to_string(),
-        found_text:        "Unique".to_string(),
-        replacement:       "[[Unique Target]]".to_string(),
-        position:          0,
-        in_markdown_table: false,
+        relative_path: "test2.md".to_string(),
+        line_number:   1,
+        line_text:     "Unique wrote this".to_string(),
+        found_text:    "Unique".to_string(),
+        replacement:   "[[Unique Target]]".to_string(),
+        position:      0,
+        match_context: MatchContext::Plaintext,
     }];
 
     repository.markdown_files.push(test_file2);

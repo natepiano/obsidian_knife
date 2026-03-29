@@ -1,5 +1,6 @@
 use super::BackPopulateMatch;
 use super::MarkdownFile;
+use super::MatchContext;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
@@ -29,13 +30,13 @@ fn test_back_populate_content() {
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
         vec![BackPopulateMatch {
-            relative_path:     "test.md".into(),
-            line_number:       4,
-            line_text:         "|Test Link|Sample text|".into(),
-            found_text:        "Test Link".into(),
-            replacement:       "[[Test Link\\|Another Name]]".into(),
-            position:          1,
-            in_markdown_table: true,
+            relative_path: "test.md".into(),
+            line_number:   4,
+            line_text:     "|Test Link|Sample text|".into(),
+            found_text:    "Test Link".into(),
+            replacement:   "[[Test Link\\|Another Name]]".into(),
+            position:      1,
+            match_context: MatchContext::MarkdownTable,
         }],
         "Table content replacement",
     )];
@@ -165,8 +166,9 @@ fn test_process_line_table_escaping_combined() {
                 match_info.replacement, *expected,
                 "Incorrect replacement for: {description}"
             );
-            assert!(
-                match_info.in_markdown_table,
+            assert_eq!(
+                match_info.match_context,
+                MatchContext::MarkdownTable,
                 "Should be marked as in table for: {description}"
             );
         }

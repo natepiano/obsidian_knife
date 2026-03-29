@@ -17,6 +17,7 @@ use crate::constants::DEFAULT_OUTPUT_FOLDER;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::utils;
+use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 use crate::validated_config::ValidatedConfigBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
@@ -54,7 +55,11 @@ impl Config {
 
     pub fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         ValidatedConfigBuilder::default()
-            .apply_changes(self.apply_changes.unwrap_or(false))
+            .change_mode(if self.apply_changes.unwrap_or(false) {
+                ChangeMode::Apply
+            } else {
+                ChangeMode::DryRun
+            })
             .back_populate_file_filter(self.back_populate_file_filter.clone())
             .do_not_back_populate(self.do_not_back_populate.clone())
             .file_limit(self.file_limit)

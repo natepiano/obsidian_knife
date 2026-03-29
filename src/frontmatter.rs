@@ -9,6 +9,13 @@ use crate::yaml_frontmatter_struct;
 
 // when we set date_created_fix to None it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum PersistState {
+    #[default]
+    Clean,
+    Modified,
+}
+
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub struct FrontMatter {
@@ -23,7 +30,7 @@ yaml_frontmatter_struct! {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub do_not_back_populate: Option<Vec<String>>,
         #[serde(skip)]
-        pub needs_persist: bool,
+        pub persist_state: PersistState,
         #[serde(skip)]
         pub raw_date_created: Option<DateTime<Utc>>,
         #[serde(skip)]
@@ -59,7 +66,7 @@ impl FrontMatter {
             self.set_date_modified_now(operational_timezone);
         }
 
-        self.needs_persist = true;
+        self.persist_state = PersistState::Modified;
     }
 
     // we invoke set_modified_date on any changes to MarkdownFile
@@ -76,10 +83,10 @@ impl FrontMatter {
         let local_date = date.with_timezone(&tz);
         self.raw_date_modified = Some(date);
         self.date_modified = Some(format!("[[{}]]", local_date.format("%Y-%m-%d")));
-        self.needs_persist = true;
+        self.persist_state = PersistState::Modified;
     }
 
-    pub const fn needs_persist(&self) -> bool { self.needs_persist }
+    pub fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
         // first get do_not_back_populate explicit value

@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::Path;
 
+use super::orchestration::WikilinkFormat;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -102,7 +103,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                         let file_link = super::orchestration::format_wikilink(
                             Path::new(ref_path),
                             config.obsidian_path(),
-                            false,
+                            WikilinkFormat::StemOnly,
                         );
 
                         // Find line number and position for this reference

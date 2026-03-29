@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
+use super::orchestration::WikilinkFormat;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -29,6 +30,7 @@ use crate::constants::THUMBNAIL_WIDTH;
 use crate::constants::TYPE;
 use crate::constants::UNKNOWN;
 use crate::constants::WILL_DELETE;
+use crate::image_file::DeletionStatus;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::ImageHash;
@@ -138,7 +140,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                     let file_link = super::orchestration::format_wikilink(
                         Path::new(ref_path),
                         config.obsidian_path(),
-                        false,
+                        WikilinkFormat::StemOnly,
                     );
 
                     // Get line number and position from markdown files
@@ -249,7 +251,8 @@ impl ObsidianRepository {
         for (hash, images) in grouped_by_hash {
             // Check if this group has any deletable duplicates
             if images.iter().any(|img| {
-                matches!(img.image_state, ImageFileState::Duplicate { .. }) && img.delete
+                matches!(img.image_state, ImageFileState::Duplicate { .. })
+                    && img.deletion == DeletionStatus::Delete
             }) {
                 if !header_written {
                     writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;

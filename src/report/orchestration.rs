@@ -222,17 +222,17 @@ fn write_back_populate_report_header(
     Ok(())
 }
 
+pub(super) enum WikilinkFormat {
+    StemOnly,
+}
+
 pub(super) fn format_wikilink(
     path: &Path,
     obsidian_path: &Path,
-    use_full_filename: bool,
+    _format: WikilinkFormat,
 ) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
-    let display_name = if use_full_filename {
-        path.file_name().unwrap_or_default().to_string_lossy()
-    } else {
-        path.file_stem().unwrap_or_default().to_string_lossy()
-    };
+    let display_name = path.file_stem().unwrap_or_default().to_string_lossy();
 
     format!("[[{}\\|{}]]", relative_path.display(), display_name)
 }
