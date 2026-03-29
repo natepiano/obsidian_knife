@@ -84,7 +84,7 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         // Create test files
         create_test_files(&temp_dir, case.file_count, config.operational_timezone());
-        let mut repository = ObsidianRepository::new(&config)?;
+        let repository = ObsidianRepository::new(&config)?;
 
         // Run persistence
         repository.persist()?;

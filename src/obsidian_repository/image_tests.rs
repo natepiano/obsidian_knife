@@ -444,7 +444,7 @@ fn test_multiple_file_deletion() {
     };
 
     let created_paths = create_test_files(&temp_dir, &test_setup);
-    let mut repository = ObsidianRepository::new(&config).unwrap();
+    let repository = ObsidianRepository::new(&config).unwrap();
 
     // Verify all files are marked for deletion
     assert_eq!(

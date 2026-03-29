@@ -93,7 +93,7 @@ impl Sha256Cache {
             }
         }
 
-        let new_hash = ImageHash::from(self.hash_file(path)?);
+        let new_hash = ImageHash::from(Self::hash_file(path)?);
         let status = if self.cache.contains_key(path) {
             self.files_modified += 1;
             CacheEntryStatus::Modified
@@ -141,7 +141,7 @@ impl Sha256Cache {
         Ok(())
     }
 
-    fn hash_file(&self, path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
+    fn hash_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut file = File::open(path)?;
         let mut hasher = Sha256::new();
         let mut buffer = [0; 1024];

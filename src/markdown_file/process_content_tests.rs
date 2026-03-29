@@ -258,7 +258,7 @@ fn test_image_link_types() {
             case.input
         );
         assert_eq!(
-            image_link.image_link_type, case.expected_type,
+            image_link.link_type, case.expected_type,
             "ImageLinkType mismatch for input: {}",
             case.input
         );

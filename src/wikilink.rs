@@ -381,10 +381,9 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
             ']' => {
                 if is_next_char(chars, ']') {
                     return Some(state.to_wikilink(pos + 2));
-                } else {
-                    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
-                    state.push_char(c);
                 }
+                state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                state.push_char(c);
             },
             '[' => {
                 if is_next_char(chars, '[') {

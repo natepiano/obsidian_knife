@@ -62,7 +62,7 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
     ]
 }
 
-pub(crate) fn verify_match(
+pub fn verify_match(
     actual_match: &BackPopulateMatch,
     expected_text: &str,
     expected_base_replacement: &str,

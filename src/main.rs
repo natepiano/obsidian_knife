@@ -55,7 +55,7 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
 
     let validated_config = config.validate()?;
 
-    let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
+    let obsidian_repository = ObsidianRepository::new(&validated_config)?;
     obsidian_repository.write_reports(&validated_config)?;
 
     if config.apply_changes == Some(true) {

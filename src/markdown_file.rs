@@ -334,7 +334,7 @@ impl MarkdownFile {
                         self.get_real_line_number(line_idx),
                         raw_image_link.start(),
                     );
-                    match image_link.image_link_type {
+                    match image_link.link_type {
                         ImageLinkType::Wikilink(_)
                         | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
                             image_links.push(image_link)
@@ -500,19 +500,13 @@ fn get_date_validations(
             frontmatter
                 .as_ref()
                 .and_then(|fm| fm.date_created().cloned()),
-            metadata
-                .created()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Utc::now()),
+            metadata.created().map_or_else(|_| Utc::now(), Into::into),
         ),
         (
             frontmatter
                 .as_ref()
                 .and_then(|fm| fm.date_modified().cloned()),
-            metadata
-                .modified()
-                .map(|t| t.into())
-                .unwrap_or_else(|_| Utc::now()),
+            metadata.modified().map_or_else(|_| Utc::now(), Into::into),
         ),
     ];
 
@@ -654,7 +648,7 @@ fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
         let mut chars = chars.chars();
         match (chars.next(), chars.next()) {
             // Check for "'t" or "'t" (curly apostrophe)
-            (Some('\''), Some('t') | Some('T')) | (Some('\u{2019}'), Some('t') | Some('T')) => true,
+            (Some('\'' | '\u{2019}'), Some('t' | 'T')) => true,
             _ => false,
         }
     }

@@ -39,11 +39,6 @@ impl OutputFileWriter {
         rows: &[Vec<String>],
         alignments: Option<&[ColumnAlignment]>,
     ) -> io::Result<()> {
-        let mut file = self.file.lock().unwrap();
-
-        // markdown tables always have to have a blank line before them
-        writeln!(file, "\n| {} |", headers.join(" | "))?;
-
         let separator = match alignments {
             Some(aligns) => {
                 let sep: Vec<String> = aligns
@@ -65,6 +60,11 @@ impl OutputFileWriter {
                     .join(" | ")
             ),
         };
+
+        let mut file = self.file.lock().unwrap();
+
+        // markdown tables always have to have a blank line before them
+        writeln!(file, "\n| {} |", headers.join(" | "))?;
         writeln!(file, "{}", separator)?;
 
         for row in rows {

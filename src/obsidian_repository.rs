@@ -80,7 +80,7 @@ impl ObsidianRepository {
         repository.image_files =
             repository.initialize_image_files(&files.image_files, validated_config)?;
 
-        repository.analyze_repository(validated_config)?;
+        repository.analyze_repository(validated_config);
 
         Ok(repository)
     }
@@ -125,17 +125,13 @@ impl ObsidianRepository {
         sort_and_build_wikilinks_ac(all_wikilinks)
     }
 
-    fn analyze_repository(
-        &mut self,
-        validated_config: &ValidatedConfig,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+    fn analyze_repository(&mut self, validated_config: &ValidatedConfig) {
         let _timer = Timer::new("analyze");
         self.find_all_back_populate_matches(validated_config);
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
         self.apply_replaceable_matches(validated_config.operational_timezone());
         self.mark_image_files_for_deletion();
-        Ok(())
     }
 
     pub fn initialize_image_files(
@@ -485,7 +481,7 @@ impl ObsidianRepository {
         matches
     }
 
-    pub fn persist(&mut self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.image_files.delete_marked()?;
         self.markdown_files.files_to_persist().persist_all()
     }

@@ -243,15 +243,15 @@ pub enum ImageLinkState {
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct ImageLink {
-    pub matched_text:    String, // The full ![[image.jpg]] syntax
-    pub position:        usize,
-    pub line_number:     usize,
-    pub filename:        String, // Just "image.jpg"
-    pub relative_path:   String,
-    pub alt_text:        String,
-    pub size_parameter:  Option<String>, // Added to handle |400 style parameters
-    pub state:           ImageLinkState,
-    pub image_link_type: ImageLinkType,
+    pub matched_text:   String, // The full ![[image.jpg]] syntax
+    pub position:       usize,
+    pub line_number:    usize,
+    pub filename:       String, // Just "image.jpg"
+    pub relative_path:  String,
+    pub alt_text:       String,
+    pub size_parameter: Option<String>, // Added to handle |400 style parameters
+    pub state:          ImageLinkState,
+    pub link_type:      ImageLinkType,
 }
 
 impl EnumFilter for ImageLink {
@@ -277,7 +277,7 @@ impl ReplaceableContent for ImageLink {
                     .unwrap_or_default();
                 let new_relative = format!("{}/{}", self.relative_path, new_name);
 
-                match &self.image_link_type {
+                match &self.link_type {
                     ImageLinkType::Wikilink(rendering) => match rendering {
                         ImageLinkRendering::Embedded => match &self.size_parameter {
                             Some(size) => format!("![[{}|{}]]", new_relative, size),
@@ -396,7 +396,7 @@ impl ImageLink {
             alt_text,
             size_parameter,
             state: ImageLinkState::default(),
-            image_link_type,
+            link_type: image_link_type,
         }
     }
 }

@@ -33,7 +33,7 @@ yaml_frontmatter_struct! {
         pub operational_timezone: Option<String>,
         pub output_folder: Option<String>,
         #[serde(skip)]
-        pub config_file_path: PathBuf,
+        pub file_path: PathBuf,
     }
 }
 
