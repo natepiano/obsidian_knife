@@ -56,7 +56,7 @@ pub(super) struct ReportWriter<'a, T: Clone> {
 }
 
 impl<'a, T: Clone> ReportWriter<'a, T> {
-    pub(super) fn new(items: Vec<T>) -> Self {
+    pub(super) const fn new(items: Vec<T>) -> Self {
         Self {
             items,
             validated_config: None,

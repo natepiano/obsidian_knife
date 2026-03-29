@@ -27,7 +27,8 @@ use aho_corasick::MatchKind;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
-use crate::constants::*;
+use crate::constants::CACHE_FILE;
+use crate::constants::CACHE_FOLDER;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::ImageFiles;
@@ -148,7 +149,7 @@ impl ObsidianRepository {
         let hash_groups = Self::get_image_hash_to_markdown_references_map(
             &mut cache,
             image_files,
-            markdown_references,
+            &markdown_references,
         );
 
         // Step 3: Generate ImageFiles with duplicate and keeper logic
@@ -204,7 +205,7 @@ impl ObsidianRepository {
     fn get_image_hash_to_markdown_references_map(
         cache: &mut Sha256Cache,
         image_files: &[PathBuf],
-        markdown_references: HashMap<String, HashSet<String>>,
+        markdown_references: &HashMap<String, HashSet<String>>,
     ) -> HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>> {
         image_files
             .iter()
@@ -257,7 +258,10 @@ impl ObsidianRepository {
             .obsidian_path()
             .join(CACHE_FOLDER)
             .join(CACHE_FILE);
-        let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
+        let valid_paths: HashSet<_> = image_files
+            .iter()
+            .map(std::path::PathBuf::as_path)
+            .collect();
 
         let mut cache = Sha256Cache::load_or_create(cache_file_path).0;
         cache.mark_deletions(&valid_paths);
@@ -356,7 +360,7 @@ impl ObsidianRepository {
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
 
         self.markdown_files
-            .process_files_for_back_populate_matches(config, sorted_wikilinks, ac);
+            .process_files_for_back_populate_matches(config, &sorted_wikilinks, ac);
     }
 
     pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) {
@@ -405,7 +409,7 @@ impl ObsidianRepository {
                 let line_matches: Vec<&dyn ReplaceableContent> = sorted_replaceable_matches
                     .iter()
                     .filter(|m| m.line_number() == absolute_line_number)
-                    .map(|m| m.as_ref()) // Dereference Box to &dyn ReplaceableContent
+                    .map(std::convert::AsRef::as_ref) // Dereference Box to &dyn ReplaceableContent
                     .collect();
 
                 if line_matches.is_empty() {
@@ -561,10 +565,6 @@ impl ObsidianRepository {
     }
 
     fn mark_image_files_for_deletion(&mut self) {
-        let files_to_persist = self.markdown_files.files_to_persist();
-
-        let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
-
         // Check if all references are in files being persisted
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
             image_file
@@ -572,6 +572,10 @@ impl ObsidianRepository {
                 .iter()
                 .all(|path| files_to_persist.contains(&path))
         }
+
+        let files_to_persist = self.markdown_files.files_to_persist();
+
+        let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
 
         for image_file in &mut self.image_files.files {
             match &image_file.image_state {
@@ -590,8 +594,7 @@ impl ObsidianRepository {
                         image_file.delete = true;
                     }
                 },
-                ImageFileState::DuplicateKeeper { .. } => (), // No deletion for keepers
-                ImageFileState::Valid => (),                  // No deletion for valid files
+                ImageFileState::DuplicateKeeper { .. } | ImageFileState::Valid => (),
             }
         }
     }

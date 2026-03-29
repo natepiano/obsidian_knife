@@ -23,8 +23,7 @@ fn assert_contains_wikilink(
     });
     assert!(
         exists,
-        "Expected wikilink with target '{}', display '{:?}', is_alias '{}'",
-        target, display, is_alias
+        "Expected wikilink with target '{target}', display '{display:?}', is_alias '{is_alias}'"
     );
 }
 

@@ -50,16 +50,16 @@ pub struct Sha256Cache {
 impl Sha256Cache {
     pub fn load_or_create(cache_file_path: PathBuf) -> (Self, CacheFileStatus) {
         let (cache, status) = if cache_file_path.exists() {
-            match File::open(&cache_file_path) {
-                Ok(file) => {
+            File::open(&cache_file_path).map_or_else(
+                |_| (HashMap::new(), CacheFileStatus::CreatedNewCache),
+                |file| {
                     let reader = BufReader::new(file);
-                    match serde_json::from_reader(reader) {
-                        Ok(parsed_cache) => (parsed_cache, CacheFileStatus::ReadFromCache),
-                        Err(_) => (HashMap::new(), CacheFileStatus::CacheCorrupted),
-                    }
+                    serde_json::from_reader(reader).map_or_else(
+                        |_| (HashMap::new(), CacheFileStatus::CacheCorrupted),
+                        |parsed_cache| (parsed_cache, CacheFileStatus::ReadFromCache),
+                    )
                 },
-                Err(_) => (HashMap::new(), CacheFileStatus::CreatedNewCache),
-            }
+            )
         } else {
             (HashMap::new(), CacheFileStatus::CreatedNewCache)
         };
@@ -84,11 +84,11 @@ impl Sha256Cache {
         let metadata = fs::metadata(path)?;
         let time_stamp = metadata.modified()?;
 
-        if let Some(cached_info) = self.cache.get(path) {
-            if cached_info.time_stamp == time_stamp {
-                self.files_read += 1;
-                return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
-            }
+        if let Some(cached_info) = self.cache.get(path)
+            && cached_info.time_stamp == time_stamp
+        {
+            self.files_read += 1;
+            return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
         }
 
         let new_hash = ImageHash::from(Self::hash_file(path)?);
@@ -126,7 +126,7 @@ impl Sha256Cache {
         }
     }
 
-    pub fn has_changes(&self) -> bool {
+    pub const fn has_changes(&self) -> bool {
         self.files_added > 0 || self.files_modified > 0 || self.files_deleted > 0
     }
 

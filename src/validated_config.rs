@@ -9,7 +9,8 @@ use derive_builder::Builder;
 use regex::Regex;
 use thiserror::Error;
 
-use crate::constants::*;
+use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::MARKDOWN_SUFFIX;
 use crate::utils;
 
 #[derive(Error, Debug)]
@@ -81,17 +82,17 @@ impl ValidatedConfigBuilder {
         }
 
         // Validate file_limit
-        if let Some(Some(count)) = self.file_limit {
-            if count < 1 {
-                return Err(ValidationError::InvalidFileLimit);
-            }
+        if let Some(Some(count)) = self.file_limit
+            && count < 1
+        {
+            return Err(ValidationError::InvalidFileLimit);
         }
 
         // Validate back_populate_file_filter
-        if let Some(Some(filter)) = &self.back_populate_file_filter {
-            if filter.trim().is_empty() {
-                return Err(ValidationError::EmptyBackPopulateFileFilter);
-            }
+        if let Some(Some(filter)) = &self.back_populate_file_filter
+            && filter.trim().is_empty()
+        {
+            return Err(ValidationError::EmptyBackPopulateFileFilter);
         }
 
         // Validate output_folder
@@ -127,9 +128,8 @@ impl ValidatedConfigBuilder {
                 self.do_not_back_populate_regexes = Some(Some(Vec::new()));
             } else {
                 self.do_not_back_populate = Some(Some(validated.clone()));
-                self.do_not_back_populate_regexes = Some(Some(
-                    utils::build_case_insensitive_word_finder(Some(&validated)).unwrap(),
-                ));
+                self.do_not_back_populate_regexes =
+                    Some(Some(utils::build_case_insensitive_word_finder(&validated)));
             }
         } else {
             self.do_not_back_populate = Some(None);
@@ -165,13 +165,12 @@ impl ValidatedConfigBuilder {
 
     pub fn output_folder(&mut self, val: PathBuf) -> &mut Self {
         // Handle empty path case
-        if let Some(obsidian_path) = &self.obsidian_path {
-            if let Ok(relative) = val.strip_prefix(obsidian_path) {
-                if relative.as_os_str().to_string_lossy().trim().is_empty() {
-                    self.output_folder = Some(PathBuf::from(relative));
-                    return self;
-                }
-            }
+        if let Some(obsidian_path) = &self.obsidian_path
+            && let Ok(relative) = val.strip_prefix(obsidian_path)
+            && relative.as_os_str().to_string_lossy().trim().is_empty()
+        {
+            self.output_folder = Some(PathBuf::from(relative));
+            return self;
         }
 
         let mut folders = self.get_or_create_ignore_folders();
@@ -198,9 +197,9 @@ impl ValidatedConfigBuilder {
 }
 
 impl ValidatedConfig {
-    pub fn apply_changes(&self) -> bool { self.apply_changes }
+    pub const fn apply_changes(&self) -> bool { self.apply_changes }
 
-    pub fn file_limit(&self) -> Option<usize> { self.file_limit }
+    pub const fn file_limit(&self) -> Option<usize> { self.file_limit }
 
     pub fn back_populate_file_filter(&self) -> Option<String> {
         self.back_populate_file_filter.as_ref().map(|filter| {
@@ -215,7 +214,7 @@ impl ValidatedConfig {
             if filter_text.ends_with(MARKDOWN_SUFFIX) {
                 filter_text.to_string()
             } else {
-                format!("{}.md", filter_text)
+                format!("{filter_text}.md")
             }
         })
     }

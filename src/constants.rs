@@ -182,7 +182,7 @@ pub struct DescriptionBuilder {
 
 impl DescriptionBuilder {
     /// Creates a new `DescriptionBuilder` instance.
-    pub fn new() -> Self { Self { parts: Vec::new() } }
+    pub const fn new() -> Self { Self { parts: Vec::new() } }
 
     pub fn text_with_newline(mut self, text: &str) -> Self {
         let new_text = format!("{}{}", text, "\n");
@@ -214,13 +214,13 @@ impl DescriptionBuilder {
     }
 
     pub fn quoted_text(mut self, text: &str) -> Self {
-        let quoted = format!("\"{}\"", text);
+        let quoted = format!("\"{text}\"");
         self.parts.push(quoted);
         self
     }
 
     pub fn parenthetical_text(mut self, text: &str) -> Self {
-        let parenthesized = format!("({})", text);
+        let parenthesized = format!("({text})");
         self.parts.push(parenthesized);
         self
     }

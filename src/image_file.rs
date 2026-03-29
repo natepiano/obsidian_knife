@@ -29,7 +29,7 @@ impl fmt::Display for ImageHash {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
 }
 
-#[derive(Default, Debug, PartialEq, Deref, DerefMut, IntoIterator)]
+#[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
 pub struct ImageFiles {
     #[deref]
     #[deref_mut]
@@ -56,7 +56,7 @@ impl ImageFiles {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImageFile {
     pub delete:                   bool,
     pub file_type:                ImageFileType,
@@ -73,7 +73,7 @@ impl EnumFilter for ImageFile {
     fn as_enum(&self) -> &Self::EnumType { &self.image_state }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageFileType {
     Tiff,
     Jpeg,
@@ -96,7 +96,7 @@ impl ImageFileType {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum ImageFileState {
     #[default]
     Valid,
@@ -112,7 +112,7 @@ pub enum ImageFileState {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum IncompatibilityReason {
     TiffFormat,
     ZeroByte,

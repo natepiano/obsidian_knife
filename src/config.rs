@@ -7,7 +7,8 @@ use std::path::PathBuf;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::constants::*;
+use crate::constants::DEFAULT_OUTPUT_FOLDER;
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::utils;
 use crate::validated_config::ValidatedConfig;
@@ -16,7 +17,7 @@ use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter_struct;
 
 yaml_frontmatter_struct! {
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct Config {
         #[serde(skip_serializing_if = "Option::is_none")]
         pub apply_changes: Option<bool>,
@@ -39,7 +40,7 @@ yaml_frontmatter_struct! {
 
 impl Config {
     pub fn from_frontmatter(
-        frontmatter: FrontMatter,
+        frontmatter: &FrontMatter,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let yaml_str = frontmatter.to_yaml_str()?;
         Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)

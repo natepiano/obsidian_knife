@@ -29,8 +29,7 @@ fn test_image_file_type_from_extension() {
         let file_type = ImageFileType::from_extension(extension);
         assert_eq!(
             file_type, expected_type,
-            "Failed for extension: {}",
-            extension
+            "Failed for extension: {extension}"
         );
     }
 }
@@ -256,7 +255,7 @@ fn test_image_file_debug() {
         false,
     );
 
-    let debug_str = format!("{:?}", info);
+    let debug_str = format!("{info:?}");
 
     assert!(
         debug_str.contains("test.jpg"),

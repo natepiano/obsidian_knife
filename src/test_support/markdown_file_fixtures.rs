@@ -76,7 +76,7 @@ pub fn create_markdown_test_file(
 ) -> PathBuf {
     let file_path = temp_dir.path().join(file_name);
     let mut file = File::create(&file_path).unwrap();
-    write!(file, "{}", content).unwrap();
+    write!(file, "{content}").unwrap();
 
     let markdown_file = test_support::get_test_markdown_file(file_path.clone());
 

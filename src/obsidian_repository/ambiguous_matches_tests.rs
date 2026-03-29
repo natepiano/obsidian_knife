@@ -191,8 +191,8 @@ fn test_mixed_case_and_truly_ambiguous() {
     // Create the test file with both types of matches
     TestFileBuilder::new()
         .with_content(
-            r#"AWS and aws are the same
-Amazon is ambiguous"#,
+            r"AWS and aws are the same
+Amazon is ambiguous",
         )
         .with_title("Test Document".to_string()) // This adds frontmatter with the title
         .create(&temp_dir, "test1.md");
@@ -257,10 +257,10 @@ fn test_combined_ambiguous_and_unambiguous_matches() {
     // Create the files using TestFileBuilder
     TestFileBuilder::new()
         .with_content(
-            r#"# Reference Page
+            r"# Reference Page
 Karen is here
 karen is here too
-Nate was here and so was Nate"#
+Nate was here and so was Nate"
                 .to_string(),
         )
         .with_title("reference page".to_string())

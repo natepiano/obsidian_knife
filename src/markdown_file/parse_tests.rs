@@ -70,8 +70,7 @@ fn test_frontmatter_line_counting() {
         let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
         assert_eq!(
             markdown_file.frontmatter_line_count, expected_frontmatter_lines,
-            "Failed for content:\n{}",
-            content
+            "Failed for content:\n{content}"
         );
     }
 }

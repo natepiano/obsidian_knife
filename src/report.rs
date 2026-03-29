@@ -12,7 +12,7 @@ mod unreferenced_images_report;
 
 mod report_writer;
 
-use crate::constants::*;
+use crate::constants::DescriptionBuilder;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::validated_config::ValidatedConfig;
 

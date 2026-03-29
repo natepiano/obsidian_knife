@@ -157,20 +157,17 @@ fn test_process_line_table_escaping_combined() {
         assert_eq!(
             matches.len(),
             expected_replacements.len(),
-            "Incorrect number of replacements for: {}",
-            description
+            "Incorrect number of replacements for: {description}"
         );
 
         for (match_info, expected) in matches.iter().zip(expected_replacements.iter()) {
             assert_eq!(
                 match_info.replacement, *expected,
-                "Incorrect replacement for: {}",
-                description
+                "Incorrect replacement for: {description}"
             );
             assert!(
                 match_info.in_markdown_table,
-                "Should be marked as in table for: {}",
-                description
+                "Should be marked as in table for: {description}"
             );
         }
     }

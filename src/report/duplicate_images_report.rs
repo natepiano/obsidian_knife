@@ -4,7 +4,31 @@ use std::path::Path;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::*;
+use crate::constants::ACTION;
+use crate::constants::COLON;
+use crate::constants::CONFIG_EXPECT;
+use crate::constants::DELETED;
+use crate::constants::DUPLICATE;
+use crate::constants::DUPLICATE_IMAGES;
+use crate::constants::DescriptionBuilder;
+use crate::constants::FILE;
+use crate::constants::FOUND;
+use crate::constants::IMAGE_FILE;
+use crate::constants::IMAGE_FILE_HASH;
+use crate::constants::LEVEL2;
+use crate::constants::LEVEL3;
+use crate::constants::LINE;
+use crate::constants::NO_CHANGE;
+use crate::constants::NOT_REFERENCED;
+use crate::constants::POSITION;
+use crate::constants::Phrase;
+use crate::constants::REFERENCE_CHANGE;
+use crate::constants::REFERENCED_BY;
+use crate::constants::THUMBNAIL;
+use crate::constants::THUMBNAIL_WIDTH;
+use crate::constants::TYPE;
+use crate::constants::UNKNOWN;
+use crate::constants::WILL_DELETE;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::ImageHash;
@@ -63,8 +87,8 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         let mut rows = Vec::new();
         for image in items {
             let filename = image.path.file_name().unwrap().to_string_lossy();
-            let thumbnail = format!("![[{}\\|{}]]", filename, THUMBNAIL_WIDTH);
-            let image_link = format!("[[{}]]", filename);
+            let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
+            let image_link = format!("[[{filename}]]");
 
             let (image_type, action, base_reference_update) = match &image.image_state {
                 ImageFileState::DuplicateKeeper { .. } => {
@@ -77,12 +101,14 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                         WILL_DELETE.to_string()
                     };
 
-                    let reference_update = if let Some(keeper_img) = keeper {
-                        let keeper_name = keeper_img.path.file_name().unwrap().to_string_lossy();
-                        utils::escape_brackets(&format!("![[{}]]", keeper_name))
-                    } else {
-                        UNKNOWN.to_string()
-                    };
+                    let reference_update = keeper.map_or_else(
+                        || UNKNOWN.to_string(),
+                        |keeper_img| {
+                            let keeper_name =
+                                keeper_img.path.file_name().unwrap().to_string_lossy();
+                            utils::escape_brackets(&format!("![[{keeper_name}]]"))
+                        },
+                    );
 
                     ("duplicate", action, reference_update)
                 },

@@ -9,7 +9,10 @@ use derive_more::Deref;
 use derive_more::DerefMut;
 use derive_more::IntoIterator;
 
-use crate::constants::*;
+use crate::constants::DEFAULT_MEDIA_PATH;
+use crate::constants::FORWARD_SLASH;
+use crate::constants::OPENING_BRACKET;
+use crate::constants::OPENING_PAREN;
 use crate::frontmatter::FrontMatter;
 use crate::image_file::IncompatibilityReason;
 use crate::markdown_file;
@@ -18,7 +21,7 @@ use crate::wikilink;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::Wikilink;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PersistReason {
     DateCreatedUpdated { reason: DateValidationIssue },
     DateModifiedUpdated { reason: DateValidationIssue },
@@ -41,7 +44,7 @@ impl fmt::Display for PersistReason {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DateValidationIssue {
     Missing,
     InvalidDateFormat,
@@ -57,11 +60,11 @@ impl fmt::Display for DateValidationIssue {
             Self::InvalidWikilink => "invalid wikilink",
             Self::FileSystemMismatch => "doesn't match file system",
         };
-        write!(f, "{}", description)
+        write!(f, "{description}")
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DateValidation {
     pub frontmatter_date:     Option<String>,
     pub file_system_date:     DateTime<Utc>,
@@ -71,16 +74,13 @@ pub struct DateValidation {
 
 impl DateValidation {
     pub fn operational_file_system_date(&self) -> DateTime<Utc> {
-        // Parse timezone string into a Tz
-        if let Ok(tz) = self.operational_timezone.parse::<chrono_tz::Tz>() {
-            // Convert to local time then back to UTC to get the date in the operational timezone
-            let local = self.file_system_date.with_timezone(&tz);
-            let naive = local.naive_local();
-            DateTime::from_naive_utc_and_offset(naive, Utc)
-        } else {
-            // If timezone parsing fails, return original UTC date
-            self.file_system_date
-        }
+        self.operational_timezone
+            .parse::<chrono_tz::Tz>()
+            .map_or(self.file_system_date, |tz| {
+                let local = self.file_system_date.with_timezone(&tz);
+                let naive = local.naive_local();
+                DateTime::from_naive_utc_and_offset(naive, Utc)
+            })
     }
 }
 // In markdown_file.rs
@@ -142,7 +142,7 @@ impl DateCreatedFixValidation {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MatchType {
     BackPopulate,
     ImageReference,
@@ -185,31 +185,31 @@ pub struct BackPopulateMatches {
     pub unambiguous: Vec<BackPopulateMatch>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkTarget {
     Internal,
     External,
 }
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkRendering {
     LinkOnly,
     Embedded,
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkType {
     Wikilink(ImageLinkRendering),
     MarkdownLink(ImageLinkTarget, ImageLinkRendering),
     // RawHTTP,
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Wikilinks {
     pub valid:   Vec<Wikilink>,
     pub invalid: Vec<InvalidWikilink>,
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Deref, DerefMut, IntoIterator)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
 pub struct ImageLinks {
     #[deref]
     #[deref_mut]
@@ -225,7 +225,7 @@ impl FromIterator<ImageLink> for ImageLinks {
     }
 }
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum ImageLinkState {
     #[default]
     Found, // Image exists and is valid
@@ -238,7 +238,7 @@ pub enum ImageLinkState {
     },
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImageLink {
     pub matched_text:   String, // The full ![[image.jpg]] syntax
     pub position:       usize,
@@ -265,8 +265,7 @@ impl ReplaceableContent for ImageLink {
     fn get_replacement(&self) -> String {
         match &self.state {
             ImageLinkState::Found => self.matched_text.clone(),
-            ImageLinkState::Missing => String::new(),
-            ImageLinkState::Incompatible { .. } => String::new(),
+            ImageLinkState::Missing | ImageLinkState::Incompatible { .. } => String::new(),
             ImageLinkState::Duplicate { keeper_path } => {
                 let new_name = keeper_path
                     .file_name()
@@ -276,11 +275,11 @@ impl ReplaceableContent for ImageLink {
 
                 match &self.link_type {
                     ImageLinkType::Wikilink(rendering) => match rendering {
-                        ImageLinkRendering::Embedded => match &self.size_parameter {
-                            Some(size) => format!("![[{}|{}]]", new_relative, size),
-                            None => format!("![[{}]]", new_relative),
-                        },
-                        ImageLinkRendering::LinkOnly => format!("[[{}]]", new_relative),
+                        ImageLinkRendering::Embedded => self.size_parameter.as_ref().map_or_else(
+                            || format!("![[{new_relative}]]"),
+                            |size| format!("![[{new_relative}|{size}]]"),
+                        ),
+                        ImageLinkRendering::LinkOnly => format!("[[{new_relative}]]"),
                     },
                     ImageLinkType::MarkdownLink(target, rendering) => {
                         match (target, rendering) {
@@ -378,10 +377,7 @@ impl ImageLink {
                 None,
             )
         } else {
-            panic!(
-                "Invalid image link format passed to ImageLink::new(): {}",
-                raw_link
-            );
+            panic!("Invalid image link format passed to ImageLink::new(): {raw_link}");
         };
 
         Self {

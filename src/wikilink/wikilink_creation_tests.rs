@@ -29,19 +29,16 @@ fn assert_valid_wikilink(
         WikilinkParseResult::Valid(wikilink) => {
             assert_eq!(
                 wikilink.target, expected_target,
-                "Target mismatch for input: {}",
-                input
+                "Target mismatch for input: {input}"
             );
             assert_eq!(
                 wikilink.display_text, expected_display,
-                "Display text mismatch for input: {}",
-                input
+                "Display text mismatch for input: {input}"
             );
             assert_eq!(
                 wikilink.is_alias(),
                 expected_is_alias,
-                "Alias flag mismatch for input: {}",
-                input
+                "Alias flag mismatch for input: {input}"
             );
         },
         WikilinkParseResult::Invalid(invalid) => {
@@ -66,16 +63,10 @@ fn assert_invalid_wikilink(input: &str, expected_reason: InvalidWikilinkReason) 
             );
         },
         Some(WikilinkParseResult::Valid(_)) => {
-            panic!(
-                "Expected invalid wikilink for input: {}, but got valid.",
-                input
-            );
+            panic!("Expected invalid wikilink for input: {input}, but got valid.");
         },
         None => {
-            panic!(
-                "Expected invalid wikilink for input: {}, but got None.",
-                input
-            );
+            panic!("Expected invalid wikilink for input: {input}, but got None.");
         },
     }
 }
@@ -97,8 +88,7 @@ fn to_aliased_wikilink_variants() {
         let result = target.to_aliased_wikilink(display);
         assert_eq!(
             result, expected,
-            "Failed for target '{}', display '{}'",
-            target, display
+            "Failed for target '{target}', display '{display}'"
         );
     }
 

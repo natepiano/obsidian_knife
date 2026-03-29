@@ -51,7 +51,8 @@ use regex::Regex;
 use text_excluder::CodeBlockExcluder;
 pub use text_excluder::InlineCodeExcluder;
 
-use crate::constants::*;
+use crate::constants::CLOSING_WIKILINK;
+use crate::constants::OPENING_WIKILINK;
 use crate::frontmatter::FrontMatter;
 use crate::obsidian_repository;
 use crate::utils;
@@ -127,7 +128,7 @@ impl MarkdownFile {
 
         let do_not_back_populate_regexes = frontmatter
             .as_ref()
-            .and_then(|fm| fm.get_do_not_back_populate_regexes());
+            .and_then(super::frontmatter::FrontMatter::get_do_not_back_populate_regexes);
 
         let mut file_info = Self {
             content,
@@ -158,15 +159,15 @@ impl MarkdownFile {
 
     // Add a method to reconstruct the full markdown content
     pub fn to_full_content(&self) -> String {
-        if let Some(ref fm) = self.frontmatter {
-            if let Ok(yaml) = fm.to_yaml_str() {
-                format!("---\n{}\n---\n{}", yaml.trim(), self.content.trim())
-            } else {
-                self.content.clone()
-            }
-        } else {
-            self.content.clone()
-        }
+        self.frontmatter.as_ref().map_or_else(
+            || self.content.clone(),
+            |fm| {
+                fm.to_yaml_str().map_or_else(
+                    |_| self.content.clone(),
+                    |yaml| format!("---\n{}\n---\n{}", yaml.trim(), self.content.trim()),
+                )
+            },
+        )
     }
 
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -405,7 +406,7 @@ impl MarkdownFile {
         matches
     }
 
-    pub fn get_real_line_number(&self, line_idx: usize) -> usize {
+    pub const fn get_real_line_number(&self, line_idx: usize) -> usize {
         self.frontmatter_line_count + line_idx + 1
     }
 
@@ -444,10 +445,11 @@ impl MarkdownFile {
 
             if !was_inside && is_inside {
                 span_start = Some(byte_offset);
-            } else if was_inside && !is_inside {
-                if let Some(start) = span_start.take() {
-                    exclusion_zones.push((start, byte_offset + ch.len_utf8()));
-                }
+            } else if was_inside
+                && !is_inside
+                && let Some(start) = span_start.take()
+            {
+                exclusion_zones.push((start, byte_offset + ch.len_utf8()));
             }
         }
 
@@ -469,24 +471,22 @@ impl MarkdownFile {
             }
 
             // Check against frontmatter aliases
-            if let Some(frontmatter) = &self.frontmatter {
-                if let Some(aliases) = frontmatter.aliases() {
-                    if aliases
-                        .iter()
-                        .any(|alias| alias.eq_ignore_ascii_case(matched_text))
-                    {
-                        return false;
-                    }
-                }
+            if let Some(frontmatter) = &self.frontmatter
+                && let Some(aliases) = frontmatter.aliases()
+                && aliases
+                    .iter()
+                    .any(|alias| alias.eq_ignore_ascii_case(matched_text))
+            {
+                return false;
             }
         }
 
         !wikilink::is_within_wikilink(line, absolute_start)
     }
 
-    pub fn has_ambiguous_matches(&self) -> bool { !self.matches.ambiguous.is_empty() }
+    pub const fn has_ambiguous_matches(&self) -> bool { !self.matches.ambiguous.is_empty() }
 
-    pub fn has_unambiguous_matches(&self) -> bool { !self.matches.unambiguous.is_empty() }
+    pub const fn has_unambiguous_matches(&self) -> bool { !self.matches.unambiguous.is_empty() }
 }
 
 fn get_date_validations(
@@ -612,13 +612,13 @@ fn process_date_validations(
         }
 
         // Update created date if there's an issue
-        if let Some(ref issue) = created_validation.issue {
-            if !skip_date_created {
-                fm.set_date_created(created_validation.file_system_date, operational_timezone);
-                reasons.push(PersistReason::DateCreatedUpdated {
-                    reason: issue.clone(),
-                });
-            }
+        if let Some(ref issue) = created_validation.issue
+            && !skip_date_created
+        {
+            fm.set_date_created(created_validation.file_system_date, operational_timezone);
+            reasons.push(PersistReason::DateCreatedUpdated {
+                reason: issue.clone(),
+            });
         }
 
         // Update modified date if there's an issue

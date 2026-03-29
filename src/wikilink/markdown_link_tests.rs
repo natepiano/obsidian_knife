@@ -17,7 +17,7 @@ fn test_markdown_regex_matches() {
     ];
 
     for case in matching_cases {
-        assert!(regex.is_match(case), "Regex should match '{}'", case);
+        assert!(regex.is_match(case), "Regex should match '{case}'");
     }
 
     let non_matching_cases = vec![
@@ -28,7 +28,7 @@ fn test_markdown_regex_matches() {
     ];
 
     for case in non_matching_cases {
-        assert!(!regex.is_match(case), "Regex should not match '{}'", case);
+        assert!(!regex.is_match(case), "Regex should not match '{case}'");
     }
 }
 

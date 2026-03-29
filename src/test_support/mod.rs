@@ -27,14 +27,18 @@ pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
 }
 
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {
-    if let Ok(naive_dt) = NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S") {
-        Utc.from_utc_datetime(&naive_dt)
-    } else if let Ok(naive_date) = NaiveDate::parse_from_str(s, "%Y-%m-%d") {
-        let naive_dt = naive_date.and_hms_opt(0, 0, 0).unwrap();
-        Utc.from_utc_datetime(&naive_dt)
-    } else {
-        panic!("Invalid format");
-    }
+    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").map_or_else(
+        |_| {
+            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_or_else(
+                |_| panic!("Invalid format"),
+                |naive_date| {
+                    let naive_dt = naive_date.and_hms_opt(0, 0, 0).unwrap();
+                    Utc.from_utc_datetime(&naive_dt)
+                },
+            )
+        },
+        |naive_dt| Utc.from_utc_datetime(&naive_dt),
+    )
 }
 
 pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile {

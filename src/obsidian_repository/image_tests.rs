@@ -188,8 +188,8 @@ fn test_image_replacement_outcomes() {
                     let content = fs::read_to_string(md_path).unwrap();
 
                     let possible_refs = [
-                        format!("![[{}]]", keeper_name),
-                        format!("![[conf/media/{}]]", keeper_name),
+                        format!("![[{keeper_name}]]"),
+                        format!("![[conf/media/{keeper_name}]]"),
                     ];
 
                     assert!(
@@ -252,10 +252,9 @@ fn test_image_replacement_outcomes() {
             if path
                 .extension()
                 .is_some_and(|ext| ext == MARKDOWN_EXTENSION)
+                && let Some(markdown_file) = repository.markdown_files.get_mut(path)
             {
-                if let Some(markdown_file) = repository.markdown_files.get_mut(path) {
-                    markdown_file.mark_image_reference_as_updated(config.operational_timezone());
-                }
+                markdown_file.mark_image_reference_as_updated(config.operational_timezone());
             }
         }
 
@@ -304,10 +303,10 @@ fn test_handle_missing_references() {
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
     // Create markdown files with references to non-existent images
-    let md_content = r#"# Test Document
+    let md_content = r"# Test Document
 ![[missing_image1.jpg]]
 ![[missing_image2.jpg]]
-"#;
+";
     let md_file = TestFileBuilder::new()
         .with_content(md_content.to_string())
         .with_matching_dates(test_date)
@@ -374,7 +373,7 @@ fn test_duplicate_grouping() {
         if !references.is_empty() {
             let md_content = references
                 .iter()
-                .map(|_| format!("![[{}]]", name))
+                .map(|_| format!("![[{name}]]"))
                 .collect::<Vec<_>>()
                 .join("\n");
 
@@ -458,7 +457,7 @@ fn test_multiple_file_deletion() {
 
     // Verify all files were deleted
     for path in created_paths {
-        assert!(!path.exists(), "File should have been deleted: {:?}", path);
+        assert!(!path.exists(), "File should have been deleted: {path:?}");
     }
 }
 

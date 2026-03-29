@@ -5,7 +5,22 @@ use chrono::Local;
 use chrono::Utc;
 
 use crate::ObsidianRepository;
-use crate::constants::*;
+use crate::constants::BACK_POPULATE;
+use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
+use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
+use crate::constants::DescriptionBuilder;
+use crate::constants::FORMAT_TIME_STAMP;
+use crate::constants::IMAGES;
+use crate::constants::IN_CHANGESET;
+use crate::constants::LEVEL1;
+use crate::constants::MODE_APPLY_CHANGES;
+use crate::constants::MODE_APPLY_CHANGES_OFF;
+use crate::constants::OF;
+use crate::constants::Phrase;
+use crate::constants::YAML_APPLY_CHANGES;
+use crate::constants::YAML_FILE_LIMIT;
+use crate::constants::YAML_TIMESTAMP_LOCAL;
+use crate::constants::YAML_TIMESTAMP_UTC;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::PersistReason;
@@ -44,7 +59,7 @@ impl ObsidianRepository {
         let has_ambiguous_matches = self
             .markdown_files
             .iter()
-            .any(|file| file.has_ambiguous_matches());
+            .any(super::super::markdown_file::MarkdownFile::has_ambiguous_matches);
 
         if has_ambiguous_matches {
             self.write_ambiguous_matches_report(writer)?;
@@ -62,7 +77,7 @@ impl ObsidianRepository {
             .markdown_files
             .files_to_persist()
             .iter()
-            .any(|file| file.has_unambiguous_matches());
+            .any(super::super::markdown_file::MarkdownFile::has_unambiguous_matches);
 
         let has_invalid_wikilinks = self.markdown_files.iter().any(|file| {
             file.wikilinks.invalid.iter().any(|wikilink| {
@@ -233,10 +248,7 @@ pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: u
         let end = start + match_length;
 
         if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-            eprintln!(
-                "Invalid UTF-8 boundary detected at position {} or {}",
-                start, end
-            );
+            eprintln!("Invalid UTF-8 boundary detected at position {start} or {end}");
             return text.to_string();
         }
 

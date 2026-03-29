@@ -19,7 +19,14 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::constants::DEFAULT_TIMEZONE;
-use crate::constants::*;
+use crate::constants::DEV;
+use crate::constants::ERROR_DETAILS;
+use crate::constants::ERROR_OCCURRED;
+use crate::constants::ERROR_SOURCE;
+use crate::constants::ERROR_TYPE;
+use crate::constants::OBSIDIAN_KNIFE;
+use crate::constants::TOTAL_TIME;
+use crate::constants::USAGE;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
@@ -36,7 +43,7 @@ enum MainError {
 impl std::fmt::Display for MainError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Usage(msg) => write!(f, "{}", msg),
+            Self::Usage(msg) => write!(f, "{msg}"),
         }
     }
 }
@@ -48,7 +55,7 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
 
     let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
-        Config::from_frontmatter(frontmatter.clone())?
+        Config::from_frontmatter(frontmatter)?
     } else {
         return Err("Config file must have frontmatter".into());
     };
@@ -75,10 +82,10 @@ fn reset_apply_changes(
     let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
     markdown_file.frontmatter = Some(updated_frontmatter);
 
-    let operational_timezone = match &config.operational_timezone {
-        Some(time_zone) => time_zone.as_str(),
-        None => DEFAULT_TIMEZONE,
-    };
+    let operational_timezone = config
+        .operational_timezone
+        .as_ref()
+        .map_or(DEFAULT_TIMEZONE, |time_zone| time_zone.as_str());
 
     markdown_file
         .frontmatter
@@ -94,10 +101,10 @@ fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + S
     eprintln!("{ERROR_OCCURRED}");
     eprintln!("{ERROR_TYPE}");
     eprintln!("{}", std::any::type_name_of_val(&*e));
-    eprintln!("{ERROR_DETAILS} {}", e);
+    eprintln!("{ERROR_DETAILS} {e}");
 
     if let Some(source) = e.source() {
-        eprintln!("{ERROR_SOURCE} {}", source);
+        eprintln!("{ERROR_SOURCE} {source}");
     }
     Err(e)
 }

@@ -16,25 +16,6 @@ use crate::test_support::TestFileBuilder;
 fn test_parallel_image_reference_collection() {
     use rayon::prelude::*;
 
-    let temp_dir = TempDir::new().unwrap();
-    let mut markdown_files = HashMap::new();
-
-    for i in 0..100 {
-        let filename = format!("note{}.md", i);
-        let content = format!("![[test{}.jpg]]\n![[common.jpg]]", i);
-        let file_path = TestFileBuilder::new()
-            .with_content(content.clone())
-            .create(&temp_dir, &filename);
-        let mut info = test_utils::get_test_markdown_file(file_path.clone());
-
-        info.image_links.links = content
-            .split('\n')
-            .map(|s| ImageLink::new(s.to_string(), 1, 0))
-            .collect();
-
-        markdown_files.insert(file_path, info);
-    }
-
     // Common filter logic
     fn has_common_image(info: &MarkdownFile) -> bool {
         info.image_links
@@ -61,6 +42,25 @@ fn test_parallel_image_reference_collection() {
                 }
             })
             .collect()
+    }
+
+    let temp_dir = TempDir::new().unwrap();
+    let mut markdown_files = HashMap::new();
+
+    for i in 0..100 {
+        let filename = format!("note{i}.md");
+        let content = format!("![[test{i}.jpg]]\n![[common.jpg]]");
+        let file_path = TestFileBuilder::new()
+            .with_content(content.clone())
+            .create(&temp_dir, &filename);
+        let mut info = test_utils::get_test_markdown_file(file_path.clone());
+
+        info.image_links.links = content
+            .split('\n')
+            .map(|s| ImageLink::new(s.to_string(), 1, 0))
+            .collect();
+
+        markdown_files.insert(file_path, info);
     }
 
     // Test parallel processing
@@ -133,8 +133,7 @@ fn test_wikilink_sorting_with_aliases() {
         assert_ne!(
             comparison,
             std::cmp::Ordering::Less,
-            "Sorting violates length ordering at index {}",
-            i
+            "Sorting violates length ordering at index {i}"
         );
     }
 }

@@ -2,7 +2,17 @@ use std::error::Error;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::*;
+use crate::constants::ACTION;
+use crate::constants::DELETED;
+use crate::constants::DescriptionBuilder;
+use crate::constants::IMAGE_FILE;
+use crate::constants::LEVEL2;
+use crate::constants::NOT_REFERENCED;
+use crate::constants::Phrase;
+use crate::constants::THUMBNAIL;
+use crate::constants::THUMBNAIL_WIDTH;
+use crate::constants::UNREFERENCED_IMAGES;
+use crate::constants::WILL_DELETE;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::obsidian_repository::ObsidianRepository;
@@ -37,9 +47,11 @@ impl ReportDefinition for UnreferencedImagesReport {
             .map(|image| {
                 let file_name = image.path.file_name().unwrap().to_string_lossy();
                 let sample =
-                    utils::escape_pipe(format!("![[{}|{}]]", file_name, THUMBNAIL_WIDTH).as_str());
-                let file_link = format!("[[{}]]", file_name);
-                let action = if config.is_some_and(|c| c.apply_changes()) {
+                    utils::escape_pipe(format!("![[{file_name}|{THUMBNAIL_WIDTH}]]").as_str());
+                let file_link = format!("[[{file_name}]]");
+                let action = if config
+                    .is_some_and(super::super::validated_config::ValidatedConfig::apply_changes)
+                {
                     DELETED
                 } else {
                     WILL_DELETE

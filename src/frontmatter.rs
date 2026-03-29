@@ -32,13 +32,13 @@ yaml_frontmatter_struct! {
 }
 
 impl FrontMatter {
-    pub fn aliases(&self) -> Option<&Vec<String>> { self.aliases.as_ref() }
+    pub const fn aliases(&self) -> Option<&Vec<String>> { self.aliases.as_ref() }
 
-    pub fn date_created(&self) -> Option<&String> { self.date_created.as_ref() }
+    pub const fn date_created(&self) -> Option<&String> { self.date_created.as_ref() }
 
-    pub fn date_modified(&self) -> Option<&String> { self.date_modified.as_ref() }
+    pub const fn date_modified(&self) -> Option<&String> { self.date_modified.as_ref() }
 
-    pub fn date_created_fix(&self) -> Option<&String> { self.date_created_fix.as_ref() }
+    pub const fn date_created_fix(&self) -> Option<&String> { self.date_created_fix.as_ref() }
 
     pub fn remove_date_created_fix(&mut self) {
         // setting it to None will cause it to skip serialization
@@ -79,7 +79,7 @@ impl FrontMatter {
         self.needs_persist = true;
     }
 
-    pub fn needs_persist(&self) -> bool { self.needs_persist }
+    pub const fn needs_persist(&self) -> bool { self.needs_persist }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
         // first get do_not_back_populate explicit value
@@ -96,7 +96,7 @@ impl FrontMatter {
             // we got nothing from valid frontmatter
             None
         } else {
-            utils::build_case_insensitive_word_finder(Some(&do_not_populate))
+            Some(utils::build_case_insensitive_word_finder(&do_not_populate))
         }
     }
 }

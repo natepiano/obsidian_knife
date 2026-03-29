@@ -102,9 +102,9 @@ impl std::fmt::Display for YamlFrontMatterError {
                 "yaml frontmatter delimiters are present but there is no yaml"
             ),
             Self::Missing => write!(f, "file must start with YAML frontmatter (---)"),
-            Self::Invalid(msg) => write!(f, "invalid YAML frontmatter: {}", msg),
-            Self::Parse(msg) => write!(f, "error parsing YAML frontmatter: {}", msg),
-            Self::Serialize(msg) => write!(f, "error serializing YAML frontmatter: {}", msg),
+            Self::Invalid(msg) => write!(f, "invalid YAML frontmatter: {msg}"),
+            Self::Parse(msg) => write!(f, "error parsing YAML frontmatter: {msg}"),
+            Self::Serialize(msg) => write!(f, "error serializing YAML frontmatter: {msg}"),
         }
     }
 }
@@ -236,10 +236,10 @@ mod tests {
         let test_cases = vec![
             YamlTestCase {
                 name:     "valid frontmatter",
-                input:    r#"title: test doc
+                input:    r"title: test doc
 tags:
   - tag1
-  - tag2"#,
+  - tag2",
                 expected: Ok(TestFrontMatter {
                     title:        "test doc".to_string(),
                     tags:         vec!["tag1".to_string(), "tag2".to_string()],
@@ -258,8 +258,8 @@ tags: [not, valid, yaml"#,
 
         for test_case in &test_cases {
             test_support::assert_result(
-                TestFrontMatter::from_yaml_str(test_case.input),
-                test_case.expected.clone(),
+                &TestFrontMatter::from_yaml_str(test_case.input),
+                &test_case.expected,
                 test_case.name,
                 |actual, expected| assert_eq!(actual, expected, "Failed test: {}", test_case.name),
             );
@@ -353,8 +353,8 @@ tags: [not, valid, yaml"#,
 
         for test_case in &test_cases {
             test_support::assert_result(
-                test_case.input.to_yaml_str(),
-                test_case.expected.clone(),
+                &test_case.input.to_yaml_str(),
+                &test_case.expected,
                 test_case.name,
                 |actual, expected| {
                     assert_eq!(

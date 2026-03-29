@@ -130,37 +130,37 @@ impl TestFileBuilder {
         if has_frontmatter {
             writeln!(file, "---").unwrap();
             if let Some(created) = self.frontmatter_created {
-                writeln!(file, "date_created: \"{}\"", created).unwrap();
+                writeln!(file, "date_created: \"{created}\"").unwrap();
             }
             if let Some(modified) = self.frontmatter_modified {
-                writeln!(file, "date_modified: \"{}\"", modified).unwrap();
+                writeln!(file, "date_modified: \"{modified}\"").unwrap();
             }
             if let Some(date_created_fix) = self.date_created_fix {
-                writeln!(file, "date_created_fix: \"{}\"", date_created_fix).unwrap();
+                writeln!(file, "date_created_fix: \"{date_created_fix}\"").unwrap();
             }
             if let Some(tags) = self.tags {
                 writeln!(file, "tags:").unwrap();
                 for tag in tags {
-                    writeln!(file, "- {}", tag).unwrap();
+                    writeln!(file, "- {tag}").unwrap();
                 }
             }
             if let Some(aliases) = self.aliases {
                 writeln!(file, "aliases:").unwrap();
                 for alias in aliases {
-                    writeln!(file, "- {}", alias).unwrap();
+                    writeln!(file, "- {alias}").unwrap();
                 }
             }
             if let Some(title) = self.title {
-                writeln!(file, "title: {}", title).unwrap();
+                writeln!(file, "title: {title}").unwrap();
             }
             if let Some(custom) = self.custom_frontmatter {
-                writeln!(file, "{}", custom).unwrap();
+                writeln!(file, "{custom}").unwrap();
             }
             writeln!(file, "---").unwrap();
         }
 
         match self.content {
-            Content::Text(text) => writeln!(file, "{}", text).unwrap(),
+            Content::Text(text) => writeln!(file, "{text}").unwrap(),
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
         }
 

@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
 
-use crate::constants::*;
+use crate::constants::OUTPUT_MARKDOWN_FILE;
 
 pub struct OutputFileWriter {
     file: Mutex<File>,
@@ -39,8 +39,18 @@ impl OutputFileWriter {
         rows: &[Vec<String>],
         alignments: Option<&[ColumnAlignment]>,
     ) -> io::Result<()> {
-        let separator = match alignments {
-            Some(aligns) => {
+        let separator = alignments.map_or_else(
+            || {
+                format!(
+                    "| {} |",
+                    headers
+                        .iter()
+                        .map(|_| "---")
+                        .collect::<Vec<_>>()
+                        .join(" | ")
+                )
+            },
+            |aligns| {
                 let sep: Vec<String> = aligns
                     .iter()
                     .map(|&a| match a {
@@ -51,21 +61,13 @@ impl OutputFileWriter {
                     .collect();
                 format!("| {} |", sep.join(" | "))
             },
-            None => format!(
-                "| {} |",
-                headers
-                    .iter()
-                    .map(|_| "---")
-                    .collect::<Vec<_>>()
-                    .join(" | ")
-            ),
-        };
+        );
 
         let mut file = self.file.lock().unwrap();
 
         // markdown tables always have to have a blank line before them
         writeln!(file, "\n| {} |", headers.join(" | "))?;
-        writeln!(file, "{}", separator)?;
+        writeln!(file, "{separator}")?;
 
         for row in rows {
             writeln!(file, "| {} |", row.join(" | "))?;
@@ -82,7 +84,7 @@ impl OutputFileWriter {
     pub fn write_properties(&self, properties: &str) -> io::Result<()> {
         let mut file = self.file.lock().unwrap();
         writeln!(file, "---")?;
-        writeln!(file, "{}", properties)?;
+        writeln!(file, "{properties}")?;
         writeln!(file, "---")?;
         file.flush()
     }
@@ -93,10 +95,10 @@ impl OutputFileWriter {
         } else if markdown_prefix.ends_with(' ') {
             markdown_prefix.to_string()
         } else {
-            format!("{} ", markdown_prefix)
+            format!("{markdown_prefix} ")
         };
 
-        let file_message = format!("{}{}\n", prefix, message);
+        let file_message = format!("{prefix}{message}\n");
         let mut file = self.file.lock().unwrap();
         file.write_all(file_message.as_bytes())?;
         file.flush()

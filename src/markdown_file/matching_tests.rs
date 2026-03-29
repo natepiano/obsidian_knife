@@ -101,9 +101,7 @@ fn test_is_within_wikilink() {
         assert_eq!(
             wikilink::is_within_wikilink(text, pos),
             expected,
-            "Failed for text '{}' at position {}",
-            text,
-            pos
+            "Failed for text '{text}' at position {pos}"
         );
     }
 }
@@ -114,11 +112,11 @@ fn test_markdown_file_with_invalid_wikilinks() {
 
     let file_path = TestFileBuilder::new()
         .with_content(
-            r#"# Test File
+            r"# Test File
 [[Valid Link]]
 [[invalid|link|extra]]
 [[unmatched
-[[]]"#
+[[]]"
                 .to_string(),
         )
         .create(&temp_dir, "test.md");
@@ -170,10 +168,10 @@ fn test_markdown_file_wikilink_collection() {
     let file_path = TestFileBuilder::new()
         .with_aliases(vec!["Alias One".to_string(), "Second Alias".to_string()])
         .with_content(
-            r#"# Test Note
+            r"# Test Note
 
 Here's a [[Simple Link]] and [[Target Page|Display Text]].
-Also linking to [[Alias One]] which is defined in frontmatter."#
+Also linking to [[Alias One]] which is defined in frontmatter."
                 .to_string(),
         )
         .create(&temp_dir, "test_note.md");

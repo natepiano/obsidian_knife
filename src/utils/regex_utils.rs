@@ -3,7 +3,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use crate::constants::*;
+use crate::constants::IMAGE_EXTENSIONS;
 
 pub static MARKDOWN_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[.*?\]\(.*?\)").unwrap());
@@ -28,14 +28,12 @@ pub static IMAGE_REGEX: LazyLock<Arc<Regex>> = LazyLock::new(|| {
     )
 });
 
-pub fn build_case_insensitive_word_finder(patterns: Option<&Vec<String>>) -> Option<Vec<Regex>> {
-    patterns.map(|patterns| {
-        patterns
-            .iter()
-            .map(|pattern| {
-                Regex::new(&format!(r"(?i)\b{}\b", regex::escape(pattern)))
-                    .expect("Failed to build regex for exclusion pattern")
-            })
-            .collect()
-    })
+pub fn build_case_insensitive_word_finder(patterns: &[String]) -> Vec<Regex> {
+    patterns
+        .iter()
+        .map(|pattern| {
+            Regex::new(&format!(r"(?i)\b{}\b", regex::escape(pattern)))
+                .expect("Failed to build regex for exclusion pattern")
+        })
+        .collect()
 }

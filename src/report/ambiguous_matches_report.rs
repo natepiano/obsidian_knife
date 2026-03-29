@@ -7,7 +7,19 @@ use std::path::PathBuf;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::*;
+use crate::constants::COLON;
+use crate::constants::DescriptionBuilder;
+use crate::constants::FOUND;
+use crate::constants::IN;
+use crate::constants::LEVEL1;
+use crate::constants::LEVEL2;
+use crate::constants::LEVEL3;
+use crate::constants::MATCHES;
+use crate::constants::MATCHES_AMBIGUOUS;
+use crate::constants::OCCURRENCES;
+use crate::constants::Phrase;
+use crate::constants::TEXT;
+use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils;
@@ -278,7 +290,7 @@ impl ObsidianRepository {
                 .clone();
 
             // collect out all possible targets to display in the description
-            let mut sorted_targets: Vec<String> = targets.iter().map(|s| s.clone()).collect();
+            let mut sorted_targets: Vec<String> = targets.iter().cloned().collect();
             sorted_targets.sort();
 
             let table = AmbiguousMatchesTable {
@@ -322,7 +334,7 @@ impl ObsidianRepository {
                     .enumerate()
                     .filter(|(_, line)| {
                         let line_lower = line.to_lowercase();
-                        line_lower.contains(&format!("[[{}", target_lower))
+                        line_lower.contains(&format!("[[{target_lower}"))
                     })
                     .map(move |(idx, line)| TargetReference {
                         file_path:   file.path.clone(),

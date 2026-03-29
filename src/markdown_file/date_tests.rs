@@ -15,8 +15,8 @@ fn create_frontmatter(
     date_created: Option<&String>,
 ) -> FrontMatter {
     let yaml = [
-        date_modified.map(|modified| format!("date_modified: \"{}\"", modified)),
-        date_created.map(|created| format!("date_created: \"{}\"", created)),
+        date_modified.map(|modified| format!("date_modified: \"{modified}\"")),
+        date_created.map(|created| format!("date_created: \"{created}\"")),
     ]
     .into_iter()
     .flatten()
@@ -239,7 +239,9 @@ fn test_process_date_validations() {
         );
 
         test_utils::assert_test_case(
-            frontmatter.as_ref().is_some_and(|fm| fm.needs_persist()),
+            frontmatter
+                .as_ref()
+                .is_some_and(super::super::frontmatter::FrontMatter::needs_persist),
             case.should_persist,
             &format!("{} - needs persist flag", case.name),
             |actual, expected| assert_eq!(actual, expected),

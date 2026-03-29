@@ -36,11 +36,11 @@ fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) ->
     let created = case
         .initial_frontmatter_created
         .as_ref()
-        .map(|d| format!("[[{}]]", d));
+        .map(|d| format!("[[{d}]]"));
     let modified = case
         .initial_frontmatter_modified
         .as_ref()
-        .map(|d| format!("[[{}]]", d));
+        .map(|d| format!("[[{d}]]"));
 
     TestFileBuilder::new()
         .with_frontmatter_dates(created, modified)

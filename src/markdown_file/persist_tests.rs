@@ -2,6 +2,7 @@ use filetime::FileTime;
 use tempfile::TempDir;
 
 use super::*;
+use crate::DEFAULT_TIMEZONE;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
@@ -194,8 +195,7 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
     let updated_content = fs::read_to_string(&file_path)?;
     assert!(
         updated_content.contains("[[2024-01-02]]"),
-        "Content '{}' does not contain expected date string",
-        updated_content
+        "Content '{updated_content}' does not contain expected date string"
     );
     assert!(updated_content.contains("Test content"));
 

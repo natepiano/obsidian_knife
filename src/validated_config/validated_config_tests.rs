@@ -121,8 +121,8 @@ fn test_default_timezone() {
 
     // Test default timezone when none specified
     let yaml = format!(
-        r#"
-obsidian_path: {}"#,
+        r"
+obsidian_path: {}",
         temp_dir.path().display()
     );
 
@@ -138,8 +138,8 @@ fn test_default_output_folder() {
     let temp_dir = TempDir::new().unwrap();
 
     let yaml = format!(
-        r#"
-obsidian_path: {}"#,
+        r"
+obsidian_path: {}",
         temp_dir.path().display()
     );
 
@@ -160,11 +160,11 @@ fn test_output_folder_added_to_ignore() {
     fs::create_dir(&obsidian_dir).unwrap();
 
     let yaml = format!(
-        r#"
+        r"
 obsidian_path: {}
 output_folder: custom_output
 ignore_folders:
-  - .obsidian"#,
+  - .obsidian",
         temp_dir.path().display()
     );
 
@@ -300,7 +300,7 @@ fn test_multiple_validation_errors() {
     let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder
             .file_limit(Some(0))
-            .back_populate_file_filter(Some("".to_string()));
+            .back_populate_file_filter(Some(String::new()));
     });
 
     // Should fail with the first error encountered
@@ -329,7 +329,7 @@ fn test_timezone_edge_cases() {
 
     // Test empty timezone
     let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
-        builder.operational_timezone("".to_string());
+        builder.operational_timezone(String::new());
     });
     assert!(matches!(
         result.unwrap_err(),

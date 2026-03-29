@@ -5,7 +5,7 @@ use std::fmt;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::constants::*;
+use crate::constants::MARKDOWN_SUFFIX;
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {
@@ -24,7 +24,7 @@ pub trait ToWikilink {
         if target_without_md == display_text {
             target_without_md.to_wikilink()
         } else {
-            format!("[[{}|{}]]", target_without_md, display_text)
+            format!("[[{target_without_md}|{display_text}]]")
         }
     }
 }
@@ -85,7 +85,7 @@ impl fmt::Display for Wikilink {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InvalidWikilinkReason {
     DoubleAlias,                  // e.g. [[A|B|C]]
     EmptyWikilink,                // [[]] or [[|]]
@@ -118,7 +118,7 @@ impl fmt::Display for InvalidWikilinkReason {
     }
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InvalidWikilink {
     pub content:     String, // The actual problematic wikilink text
     pub reason:      InvalidWikilinkReason,
@@ -143,7 +143,7 @@ pub(super) enum WikilinkParseResult {
     Invalid(ParsedInvalidWikilink),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ParsedInvalidWikilink {
     pub content: String,
     pub reason:  InvalidWikilinkReason,

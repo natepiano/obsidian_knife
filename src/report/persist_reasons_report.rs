@@ -3,7 +3,19 @@ use std::path::PathBuf;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::*;
+use crate::constants::AFTER;
+use crate::constants::BEFORE;
+use crate::constants::DescriptionBuilder;
+use crate::constants::FILE;
+use crate::constants::INFO;
+use crate::constants::LEVEL1;
+use crate::constants::LEVEL2;
+use crate::constants::PATH;
+use crate::constants::Phrase;
+use crate::constants::REASON;
+use crate::constants::UPDATE;
+use crate::markdown_file::DateValidation;
+use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils;
@@ -145,7 +157,7 @@ impl ObsidianRepository {
     }
 
     fn build_persist_data_for_file(
-        file: &crate::markdown_file::MarkdownFile,
+        file: &MarkdownFile,
         config: &ValidatedConfig,
     ) -> Vec<PersistReasonData> {
         let relative_path = file
@@ -215,9 +227,7 @@ impl ObsidianRepository {
             .collect()
     }
 
-    fn format_date_validation(
-        validation: &crate::markdown_file::DateValidation,
-    ) -> (String, String) {
+    fn format_date_validation(validation: &DateValidation) -> (String, String) {
         (
             validation.frontmatter_date.clone().unwrap_or_default(),
             format!(

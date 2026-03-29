@@ -57,7 +57,7 @@ struct BlockTracker<D: BlockDelimiter> {
 }
 
 impl<D: BlockDelimiter> BlockTracker<D> {
-    fn new_with_delimiter(delimiter: D) -> Self {
+    const fn new_with_delimiter(delimiter: D) -> Self {
         Self {
             location: BlockLocation::Outside,
             delimiter,
@@ -78,10 +78,7 @@ impl<D: BlockDelimiter> BlockTracker<D> {
                     BlockLocation::Inside => {
                         self.location = BlockLocation::ClosingDelimiterFound;
                     },
-                    BlockLocation::Outside => {
-                        self.location = BlockLocation::Inside;
-                    },
-                    BlockLocation::ClosingDelimiterFound => {
+                    BlockLocation::Outside | BlockLocation::ClosingDelimiterFound => {
                         self.location = BlockLocation::Inside;
                     },
                 }
@@ -95,7 +92,7 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     // if we didn't skip it then the closing TripleBacktickDelimiter ``` would be
     // considered "outside" and it would then be prased by the
     // character iterator and would treat this as an open/close/open of a code block
-    fn is_in_code_block(&self) -> bool {
+    const fn is_in_code_block(&self) -> bool {
         matches!(
             self.location,
             BlockLocation::Inside | BlockLocation::ClosingDelimiterFound
@@ -109,22 +106,24 @@ impl<D: BlockDelimiter> BlockTracker<D> {
 pub(super) struct CodeBlockExcluder(BlockTracker<TripleBacktickDelimiter>);
 
 impl CodeBlockExcluder {
-    pub(super) fn new() -> Self { Self(BlockTracker::new_with_delimiter(TripleBacktickDelimiter)) }
+    pub(super) const fn new() -> Self {
+        Self(BlockTracker::new_with_delimiter(TripleBacktickDelimiter))
+    }
 
     pub(super) fn update(&mut self, content: &str) { self.0.update(content); }
 
-    pub(super) fn is_in_code_block(&self) -> bool { self.0.is_in_code_block() }
+    pub(super) const fn is_in_code_block(&self) -> bool { self.0.is_in_code_block() }
 }
 
 #[derive(Debug)]
 pub struct InlineCodeExcluder(BlockTracker<SingleBacktickDelimiter>);
 
 impl InlineCodeExcluder {
-    pub fn new() -> Self { Self(BlockTracker::new_with_delimiter(SingleBacktickDelimiter)) }
+    pub const fn new() -> Self { Self(BlockTracker::new_with_delimiter(SingleBacktickDelimiter)) }
 
     pub fn update(&mut self, content: char) { self.0.update(content); }
 
-    pub fn is_in_code_block(&self) -> bool { self.0.is_in_code_block() }
+    pub const fn is_in_code_block(&self) -> bool { self.0.is_in_code_block() }
 
     pub fn is_inside(&self) -> bool { self.0.is_inside() }
 }

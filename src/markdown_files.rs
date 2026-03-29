@@ -44,31 +44,26 @@ impl<'a> IntoIterator for &'a mut MarkdownFiles {
 }
 
 impl MarkdownFiles {
-    pub fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
+    pub const fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
         Self { files, file_limit }
     }
 
     pub fn process_files_for_back_populate_matches(
         &mut self,
         config: &ValidatedConfig,
-        sorted_wikilinks: Vec<&Wikilink>,
+        sorted_wikilinks: &[&Wikilink],
         ac: &AhoCorasick,
     ) {
         // this use of rayon generally makes it go about 100ms faster
         self.par_iter_mut().for_each(|markdown_file| {
-            if !cfg!(test) {
-                if let Some(filter) = config.back_populate_file_filter() {
-                    if !markdown_file.path.ends_with(filter) {
-                        return;
-                    }
-                }
+            if !cfg!(test)
+                && let Some(filter) = config.back_populate_file_filter()
+                && !markdown_file.path.ends_with(filter)
+            {
+                return;
             }
 
-            markdown_file.process_file_for_back_populate_replacements(
-                &sorted_wikilinks,
-                config,
-                ac,
-            );
+            markdown_file.process_file_for_back_populate_replacements(sorted_wikilinks, config, ac);
         });
     }
 
@@ -91,7 +86,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .is_some_and(|fm| fm.needs_persist())
+                    .is_some_and(super::frontmatter::FrontMatter::needs_persist)
             })
             .count()
     }
@@ -103,7 +98,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .is_some_and(|fm| fm.needs_persist())
+                    .is_some_and(super::frontmatter::FrontMatter::needs_persist)
             })
             .cloned()
             .collect();

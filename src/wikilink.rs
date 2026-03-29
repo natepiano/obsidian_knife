@@ -20,18 +20,18 @@ pub use wikilink_types::ToWikilink;
 pub use wikilink_types::Wikilink;
 use wikilink_types::WikilinkParseResult;
 
-use crate::constants::*;
+use crate::constants::CLOSING_WIKILINK;
+use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OPENING_WIKILINK;
 use crate::markdown_file::InlineCodeExcluder;
 use crate::utils::EMAIL_REGEX;
 use crate::utils::RAW_HTTP_REGEX;
 use crate::utils::TAG_REGEX;
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
-    if let Some(test_wikilink) = potential_wikilink {
+    potential_wikilink.is_some_and(|test_wikilink| {
         test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
-    } else {
-        false
-    }
+    })
 }
 
 pub fn create_filename_wikilink(filename: &str) -> Wikilink {
@@ -230,19 +230,18 @@ enum WikilinkState {
 impl WikilinkState {
     fn formatted_content(&self) -> String {
         match self {
-            Self::Target { content, .. } => content.clone(),
+            Self::Target { content, .. } | Self::Invalid { content, .. } => content.clone(),
             Self::Display {
                 target, content, ..
-            } => format!("{}|{}", target, content),
-            Self::Invalid { content, .. } => content.clone(),
+            } => format!("{target}|{content}"),
         }
     }
 
     fn push_char(&mut self, c: char) {
         match self {
-            Self::Target { content, .. } => content.push(c),
-            Self::Display { content, .. } => content.push(c),
-            Self::Invalid { content, .. } => content.push(c),
+            Self::Target { content, .. }
+            | Self::Display { content, .. }
+            | Self::Invalid { content, .. } => content.push(c),
         }
     }
 
@@ -260,12 +259,11 @@ impl WikilinkState {
     fn transition_to_invalid(&mut self, reason: InvalidWikilinkReason) {
         let content = self.formatted_content();
         let start_pos = match self {
-            Self::Target { start_pos, .. } => *start_pos,
+            Self::Target { start_pos, .. } | Self::Invalid { start_pos, .. } => *start_pos,
             Self::Display {
                 _target_span: (start, _),
                 ..
             } => *start,
-            Self::Invalid { start_pos, .. } => *start_pos,
         };
         *self = Self::Invalid {
             content,
@@ -302,7 +300,7 @@ impl WikilinkState {
                 let trimmed_display = content.trim().to_string();
                 if trimmed_target.is_empty() || trimmed_display.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
-                        content: format!("[[{}|{}]]", target, content),
+                        content: format!("[[{target}|{content}]]"),
                         reason:  InvalidWikilinkReason::EmptyWikilink,
                         span:    (start_pos.saturating_sub(2), end_pos),
                     })
@@ -319,8 +317,8 @@ impl WikilinkState {
                 start_pos,
             } => {
                 let formatted = match reason {
-                    InvalidWikilinkReason::UnmatchedOpening => format!("[[{}", content),
-                    _ => format!("[[{}]]", content),
+                    InvalidWikilinkReason::UnmatchedOpening => format!("[[{content}"),
+                    _ => format!("[[{content}]]"),
                 };
                 WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                     content: formatted,
@@ -406,11 +404,11 @@ fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResu
 
 /// Helper function to check if the next character matches the expected one
 fn is_next_char(chars: &mut Peekable<CharIndices>, expected: char) -> bool {
-    if let Some(&(_, next_ch)) = chars.peek() {
-        if next_ch == expected {
-            chars.next(); // Consume the expected character
-            return true;
-        }
+    if let Some(&(_, next_ch)) = chars.peek()
+        && next_ch == expected
+    {
+        chars.next(); // Consume the expected character
+        return true;
     }
     false
 }
@@ -420,10 +418,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
         return false; // No previous character if index is 0
     }
 
-    match content[..index].chars().next_back() {
-        Some(c) => c == expected,
-        None => false,
-    }
+    content[..index].ends_with(expected)
 }
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {

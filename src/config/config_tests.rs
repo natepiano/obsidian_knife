@@ -64,7 +64,7 @@ output_folder: output"#;
         .create(&temp_dir, "config.md");
 
     let mut markdown_file = test_utils::get_test_markdown_file(config_path.clone());
-    let mut config = Config::from_frontmatter(markdown_file.frontmatter.clone().unwrap()).unwrap();
+    let mut config = Config::from_frontmatter(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
 
     // Validate initial values
     assert_eq!(config.apply_changes, Some(true));
@@ -90,7 +90,7 @@ output_folder: output"#;
 
     // Verify all fields after update
     let new_markdown_file = test_utils::get_test_markdown_file(config_path);
-    let new_config = Config::from_frontmatter(new_markdown_file.frontmatter.unwrap()).unwrap();
+    let new_config = Config::from_frontmatter(&new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.apply_changes, Some(false));
     assert_eq!(new_config.file_limit, Some(5));
@@ -111,17 +111,17 @@ output_folder: output"#;
 fn test_config_from_markdown() {
     let temp_dir = TempDir::new().unwrap();
 
-    let yaml = r#"
+    let yaml = r"
 obsidian_path: ~/Documents/brain
 apply_changes: false
-cleanup_image_files: true"#;
+cleanup_image_files: true";
 
     let config_path = TestFileBuilder::new()
         .with_custom_frontmatter(yaml.to_string())
         .create(&temp_dir, "config.md");
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
+    let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(config.obsidian_path, "~/Documents/brain");
     assert_eq!(config.apply_changes, Some(false));
@@ -143,27 +143,27 @@ fn test_config_file_not_found() {
 #[test]
 fn test_config_invalid_yaml() {
     let temp_dir = TempDir::new().unwrap();
-    let invalid_yaml = r#"---
+    let invalid_yaml = r"---
 invalid: yaml: content:
 ---
-"#;
+";
 
     let config_path = TestFileBuilder::new()
         .with_content(invalid_yaml.to_string())
         .create(&temp_dir, "config.md");
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let result = Config::from_frontmatter(markdown_file.frontmatter.unwrap_or_default());
+    let result = Config::from_frontmatter(&markdown_file.frontmatter.unwrap_or_default());
 
     assert!(result.is_err());
 }
 
 #[test]
 fn test_config_with_output_folder() {
-    let yaml = r#"
+    let yaml = r"
 obsidian_path: ~/Documents/brain
 output_folder: custom_output
-apply_changes: false"#;
+apply_changes: false";
 
     let config: Config = serde_yaml::from_str(yaml).unwrap();
     assert_eq!(config.output_folder, Some("custom_output".to_string()));
@@ -171,9 +171,9 @@ apply_changes: false"#;
 
 #[test]
 fn test_config_without_output_folder() {
-    let yaml = r#"
+    let yaml = r"
 obsidian_path: ~/Documents/brain
-apply_changes: false"#;
+apply_changes: false";
 
     let config: Config = serde_yaml::from_str(yaml).unwrap();
     assert_eq!(config.output_folder, None);
@@ -184,7 +184,7 @@ fn test_process_config_with_valid_setup() {
     let (_temp_dir, config_path) = create_test_environment();
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let config = Config::from_frontmatter(markdown_file.frontmatter.unwrap()).unwrap();
+    let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
 
     let validated_config = config.validate().unwrap();
     assert!(!validated_config.apply_changes());

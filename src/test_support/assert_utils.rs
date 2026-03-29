@@ -38,15 +38,15 @@
 /// let expected_result: Result<i32, io::Error> = Ok(42);
 ///
 /// assert_result(
-///     actual_result,
-///     expected_result,
+///     &actual_result,
+///     &expected_result,
 ///     "test equal Ok values",
 ///     |actual, expected| assert_eq!(actual, expected),
 /// );
 /// ```
 pub fn assert_result<T, E, F>(
-    result: Result<T, E>,
-    expected: Result<T, E>,
+    result: &Result<T, E>,
+    expected: &Result<T, E>,
     test_name: &str,
     ok_compare: F,
 ) where
@@ -54,18 +54,16 @@ pub fn assert_result<T, E, F>(
     T: std::fmt::Debug + PartialEq,
     E: std::fmt::Debug + PartialEq,
 {
-    match (&result, &expected) {
+    match (result, expected) {
         (Ok(actual), Ok(expected)) => ok_compare(actual, expected),
         (Err(actual_err), Err(expected_err)) => {
             assert_eq!(
                 actual_err, expected_err,
-                "Failed test: {} - Expected error {:?}, got {:?}",
-                test_name, expected_err, actual_err
+                "Failed test: {test_name} - Expected error {expected_err:?}, got {actual_err:?}"
             );
         },
         _ => panic!(
-            "Failed test: {} - Result mismatch. Expected {:?}, got {:?}",
-            test_name, expected, result
+            "Failed test: {test_name} - Result mismatch. Expected {expected:?}, got {result:?}"
         ),
     }
 }

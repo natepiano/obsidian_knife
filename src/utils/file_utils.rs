@@ -12,7 +12,11 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
 use crate::ValidatedConfig;
-use crate::constants::*;
+use crate::constants::DS_STORE;
+use crate::constants::ERROR_NOT_FOUND;
+use crate::constants::ERROR_READING;
+use crate::constants::IMAGE_EXTENSIONS;
+use crate::constants::MARKDOWN_EXTENSION;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
@@ -37,22 +41,21 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str() {
-        if let Some(home) = std::env::var_os("HOME") {
-            if let Some(stripped) = path_str.strip_prefix("~/") {
-                return PathBuf::from(home).join(stripped);
-            }
+        if let Some(home) = std::env::var_os("HOME")
+            && let Some(stripped) = path_str.strip_prefix("~/")
+        {
+            return PathBuf::from(home).join(stripped);
         }
     } else {
         // Handle invalid UTF-8 paths (OsStr -> PathBuf without assuming valid UTF-8)
         let mut components = path.components();
-        if let Some(std::path::Component::Normal(first)) = components.next() {
-            if first == "~" {
-                if let Some(home) = std::env::var_os("HOME") {
-                    let mut expanded_path = PathBuf::from(home);
-                    expanded_path.extend(components);
-                    return expanded_path;
-                }
-            }
+        if let Some(std::path::Component::Normal(first)) = components.next()
+            && first == "~"
+            && let Some(home) = std::env::var_os("HOME")
+        {
+            let mut expanded_path = PathBuf::from(home);
+            expanded_path.extend(components);
+            return expanded_path;
         }
     }
 
@@ -77,9 +80,6 @@ pub fn collect_repository_files(
             .any(|ignored| path.starts_with(ignored))
     }
 
-    let md_files = Mutex::new(Vec::new());
-    let img_files = Mutex::new(Vec::new());
-
     fn visit_dirs(
         dirs: Vec<PathBuf>,
         ignore_folders: &[PathBuf],
@@ -98,7 +98,7 @@ pub fn collect_repository_files(
                     if let Some(ext) = path
                         .extension()
                         .and_then(|s| s.to_str())
-                        .map(|s| s.to_lowercase())
+                        .map(str::to_lowercase)
                     {
                         if ext == MARKDOWN_EXTENSION {
                             md_files.lock().unwrap().push(path.clone());
@@ -116,6 +116,9 @@ pub fn collect_repository_files(
             Ok(())
         })
     }
+
+    let md_files = Mutex::new(Vec::new());
+    let img_files = Mutex::new(Vec::new());
 
     visit_dirs(
         vec![validated_config.obsidian_path().to_path_buf()],
@@ -154,7 +157,7 @@ pub fn set_file_dates(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to set creation date with SetFile: {}", stderr).into());
+            return Err(format!("Failed to set creation date with SetFile: {stderr}").into());
         }
     }
 
@@ -320,15 +323,9 @@ mod set_file_dates_tests {
             let expected_created_in_tz = created_date_utc.with_timezone(&tz);
 
             println!("\nCreation Time Verification:");
-            println!("Created in UTC: {}", retrieved_created);
-            println!(
-                "Retrieved created in {}: {}",
-                operational_timezone, retrieved_created_in_tz
-            );
-            println!(
-                "Expected created in {}: {}",
-                operational_timezone, expected_created_in_tz
-            );
+            println!("Created in UTC: {retrieved_created}");
+            println!("Retrieved created in {operational_timezone}: {retrieved_created_in_tz}");
+            println!("Expected created in {operational_timezone}: {expected_created_in_tz}");
 
             assert_eq!(
                 retrieved_created, created_date_utc,

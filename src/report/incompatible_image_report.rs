@@ -3,7 +3,21 @@ use std::path::Path;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::*;
+use crate::constants::ACTION;
+use crate::constants::CONFIG_EXPECT;
+use crate::constants::DescriptionBuilder;
+use crate::constants::FILE;
+use crate::constants::IMAGE_FILE;
+use crate::constants::LEVEL2;
+use crate::constants::LINE;
+use crate::constants::NOT_REFERENCED;
+use crate::constants::POSITION;
+use crate::constants::Phrase;
+use crate::constants::REFERENCE_WILL_BE_REMOVED;
+use crate::constants::TIFF;
+use crate::constants::TYPE;
+use crate::constants::WILL_DELETE;
+use crate::constants::ZERO_BYTE;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::IncompatibilityReason;
@@ -69,9 +83,9 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                     incompatibility_type.to_string(),
                     WILL_DELETE.to_string(),
                     NOT_REFERENCED.to_string(),
-                    "".to_string(),
-                    "".to_string(),
-                    "".to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
                 ]);
             } else {
                 for ref_path in &image.markdown_file_references {
@@ -93,7 +107,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
                             })
                             .map_or_else(
-                                || ("".to_string(), "".to_string()),
+                                || (String::new(), String::new()),
                                 |image_link| (image_link.line_number.to_string(), image_link.position.to_string()),
                             );
 

@@ -8,7 +8,7 @@ struct WikilinkTestCase {
     expected_invalid: Vec<(&'static str, InvalidWikilinkReason, (usize, usize))>, /* (content, reason, span) */
 }
 
-fn assert_wikilink_extraction(test_case: WikilinkTestCase) {
+fn assert_wikilink_extraction(test_case: &WikilinkTestCase) {
     let extracted = extract_wikilinks(test_case.input);
 
     // Verify valid wikilinks
@@ -127,7 +127,7 @@ fn test_various_extractions() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -186,7 +186,7 @@ fn test_unmatched_brackets() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -261,7 +261,7 @@ fn test_unclosed_markdown_links() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -292,7 +292,7 @@ fn test_markdown_clickable_image_not_flagged() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -339,7 +339,7 @@ fn test_email_detection() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -382,7 +382,7 @@ fn test_tag_detection() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }
 
@@ -429,6 +429,6 @@ fn test_raw_http_detection() {
     ];
 
     for test_case in test_cases {
-        assert_wikilink_extraction(test_case);
+        assert_wikilink_extraction(&test_case);
     }
 }

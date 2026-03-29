@@ -70,8 +70,7 @@ pub fn verify_match(
 ) {
     assert_eq!(
         actual_match.found_text, expected_text,
-        "Wrong matched text for case: {}",
-        case_description
+        "Wrong matched text for case: {case_description}"
     );
 
     let expected_replacement = if actual_match.in_markdown_table {

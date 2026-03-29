@@ -38,7 +38,7 @@ fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
                     Some(format!("[[{}-01-01]]", 2023 - i)),
                 )
                 .with_fs_dates(created_utc, modified_utc)
-                .create(temp_dir, &format!("test_{}.md", i));
+                .create(temp_dir, &format!("test_{i}.md"));
 
             test_utils::get_test_markdown_file(file)
         })
@@ -96,7 +96,7 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
             .iter()
             .take(case.expected_processed)
             .filter(|file| {
-                if let Ok(content) = std::fs::read_to_string(&file.path) {
+                std::fs::read_to_string(&file.path).is_ok_and(|content| {
                     let file_index = file
                         .path
                         .file_stem()
@@ -108,14 +108,12 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
                     let expected_date = format!("2024-01-{:02}", file_index + 1);
 
                     let has_created =
-                        content.contains(&format!("date_created: '[[{}]]'", expected_date));
+                        content.contains(&format!("date_created: '[[{expected_date}]]'"));
                     let has_modified =
-                        content.contains(&format!("date_modified: '[[{}]]'", expected_date));
+                        content.contains(&format!("date_modified: '[[{expected_date}]]'"));
 
                     has_created && has_modified
-                } else {
-                    false
-                }
+                })
             })
             .count();
 
