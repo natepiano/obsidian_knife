@@ -3,6 +3,7 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::fmt::Write;
 use std::path::Path;
+use std::path::PathBuf;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -146,6 +147,88 @@ impl ReportDefinition for AmbiguousMatchesTable {
     fn level(&self) -> &'static str { LEVEL2 }
 }
 
+struct TargetReferencesTable {
+    target: String,
+}
+
+#[derive(Clone)]
+struct TargetReference {
+    file_path:   PathBuf,
+    line_number: usize,
+    line_text:   String,
+}
+
+impl ReportDefinition for TargetReferencesTable {
+    type Item = TargetReference;
+
+    fn headers(&self) -> Vec<&str> { vec!["file name", "line", TEXT] }
+
+    fn alignments(&self) -> Vec<ColumnAlignment> {
+        vec![
+            ColumnAlignment::Left,
+            ColumnAlignment::Right,
+            ColumnAlignment::Left,
+        ]
+    }
+
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _config: Option<&ValidatedConfig>,
+    ) -> Vec<Vec<String>> {
+        let mut rows: Vec<Vec<String>> = items
+            .iter()
+            .map(|item| {
+                let file_stem = item
+                    .file_path
+                    .file_stem()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or_default();
+
+                vec![
+                    file_stem.to_wikilink(),
+                    item.line_number.to_string(),
+                    utils::escape_pipe(&item.line_text),
+                ]
+            })
+            .collect();
+
+        rows.sort_by(|a, b| {
+            let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
+            if file_cmp != std::cmp::Ordering::Equal {
+                return file_cmp;
+            }
+            a[1].parse::<usize>()
+                .unwrap_or(0)
+                .cmp(&b[1].parse::<usize>().unwrap_or(0))
+        });
+
+        rows
+    }
+
+    fn title(&self) -> Option<String> {
+        Some(
+            DescriptionBuilder::new()
+                .text("references to")
+                .text(&self.target.to_wikilink())
+                .build(),
+        )
+    }
+
+    fn description(&self, items: &[Self::Item]) -> String {
+        let unique_files: HashSet<&PathBuf> = items.iter().map(|r| &r.file_path).collect();
+
+        DescriptionBuilder::new()
+            .text(FOUND)
+            .pluralize_with_count(Phrase::Reference(items.len()))
+            .text(IN)
+            .pluralize_with_count(Phrase::File(unique_files.len()))
+            .build()
+    }
+
+    fn level(&self) -> &'static str { LEVEL3 }
+}
+
 impl ObsidianRepository {
     pub(super) fn write_ambiguous_matches_report(
         &self,
@@ -200,13 +283,52 @@ impl ObsidianRepository {
             let table = AmbiguousMatchesTable {
                 display_text: display_text.clone(),
                 targets,
-                sorted_targets,
+                sorted_targets: sorted_targets.clone(),
             };
 
             let report = ReportWriter::new(matches.clone());
             report.write(&table, writer)?;
+
+            // Write per-target reference tables
+            for target in &sorted_targets {
+                let references = self.collect_target_references(target);
+                let target_table = TargetReferencesTable {
+                    target: target.clone(),
+                };
+                let report = ReportWriter::new(references);
+                report.write(&target_table, writer)?;
+            }
         }
 
         Ok(())
+    }
+
+    fn collect_target_references(&self, target: &str) -> Vec<TargetReference> {
+        let target_lower = target.to_lowercase();
+
+        self.markdown_files
+            .iter()
+            .filter(|file| {
+                file.wikilinks
+                    .valid
+                    .iter()
+                    .any(|w| w.target.to_lowercase() == target_lower)
+            })
+            .flat_map(|file| {
+                let frontmatter_offset = file.frontmatter_line_count;
+                file.content
+                    .lines()
+                    .enumerate()
+                    .filter(|(_, line)| {
+                        let line_lower = line.to_lowercase();
+                        line_lower.contains(&format!("[[{}", target_lower))
+                    })
+                    .map(move |(idx, line)| TargetReference {
+                        file_path:   file.path.clone(),
+                        line_number: frontmatter_offset + idx + 1,
+                        line_text:   line.to_string(),
+                    })
+            })
+            .collect()
     }
 }

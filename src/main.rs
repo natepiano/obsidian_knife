@@ -128,7 +128,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let config_path = get_config_file()?;
 
     match process_obsidian_repository(config_path) {
-        Ok(_) => Ok(()),
+        Ok(()) => Ok(()),
         Err(e) => handle_error(e), // Removed writer parameter
     }
 }

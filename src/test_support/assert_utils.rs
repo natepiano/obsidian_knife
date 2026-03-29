@@ -80,10 +80,8 @@ where
         compare_fn(&actual, &expected)
     }));
 
-    if result.is_err() {
-        panic!(
-            "Failed test: {} - Expected {:?}, got {:?}",
-            test_name, expected, actual
-        );
-    }
+    assert!(
+        result.is_ok(),
+        "Failed test: {test_name} - Expected {expected:?}, got {actual:?}"
+    );
 }
