@@ -94,7 +94,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
                             })
                             .map(|image_link| (image_link.line_number.to_string(), image_link.position.to_string()))
-                            .unwrap_or(("".to_string(), "".to_string()));
+                            .unwrap_or_else(|| ("".to_string(), "".to_string()));
 
                         rows.push(vec![
                             image_file_link.clone(),

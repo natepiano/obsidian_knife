@@ -121,6 +121,7 @@ fn test_analyze_missing_references() {
 
 #[test]
 #[cfg_attr(target_os = "linux", ignore)]
+#[allow(clippy::too_many_lines)] // test case table + assertion loop — not worth splitting
 fn test_image_replacement_outcomes() {
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
     let tiff_header = vec![0x4D, 0x4D, 0x00, 0x2A];
@@ -132,7 +133,7 @@ fn test_image_replacement_outcomes() {
             setup:  TestSetup {
                 images:         vec![TestImage {
                     name:    "empty.jpg".into(),
-                    content: empty_content.clone(),
+                    content: empty_content,
                 }],
                 markdown_files: vec![TestMarkdown {
                     name:    "test.md".into(),
@@ -227,7 +228,7 @@ fn test_image_replacement_outcomes() {
             setup:  TestSetup {
                 images:         vec![TestImage {
                     name:    "unused.jpg".into(),
-                    content: jpeg_header.clone(),
+                    content: jpeg_header,
                 }],
                 markdown_files: vec![],
             },
@@ -358,7 +359,7 @@ fn test_duplicate_grouping() {
         ("output1.png", content.clone(), vec![]),
         ("output2.png", content.clone(), vec![]),
         ("output3.png", content.clone(), vec!["test1.md"]),
-        ("output4.png", content.clone(), vec!["test2.md"]),
+        ("output4.png", content, vec!["test2.md"]),
     ];
 
     // Create the image files
@@ -433,7 +434,7 @@ fn test_multiple_file_deletion() {
             },
             TestImage {
                 name:    "unused2.jpg".into(),
-                content: jpeg_header.clone(),
+                content: jpeg_header,
             },
             TestImage {
                 name:    "empty.jpg".into(),

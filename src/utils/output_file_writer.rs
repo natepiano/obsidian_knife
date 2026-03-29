@@ -75,6 +75,7 @@ impl OutputFileWriter {
         writeln!(file, "\n---")?;
 
         file.flush()?;
+        drop(file);
         Ok(())
     }
 

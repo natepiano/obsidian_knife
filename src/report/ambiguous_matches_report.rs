@@ -50,7 +50,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
             let entry = line_map
                 .entry(key)
-                .or_insert((match_info.line_text.clone(), Vec::new()));
+                .or_insert_with(|| (match_info.line_text.clone(), Vec::new()));
             entry.1.push(match_info.position);
         }
 
@@ -112,9 +112,9 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
         // Write out targets first
         for target in &self.sorted_targets {
-            let _ = write!(
+            let _ = writeln!(
                 result,
-                "- \\[\\[{}|{}]]\n",
+                "- \\[\\[{}|{}]]",
                 target.to_wikilink(),
                 self.display_text
             );
@@ -271,9 +271,10 @@ impl ObsidianRepository {
         for key in sorted_keys {
             let matches = matches_by_text.get(&key).unwrap();
             let display_text = &matches[0].found_text;
+            let default_targets = HashSet::new();
             let targets = targets_by_text
                 .get(display_text)
-                .unwrap_or(&HashSet::new())
+                .unwrap_or(&default_targets)
                 .clone();
 
             // collect out all possible targets to display in the description

@@ -107,96 +107,13 @@ impl ObsidianRepository {
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let mut persist_data = Vec::new();
-
-        for file in self.markdown_files.files_to_persist().iter() {
-            if !file.persist_reasons.is_empty() {
-                let relative_path = file
-                    .path
-                    .strip_prefix(config.obsidian_path())
-                    .unwrap_or(&file.path)
-                    .to_string_lossy()
-                    .trim_end_matches(".md")
-                    .to_string();
-
-                let file_name = file
-                    .path
-                    .file_stem()
-                    .and_then(|f| f.to_str())
-                    .unwrap_or_default();
-
-                // Get parent directory path for the relative_path column
-                let parent_path = file
-                    .path
-                    .strip_prefix(config.obsidian_path())
-                    .unwrap_or(&file.path)
-                    .parent()
-                    .map(|p| p.to_string_lossy().to_string())
-                    .unwrap_or_else(|| "/".to_string());
-
-                // Create wikilink with alias only if file is not in root
-                let wikilink = if relative_path == file_name {
-                    format!("[[{}]]", file_name)
-                } else {
-                    format!("[[{}|{}]]", relative_path, file_name)
-                };
-
-                let back_populate_count = file.matches.unambiguous.len();
-                let image_refs_count = file
-                    .persist_reasons
-                    .iter()
-                    .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
-                    .count();
-
-                for reason in &file.persist_reasons {
-                    let data = PersistReasonData {
-                        full_path: file.path.clone(), // Store full path for filtering
-                        wikilink: utils::escape_pipe(&wikilink),
-                        reason: reason.clone(),
-                        back_populate_count,
-                        image_refs_count,
-                        parent_path: parent_path.clone(),
-                        date_validation_created: Some((
-                            file.date_validation_created
-                                .frontmatter_date
-                                .clone()
-                                .unwrap_or_default(),
-                            format!(
-                                "[[{}]]",
-                                file.date_validation_created
-                                    .operational_file_system_date()
-                                    .format("%Y-%m-%d")
-                            ),
-                        )),
-                        date_validation_modified: Some((
-                            file.date_validation_modified
-                                .frontmatter_date
-                                .clone()
-                                .unwrap_or_default(),
-                            format!(
-                                "[[{}]]",
-                                file.date_validation_modified
-                                    .operational_file_system_date()
-                                    .format("%Y-%m-%d")
-                            ),
-                        )),
-                        date_created_fix: Some((
-                            format!(
-                                "[[{}]]",
-                                file.date_validation_created
-                                    .operational_file_system_date()
-                                    .format("%Y-%m-%d")
-                            ),
-                            file.date_created_fix
-                                .fix_date
-                                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
-                                .unwrap_or_default(),
-                        )),
-                    };
-                    persist_data.push(data);
-                }
-            }
-        }
+        let mut persist_data: Vec<PersistReasonData> = self
+            .markdown_files
+            .files_to_persist()
+            .iter()
+            .filter(|file| !file.persist_reasons.is_empty())
+            .flat_map(|file| Self::build_persist_data_for_file(file, config))
+            .collect();
 
         if persist_data.is_empty() {
             return Ok(());
@@ -221,11 +138,91 @@ impl ObsidianRepository {
         for chunk in persist_data.chunks(500) {
             let table = PersistReasonsTable;
             let report = ReportWriter::new(chunk.to_vec());
-
-            // Write each chunk using ReportWriter
             report.write(&table, writer)?;
         }
 
         Ok(())
+    }
+
+    fn build_persist_data_for_file(
+        file: &crate::markdown_file::MarkdownFile,
+        config: &ValidatedConfig,
+    ) -> Vec<PersistReasonData> {
+        let relative_path = file
+            .path
+            .strip_prefix(config.obsidian_path())
+            .unwrap_or(&file.path)
+            .to_string_lossy()
+            .trim_end_matches(".md")
+            .to_string();
+
+        let file_name = file
+            .path
+            .file_stem()
+            .and_then(|f| f.to_str())
+            .unwrap_or_default();
+
+        let parent_path = file
+            .path
+            .strip_prefix(config.obsidian_path())
+            .unwrap_or(&file.path)
+            .parent()
+            .map(|p| p.to_string_lossy().to_string())
+            .unwrap_or_else(|| "/".to_string());
+
+        let wikilink = if relative_path == file_name {
+            format!("[[{file_name}]]")
+        } else {
+            format!("[[{relative_path}|{file_name}]]")
+        };
+
+        let back_populate_count = file.matches.unambiguous.len();
+        let image_refs_count = file
+            .persist_reasons
+            .iter()
+            .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
+            .count();
+
+        let date_validation_created = Self::format_date_validation(&file.date_validation_created);
+        let date_validation_modified = Self::format_date_validation(&file.date_validation_modified);
+        let date_created_fix = Some((
+            format!(
+                "[[{}]]",
+                file.date_validation_created
+                    .operational_file_system_date()
+                    .format("%Y-%m-%d")
+            ),
+            file.date_created_fix
+                .fix_date
+                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
+                .unwrap_or_default(),
+        ));
+
+        file.persist_reasons
+            .iter()
+            .map(|reason| PersistReasonData {
+                full_path: file.path.clone(),
+                wikilink: utils::escape_pipe(&wikilink),
+                reason: reason.clone(),
+                back_populate_count,
+                image_refs_count,
+                parent_path: parent_path.clone(),
+                date_validation_created: date_validation_created.clone(),
+                date_validation_modified: date_validation_modified.clone(),
+                date_created_fix: date_created_fix.clone(),
+            })
+            .collect()
+    }
+
+    fn format_date_validation(
+        validation: &crate::markdown_file::DateValidation,
+    ) -> Option<(String, String)> {
+        Some((
+            validation.frontmatter_date.clone().unwrap_or_default(),
+            format!(
+                "[[{}]]",
+                validation.operational_file_system_date().format("%Y-%m-%d")
+            ),
+        ))
     }
 }

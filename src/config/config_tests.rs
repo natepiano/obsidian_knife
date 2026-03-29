@@ -89,7 +89,7 @@ output_folder: output"#;
     markdown_file.persist().unwrap();
 
     // Verify all fields after update
-    let new_markdown_file = test_utils::get_test_markdown_file(config_path.clone());
+    let new_markdown_file = test_utils::get_test_markdown_file(config_path);
     let new_config = Config::from_frontmatter(new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.apply_changes, Some(false));

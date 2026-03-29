@@ -162,7 +162,7 @@ impl TestFileBuilder {
         match self.content {
             Content::Text(text) => writeln!(file, "{}", text).unwrap(),
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
-        };
+        }
 
         utils::set_file_dates(
             &file_path,

@@ -210,7 +210,7 @@ fn test_equality_and_cloning() {
         .create(&temp_dir, "test.jpg");
 
     let original = ImageFile::new(
-        original_path.clone(),
+        original_path,
         ImageHash::from("testhash"),
         references.clone(), // Use references directly
         false,

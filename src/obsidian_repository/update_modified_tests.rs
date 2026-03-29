@@ -24,7 +24,7 @@ fn test_update_modified_dates_changes_frontmatter() {
         .create(&temp_dir, "test1.md");
 
     let mut repository = ObsidianRepository::default();
-    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Instead of using mark_image_reference_as_updated which uses current date,
     // set the frontmatter dates directly
@@ -77,7 +77,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .create(&temp_dir, "test2.md");
 
     let mut repository = ObsidianRepository::default();
-    let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1.clone());
+    let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1);
 
     // Update only the first file with a fixed date
     if let Some(fm) = &mut markdown_file1.frontmatter {
@@ -90,7 +90,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
     repository.markdown_files.push(markdown_file1);
     repository
         .markdown_files
-        .push(test_utils::get_test_markdown_file(file_path2.clone()));
+        .push(test_utils::get_test_markdown_file(file_path2));
 
     let file1 = &repository.markdown_files[0];
     let file2 = &repository.markdown_files[1];

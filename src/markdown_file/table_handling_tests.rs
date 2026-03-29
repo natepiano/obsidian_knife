@@ -11,8 +11,7 @@ fn test_should_create_match_in_table() {
     let (temp_dir, config, _) = test_support::create_test_environment(false, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
-    let markdown_file =
-        MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();
+    let markdown_file = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
 
     // Test simple table cell match
     assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
@@ -41,42 +40,40 @@ fn test_back_populate_content() {
         "Table content replacement",
     )];
 
-    test_cases
-        .into_iter()
-        .for_each(|(content, matches, description)| {
-            // Create and populate the test file
-            let file = TestFileBuilder::new()
-                .with_content(content.to_string())
-                .with_title("test".to_string())
-                .create(&temp_dir, "test.md");
+    for (content, matches, description) in test_cases {
+        // Create and populate the test file
+        let file = TestFileBuilder::new()
+            .with_content(content.to_string())
+            .with_title("test".to_string())
+            .create(&temp_dir, "test.md");
 
-            // Prepare markdown info and repository state
-            let markdown_info = {
-                let mut markdown_info =
-                    MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
-                markdown_info.content = content.to_string();
-                markdown_info.matches.unambiguous = matches.clone();
-                markdown_info
-            };
+        // Prepare markdown info and repository state
+        let markdown_info = {
+            let mut markdown_info =
+                MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
+            markdown_info.content = content.to_string();
+            markdown_info.matches.unambiguous = matches.clone();
+            markdown_info
+        };
 
-            repository.markdown_files = MarkdownFiles::new(vec![markdown_info], None);
+        repository.markdown_files = MarkdownFiles::new(vec![markdown_info], None);
 
-            // Apply back-populate changes
-            repository.apply_replaceable_matches(config.operational_timezone());
+        // Apply back-populate changes
+        repository.apply_replaceable_matches(config.operational_timezone());
 
-            // Validate replacements
-            if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
-                matches.iter().for_each(|match_info| {
-                    assert!(
-                        file.content.contains(&match_info.replacement),
-                        "Failed for: {}\nReplacement '{}' not found in content:\n{}",
-                        description,
-                        match_info.replacement,
-                        file.content
-                    );
-                });
+        // Validate replacements
+        if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
+            for match_info in &matches {
+                assert!(
+                    file.content.contains(&match_info.replacement),
+                    "Failed for: {}\nReplacement '{}' not found in content:\n{}",
+                    description,
+                    match_info.replacement,
+                    file.content
+                );
             }
-        });
+        }
+    }
 }
 
 #[test]
@@ -95,7 +92,7 @@ fn test_process_line_table_escaping_combined() {
 
     // Initialize environment with custom wikilinks
     let (temp_dir, config, repository) =
-        test_support::create_test_environment(false, None, Some(wikilinks.clone()), None);
+        test_support::create_test_environment(false, None, Some(wikilinks), None);
 
     // Compile the wikilinks
     let sorted_wikilinks = &repository.wikilinks_sorted;
