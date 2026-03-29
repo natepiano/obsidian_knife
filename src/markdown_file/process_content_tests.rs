@@ -40,7 +40,7 @@ fn test_process_content_with_aliases() {
         .create(&temp_dir, "test file.md");
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks().unwrap();
+    let extracted = file_info.process_wikilinks();
     let image_links = file_info.process_image_links();
 
     // Verify expected wikilinks
@@ -70,7 +70,7 @@ fn test_process_content_with_invalid() {
         .create(&temp_dir, "test.md");
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks().unwrap();
+    let extracted = file_info.process_wikilinks();
     let image_links = file_info.process_image_links();
 
     // Check valid wikilinks
@@ -123,7 +123,7 @@ fn test_process_content_with_empty() {
         .create(&temp_dir, "test.md");
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks().unwrap();
+    let extracted = file_info.process_wikilinks();
     let image_links = file_info.process_image_links();
 
     assert_eq!(
@@ -160,7 +160,7 @@ fn test_process_content_with_images() {
         .create(&temp_dir, "test.md");
 
     let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks().unwrap();
+    let extracted = file_info.process_wikilinks();
     let image_links = file_info.process_image_links();
 
     // Check wikilinks
@@ -239,7 +239,7 @@ fn test_image_link_types() {
         ),
     ];
 
-    for case in test_cases.iter() {
+    for case in &test_cases {
         let captures = IMAGE_REGEX
             .captures(case.input)
             .unwrap_or_else(|| panic!("Regex failed to match valid image link: {}", case.input));

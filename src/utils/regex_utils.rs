@@ -1,18 +1,21 @@
 use std::sync::Arc;
+use std::sync::LazyLock;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 
 use crate::constants::*;
 
-lazy_static! {
-    pub static ref MARKDOWN_REGEX: Regex = Regex::new(r"\[.*?\]\(.*?\)").unwrap();
-    pub static ref EMAIL_REGEX: Regex =
-        Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap();
-    pub static ref TAG_REGEX: Regex = Regex::new(r"(?:^|\s)(#[a-zA-Z0-9_-]+)").unwrap();
-    pub static ref RAW_HTTP_REGEX: Regex = Regex::new(r"https?://[^\s]+").unwrap();
-    static ref IMAGE_EXTENSIONS_PATTERN: String = IMAGE_EXTENSIONS.join("|");
-    pub static ref IMAGE_REGEX: Arc<Regex> = Arc::new(
+pub static MARKDOWN_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\[.*?\]\(.*?\)").unwrap());
+pub static EMAIL_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap());
+pub static TAG_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:^|\s)(#[a-zA-Z0-9_-]+)").unwrap());
+pub static RAW_HTTP_REGEX: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"https?://[^\s]+").unwrap());
+static IMAGE_EXTENSIONS_PATTERN: LazyLock<String> = LazyLock::new(|| IMAGE_EXTENSIONS.join("|"));
+pub static IMAGE_REGEX: LazyLock<Arc<Regex>> = LazyLock::new(|| {
+    Arc::new(
         Regex::new(&format!(
             r"(?ix)
             (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])
@@ -21,9 +24,9 @@ lazy_static! {
             ",
             *IMAGE_EXTENSIONS_PATTERN, *IMAGE_EXTENSIONS_PATTERN
         ))
-        .unwrap()
-    );
-}
+        .unwrap(),
+    )
+});
 
 pub fn build_case_insensitive_word_finder(patterns: &Option<Vec<String>>) -> Option<Vec<Regex>> {
     patterns.as_ref().map(|patterns| {

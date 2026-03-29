@@ -100,7 +100,7 @@ impl ObsidianRepository {
                     Ok(())
                 },
                 Err(e) => {
-                    eprintln!("Error processing file {:?}: {}", file_path, e);
+                    eprintln!("Error processing file {}: {}", file_path.display(), e);
                     Err(e)
                 },
             }
@@ -139,7 +139,7 @@ impl ObsidianRepository {
         image_files: &[PathBuf],
         validated_config: &ValidatedConfig,
     ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-        let mut cache = Self::initialize_image_cache(validated_config, image_files)?;
+        let mut cache = Self::initialize_image_cache(validated_config, image_files);
 
         // Step 1: Create a map of markdown_file_path to their referenced image_file_names
         let markdown_references = self.get_markdown_file_image_reference_map();
@@ -252,16 +252,16 @@ impl ObsidianRepository {
     fn initialize_image_cache(
         validated_config: &ValidatedConfig,
         image_files: &[PathBuf],
-    ) -> Result<Sha256Cache, Box<dyn Error + Send + Sync>> {
+    ) -> Sha256Cache {
         let cache_file_path = validated_config
             .obsidian_path()
             .join(CACHE_FOLDER)
             .join(CACHE_FILE);
         let valid_paths: HashSet<_> = image_files.iter().map(|p| p.as_path()).collect();
 
-        let mut cache = Sha256Cache::load_or_create(cache_file_path)?.0;
+        let mut cache = Sha256Cache::load_or_create(cache_file_path).0;
         cache.mark_deletions(&valid_paths);
-        Ok(cache)
+        cache
     }
 }
 
@@ -617,9 +617,9 @@ fn apply_line_replacements(
         // Check for UTF-8 boundary issues
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             eprintln!(
-                "Error: Invalid UTF-8 boundary in file '{:?}', line {}.\n\
+                "Error: Invalid UTF-8 boundary in file '{}', line {}.\n\
                 Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
-                file_path,
+                file_path.display(),
                 match_info.line_number(),
                 start,
                 end,
@@ -640,9 +640,9 @@ fn apply_line_replacements(
         // Validation check after each replacement
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
             eprintln!(
-                "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
+                "\nWarning: Potential nested pattern detected after replacement in file '{}', line {}.\n\
                 Current line:\n{}\n",
-                file_path,
+                file_path.display(),
                 match_info.line_number(),
                 updated_line
             );

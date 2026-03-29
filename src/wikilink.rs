@@ -8,8 +8,8 @@ mod wikilink_creation_tests;
 mod wikilink_types;
 use std::iter::Peekable;
 use std::str::CharIndices;
+use std::sync::LazyLock;
 
-use lazy_static::lazy_static;
 use regex::Regex;
 pub use wikilink_types::ExtractedWikilinks;
 pub use wikilink_types::InvalidWikilink;
@@ -427,9 +427,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 }
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
-    lazy_static! {
-        static ref WIKILINK_FINDER: Regex = Regex::new(r"\[\[.*?\]\]").unwrap();
-    }
+    static WIKILINK_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[.*?\]\]").unwrap());
 
     for mat in WIKILINK_FINDER.find_iter(line) {
         let content_start = mat.start() + 2; // Start of link content, after "[["

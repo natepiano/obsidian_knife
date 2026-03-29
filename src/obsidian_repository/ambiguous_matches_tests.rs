@@ -215,15 +215,14 @@ Amazon is ambiguous"#,
     );
 
     // Verify the remaining matches are both AWS-related
-    let aws_matches: Vec<_> = test_file
+    let aws_match_count = test_file
         .matches
         .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "aws")
-        .collect();
+        .count();
     assert_eq!(
-        aws_matches.len(),
-        2,
+        aws_match_count, 2,
         "Should have both AWS case variations remaining"
     );
 
@@ -296,15 +295,14 @@ Nate was here and so was Nate"#
         .expect("Should find other.md");
 
     // Verify Karen matches remain unambiguous
-    let karen_matches: Vec<_> = other_file
+    let karen_match_count = other_file
         .matches
         .unambiguous
         .iter()
         .filter(|m| m.found_text.to_lowercase() == "karen")
-        .collect();
+        .count();
     assert_eq!(
-        karen_matches.len(),
-        2,
+        karen_match_count, 2,
         "Both Karen case variations should remain as unambiguous"
     );
 
@@ -322,9 +320,9 @@ Nate was here and so was Nate"#
     );
 
     // Verify correct line text for Nate matches
-    let nate_line_texts: Vec<_> = nate_ambiguous_matches
-        .iter()
-        .map(|m| m.line_text.as_str())
-        .collect();
-    assert!(nate_line_texts.contains(&"Nate was here and so was Nate"));
+    assert!(
+        nate_ambiguous_matches
+            .iter()
+            .any(|m| m.line_text == "Nate was here and so was Nate")
+    );
 }

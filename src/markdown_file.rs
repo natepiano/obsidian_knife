@@ -144,7 +144,7 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        let extracted_wikilinks = file_info.process_wikilinks()?;
+        let extracted_wikilinks = file_info.process_wikilinks();
         let image_links = file_info.process_image_links();
 
         // Store results directly in self
@@ -259,7 +259,7 @@ impl MarkdownFile {
         }
     }
 
-    fn process_wikilinks(&self) -> Result<ExtractedWikilinks, Box<dyn Error + Send + Sync>> {
+    fn process_wikilinks(&self) -> ExtractedWikilinks {
         let mut result = ExtractedWikilinks::default();
 
         let aliases = self
@@ -313,7 +313,7 @@ impl MarkdownFile {
             result.invalid.extend(invalid_with_lines);
         }
 
-        Ok(result)
+        result
     }
 
     // new only matches image patterns:

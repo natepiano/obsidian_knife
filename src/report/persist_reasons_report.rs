@@ -183,8 +183,10 @@ impl ObsidianRepository {
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
             .count();
 
-        let date_validation_created = Self::format_date_validation(&file.date_validation_created);
-        let date_validation_modified = Self::format_date_validation(&file.date_validation_modified);
+        let date_validation_created =
+            Some(Self::format_date_validation(&file.date_validation_created));
+        let date_validation_modified =
+            Some(Self::format_date_validation(&file.date_validation_modified));
         let date_created_fix = Some((
             format!(
                 "[[{}]]",
@@ -216,13 +218,13 @@ impl ObsidianRepository {
 
     fn format_date_validation(
         validation: &crate::markdown_file::DateValidation,
-    ) -> Option<(String, String)> {
-        Some((
+    ) -> (String, String) {
+        (
             validation.frontmatter_date.clone().unwrap_or_default(),
             format!(
                 "[[{}]]",
                 validation.operational_file_system_date().format("%Y-%m-%d")
             ),
-        ))
+        )
     }
 }

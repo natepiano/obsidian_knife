@@ -318,7 +318,7 @@ impl ImageLink {
         // Determine link type and rendering first
         let (filename, image_link_type, alt_text, size_parameter) = if raw_link.ends_with("]]") {
             // Wikilink style
-            let rendering = if raw_link.starts_with("!") {
+            let rendering = if raw_link.starts_with('!') {
                 ImageLinkRendering::Embedded
             } else {
                 ImageLinkRendering::LinkOnly
@@ -346,9 +346,9 @@ impl ImageLink {
                 String::new(),
                 size_parameter,
             )
-        } else if raw_link.ends_with(")") {
+        } else if raw_link.ends_with(')') {
             // Markdown style
-            let rendering = if raw_link.starts_with("!") {
+            let rendering = if raw_link.starts_with('!') {
                 ImageLinkRendering::Embedded
             } else {
                 ImageLinkRendering::LinkOnly

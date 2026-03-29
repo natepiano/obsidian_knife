@@ -48,9 +48,7 @@ pub struct Sha256Cache {
 }
 
 impl Sha256Cache {
-    pub fn load_or_create(
-        cache_file_path: PathBuf,
-    ) -> Result<(Self, CacheFileStatus), Box<dyn Error + Send + Sync>> {
+    pub fn load_or_create(cache_file_path: PathBuf) -> (Self, CacheFileStatus) {
         let (cache, status) = if cache_file_path.exists() {
             match File::open(&cache_file_path) {
                 Ok(file) => {
@@ -66,7 +64,7 @@ impl Sha256Cache {
             (HashMap::new(), CacheFileStatus::CreatedNewCache)
         };
 
-        Ok((
+        (
             Self {
                 cache,
                 cache_file_path,
@@ -76,7 +74,7 @@ impl Sha256Cache {
                 files_deleted: 0,
             },
             status,
-        ))
+        )
     }
 
     pub fn get_or_update(
