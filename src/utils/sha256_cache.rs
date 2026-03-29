@@ -152,6 +152,12 @@ impl Sha256Cache {
             hasher.update(&buffer[..bytes_read]);
         }
 
-        Ok(format!("{:x}", hasher.finalize()))
+        let hash = hasher.finalize();
+        let mut hex = String::with_capacity(hash.len() * 2);
+        for byte in hash {
+            use std::fmt::Write;
+            let _ = write!(hex, "{byte:02x}");
+        }
+        Ok(hex)
     }
 }
