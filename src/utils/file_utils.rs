@@ -184,6 +184,11 @@ pub fn set_file_dates(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test assertions use unwrap/expect for clarity"
+)]
 mod expand_tilde_tests {
     use super::*;
 
@@ -234,6 +239,11 @@ mod expand_tilde_tests {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test assertions use unwrap/expect for clarity"
+)]
 mod set_file_dates_tests {
     use std::fs::File;
 

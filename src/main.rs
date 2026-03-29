@@ -1,4 +1,9 @@
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test assertions use unwrap/expect for clarity"
+)]
 mod test_support;
 
 mod config;
@@ -141,6 +146,11 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "test assertions use unwrap/expect for clarity"
+)]
 mod main_tests {
     use super::*;
 
