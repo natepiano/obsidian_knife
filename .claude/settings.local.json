@@ -4,7 +4,9 @@
       "WebSearch",
       "Bash(cargo clippy:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "WebFetch(domain:docs.rs)",
+      "WebFetch(domain:github.com)"
     ],
     "deny": [],
     "ask": []

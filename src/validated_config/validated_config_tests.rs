@@ -108,10 +108,12 @@ operational_timezone: "Invalid/Timezone""#,
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
     let result = config.validate();
     assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("Invalid timezone: Invalid/Timezone"));
+    assert!(
+        result
+            .unwrap_err()
+            .to_string()
+            .contains("Invalid timezone: Invalid/Timezone")
+    );
 }
 
 #[test]

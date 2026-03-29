@@ -601,7 +601,7 @@ fn process_date_validations(
 ) -> Vec<PersistReason> {
     let mut reasons = Vec::new();
 
-    if let Some(ref mut fm) = frontmatter {
+    if let Some(fm) = frontmatter {
         let mut skip_date_created = false;
 
         if let Some(fix_date) = date_created_fix_validation.fix_date {

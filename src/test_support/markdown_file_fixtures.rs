@@ -7,12 +7,12 @@ use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
 use tempfile::TempDir;
 
+use crate::ValidatedConfig;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::validated_config::ValidatedConfigBuilder;
 use crate::wikilink::Wikilink;
-use crate::ValidatedConfig;
 
 pub fn build_aho_corasick(wikilinks: &[Wikilink]) -> AhoCorasick {
     let patterns: Vec<&str> = wikilinks.iter().map(|w| w.display_text.as_str()).collect();

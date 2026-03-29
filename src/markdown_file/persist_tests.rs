@@ -17,16 +17,20 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
 
     let file_info = test_utils::get_test_markdown_file(file_path);
 
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::Missing,
-        }));
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateModifiedUpdated {
-            reason: DateValidationIssue::Missing,
-        }));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateCreatedUpdated {
+                reason: DateValidationIssue::Missing,
+            })
+    );
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateModifiedUpdated {
+                reason: DateValidationIssue::Missing,
+            })
+    );
 
     // Test invalid format dates
     let file_path = TestFileBuilder::new()
@@ -38,16 +42,20 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
 
     let file_info = test_utils::get_test_markdown_file(file_path);
 
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::InvalidDateFormat,
-        }));
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateModifiedUpdated {
-            reason: DateValidationIssue::InvalidDateFormat,
-        }));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateCreatedUpdated {
+                reason: DateValidationIssue::InvalidDateFormat,
+            })
+    );
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateModifiedUpdated {
+                reason: DateValidationIssue::InvalidDateFormat,
+            })
+    );
 
     Ok(())
 }
@@ -68,9 +76,11 @@ fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + S
 
     let file_info = test_utils::get_test_markdown_file(file_path);
 
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateCreatedFixApplied));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateCreatedFixApplied)
+    );
 
     Ok(())
 }
@@ -88,9 +98,11 @@ fn test_back_populate_persist_reason() -> Result<(), Box<dyn Error + Send + Sync
     let mut file_info = test_utils::get_test_markdown_file(file_path);
     file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
 
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::BackPopulated));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::BackPopulated)
+    );
 
     Ok(())
 }
@@ -108,9 +120,11 @@ fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + S
     let mut file_info = test_utils::get_test_markdown_file(file_path);
     file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::ImageReferencesModified));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::ImageReferencesModified)
+    );
 
     Ok(())
 }
@@ -126,11 +140,13 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut file_info = test_utils::get_test_markdown_file(file_path);
 
     // This will add DateCreatedUpdated and DateModifiedUpdated
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::DateCreatedUpdated {
-            reason: DateValidationIssue::Missing,
-        }));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::DateCreatedUpdated {
+                reason: DateValidationIssue::Missing,
+            })
+    );
 
     // Add back populate reason
     file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
@@ -143,12 +159,16 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     // ImageReferencesModified we don't have an update date missing because if we BackPopulate
     // we automatically remove the modified date reason
     assert_eq!(file_info.persist_reasons.len(), 3);
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::BackPopulated));
-    assert!(file_info
-        .persist_reasons
-        .contains(&PersistReason::ImageReferencesModified));
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::BackPopulated)
+    );
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::ImageReferencesModified)
+    );
 
     Ok(())
 }

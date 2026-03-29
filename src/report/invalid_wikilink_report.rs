@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use itertools::Itertools;
 
+use super::DescriptionBuilder;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use super::DescriptionBuilder;
 use crate::constants::*;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils;

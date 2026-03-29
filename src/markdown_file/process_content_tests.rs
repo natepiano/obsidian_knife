@@ -1,10 +1,10 @@
 use tempfile::TempDir;
 
-use super::markdown_file_types::ImageLinkRendering;
 use super::ImageLink;
 use super::ImageLinkTarget;
 use super::ImageLinkType;
 use super::MarkdownFile;
+use super::markdown_file_types::ImageLinkRendering;
 use crate::test_support::TestFileBuilder;
 use crate::utils::IMAGE_REGEX;
 use crate::wikilink::InvalidWikilinkReason;
@@ -172,9 +172,11 @@ fn test_process_content_with_images() {
 
     // Optionally, also test the filenames were extracted correctly
     assert!(image_links.iter().any(|link| link.filename == "image.png"));
-    assert!(image_links
-        .iter()
-        .any(|link| link.filename == "another.jpg"));
+    assert!(
+        image_links
+            .iter()
+            .any(|link| link.filename == "another.jpg")
+    );
 }
 
 #[derive(Debug)]

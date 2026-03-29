@@ -128,9 +128,11 @@ fn test_markdown_file_with_invalid_wikilinks() {
 
     // Check valid wikilinks
     assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
-    assert!(valid_wikilinks
-        .iter()
-        .any(|w| w.display_text == "Valid Link"));
+    assert!(
+        valid_wikilinks
+            .iter()
+            .any(|w| w.display_text == "Valid Link")
+    );
 
     // Check invalid wikilinks
     assert_eq!(file_info.wikilinks.invalid.len(), 3);

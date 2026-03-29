@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use serde::de::DeserializeOwned;
 use serde::Serialize;
+use serde::de::DeserializeOwned;
 use serde_yaml::Value;
 /// this macro allows us to persist any extra fields not specifically implemented in
 /// a struct you want to deserialize into the yaml frontmatter of a markdown file

@@ -4,6 +4,7 @@ use std::path::Path;
 use chrono::Local;
 use chrono::Utc;
 
+use crate::ObsidianRepository;
 use crate::constants::*;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
@@ -12,7 +13,6 @@ use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::ToWikilink;
-use crate::ObsidianRepository;
 
 impl ObsidianRepository {
     pub(super) fn write_reports_impl(

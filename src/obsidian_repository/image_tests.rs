@@ -192,9 +192,13 @@ fn test_image_replacement_outcomes() {
                     ];
 
                     assert!(
-                        possible_refs.iter().any(|ref_str| content.contains(ref_str)),
+                        possible_refs
+                            .iter()
+                            .any(|ref_str| content.contains(ref_str)),
                         "Markdown file {} should reference keeper image '{}' either directly or in conf/media/\nActual content:\n{}",
-                        i + 1, keeper_name, content
+                        i + 1,
+                        keeper_name,
+                        content
                     );
                 }
             },

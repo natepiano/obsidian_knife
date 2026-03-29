@@ -1,9 +1,9 @@
 use tempfile::TempDir;
 
 use super::MarkdownFile;
+use crate::DEFAULT_TIMEZONE;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
-use crate::DEFAULT_TIMEZONE;
 
 #[test]
 fn test_apply_changes() {

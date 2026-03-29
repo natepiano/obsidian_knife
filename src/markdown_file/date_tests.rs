@@ -2,11 +2,11 @@ use chrono::TimeZone;
 use tempfile::TempDir;
 
 use super::*;
+use crate::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
-use crate::DEFAULT_TIMEZONE;
 
 // into_iter() consumes the array and yields owned values
 // filter_map filters out none values and unwraps Some values in one step

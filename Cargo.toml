@@ -1,7 +1,13 @@
 [package]
 name = "obsidian_knife"
 version = "0.1.2"
-edition = "2021"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+description = "Obsidian vault analysis and back-population tool"
+repository = "https://github.com/pianonate/obsidian_knife"
+readme = "README.md"
+keywords = ["obsidian", "markdown", "wikilink"]
+categories = ["command-line-utilities"]
 
 [[bin]]
 name = "ok"
@@ -29,6 +35,21 @@ vecollect = { path = "./vecollect" }
 
 [dev-dependencies]
 tempfile = "3.15.0"
+
+[workspace.lints.clippy]
+expect_used = "deny"
+panic = "deny"
+unwrap_used = "deny"
+
+all = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
+pedantic = { level = "deny", priority = -1 }
+
+multiple_crate_versions = "allow"
+
+[lints]
+workspace = true
 
 [profile.dev.package."*"]
 opt-level = 3

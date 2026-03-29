@@ -646,7 +646,9 @@ fn apply_line_replacements(
             eprintln!(
                 "\nWarning: Potential nested pattern detected after replacement in file '{:?}', line {}.\n\
                 Current line:\n{}\n",
-                file_path, match_info.line_number(), updated_line
+                file_path,
+                match_info.line_number(),
+                updated_line
             );
         }
     }
