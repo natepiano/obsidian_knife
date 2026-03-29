@@ -3,7 +3,8 @@ use std::collections::HashSet;
 use tempfile::TempDir;
 
 use super::MarkdownFile;
-use crate::constants::*;
+use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::MARKDOWN_EXTENSION;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;

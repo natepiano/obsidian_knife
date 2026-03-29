@@ -16,8 +16,8 @@ pub struct MarkdownFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
-    pub(crate) files:      Vec<MarkdownFile>,
-    pub(crate) file_limit: Option<usize>,
+    pub(super) files:      Vec<MarkdownFile>,
+    pub(super) file_limit: Option<usize>,
 }
 
 impl FromIterator<MarkdownFile> for MarkdownFiles {

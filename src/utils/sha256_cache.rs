@@ -42,8 +42,8 @@ pub struct Sha256Cache {
     cache_file_path:           PathBuf,
     //initial_count: usize,
     files_read:                usize,
-    pub(crate) files_added:    usize,
-    pub(crate) files_modified: usize,
+    pub(super) files_added:    usize,
+    pub(super) files_modified: usize,
     files_deleted:             usize,
 }
 

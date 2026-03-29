@@ -51,8 +51,8 @@ pub(super) trait ReportDefinition<C = ()> {
 /// lifetime attribute required because we're storing a reference to `ValidatedConfig` - not owning
 /// it
 pub(super) struct ReportWriter<'a, T: Clone> {
-    pub(crate) items:            Vec<T>,
-    pub(crate) validated_config: Option<&'a ValidatedConfig>,
+    pub(super) items:            Vec<T>,
+    pub(super) validated_config: Option<&'a ValidatedConfig>,
 }
 
 impl<'a, T: Clone> ReportWriter<'a, T> {

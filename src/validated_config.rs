@@ -15,8 +15,10 @@ use derive_builder::Builder;
 use regex::Regex;
 use thiserror::Error;
 
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OPENING_WIKILINK;
 use crate::utils;
 
 #[derive(Error, Debug)]
@@ -210,11 +212,12 @@ impl ValidatedConfig {
     pub fn back_populate_file_filter(&self) -> Option<String> {
         self.back_populate_file_filter.as_ref().map(|filter| {
             // If it's a wikilink, extract the inner text
-            let filter_text = if filter.starts_with("[[") && filter.ends_with("]]") {
-                &filter[2..filter.len() - 2]
-            } else {
-                filter
-            };
+            let filter_text =
+                if filter.starts_with(OPENING_WIKILINK) && filter.ends_with(CLOSING_WIKILINK) {
+                    &filter[2..filter.len() - 2]
+                } else {
+                    filter
+                };
 
             // Add .md extension if not present
             if filter_text.ends_with(MARKDOWN_SUFFIX) {

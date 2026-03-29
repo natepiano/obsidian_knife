@@ -233,10 +233,9 @@ enum WikilinkState {
         start_pos: usize,
     },
     Display {
-        target:       String,
-        _target_span: (usize, usize),
-        content:      String,
-        _start_pos:   usize,
+        target:      String,
+        target_span: (usize, usize),
+        content:     String,
     },
     Invalid {
         reason:    InvalidWikilinkReason,
@@ -266,10 +265,9 @@ impl WikilinkState {
     fn transition_to_display(&mut self, pipe_pos: usize) {
         if let Self::Target { content, start_pos } = self {
             *self = Self::Display {
-                target:       content.clone(),
-                _target_span: (*start_pos, pipe_pos),
-                content:      String::new(),
-                _start_pos:   pipe_pos + 1,
+                target:      content.clone(),
+                target_span: (*start_pos, pipe_pos),
+                content:     String::new(),
             };
         }
     }
@@ -279,7 +277,7 @@ impl WikilinkState {
         let start_pos = match self {
             Self::Target { start_pos, .. } | Self::Invalid { start_pos, .. } => *start_pos,
             Self::Display {
-                _target_span: (start, _),
+                target_span: (start, _),
                 ..
             } => *start,
         };
@@ -311,7 +309,7 @@ impl WikilinkState {
             Self::Display {
                 target,
                 content,
-                _target_span: (start_pos, _),
+                target_span: (start_pos, _),
                 ..
             } => {
                 let trimmed_target = target.trim().to_string();

@@ -40,7 +40,7 @@ pub struct ImageFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
-    pub(crate) files: Vec<ImageFile>,
+    pub(super) files: Vec<ImageFile>,
 }
 
 impl FromIterator<ImageFile> for ImageFiles {

@@ -5,7 +5,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::ObsidianRepository;
-use crate::constants::*;
+use crate::constants::MARKDOWN_EXTENSION;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;

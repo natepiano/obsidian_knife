@@ -5,7 +5,8 @@ use serde_json::Value;
 use tempfile::TempDir;
 
 use super::ObsidianRepository;
-use crate::constants::*;
+use crate::constants::CACHE_FILE;
+use crate::constants::CACHE_FOLDER;
 use crate::markdown_file::ImageLink;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support;
