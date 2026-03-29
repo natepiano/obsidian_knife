@@ -334,3 +334,51 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
 
     Ok(())
 }
+
+#[test]
+fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
+-> Result<(), Box<dyn Error + Send + Sync>> {
+    let temp_dir = TempDir::new()?;
+
+    // Create a file without frontmatter
+    let file_path = TestFileBuilder::new()
+        .with_content("Some text that mentions a wikilink target")
+        .create(&temp_dir, "no_frontmatter.md");
+
+    let mut file_info = test_utils::get_test_markdown_file(file_path);
+
+    // Confirm starting state: no frontmatter, has frontmatter error
+    assert!(file_info.frontmatter.is_none());
+    assert!(file_info.frontmatter_error.is_some());
+
+    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
+
+    // Frontmatter was created
+    assert!(file_info.frontmatter.is_some());
+    let fm = file_info.frontmatter.as_ref().expect("just confirmed");
+
+    // `date_created` set from filesystem date
+    assert!(fm.date_created.is_some());
+    assert!(fm.raw_date_created.is_some());
+
+    // `date_modified` set (by `set_date_created` auto-call and then `set_date_modified_now`)
+    assert!(fm.date_modified.is_some());
+    assert!(fm.raw_date_modified.is_some());
+
+    // Frontmatter error cleared
+    assert!(file_info.frontmatter_error.is_none());
+
+    // Persist reasons include both `FrontmatterCreated` and `BackPopulated`
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::FrontmatterCreated)
+    );
+    assert!(
+        file_info
+            .persist_reasons
+            .contains(&PersistReason::BackPopulated)
+    );
+
+    Ok(())
+}

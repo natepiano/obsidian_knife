@@ -361,14 +361,11 @@ fn test_duplicate_grouping() {
         ("output4.png", content.clone(), vec!["test2.md"]),
     ];
 
-    let mut created_paths = Vec::new();
-
     // Create the image files
     for (name, image_content, _) in &files {
-        let path = TestFileBuilder::new()
+        TestFileBuilder::new()
             .with_content(image_content.clone())
             .create(&temp_dir, name);
-        created_paths.push(path);
     }
 
     // Create markdown files referencing some of the images
@@ -380,11 +377,10 @@ fn test_duplicate_grouping() {
                 .collect::<Vec<_>>()
                 .join("\n");
 
-            let path = TestFileBuilder::new()
+            TestFileBuilder::new()
                 .with_content(md_content)
                 .with_matching_dates(test_date)
                 .create(&temp_dir, references[0]);
-            created_paths.push(path);
         }
     }
 

@@ -239,10 +239,7 @@ fn test_process_date_validations() {
         );
 
         test_utils::assert_test_case(
-            frontmatter
-                .as_ref()
-                .map(|fm| fm.needs_persist())
-                .unwrap_or(false),
+            frontmatter.as_ref().is_some_and(|fm| fm.needs_persist()),
             case.should_persist,
             &format!("{} - needs persist flag", case.name),
             |actual, expected| assert_eq!(actual, expected),

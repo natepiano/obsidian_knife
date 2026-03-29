@@ -8,6 +8,7 @@ use crate::ObsidianRepository;
 use crate::constants::*;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
+use crate::markdown_file::PersistReason;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
@@ -62,8 +63,22 @@ impl ObsidianRepository {
             })
         });
 
-        if has_back_populate_entries || has_invalid_wikilinks || has_ambiguous_matches {
+        let has_frontmatter_created = self.markdown_files.iter().any(|file| {
+            file.persist_reasons
+                .iter()
+                .any(|r| matches!(r, PersistReason::FrontmatterCreated))
+        });
+
+        if has_back_populate_entries
+            || has_invalid_wikilinks
+            || has_ambiguous_matches
+            || has_frontmatter_created
+        {
             write_back_populate_report_header(validated_config, writer)?;
+
+            if has_frontmatter_created {
+                self.write_add_frontmatter_report(writer)?;
+            }
 
             if has_invalid_wikilinks {
                 self.write_invalid_wikilinks_report(writer)?;

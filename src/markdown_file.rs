@@ -186,31 +186,42 @@ impl MarkdownFile {
     }
 
     pub fn mark_as_back_populated(&mut self, operational_timezone: &str) {
-        let fm = self.frontmatter.as_mut().unwrap_or_else(|| {
-            panic!(
-                "Attempted to mark file '{}' as back populated without frontmatter",
-                self.path.display()
-            )
-        });
+        self.ensure_frontmatter(operational_timezone);
 
-        // Remove any DateModifiedUpdated reasons since we'll be setting the date to now
+        // Remove any `DateModifiedUpdated` reasons since we'll be setting the date to now
         // this way we won't show extraneous results in persist_reasons_report
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
-        fm.set_date_modified_now(operational_timezone);
+        self.frontmatter
+            .as_mut()
+            .expect("ensured above")
+            .set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
     }
 
     pub fn mark_image_reference_as_updated(&mut self, operational_timezone: &str) {
-        let fm = self
-            .frontmatter
-            .as_mut()
-            .expect("Attempted to record image references change on a file without frontmatter");
+        self.ensure_frontmatter(operational_timezone);
 
-        fm.set_date_modified_now(operational_timezone);
+        self.frontmatter
+            .as_mut()
+            .expect("ensured above")
+            .set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);
+    }
+
+    fn ensure_frontmatter(&mut self, operational_timezone: &str) {
+        if self.frontmatter.is_none() {
+            let mut fm = FrontMatter::default();
+            fm.set_date_created(
+                self.date_validation_created.file_system_date,
+                operational_timezone,
+            );
+            self.frontmatter = Some(fm);
+            self.frontmatter_error = None;
+            self.persist_reasons.push(PersistReason::FrontmatterCreated);
+        }
     }
 
     pub fn process_file_for_back_populate_replacements(

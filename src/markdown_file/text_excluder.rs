@@ -64,7 +64,7 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
-    /// One might notice that if we're at BlockLocation::OnClosingDelimiter and we
+    /// One might notice that if we're at `BlockLocation::OnClosingDelimiter` and we
     /// encounter a delimiter, we go back to inside - this is intentional for the case
     /// where another code block is opened up right after the last one - it's possible in markdown
     /// so we don't treat this as a "nested" case we treat it as an opening of a code block

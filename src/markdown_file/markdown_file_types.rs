@@ -24,6 +24,7 @@ pub enum PersistReason {
     DateModifiedUpdated { reason: DateValidationIssue },
     DateCreatedFixApplied,
     BackPopulated,
+    FrontmatterCreated,
     ImageReferencesModified,
 }
 
@@ -34,6 +35,7 @@ impl fmt::Display for PersistReason {
             PersistReason::DateModifiedUpdated { .. } => write!(f, "date_modified updated"),
             PersistReason::DateCreatedFixApplied => write!(f, "date_created_fix applied"),
             PersistReason::BackPopulated => write!(f, "back populated"),
+            PersistReason::FrontmatterCreated => write!(f, "frontmatter created"),
             PersistReason::ImageReferencesModified => write!(f, "image references updated"),
         }
     }

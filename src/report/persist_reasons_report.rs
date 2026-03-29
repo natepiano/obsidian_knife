@@ -71,6 +71,9 @@ impl ReportDefinition for PersistReasonsTable {
                         String::new(),
                         format!("{} instances", item.image_refs_count),
                     ),
+                    PersistReason::FrontmatterCreated => {
+                        (String::new(), String::new(), String::new())
+                    },
                 };
 
                 vec![

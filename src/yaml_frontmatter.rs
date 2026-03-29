@@ -223,7 +223,7 @@ mod tests {
     use serde::Serialize;
 
     use super::*;
-    use crate::test_support::assert_result;
+    use crate::test_support;
 
     yaml_frontmatter_struct! {
         #[derive(Debug, Serialize, Deserialize, PartialEq, Clone)]
@@ -265,7 +265,7 @@ tags: [not, valid, yaml"#,
         ];
 
         for test_case in &test_cases {
-            assert_result(
+            test_support::assert_result(
                 TestFrontMatter::from_yaml_str(test_case.input),
                 test_case.expected.clone(),
                 test_case.name,
@@ -360,7 +360,7 @@ tags: [not, valid, yaml"#,
         ];
 
         for test_case in &test_cases {
-            assert_result(
+            test_support::assert_result(
                 test_case.input.to_yaml_str(),
                 test_case.expected.clone(),
                 test_case.name,

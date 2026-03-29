@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt::Write;
 use std::path::Path;
 
 use super::report_writer::ReportDefinition;
@@ -110,11 +111,12 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
         // Write out targets first
         for target in &self.sorted_targets {
-            result.push_str(&format!(
+            let _ = write!(
+                result,
                 "- \\[\\[{}|{}]]\n",
                 target.to_wikilink(),
                 self.display_text
-            ));
+            );
         }
 
         // Add original description

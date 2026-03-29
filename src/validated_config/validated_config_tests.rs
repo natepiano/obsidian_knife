@@ -6,13 +6,12 @@ use tempfile::TempDir;
 use super::ValidatedConfigBuilder;
 use super::*;
 use crate::config::Config;
-use crate::test_support::get_test_validated_config;
-use crate::test_support::get_test_validated_config_result;
+use crate::test_support;
 
 #[test]
 fn test_back_populate_file_filter() {
     let temp_dir = TempDir::new().unwrap();
-    let config = get_test_validated_config(&temp_dir, Some("test_file"));
+    let config = test_support::get_test_validated_config(&temp_dir, Some("test_file"));
 
     assert_eq!(
         config.back_populate_file_filter(),
@@ -20,28 +19,28 @@ fn test_back_populate_file_filter() {
     );
 
     // Test with wikilink format
-    let config = get_test_validated_config(&temp_dir, Some("[[test_file]]"));
+    let config = test_support::get_test_validated_config(&temp_dir, Some("[[test_file]]"));
     assert_eq!(
         config.back_populate_file_filter(),
         Some("test_file.md".to_string())
     );
 
     // Test with existing .md extension
-    let config = get_test_validated_config(&temp_dir, Some("test_file.md"));
+    let config = test_support::get_test_validated_config(&temp_dir, Some("test_file.md"));
     assert_eq!(
         config.back_populate_file_filter(),
         Some("test_file.md".to_string())
     );
 
     // Test with wikilink and .md extension
-    let config = get_test_validated_config(&temp_dir, Some("[[test_file.md]]"));
+    let config = test_support::get_test_validated_config(&temp_dir, Some("[[test_file.md]]"));
     assert_eq!(
         config.back_populate_file_filter(),
         Some("test_file.md".to_string())
     );
 
     // Test with None
-    let config = get_test_validated_config(&temp_dir, None);
+    let config = test_support::get_test_validated_config(&temp_dir, None);
     assert_eq!(config.back_populate_file_filter(), None);
 }
 
@@ -205,7 +204,7 @@ output_folder: "  ""#,
 #[test]
 fn test_invalid_back_populate_count() {
     let temp_dir = TempDir::new().unwrap();
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.file_limit(Some(0));
     });
 
@@ -215,7 +214,7 @@ fn test_invalid_back_populate_count() {
     ));
 
     // Test that valid counts work
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.file_limit(Some(1));
     });
     assert!(result.is_ok());
@@ -224,7 +223,7 @@ fn test_invalid_back_populate_count() {
 #[test]
 fn test_empty_back_populate_file_filter() {
     let temp_dir = TempDir::new().unwrap();
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.back_populate_file_filter(Some("   ".to_string()));
     });
 
@@ -234,7 +233,7 @@ fn test_empty_back_populate_file_filter() {
     ));
 
     // Test that non-empty filter works
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.back_populate_file_filter(Some("valid_filter".to_string()));
     });
     assert!(result.is_ok());
@@ -245,7 +244,7 @@ fn test_invalid_obsidian_path() {
     let temp_dir = TempDir::new().unwrap();
     let nonexistent_path = temp_dir.path().join("nonexistent");
 
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.obsidian_path(nonexistent_path.clone());
     });
 
@@ -298,7 +297,7 @@ fn test_uninitialized_fields() {
 #[test]
 fn test_multiple_validation_errors() {
     let temp_dir = TempDir::new().unwrap();
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder
             .file_limit(Some(0))
             .back_populate_file_filter(Some("".to_string()));
@@ -314,7 +313,7 @@ fn test_multiple_validation_errors() {
 #[test]
 fn test_all_validation_passes() {
     let temp_dir = TempDir::new().unwrap();
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder
             .file_limit(Some(1))
             .back_populate_file_filter(Some("valid_filter".to_string()))
@@ -329,7 +328,7 @@ fn test_timezone_edge_cases() {
     let temp_dir = TempDir::new().unwrap();
 
     // Test empty timezone
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.operational_timezone("".to_string());
     });
     assert!(matches!(
@@ -338,7 +337,7 @@ fn test_timezone_edge_cases() {
     ));
 
     // Test timezone with invalid characters
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.operational_timezone("America/New@York".to_string());
     });
     assert!(matches!(
@@ -353,7 +352,7 @@ fn test_output_folder_edge_cases() {
 
     // Test with absolute path
     let absolute_path = temp_dir.path().join("absolute_output");
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.output_folder(absolute_path.clone());
     });
     assert!(result.is_ok());
@@ -361,7 +360,7 @@ fn test_output_folder_edge_cases() {
     assert!(config.ignore_folders().unwrap().contains(&absolute_path));
 
     // Test with relative path
-    let result = get_test_validated_config_result(&temp_dir, |builder| {
+    let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
         builder.output_folder(PathBuf::from("relative_output"));
     });
     assert!(result.is_ok());

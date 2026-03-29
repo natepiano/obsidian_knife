@@ -221,7 +221,7 @@ impl ObsidianRepository {
                     header_written = true;
                 }
 
-                let report = ReportWriter::new(images.to_vec()).with_validated_config(config);
+                let report = ReportWriter::new(images.clone()).with_validated_config(config);
 
                 let table = DuplicateImagesTable {
                     hash,

@@ -49,6 +49,7 @@ pub const OPENING_WIKILINK: &str = "[[";
 
 // report &str's
 pub const ACTION: &str = "action";
+pub const ADD_FRONTMATTER: &str = "add frontmatter";
 pub const AFTER: &str = "after";
 pub const BACK_POPULATE: &str = "back populate";
 pub const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
@@ -181,7 +182,7 @@ pub struct DescriptionBuilder {
 }
 
 impl DescriptionBuilder {
-    /// Creates a new DescriptionBuilder instance.
+    /// Creates a new `DescriptionBuilder` instance.
     pub fn new() -> Self { Self { parts: Vec::new() } }
 
     pub fn text_with_newline(mut self, text: &str) -> Self {

@@ -19,8 +19,8 @@ pub(super) trait ReportDefinition<C = ()> {
     /// simple reports can use "_: &()" for this generic parameter so they don't
     /// need to use it and the compiler won't complain
     ///
-    /// reports that need config information can use "report_context: &ReportContext"
-    /// to access properties such as appLy_changes or obsidian_path
+    /// reports that need config information can use `report_context: &ReportContext`
+    /// to access properties such as `apply_changes` or `obsidian_path`
     ///
     /// it's slightly hacky but prevents having to dramatically alter the structure and it's
     /// readable enough
@@ -42,13 +42,14 @@ pub(super) trait ReportDefinition<C = ()> {
     fn hide_title_if_no_rows(&self) -> bool { true }
 }
 
-/// writes out the TableDefinition
+/// writes out the `TableDefinition`
 /// the idea is you collect all the items that will get turned into rows and pass them
-/// in to the generic Vec<T> parameter
-/// then the ReportWriter will call build_rows with the items and the context (if provided)
+/// in to the generic `Vec<T>` parameter
+/// then the `ReportWriter` will call `build_rows` with the items and the context (if provided)
 /// where the definition will do the work to transform items into rows
 ///
-/// lifetime attribute required because we're storing a reference to ValidatedConfig - not owning it
+/// lifetime attribute required because we're storing a reference to `ValidatedConfig` - not owning
+/// it
 pub(super) struct ReportWriter<'a, T: Clone> {
     pub(crate) items:            Vec<T>,
     pub(crate) validated_config: Option<&'a ValidatedConfig>,

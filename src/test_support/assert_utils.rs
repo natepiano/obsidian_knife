@@ -10,8 +10,8 @@
 /// - `E`: The type of the `Err` value in the `Result`. Must implement `PartialEq` and `Debug` to
 ///   enable comparison and formatted error output. One gotcha is that if you're using an Enum of
 ///   error variants, and they happen to carry string messages, you might want to implement a custom
-///   PartialEq so that it's not crucial that the strings match the code and the test as it's really
-///   the variant that usually matters
+///   `PartialEq` so that it's not crucial that the strings match the code and the test as it's
+///   really the variant that usually matters
 /// - `F`: A function or closure that defines the custom comparison logic for `Ok` values.
 ///
 /// # Parameters
