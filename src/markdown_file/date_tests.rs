@@ -41,7 +41,10 @@ struct DateValidationTestCase {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_process_frontmatter_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
@@ -109,7 +112,10 @@ struct DateFixTestCase {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 #[allow(clippy::too_many_lines)] // test case table + assertion loop — not worth splitting
 fn test_process_date_validations() {
     let test_cases = vec![
@@ -260,7 +266,10 @@ struct DateCreatedFixTestCase {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_date_created_fix_integration() {
     let test_cases = vec![
         DateCreatedFixTestCase {
@@ -349,7 +358,10 @@ fn test_date_created_fix_integration() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_timezone_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
@@ -419,7 +431,10 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_late_night_date_created_fix() {
     let temp_dir = TempDir::new().unwrap();
 

@@ -126,7 +126,10 @@ fn verify_dates(
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = create_test_cases();
 

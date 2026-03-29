@@ -72,7 +72,10 @@ fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
@@ -122,7 +125,10 @@ fn test_analyze_missing_references() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 #[allow(clippy::too_many_lines)] // test case table + assertion loop — not worth splitting
 fn test_image_replacement_outcomes() {
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
@@ -267,7 +273,10 @@ fn test_image_replacement_outcomes() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
@@ -343,7 +352,10 @@ fn test_handle_missing_references() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_duplicate_grouping() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);

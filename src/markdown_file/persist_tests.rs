@@ -230,7 +230,10 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new()?;
 

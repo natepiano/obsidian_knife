@@ -46,7 +46,10 @@ fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
     let test_cases = vec![
         FileLimitTestCase {

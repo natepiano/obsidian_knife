@@ -8,7 +8,10 @@ use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_update_modified_dates_changes_frontmatter() {
     let temp_dir = TempDir::new().unwrap();
 
@@ -53,7 +56,10 @@ fn test_update_modified_dates_changes_frontmatter() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_update_modified_dates_only_updates_specified_files() {
     let temp_dir = TempDir::new().unwrap();
 
@@ -111,7 +117,10 @@ fn test_update_modified_dates_only_updates_specified_files() {
 }
 
 #[test]
-#[cfg_attr(target_os = "linux", ignore)]
+#[cfg_attr(
+    target_os = "linux",
+    ignore = "requires filesystem access unavailable on Linux CI"
+)]
 fn test_update_modified_uses_current_date() {
     let temp_dir = TempDir::new().unwrap();
     let base_date = test_utils::eastern_midnight(2024, 1, 15);
