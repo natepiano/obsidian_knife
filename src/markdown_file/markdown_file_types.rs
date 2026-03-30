@@ -98,7 +98,7 @@ impl DateCreatedFixValidation {
         file_created_date: DateTime<Utc>,
         operational_timezone: &str,
     ) -> Self {
-        let fix_str = frontmatter.and_then(|fm| fm.date_created_fix().cloned());
+        let fix_str = frontmatter.and_then(|fm| fm.date_created_fix().map(String::from));
 
         let parsed_date = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {

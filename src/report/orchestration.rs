@@ -23,6 +23,7 @@ use crate::constants::YAML_TIMESTAMP_LOCAL;
 use crate::constants::YAML_TIMESTAMP_UTC;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
+use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
@@ -59,7 +60,7 @@ impl ObsidianRepository {
         let has_ambiguous_matches = self
             .markdown_files
             .iter()
-            .any(super::super::markdown_file::MarkdownFile::has_ambiguous_matches);
+            .any(MarkdownFile::has_ambiguous_matches);
 
         if has_ambiguous_matches {
             self.write_ambiguous_matches_report(writer)?;
@@ -77,7 +78,7 @@ impl ObsidianRepository {
             .markdown_files
             .files_to_persist()
             .iter()
-            .any(super::super::markdown_file::MarkdownFile::has_unambiguous_matches);
+            .any(MarkdownFile::has_unambiguous_matches);
 
         let has_invalid_wikilinks = self.markdown_files.iter().any(|file| {
             file.wikilinks.invalid.iter().any(|wikilink| {

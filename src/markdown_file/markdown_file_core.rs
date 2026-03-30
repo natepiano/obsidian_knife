@@ -90,7 +90,7 @@ impl MarkdownFile {
 
         let do_not_back_populate_regexes = frontmatter
             .as_ref()
-            .and_then(crate::frontmatter::FrontMatter::get_do_not_back_populate_regexes);
+            .and_then(FrontMatter::get_do_not_back_populate_regexes);
 
         let mut file_info = Self {
             content,
@@ -206,7 +206,7 @@ impl MarkdownFile {
         let aliases = self
             .frontmatter
             .as_ref()
-            .and_then(|fm| fm.aliases().cloned());
+            .and_then(|fm| fm.aliases().map(<[String]>::to_vec));
 
         // Add filename-based wikilink
         let filename = self

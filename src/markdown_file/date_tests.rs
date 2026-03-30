@@ -201,7 +201,7 @@ fn test_process_date_validations() {
             frontmatter_date:     case.date_created.clone(), // Add clone here
             file_system_date:     case.file_system_create_date,
             issue:                get_date_validation_issue(
-                case.date_created.as_ref(),
+                case.date_created.as_deref(),
                 &case.file_system_create_date,
                 DEFAULT_TIMEZONE,
             ),
@@ -212,7 +212,7 @@ fn test_process_date_validations() {
             frontmatter_date:     case.date_modified.clone(), // Add clone here
             file_system_date:     case.file_system_mod_date,
             issue:                get_date_validation_issue(
-                case.date_modified.as_ref(),
+                case.date_modified.as_deref(),
                 &case.file_system_mod_date,
                 DEFAULT_TIMEZONE,
             ),
@@ -232,7 +232,7 @@ fn test_process_date_validations() {
         test_utils::assert_test_case(
             frontmatter
                 .as_ref()
-                .and_then(|fm| fm.date_modified().cloned()),
+                .and_then(|fm| fm.date_modified().map(String::from)),
             case.expected_modified_date,
             &format!("{} - modified date", case.name),
             |actual, expected| assert_eq!(actual, expected),
@@ -241,7 +241,7 @@ fn test_process_date_validations() {
         test_utils::assert_test_case(
             frontmatter
                 .as_ref()
-                .and_then(|fm| fm.date_created().cloned()),
+                .and_then(|fm| fm.date_created().map(String::from)),
             case.expected_created_date,
             &format!("{} - created date", case.name),
             |actual, expected| assert_eq!(actual, expected),

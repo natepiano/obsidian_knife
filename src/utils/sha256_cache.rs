@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::fmt::Write;
 use std::fs::File;
 use std::fs::{self};
 use std::io::BufReader;
@@ -155,7 +156,6 @@ impl Sha256Cache {
         let hash = hasher.finalize();
         let mut hex = String::with_capacity(hash.len() * 2);
         for byte in hash {
-            use std::fmt::Write;
             let _ = write!(hex, "{byte:02x}");
         }
         Ok(hex)

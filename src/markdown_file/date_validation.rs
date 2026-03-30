@@ -28,11 +28,11 @@ pub(super) fn get_date_validations(
 
     let dates = [
         (
-            frontmatter.and_then(|fm| fm.date_created().cloned()),
+            frontmatter.and_then(|fm| fm.date_created().map(String::from)),
             metadata.created().map_or_else(|_| Utc::now(), Into::into),
         ),
         (
-            frontmatter.and_then(|fm| fm.date_modified().cloned()),
+            frontmatter.and_then(|fm| fm.date_modified().map(String::from)),
             metadata.modified().map_or_else(|_| Utc::now(), Into::into),
         ),
     ];
@@ -43,7 +43,7 @@ pub(super) fn get_date_validations(
         .into_iter()
         .map(|(frontmatter_date, fs_date)| {
             let issue = get_date_validation_issue(
-                frontmatter_date.as_ref(),
+                frontmatter_date.as_deref(),
                 &fs_date,
                 operational_timezone,
             );
@@ -59,7 +59,7 @@ pub(super) fn get_date_validations(
 }
 
 pub(super) fn get_date_validation_issue(
-    date_opt: Option<&String>,
+    date_opt: Option<&str>,
     fs_date: &DateTime<Utc>,
     operational_timezone: &str,
 ) -> Option<DateValidationIssue> {

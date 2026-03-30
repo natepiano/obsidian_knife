@@ -44,12 +44,12 @@ fn test_update_modified_dates_changes_frontmatter() {
 
     assert_eq!(
         frontmatter.date_modified(),
-        Some(&"[[2024-01-20]]".to_string()),
+        Some("[[2024-01-20]]"),
         "Modified date should be update date"
     );
     assert_eq!(
         frontmatter.date_created(),
-        Some(&"[[2024-01-15]]".to_string()),
+        Some("[[2024-01-15]]"),
         "Created date should not have changed"
     );
     assert!(frontmatter.needs_persist(), "needs_persist should be true");
@@ -104,14 +104,14 @@ fn test_update_modified_dates_only_updates_specified_files() {
     // First file should have new date and needs_persist
     assert_eq!(
         file1.frontmatter.as_ref().unwrap().date_modified(),
-        Some(&"[[2024-01-20]]".to_string())
+        Some("[[2024-01-20]]")
     );
     assert!(file1.frontmatter.as_ref().unwrap().needs_persist());
 
     // Second file should have original date and not need persist
     assert_eq!(
         file2.frontmatter.as_ref().unwrap().date_modified(),
-        Some(&"[[2024-01-15]]".to_string())
+        Some("[[2024-01-15]]")
     );
     assert!(!file2.frontmatter.as_ref().unwrap().needs_persist());
 }

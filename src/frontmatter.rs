@@ -39,13 +39,13 @@ yaml_frontmatter_struct! {
 }
 
 impl FrontMatter {
-    pub const fn aliases(&self) -> Option<&Vec<String>> { self.aliases.as_ref() }
+    pub fn aliases(&self) -> Option<&[String]> { self.aliases.as_deref() }
 
-    pub const fn date_created(&self) -> Option<&String> { self.date_created.as_ref() }
+    pub fn date_created(&self) -> Option<&str> { self.date_created.as_deref() }
 
-    pub const fn date_modified(&self) -> Option<&String> { self.date_modified.as_ref() }
+    pub fn date_modified(&self) -> Option<&str> { self.date_modified.as_deref() }
 
-    pub const fn date_created_fix(&self) -> Option<&String> { self.date_created_fix.as_ref() }
+    pub fn date_created_fix(&self) -> Option<&str> { self.date_created_fix.as_deref() }
 
     pub fn remove_date_created_fix(&mut self) {
         // setting it to None will cause it to skip serialization

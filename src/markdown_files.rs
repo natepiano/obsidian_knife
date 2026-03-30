@@ -6,6 +6,7 @@ use derive_more::DerefMut;
 use derive_more::IntoIterator;
 use rayon::prelude::*;
 
+use crate::frontmatter::FrontMatter;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MarkdownFile;
 use crate::validated_config::ValidatedConfig;
@@ -86,7 +87,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .is_some_and(super::frontmatter::FrontMatter::needs_persist)
+                    .is_some_and(FrontMatter::needs_persist)
             })
             .count()
     }
@@ -98,7 +99,7 @@ impl MarkdownFiles {
                 file_info
                     .frontmatter
                     .as_ref()
-                    .is_some_and(super::frontmatter::FrontMatter::needs_persist)
+                    .is_some_and(FrontMatter::needs_persist)
             })
             .cloned()
             .collect();
