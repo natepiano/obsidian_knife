@@ -193,7 +193,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     }
 
     fn title(&self) -> Option<String> {
-        Some(format!("{}{} {}", IMAGE_FILE_HASH, COLON, &self.hash))
+        Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash))
     }
 
     fn description(&self, items: &[Self::Item]) -> String {

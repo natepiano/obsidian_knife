@@ -23,12 +23,12 @@ pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Se
         if e.kind() == io::ErrorKind::NotFound {
             Box::new(io::Error::new(
                 io::ErrorKind::NotFound,
-                format!("{}{}", ERROR_NOT_FOUND, path.display()),
+                format!("{ERROR_NOT_FOUND}{}", path.display()),
             ))
         } else {
             Box::new(io::Error::new(
                 e.kind(),
-                format!("{}'{}': {}", ERROR_READING, path.display(), e),
+                format!("{ERROR_READING}'{}': {e}", path.display()),
             ))
         }
     })?;

@@ -5,7 +5,8 @@ mod validated_config_fixtures;
 
 use std::path::PathBuf;
 
-pub use assert_utils::*;
+pub use assert_utils::assert_result;
+pub use assert_utils::assert_test_case;
 use chrono::DateTime;
 use chrono::NaiveDate;
 use chrono::NaiveDateTime;

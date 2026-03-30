@@ -178,7 +178,7 @@ impl ObsidianRepository {
     ) -> Vec<Box<dyn ReplaceableContent>> {
         let mut matches = Vec::new();
 
-        // Add BackPopulateMatches
+        // Add `BackPopulateMatches`
         matches.extend(
             markdown_file
                 .matches

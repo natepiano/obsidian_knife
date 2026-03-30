@@ -185,7 +185,7 @@ impl DescriptionBuilder {
     pub const fn new() -> Self { Self { parts: Vec::new() } }
 
     pub fn text_with_newline(mut self, text: &str) -> Self {
-        let new_text = format!("{}{}", text, "\n");
+        let new_text = format!("{text}\n");
         self.parts.push(new_text);
         self
     }

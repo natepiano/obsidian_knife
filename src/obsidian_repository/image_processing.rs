@@ -35,7 +35,7 @@ impl ObsidianRepository {
             &markdown_references,
         );
 
-        // Step 3: Generate ImageFiles with duplicate and keeper logic
+        // Step 3: Generate `ImageFiles` with duplicate and keeper logic
         let files = Self::generate_image_files(hash_groups);
 
         // Step 4: Save cache if needed
@@ -219,7 +219,7 @@ impl ObsidianRepository {
                 if let Some(keeper) = keepers.iter().find(|k| {
                     matches!(&k.image_state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
                 }) {
-                    // Update ImageLink states in markdown files
+                    // Update `ImageLink` states in markdown files
                     for markdown_file in &mut self.markdown_files {
                         if let Some(image_link) = markdown_file
                             .image_links

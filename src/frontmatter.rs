@@ -69,7 +69,7 @@ impl FrontMatter {
         self.persist_state = PersistState::Modified;
     }
 
-    // we invoke set_modified_date on any changes to MarkdownFile
+    // we invoke set_modified_date on any changes to `MarkdownFile`
     // so that we then will persist it with an updated date_modified to match the file
     // date_modified date and this is also the sentinel for doing the persist operation at the
     // end of processing
