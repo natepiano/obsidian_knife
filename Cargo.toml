@@ -57,9 +57,9 @@ tempfile = { workspace = true }
 
 [workspace.lints.clippy]
 allow_attributes_without_reason = "deny"
-expect_used                     = "deny"
-panic                           = "deny"
-unwrap_used                     = "deny"
+expect_used = "deny"
+panic = "deny"
+unwrap_used = "deny"
 
 all = { level = "deny", priority = -1 }
 cargo = { level = "deny", priority = -1 }
