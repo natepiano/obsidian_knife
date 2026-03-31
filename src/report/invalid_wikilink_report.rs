@@ -4,9 +4,9 @@ use std::path::PathBuf;
 
 use itertools::Itertools;
 
-use crate::constants::DescriptionBuilder;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
+use crate::constants::DescriptionBuilder;
 use crate::constants::FOUND;
 use crate::constants::IN;
 use crate::constants::INVALID;

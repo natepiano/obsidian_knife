@@ -4,7 +4,6 @@ use std::path::Path;
 use chrono::Local;
 use chrono::Utc;
 
-use crate::obsidian_repository::ObsidianRepository;
 use crate::constants::BACK_POPULATE;
 use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
 use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
@@ -25,6 +24,7 @@ use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
