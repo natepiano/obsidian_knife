@@ -129,7 +129,10 @@ fn test_analyze_missing_references() {
     target_os = "linux",
     ignore = "requires filesystem access unavailable on Linux CI"
 )]
-#[allow(clippy::too_many_lines)] // test case table + assertion loop — not worth splitting
+#[allow(
+    clippy::too_many_lines,
+    reason = "test case table + assertion loop — not worth splitting"
+)]
 fn test_image_replacement_outcomes() {
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
     let tiff_header = vec![0x4D, 0x4D, 0x00, 0x2A];

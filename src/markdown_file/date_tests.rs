@@ -116,7 +116,10 @@ struct DateFixTestCase {
     target_os = "linux",
     ignore = "requires filesystem access unavailable on Linux CI"
 )]
-#[allow(clippy::too_many_lines)] // test case table + assertion loop — not worth splitting
+#[allow(
+    clippy::too_many_lines,
+    reason = "test case table + assertion loop — not worth splitting"
+)]
 fn test_process_date_validations() {
     let test_cases = vec![
         DateFixTestCase {
