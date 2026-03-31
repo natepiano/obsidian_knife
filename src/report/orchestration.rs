@@ -223,19 +223,11 @@ fn write_back_populate_report_header(
     Ok(())
 }
 
-pub(super) enum WikilinkFormat {
-    StemOnly,
-}
-
-pub(super) fn format_wikilink(
-    path: &Path,
-    obsidian_path: &Path,
-    _format: WikilinkFormat,
-) -> String {
+pub(super) fn format_wikilink(path: &Path, obsidian_path: &Path) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
     let display_name = path.file_stem().unwrap_or_default().to_string_lossy();
 
-    format!("[[{}\\|{}]]", relative_path.display(), display_name)
+    format!("[[{}\\|{display_name}]]", relative_path.display())
 }
 
 pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {

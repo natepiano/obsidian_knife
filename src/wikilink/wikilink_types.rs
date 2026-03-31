@@ -137,7 +137,7 @@ impl fmt::Display for InvalidWikilink {
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub(super) enum WikilinkParseResult {
     Valid(Wikilink),
     Invalid(ParsedInvalidWikilink),

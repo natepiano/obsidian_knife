@@ -49,9 +49,7 @@ impl ReportDefinition for UnreferencedImagesReport {
                 let sample =
                     utils::escape_pipe(format!("![[{file_name}|{THUMBNAIL_WIDTH}]]").as_str());
                 let file_link = format!("[[{file_name}]]");
-                let action = if config
-                    .is_some_and(ValidatedConfig::apply_changes)
-                {
+                let action = if config.is_some_and(ValidatedConfig::apply_changes) {
                     DELETED
                 } else {
                     WILL_DELETE

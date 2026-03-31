@@ -47,8 +47,8 @@ impl ObsidianRepository {
     }
 
     // if a group has multiple references, check if any are referenced
-    // the first referenced file is marked as a DuplicateKeeper
-    // remaining files are marked as Duplicate
+    // the first referenced file is marked as a `DuplicateKeeper`
+    // remaining files are marked as `Duplicate`
     fn generate_image_files(
         hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
     ) -> Vec<ImageFile> {
@@ -174,9 +174,9 @@ impl ObsidianRepository {
             matches!(image_file_state, ImageFileState::Incompatible { .. })
         });
 
-        // match tiff/zero_byte image files to image_links that refer to them so we can mark the
-        // image_link as incompatible the image_link will then be collected as a
-        // ReplaceableContent match which happens in the next step
+        // match tiff/zero_byte image files to `image_links` that refer to them so we can mark the
+        // `image_link` as incompatible the `image_link` will then be collected as a
+        // `ReplaceableContent` match which happens in the next step
         for image_file in incompatible.files {
             if let ImageFileState::Incompatible { reason } = &image_file.image_state {
                 let image_file_name = image_file

@@ -281,7 +281,7 @@ impl ReplaceableContent for ImageLink {
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or_default();
-                let new_relative = format!("{}/{}", self.relative_path, new_name);
+                let new_relative = format!("{}/{new_name}", self.relative_path);
 
                 match &self.link_type {
                     ImageLinkType::Wikilink(rendering) => match rendering {
@@ -294,10 +294,10 @@ impl ReplaceableContent for ImageLink {
                     ImageLinkType::MarkdownLink(target, rendering) => {
                         match (target, rendering) {
                             (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
-                                format!("![{}]({})", self.alt_text, new_relative)
+                                format!("![{}]({new_relative})", self.alt_text)
                             },
                             (ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly) => {
-                                format!("[{}]({})", self.alt_text, new_relative)
+                                format!("[{}]({new_relative})", self.alt_text)
                             },
                             (ImageLinkTarget::External, _) => {
                                 // We shouldn't get here for duplicate handling as we don't process

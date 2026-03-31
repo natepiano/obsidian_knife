@@ -88,8 +88,8 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
-    // we want to be clear that the ClosingDelimiterFound should also be skipped
-    // if we didn't skip it then the closing TripleBacktickDelimiter ``` would be
+    // we want to be clear that the `ClosingDelimiterFound` should also be skipped
+    // if we didn't skip it then the closing `TripleBacktickDelimiter` ``` would be
     // considered "outside" and it would then be prased by the
     // character iterator and would treat this as an open/close/open of a code block
     const fn is_in_code_block(&self) -> bool {

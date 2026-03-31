@@ -7,7 +7,7 @@ use serde::Serialize;
 use crate::utils;
 use crate::yaml_frontmatter_struct;
 
-// when we set date_created_fix to None it won't serialize - cool
+// when we set `date_created_fix` to `None` it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub enum PersistState {
@@ -69,15 +69,15 @@ impl FrontMatter {
         self.persist_state = PersistState::Modified;
     }
 
-    // we invoke set_modified_date on any changes to `MarkdownFile`
-    // so that we then will persist it with an updated date_modified to match the file
-    // date_modified date and this is also the sentinel for doing the persist operation at the
+    // we invoke `set_modified_date` on any changes to `MarkdownFile`
+    // so that we then will persist it with an updated `date_modified` to match the file
+    // `date_modified` date and this is also the sentinel for doing the persist operation at the
     // end of processing
     pub fn set_date_modified_now(&mut self, operational_timezone: &str) {
         self.set_date_modified(Utc::now(), operational_timezone);
     }
 
-    // we use this when set_date_modified is missing
+    // we use this when `set_date_modified` is missing
     pub fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&tz);

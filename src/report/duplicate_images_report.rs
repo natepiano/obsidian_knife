@@ -2,7 +2,6 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
-use super::orchestration::WikilinkFormat;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -140,7 +139,6 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                     let file_link = super::orchestration::format_wikilink(
                         Path::new(ref_path),
                         config.obsidian_path(),
-                        WikilinkFormat::StemOnly,
                     );
 
                     // Get line number and position from markdown files
@@ -192,9 +190,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         rows
     }
 
-    fn title(&self) -> Option<String> {
-        Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash))
-    }
+    fn title(&self) -> Option<String> { Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash)) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_references: std::collections::HashSet<_> = items

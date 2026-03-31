@@ -80,7 +80,7 @@ pub(super) fn get_date_validation_issue(
         return Some(DateValidationIssue::InvalidDateFormat);
     }
 
-    // Parse the frontmatter date string into a NaiveDate
+    // Parse the frontmatter date string into a `NaiveDate`
     let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), "%Y-%m-%d") else {
         return Some(DateValidationIssue::InvalidDateFormat);
     };
