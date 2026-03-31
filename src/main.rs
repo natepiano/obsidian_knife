@@ -40,7 +40,6 @@ use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::Timer;
-use crate::validated_config::ValidatedConfig;
 use crate::yaml_frontmatter::YamlFrontMatter;
 
 // Custom error type for main specific errors

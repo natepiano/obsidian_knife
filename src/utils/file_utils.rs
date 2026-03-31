@@ -11,12 +11,12 @@ use filetime::FileTime;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
-use crate::ValidatedConfig;
 use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
 use crate::constants::IMAGE_EXTENSIONS;
 use crate::constants::MARKDOWN_EXTENSION;
+use crate::validated_config::ValidatedConfig;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {

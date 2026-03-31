@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use super::DescriptionBuilder;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
+use crate::constants::DescriptionBuilder;
 use crate::constants::FOUND;
 use crate::constants::FRONTMATTER;
 use crate::constants::FRONTMATTER_ISSUES;
