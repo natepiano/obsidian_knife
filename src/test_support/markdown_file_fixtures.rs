@@ -7,7 +7,7 @@ use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
 use tempfile::TempDir;
 
-use crate::ValidatedConfig;
+use crate::validated_config::ValidatedConfig;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;

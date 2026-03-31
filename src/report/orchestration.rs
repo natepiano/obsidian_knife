@@ -4,7 +4,7 @@ use std::path::Path;
 use chrono::Local;
 use chrono::Utc;
 
-use crate::ObsidianRepository;
+use crate::obsidian_repository::ObsidianRepository;
 use crate::constants::BACK_POPULATE;
 use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
 use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
@@ -32,7 +32,14 @@ use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::ToWikilink;
 
 impl ObsidianRepository {
-    pub(super) fn write_reports_impl(
+    pub fn write_reports(
+        &self,
+        validated_config: &ValidatedConfig,
+    ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        self.write_reports_impl(validated_config)
+    }
+
+    fn write_reports_impl(
         &self,
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {

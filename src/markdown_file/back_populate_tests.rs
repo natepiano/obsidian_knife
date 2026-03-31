@@ -1,7 +1,7 @@
 use tempfile::TempDir;
 
 use super::MarkdownFile;
-use crate::DEFAULT_TIMEZONE;
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
 

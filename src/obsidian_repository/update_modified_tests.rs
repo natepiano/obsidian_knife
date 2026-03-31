@@ -2,7 +2,7 @@ use chrono::Utc;
 use tempfile::TempDir;
 
 use super::*;
-use crate::DEFAULT_TIMEZONE;
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::markdown_file::PersistReason;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;

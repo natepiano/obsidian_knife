@@ -11,7 +11,7 @@ use filetime::FileTime;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
-use crate::ValidatedConfig;
+use crate::validated_config::ValidatedConfig;
 use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
