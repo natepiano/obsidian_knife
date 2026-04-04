@@ -57,18 +57,18 @@ tempfile = { workspace = true }
 
 [workspace.lints.clippy]
 allow_attributes_without_reason = "deny"
-expect_used                     = "deny"
-panic                           = "deny"
-unreachable                     = "deny"
-unwrap_used                     = "deny"
+expect_used = "deny"
+panic = "deny"
+unreachable = "deny"
+unwrap_used = "deny"
 
-all      = { level = "deny", priority = -1 }
-cargo    = { level = "deny", priority = -1 }
-nursery  = { level = "deny", priority = -1 }
+all = { level = "deny", priority = -1 }
+cargo = { level = "deny", priority = -1 }
+nursery = { level = "deny", priority = -1 }
 pedantic = { level = "deny", priority = -1 }
 
 multiple_crate_versions = "allow"
-redundant_pub_crate     = "allow"
+redundant_pub_crate = "allow"
 
 [lints]
 workspace = true
