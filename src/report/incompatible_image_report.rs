@@ -65,7 +65,9 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         let mut rows = Vec::new();
         for image in items {
             let ImageFileState::Incompatible { reason } = &image.image_state else {
-                unreachable!("Only incompatible images should be in this report")
+                // items are pre-filtered to incompatible images; skip if invariant is violated
+                debug_assert!(false, "Only incompatible images should be in this report");
+                continue;
             };
 
             let relative_path =

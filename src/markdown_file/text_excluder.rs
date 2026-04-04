@@ -128,76 +128,90 @@ impl InlineCodeExcluder {
     pub fn is_inside(&self) -> bool { self.0.is_inside() }
 }
 
-#[test]
-fn test_code_block_tracking() {
-    let mut tracker = CodeBlockExcluder::new();
+#[cfg(test)]
+#[allow(
+    clippy::expect_used,
+    reason = "tests should panic on unexpected values"
+)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "tests should panic on unexpected values"
+)]
+#[allow(clippy::panic, reason = "tests should panic on unexpected values")]
+mod tests {
+    use super::*;
 
-    // Initial state
-    assert!(!tracker.is_in_code_block(), "Initial state should not skip");
+    #[test]
+    fn test_code_block_tracking() {
+        let mut tracker = CodeBlockExcluder::new();
 
-    tracker.update("```rust");
-    assert!(tracker.is_in_code_block(), "Should skip inside code block");
-    tracker.update("let x = 42;");
-    assert!(tracker.is_in_code_block(), "Should still be in code block");
-    tracker.update("```");
-    assert!(
-        tracker.is_in_code_block(),
-        "Should skip while processing closing delimiter"
-    );
+        // Initial state
+        assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
-    tracker.update("next line"); // This moves us to Outside
-    assert!(
-        !tracker.is_in_code_block(),
-        "Should not skip after code block"
-    );
+        tracker.update("```rust");
+        assert!(tracker.is_in_code_block(), "Should skip inside code block");
+        tracker.update("let x = 42;");
+        assert!(tracker.is_in_code_block(), "Should still be in code block");
+        tracker.update("```");
+        assert!(
+            tracker.is_in_code_block(),
+            "Should skip while processing closing delimiter"
+        );
 
-    // Regular content
-    tracker.update("Regular text");
-    assert!(!tracker.is_in_code_block(), "Should not be in code block");
+        tracker.update("next line"); // This moves us to Outside
+        assert!(
+            !tracker.is_in_code_block(),
+            "Should not skip after code block"
+        );
 
-    // Nested code blocks (treated as toggles)
-    tracker.update("```python");
-    assert!(
-        tracker.is_in_code_block(),
-        "Should skip in second code block"
-    );
-    tracker.update("print('hello')");
-    tracker.update("```");
-    assert!(tracker.is_in_code_block(), "Should skip after second block");
+        // Regular content
+        tracker.update("Regular text");
+        assert!(!tracker.is_in_code_block(), "Should not be in code block");
 
-    // immediately following with another code block opening
-    tracker.update("```");
-    assert!(
-        tracker.is_in_code_block(),
-        "Should skip after opening another code block right after the last one"
-    );
-}
+        // Nested code blocks (treated as toggles)
+        tracker.update("```python");
+        assert!(
+            tracker.is_in_code_block(),
+            "Should skip in second code block"
+        );
+        tracker.update("print('hello')");
+        tracker.update("```");
+        assert!(tracker.is_in_code_block(), "Should skip after second block");
 
-#[test]
-fn test_inline_code_tracking() {
-    let mut tracker = InlineCodeExcluder::new();
+        // immediately following with another code block opening
+        tracker.update("```");
+        assert!(
+            tracker.is_in_code_block(),
+            "Should skip after opening another code block right after the last one"
+        );
+    }
 
-    // Initial state
-    assert!(!tracker.is_in_code_block(), "Initial state should not skip");
+    #[test]
+    fn test_inline_code_tracking() {
+        let mut tracker = InlineCodeExcluder::new();
 
-    tracker.update('`');
-    assert!(
-        tracker.is_in_code_block(),
-        "Should skip opening inline code block"
-    );
+        // Initial state
+        assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
-    tracker.update('a');
-    assert!(tracker.is_in_code_block(), "should skip inside code block");
+        tracker.update('`');
+        assert!(
+            tracker.is_in_code_block(),
+            "Should skip opening inline code block"
+        );
 
-    tracker.update('`');
-    assert!(
-        tracker.is_in_code_block(),
-        "Should skip closing inline code block"
-    );
+        tracker.update('a');
+        assert!(tracker.is_in_code_block(), "should skip inside code block");
 
-    tracker.update('b');
-    assert!(
-        !tracker.is_in_code_block(),
-        "Should not skip regular text after an inline code block"
-    );
+        tracker.update('`');
+        assert!(
+            tracker.is_in_code_block(),
+            "Should skip closing inline code block"
+        );
+
+        tracker.update('b');
+        assert!(
+            !tracker.is_in_code_block(),
+            "Should not skip regular text after an inline code block"
+        );
+    }
 }

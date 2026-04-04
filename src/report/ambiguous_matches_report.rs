@@ -104,11 +104,6 @@ impl ReportDefinition for AmbiguousMatchesTable {
     }
 
     fn title(&self) -> Option<String> {
-        Some(format!(
-            "\"{}\" matches {} targets:",
-            self.display_text,
-            self.targets.len()
-        ));
         Some(
             DescriptionBuilder::new()
                 .quoted_text(&self.display_text)

@@ -15,6 +15,7 @@ use super::markdown_file_types::ImageLinks;
 use super::markdown_file_types::PersistReason;
 use super::markdown_file_types::Wikilinks;
 use super::text_excluder::CodeBlockExcluder;
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::utils;
 use crate::utils::IMAGE_REGEX;
@@ -148,7 +149,7 @@ impl MarkdownFile {
         let created_date = frontmatter.raw_date_created;
 
         // Use `set_file_dates` for both macOS and non-macOS platforms
-        utils::set_file_dates(&self.path, created_date, modified_date, "America/New_York")?;
+        utils::set_file_dates(&self.path, created_date, modified_date, DEFAULT_TIMEZONE)?;
 
         Ok(())
     }

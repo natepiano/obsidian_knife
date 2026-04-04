@@ -41,7 +41,6 @@ pub struct CachedImageInfo {
 pub struct Sha256Cache {
     cache:                     HashMap<PathBuf, CachedImageInfo>,
     cache_file_path:           PathBuf,
-    //initial_count: usize,
     files_read:                usize,
     pub(super) files_added:    usize,
     pub(super) files_modified: usize,

@@ -269,20 +269,6 @@ mod set_file_dates_tests {
         let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
         let modified_date_utc = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
 
-        // println!("\nTest Setup:");
-        // println!("Input created_date_utc: {}", created_date_utc);
-        // println!(
-        //     "Input created_date in {}: {}",
-        //     operational_timezone,
-        //     created_date_utc.with_timezone(&tz)
-        // );
-        // println!("Input modified_date_utc: {}", modified_date_utc);
-        // println!(
-        //     "Input modified_date in {}: {}",
-        //     operational_timezone,
-        //     modified_date_utc.with_timezone(&tz)
-        // );
-
         // Create a temporary file for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let temp_file_path = temp_dir.path().join("test_file.txt");
@@ -307,17 +293,6 @@ mod set_file_dates_tests {
             .into();
         let retrieved_modified_in_tz = retrieved_modified.with_timezone(&tz);
         let expected_modified_in_tz = modified_date_utc.with_timezone(&tz);
-
-        // println!("\nModification Time Verification:");
-        // println!("Modified in UTC: {}", retrieved_modified);
-        // println!(
-        //     "Retrieved modified in {}: {}",
-        //     operational_timezone, retrieved_modified_in_tz
-        // );
-        // println!(
-        //     "Expected modified in {}: {}",
-        //     operational_timezone, expected_modified_in_tz
-        // );
 
         assert_eq!(
             retrieved_modified, modified_date_utc,

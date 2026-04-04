@@ -69,18 +69,6 @@ pub enum YamlFrontMatterError {
     Serialize(String),
 }
 
-// impl PartialEq for YamlFrontMatterError {
-//     fn eq(&self, other: &Self) -> bool {
-//         match (self, other) {
-//             (YamlFrontMatterError::Empty, YamlFrontMatterError::Empty) => true,
-//             (YamlFrontMatterError::Missing, YamlFrontMatterError::Missing) => true,
-//             (YamlFrontMatterError::Invalid(_), YamlFrontMatterError::Invalid(_)) => true,
-//             (YamlFrontMatterError::Parse(_), YamlFrontMatterError::Parse(_)) => true,
-//             (YamlFrontMatterError::Serialize(_), YamlFrontMatterError::Serialize(_)) => true,
-//             _ => false,
-//         }
-//     }
-// }
 impl PartialEq for YamlFrontMatterError {
     fn eq(&self, other: &Self) -> bool {
         matches!(

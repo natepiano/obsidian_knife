@@ -348,7 +348,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                                 state.push_char('\\');
                                 state.push_char('|');
                             },
-                            WikilinkState::Invalid { .. } => unreachable!(),
+                            WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
                         }
                     } else {
                         state.push_char(next_c);
@@ -361,7 +361,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                     state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
                     state.push_char(c);
                 },
-                WikilinkState::Invalid { .. } => unreachable!(),
+                WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
             },
             ']' => {
                 if is_next_char(chars, ']') {
