@@ -37,8 +37,8 @@ pub(super) fn get_date_validations(
         ),
     ];
 
-    // skip when the create date has a date_created_fix in place, we don't need to validate as it's
-    // moot
+    // skip when the create date has a `date_created_fix` in place, we don't need to validate as
+    // it's moot
     Ok(dates
         .into_iter()
         .map(|(frontmatter_date, fs_date)| {

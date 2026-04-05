@@ -2,64 +2,52 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod alias_handling_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod back_populate_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod case_sensitivity_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod date_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod exclusion_zone_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod matching_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod parse_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod persist_tests;
 #[cfg(test)]
@@ -67,15 +55,13 @@ mod persist_tests;
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod process_content_tests;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod table_handling_tests;
 

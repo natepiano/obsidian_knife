@@ -2,8 +2,7 @@
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod validated_config_tests;
 
@@ -12,6 +11,7 @@ use std::path::PathBuf;
 
 use chrono_tz::Tz;
 use derive_builder::Builder;
+use derive_builder::UninitializedFieldError;
 use regex::Regex;
 use thiserror::Error;
 
@@ -46,8 +46,8 @@ pub enum ValidationError {
     UninitializedField(String),
 }
 
-impl From<derive_builder::UninitializedFieldError> for ValidationError {
-    fn from(err: derive_builder::UninitializedFieldError) -> Self {
+impl From<UninitializedFieldError> for ValidationError {
+    fn from(err: UninitializedFieldError) -> Self {
         Self::UninitializedField(err.field_name().to_string())
     }
 }

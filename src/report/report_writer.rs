@@ -16,7 +16,7 @@ pub(super) trait ReportDefinition<C = ()> {
 
     /// Transform data items into table rows
     ///
-    /// simple reports can use "_: &()" for this generic parameter so they don't
+    /// simple reports can use `_: &()` for this generic parameter so they don't
     /// need to use it and the compiler won't complain
     ///
     /// reports that need config information can use `report_context: &ReportContext`

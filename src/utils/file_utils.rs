@@ -87,8 +87,8 @@ pub fn collect_repository_files(
     fn visit_dirs(
         dirs: Vec<PathBuf>,
         ignore_folders: &[PathBuf],
-        md_files: &Mutex<Vec<PathBuf>>,
-        img_files: &Mutex<Vec<PathBuf>>,
+        markdown_files: &Mutex<Vec<PathBuf>>,
+        image_files: &Mutex<Vec<PathBuf>>,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         dirs.into_par_iter().try_for_each(|dir| {
             if is_ignored(&dir, ignore_folders) {
@@ -105,9 +105,9 @@ pub fn collect_repository_files(
                         .map(str::to_lowercase)
                     {
                         if ext == MARKDOWN_EXTENSION {
-                            md_files.lock().unwrap().push(path.clone());
+                            markdown_files.lock().unwrap().push(path.clone());
                         } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-                            img_files.lock().unwrap().push(path.clone());
+                            image_files.lock().unwrap().push(path.clone());
                         }
                     }
                 })
@@ -115,25 +115,25 @@ pub fn collect_repository_files(
                 .collect();
 
             if !subdirs.is_empty() {
-                visit_dirs(subdirs, ignore_folders, md_files, img_files)?;
+                visit_dirs(subdirs, ignore_folders, markdown_files, image_files)?;
             }
             Ok(())
         })
     }
 
-    let md_files = Mutex::new(Vec::new());
-    let img_files = Mutex::new(Vec::new());
+    let markdown_files = Mutex::new(Vec::new());
+    let image_files = Mutex::new(Vec::new());
 
     visit_dirs(
         vec![validated_config.obsidian_path().to_path_buf()],
         ignore_folders,
-        &md_files,
-        &img_files,
+        &markdown_files,
+        &image_files,
     )?;
 
     Ok(RepositoryFiles {
-        markdown_files: md_files.into_inner().unwrap(),
-        image_files:    img_files.into_inner().unwrap(),
+        markdown_files: markdown_files.into_inner().unwrap(),
+        image_files:    image_files.into_inner().unwrap(),
     })
 }
 
@@ -188,12 +188,6 @@ pub fn set_file_dates(
 }
 
 #[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
-)]
 mod expand_tilde_tests {
     use super::*;
 
@@ -247,8 +241,7 @@ mod expand_tilde_tests {
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod set_file_dates_tests {
     use std::fs::File;

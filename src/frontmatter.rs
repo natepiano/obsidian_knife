@@ -89,7 +89,7 @@ impl FrontMatter {
     pub fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
 
     pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
-        // first get do_not_back_populate explicit value
+        // first get `do_not_back_populate` explicit value
         let mut do_not_populate = self.do_not_back_populate.clone().unwrap_or_default();
 
         // if there are aliases, add them to that as we don't need text on the page to link to this

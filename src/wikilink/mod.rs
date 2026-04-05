@@ -1,25 +1,12 @@
 #[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
-)]
 mod extract_wikilink_tests;
 #[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
-)]
 mod markdown_link_tests;
 #[cfg(test)]
 #[allow(
-    clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod wikilink_creation_tests;
 

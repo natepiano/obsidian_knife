@@ -16,7 +16,7 @@ pub const TOTAL_TIME: &str = "total time";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
 // config stuff
-// the DEFAULT_MEDIA_PATH could be a configuration parameter as it's really specific to my repo
+// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo
 pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub const DEFAULT_TIMEZONE: &str = "America/New_York";

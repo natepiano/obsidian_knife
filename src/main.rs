@@ -3,7 +3,7 @@
     clippy::unwrap_used,
     clippy::expect_used,
     clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
+    reason = "tests should panic on unexpected values"
 )]
 mod test_support;
 
@@ -147,12 +147,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 }
 
 #[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "test assertions use unwrap/expect/panic for clarity"
-)]
+#[allow(clippy::panic, reason = "tests should panic on unexpected values")]
 mod main_tests {
     use super::*;
 
