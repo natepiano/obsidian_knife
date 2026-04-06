@@ -75,7 +75,7 @@ fn test_new_handles_empty_repo() -> Result<(), Box<dyn Error + Send + Sync>> {
 
 #[test]
 fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> {
-    fn assert_incompatible_image_state(
+    fn assert_incompatible_state(
         files: &ImageFiles,
         path: &PathBuf,
         expected_reason: IncompatibilityReason,
@@ -83,7 +83,7 @@ fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> 
     ) {
         if let Some(image) = find_image_file(files, path) {
             assert_eq!(
-                image.image_state,
+                image.state,
                 ImageFileState::Incompatible {
                     reason: expected_reason,
                 },
@@ -118,14 +118,14 @@ date_modified: 2024-01-01
 
     let repository = ObsidianRepository::new(&config)?;
 
-    assert_incompatible_image_state(
+    assert_incompatible_state(
         &repository.image_files,
         &zero_byte_path,
         IncompatibilityReason::ZeroByte,
         "Zero-byte file should have ZeroByte state",
     );
 
-    assert_incompatible_image_state(
+    assert_incompatible_state(
         &repository.image_files,
         &tiff_path,
         IncompatibilityReason::TiffFormat,

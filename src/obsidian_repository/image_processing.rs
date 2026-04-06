@@ -178,7 +178,7 @@ impl ObsidianRepository {
         // `image_link` as incompatible the `image_link` will then be collected as a
         // `ReplaceableContent` match which happens in the next step
         for image_file in incompatible.files {
-            if let ImageFileState::Incompatible { reason } = &image_file.image_state {
+            if let ImageFileState::Incompatible { reason } = &image_file.state {
                 let image_file_name = image_file
                     .path
                     .file_name()
@@ -214,10 +214,10 @@ impl ObsidianRepository {
                 .unwrap_or_default()
                 .to_str()
                 .unwrap_or_default();
-            if let ImageFileState::Duplicate { hash } = &duplicate.image_state {
+            if let ImageFileState::Duplicate { hash } = &duplicate.state {
                 // Find the keeper with matching hash
                 if let Some(keeper) = keepers.iter().find(|k| {
-                    matches!(&k.image_state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
+                    matches!(&k.state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
                 }) {
                     // Update `ImageLink` states in markdown files
                     for markdown_file in &mut self.markdown_files {
@@ -250,7 +250,7 @@ impl ObsidianRepository {
         let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
 
         for image_file in &mut self.image_files.files {
-            match &image_file.image_state {
+            match &image_file.state {
                 ImageFileState::Unreferenced => {
                     image_file.deletion = DeletionStatus::Delete;
                 },

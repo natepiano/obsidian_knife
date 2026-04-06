@@ -1,4 +1,35 @@
-// processing stuff
+// Cache
+pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
+pub const CACHE_FOLDER: &str = ".ok";
+
+// Config
+/// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo
+pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
+pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
+pub const DEFAULT_TIMEZONE: &str = "America/New_York";
+pub const ERROR_NOT_FOUND: &str = "file not found: ";
+pub const ERROR_READING: &str = "error reading config file ";
+pub const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
+
+// Files and extensions
+pub const DS_STORE: &str = ".DS_Store";
+pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
+pub const MARKDOWN_EXTENSION: &str = "md";
+pub const MARKDOWN_SUFFIX: &str = ".md";
+
+// Markdown outline levels
+pub const LEVEL1: &str = "#";
+pub const LEVEL2: &str = "##";
+pub const LEVEL3: &str = "###";
+
+// Matching
+pub const CLOSING_WIKILINK: &str = "]]";
+pub const FORWARD_SLASH: char = '/';
+pub const OPENING_BRACKET: char = '[';
+pub const OPENING_PAREN: char = '(';
+pub const OPENING_WIKILINK: &str = "[[";
+
+// Processing
 #[cfg(debug_assertions)]
 pub const DEV: &str = "dev";
 pub const ERROR_DETAILS: &str = "error details:";
@@ -15,38 +46,10 @@ pub const RELEASE: &str = "release";
 pub const TOTAL_TIME: &str = "total time";
 pub const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
-// config stuff
-// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo
-pub const DEFAULT_MEDIA_PATH: &str = "conf/media";
-pub const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
-pub const DEFAULT_TIMEZONE: &str = "America/New_York";
-pub const ERROR_NOT_FOUND: &str = "file not found: ";
-pub const ERROR_READING: &str = "error reading config file ";
-pub const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
+// Report image handling
+pub const THUMBNAIL_WIDTH: usize = 50;
 
-// cache stuff
-pub const CACHE_FOLDER: &str = ".ok";
-pub const CACHE_FILE: &str = "obsidian_knife_cache.json";
-
-//markdown outline levels
-pub const LEVEL1: &str = "#";
-pub const LEVEL2: &str = "##";
-pub const LEVEL3: &str = "###";
-
-// files and extensions
-pub const DS_STORE: &str = ".DS_Store";
-pub const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
-pub const MARKDOWN_EXTENSION: &str = "md";
-pub const MARKDOWN_SUFFIX: &str = ".md";
-
-// matching stuff
-pub const CLOSING_WIKILINK: &str = "]]";
-pub const FORWARD_SLASH: char = '/';
-pub const OPENING_BRACKET: char = '[';
-pub const OPENING_PAREN: char = '(';
-pub const OPENING_WIKILINK: &str = "[[";
-
-// report &str's
+// Report strings
 pub const ACTION: &str = "action";
 pub const ADD_FRONTMATTER: &str = "add frontmatter";
 pub const AFTER: &str = "after";
@@ -107,9 +110,6 @@ pub const YAML_TIMESTAMP_LOCAL: &str = "local_time: ";
 pub const YAML_TIMESTAMP_UTC: &str = "utc_time: ";
 pub const YOU_HAVE_TO_FIX_THESE_YOURSELF: &str = "you have to fix these yourself";
 pub const ZERO_BYTE: &str = "zero-byte";
-
-// report image handling
-pub const THUMBNAIL_WIDTH: usize = 50;
 
 #[derive(Debug, Clone, Copy)]
 pub enum Phrase {

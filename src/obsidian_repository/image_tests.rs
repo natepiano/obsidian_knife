@@ -425,9 +425,9 @@ fn test_duplicate_grouping() {
     assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
 
     // Verify all duplicates share the same hash as the keeper
-    if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.files[0].image_state {
+    if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.files[0].state {
         for duplicate in duplicates.files {
-            if let ImageFileState::Duplicate { hash } = &duplicate.image_state {
+            if let ImageFileState::Duplicate { hash } = &duplicate.state {
                 assert_eq!(hash, keeper_hash, "Duplicate hash should match keeper hash");
             }
         }

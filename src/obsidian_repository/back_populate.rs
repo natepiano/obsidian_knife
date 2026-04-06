@@ -78,19 +78,22 @@ impl ObsidianRepository {
 
     #[allow(
         clippy::expect_used,
-        reason = "wikilinks_ac is always initialized in ObsidianRepository::new"
+        reason = "wikilinks_automaton is always initialized in ObsidianRepository::new"
     )]
     pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
-        let ac = self
-            .wikilinks_ac
+        let automaton = self
+            .wikilinks_automaton
             .as_ref()
-            .expect("Wikilinks AC pattern should be initialized");
+            .expect("Wikilinks automaton should be initialized");
 
         // turn them into references
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
 
-        self.markdown_files
-            .process_files_for_back_populate_matches(config, &sorted_wikilinks, ac);
+        self.markdown_files.process_files_for_back_populate_matches(
+            config,
+            &sorted_wikilinks,
+            automaton,
+        );
     }
 
     pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) {

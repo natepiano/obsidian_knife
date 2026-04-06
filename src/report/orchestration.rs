@@ -130,7 +130,7 @@ impl ObsidianRepository {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let has_report_entries = self.image_files.files.iter().any(|image| {
             matches!(
-                image.image_state,
+                image.state,
                 ImageFileState::Unreferenced
                     | ImageFileState::Duplicate { .. }
                     | ImageFileState::Incompatible { .. }

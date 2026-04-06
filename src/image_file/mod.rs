@@ -5,48 +5,23 @@
     reason = "tests should panic on unexpected values"
 )]
 mod image_file_tests;
+mod image_file_types;
 
 use std::error::Error;
-use std::fmt;
 use std::fs;
 use std::path::PathBuf;
 
 use derive_more::Deref;
 use derive_more::DerefMut;
 use derive_more::IntoIterator;
-use serde::Deserialize;
-use serde::Serialize;
 
+pub use self::image_file_types::DeletionStatus;
+pub use self::image_file_types::DuplicateRole;
+pub use self::image_file_types::ImageFileState;
+use self::image_file_types::ImageFileType;
+pub use self::image_file_types::ImageHash;
+pub use self::image_file_types::IncompatibilityReason;
 use crate::utils::EnumFilter;
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct ImageHash(pub String);
-
-impl From<&str> for ImageHash {
-    fn from(hash: &str) -> Self { Self(hash.to_string()) }
-}
-
-impl From<String> for ImageHash {
-    fn from(hash: String) -> Self { Self(hash) }
-}
-
-impl fmt::Display for ImageHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
-}
-
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum DeletionStatus {
-    #[default]
-    Keep,
-    Delete,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DuplicateRole {
-    NotDuplicate,
-    Duplicate,
-    Original,
-}
 
 #[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
 pub struct ImageFiles {
@@ -80,7 +55,7 @@ pub struct ImageFile {
     pub deletion:                 DeletionStatus,
     pub file_type:                ImageFileType,
     pub hash:                     ImageHash,
-    pub image_state:              ImageFileState,
+    pub state:                    ImageFileState,
     pub path:                     PathBuf,
     pub markdown_file_references: Vec<PathBuf>,
     pub size:                     u64,
@@ -89,52 +64,7 @@ pub struct ImageFile {
 impl EnumFilter for ImageFile {
     type EnumType = ImageFileState;
 
-    fn as_enum(&self) -> &Self::EnumType { &self.image_state }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ImageFileType {
-    Tiff,
-    Jpeg,
-    Png,
-    Gif,
-    WebP,
-    Other(String),
-}
-
-impl ImageFileType {
-    pub fn from_extension(ext: &str) -> Self {
-        match ext.to_lowercase().as_str() {
-            "tiff" | "tif" => Self::Tiff,
-            "jpg" | "jpeg" => Self::Jpeg,
-            "png" => Self::Png,
-            "gif" => Self::Gif,
-            "webp" => Self::WebP,
-            other => Self::Other(other.to_string()),
-        }
-    }
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub enum ImageFileState {
-    #[default]
-    Valid,
-    Incompatible {
-        reason: IncompatibilityReason,
-    },
-    Unreferenced,
-    Duplicate {
-        hash: ImageHash,
-    },
-    DuplicateKeeper {
-        hash: ImageHash,
-    },
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum IncompatibilityReason {
-    TiffFormat,
-    ZeroByte,
+    fn as_enum(&self) -> &Self::EnumType { &self.state }
 }
 
 impl ImageFile {
@@ -182,7 +112,7 @@ impl ImageFile {
             deletion: DeletionStatus::Keep,
             file_type,
             hash,
-            image_state: initial_state,
+            state: initial_state,
             path,
             markdown_file_references,
             size,

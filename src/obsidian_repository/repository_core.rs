@@ -21,10 +21,10 @@ use crate::wikilink::Wikilink;
 
 #[derive(Default)]
 pub struct ObsidianRepository {
-    pub markdown_files:   MarkdownFiles,
-    pub image_files:      ImageFiles,
-    pub wikilinks_ac:     Option<AhoCorasick>,
-    pub wikilinks_sorted: Vec<Wikilink>,
+    pub markdown_files:      MarkdownFiles,
+    pub image_files:         ImageFiles,
+    pub wikilinks_automaton: Option<AhoCorasick>,
+    pub wikilinks_sorted:    Vec<Wikilink>,
 }
 
 impl ObsidianRepository {
@@ -41,13 +41,13 @@ impl ObsidianRepository {
             validated_config.file_limit(),
         )?;
 
-        let (sorted, ac) = Self::initialize_wikilinks(&markdown_files);
+        let (sorted, automaton) = Self::initialize_wikilinks(&markdown_files);
 
         // Initialize instance with defaults
         let mut repository = Self {
             markdown_files,
             image_files: ImageFiles::default(),
-            wikilinks_ac: Some(ac),
+            wikilinks_automaton: Some(automaton),
             wikilinks_sorted: sorted,
         };
 
@@ -100,7 +100,7 @@ impl ObsidianRepository {
             .iter()
             .flat_map(|file_info| file_info.wikilinks.valid.clone())
             .collect();
-        sort_and_build_wikilinks_ac(all_wikilinks)
+        sort_and_build_wikilinks_automaton(all_wikilinks)
     }
 
     fn analyze_repository(&mut self, validated_config: &ValidatedConfig) {
@@ -122,7 +122,9 @@ impl ObsidianRepository {
     clippy::expect_used,
     reason = "AhoCorasick build from valid wikilink strings cannot fail"
 )]
-fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilink>, AhoCorasick) {
+fn sort_and_build_wikilinks_automaton(
+    all_wikilinks: HashSet<Wikilink>,
+) -> (Vec<Wikilink>, AhoCorasick) {
     let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
     // uses
     wikilinks.sort_unstable();
@@ -130,13 +132,13 @@ fn sort_and_build_wikilinks_ac(all_wikilinks: HashSet<Wikilink>) -> (Vec<Wikilin
     let mut patterns = Vec::with_capacity(wikilinks.len());
     patterns.extend(wikilinks.iter().map(|w| w.display_text.as_str()));
 
-    let ac = AhoCorasickBuilder::new()
+    let automaton = AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .match_kind(MatchKind::LeftmostLongest)
         .build(&patterns)
         .expect("Failed to build Aho-Corasick automaton for wikilinks");
 
-    (wikilinks, ac)
+    (wikilinks, automaton)
 }
 
 pub fn format_relative_path(path: &Path, base_path: &Path) -> String {

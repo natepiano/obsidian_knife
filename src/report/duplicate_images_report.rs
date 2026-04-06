@@ -87,7 +87,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         let config = config.expect(CONFIG_EXPECT);
         let keeper = items
             .iter()
-            .find(|img| matches!(img.image_state, ImageFileState::DuplicateKeeper { .. }));
+            .find(|img| matches!(img.state, ImageFileState::DuplicateKeeper { .. }));
 
         let mut rows = Vec::new();
         for image in items {
@@ -95,7 +95,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
             let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
             let image_link = format!("[[{filename}]]");
 
-            let (image_type, action, base_reference_update) = match &image.image_state {
+            let (image_type, action, base_reference_update) = match &image.state {
                 ImageFileState::DuplicateKeeper { .. } => {
                     ("keeper", NO_CHANGE.to_string(), NO_CHANGE.to_string())
                 },
@@ -176,7 +176,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                         line_number,
                         position,
                         action.clone(),
-                        if matches!(image.image_state, ImageFileState::Duplicate { .. }) {
+                        if matches!(image.state, ImageFileState::Duplicate { .. }) {
                             base_reference_update.clone()
                         } else {
                             String::new()
@@ -228,7 +228,7 @@ impl ObsidianRepository {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
         for img in duplicates {
-            if let ImageFileState::Duplicate { hash } = &img.image_state {
+            if let ImageFileState::Duplicate { hash } = &img.state {
                 grouped_by_hash.entry(hash.clone()).or_default().push(img);
             }
         }
@@ -238,7 +238,7 @@ impl ObsidianRepository {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
         for img in keepers {
-            if let ImageFileState::DuplicateKeeper { hash } = &img.image_state {
+            if let ImageFileState::DuplicateKeeper { hash } = &img.state {
                 grouped_by_hash.entry(hash.clone()).or_default().push(img);
             }
         }
@@ -247,7 +247,7 @@ impl ObsidianRepository {
         for (hash, images) in grouped_by_hash {
             // Check if this group has any deletable duplicates
             if images.iter().any(|img| {
-                matches!(img.image_state, ImageFileState::Duplicate { .. })
+                matches!(img.state, ImageFileState::Duplicate { .. })
                     && img.deletion == DeletionStatus::Delete
             }) {
                 if !header_written {

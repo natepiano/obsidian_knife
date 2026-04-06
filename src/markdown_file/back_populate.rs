@@ -18,7 +18,7 @@ impl MarkdownFile {
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,
-        ac: &AhoCorasick,
+        automaton: &AhoCorasick,
     ) {
         let content = self.content.clone();
         let mut code_block_tracker = CodeBlockExcluder::new();
@@ -39,7 +39,7 @@ impl MarkdownFile {
             let matches = self.process_line_for_back_populate_replacements(
                 line,
                 line_idx,
-                ac,
+                automaton,
                 sorted_wikilinks,
                 config,
             );
@@ -53,7 +53,7 @@ impl MarkdownFile {
         &self,
         line: &str,
         line_idx: usize,
-        ac: &AhoCorasick,
+        automaton: &AhoCorasick,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,
     ) -> Vec<BackPopulateMatch> {
@@ -61,7 +61,7 @@ impl MarkdownFile {
         let exclusion_zones = self.collect_exclusion_zones(line, config);
 
         // Collect all valid matches
-        for mat in ac.find_iter(line) {
+        for mat in automaton.find_iter(line) {
             let wikilink = sorted_wikilinks[mat.pattern()];
             let starts_at = mat.start();
             let ends_at = mat.end();

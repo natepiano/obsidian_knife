@@ -113,7 +113,7 @@ fn test_create_image_file() {
         assert_eq!(image_file.hash, image_hash);
         assert_eq!(image_file.size, fs::metadata(&path).unwrap().len());
         assert_eq!(image_file.file_type, expected_type);
-        assert_eq!(image_file.image_state, expected_state);
+        assert_eq!(image_file.state, expected_state);
     }
 }
 
@@ -132,7 +132,7 @@ fn test_incompatible_states() {
         DuplicateRole::NotDuplicate,
     );
     assert!(matches!(
-        tiff_image.image_state,
+        tiff_image.state,
         ImageFileState::Incompatible {
             reason: IncompatibilityReason::TiffFormat,
         }
@@ -149,7 +149,7 @@ fn test_incompatible_states() {
         DuplicateRole::NotDuplicate,
     );
     assert!(matches!(
-        zero_byte_image.image_state,
+        zero_byte_image.state,
         ImageFileState::Incompatible {
             reason: IncompatibilityReason::ZeroByte,
         }
@@ -170,7 +170,7 @@ fn test_reference_state_determination() {
         vec![],
         DuplicateRole::NotDuplicate,
     );
-    assert_eq!(unreferenced.image_state, ImageFileState::Unreferenced);
+    assert_eq!(unreferenced.state, ImageFileState::Unreferenced);
 
     // Test with references
     let referenced = ImageFile::new(
@@ -179,7 +179,7 @@ fn test_reference_state_determination() {
         vec![PathBuf::from("note.md")], // Use Vec<PathBuf>
         DuplicateRole::NotDuplicate,
     );
-    assert_eq!(referenced.image_state, ImageFileState::Valid);
+    assert_eq!(referenced.state, ImageFileState::Valid);
 }
 
 #[test]

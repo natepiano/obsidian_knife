@@ -53,7 +53,7 @@ impl MarkdownFiles {
         &mut self,
         config: &ValidatedConfig,
         sorted_wikilinks: &[&Wikilink],
-        ac: &AhoCorasick,
+        automaton: &AhoCorasick,
     ) {
         // this use of rayon generally makes it go about 100ms faster
         self.par_iter_mut().for_each(|markdown_file| {
@@ -64,7 +64,11 @@ impl MarkdownFiles {
                 return;
             }
 
-            markdown_file.process_file_for_back_populate_replacements(sorted_wikilinks, config, ac);
+            markdown_file.process_file_for_back_populate_replacements(
+                sorted_wikilinks,
+                config,
+                automaton,
+            );
         });
     }
 

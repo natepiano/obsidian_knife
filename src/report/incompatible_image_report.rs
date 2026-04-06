@@ -64,7 +64,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
 
         let mut rows = Vec::new();
         for image in items {
-            let ImageFileState::Incompatible { reason } = &image.image_state else {
+            let ImageFileState::Incompatible { reason } = &image.state else {
                 // items are pre-filtered to incompatible images; skip if invariant is violated
                 debug_assert!(false, "Only incompatible images should be in this report");
                 continue;
@@ -137,10 +137,10 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
 
     fn description(&self, items: &[Self::Item]) -> String {
         let tiff_count = items.iter().filter(|i| {
-            matches!(&i.image_state, ImageFileState::Incompatible { reason } if matches!(reason, IncompatibilityReason::TiffFormat))
+            matches!(&i.state, ImageFileState::Incompatible { reason } if matches!(reason, IncompatibilityReason::TiffFormat))
         }).count();
         let zero_byte_count = items.iter().filter(|i| {
-            matches!(&i.image_state, ImageFileState::Incompatible { reason } if matches!(reason, IncompatibilityReason::ZeroByte))
+            matches!(&i.state, ImageFileState::Incompatible { reason } if matches!(reason, IncompatibilityReason::ZeroByte))
         }).count();
 
         DescriptionBuilder::new()

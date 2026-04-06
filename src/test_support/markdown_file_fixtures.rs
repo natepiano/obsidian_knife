@@ -68,7 +68,7 @@ pub fn create_test_environment(
         }];
     }
 
-    repository.wikilinks_ac = Some(build_aho_corasick(&repository.wikilinks_sorted));
+    repository.wikilinks_automaton = Some(build_aho_corasick(&repository.wikilinks_sorted));
 
     (temp_dir, config, repository)
 }

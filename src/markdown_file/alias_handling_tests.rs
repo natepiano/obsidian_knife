@@ -67,7 +67,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
     repository.wikilinks_sorted.clear();
     repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_ac = Some(test_support::build_aho_corasick(
+    repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
         &repository.wikilinks_sorted,
     ));
 
@@ -129,7 +129,7 @@ fn test_no_self_referential_back_population() {
 
     repository.wikilinks_sorted.clear();
     repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_ac = Some(test_support::build_aho_corasick(
+    repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
         &repository.wikilinks_sorted,
     ));
 

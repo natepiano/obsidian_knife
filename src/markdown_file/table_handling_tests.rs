@@ -98,7 +98,7 @@ fn test_process_line_table_escaping_combined() {
     // Compile the wikilinks
     let sorted_wikilinks = &repository.wikilinks_sorted;
 
-    let ac = test_support::build_aho_corasick(sorted_wikilinks);
+    let automaton = test_support::build_aho_corasick(sorted_wikilinks);
 
     let markdown_info = repository.markdown_files.first().unwrap();
 
@@ -150,7 +150,7 @@ fn test_process_line_table_escaping_combined() {
         let matches = markdown_info.process_line_for_back_populate_replacements(
             line,
             0,
-            &ac,
+            &automaton,
             &wikilink_refs,
             &config,
         );

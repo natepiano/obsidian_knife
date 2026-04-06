@@ -159,7 +159,7 @@ fn test_case_sensitivity_behavior() {
 
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;
-        let ac = test_support::build_aho_corasick(std::slice::from_ref(&wikilink));
+        let automaton = test_support::build_aho_corasick(std::slice::from_ref(&wikilink));
 
         let markdown_info =
             MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();
@@ -167,7 +167,7 @@ fn test_case_sensitivity_behavior() {
         let matches = markdown_info.process_line_for_back_populate_replacements(
             case.content,
             0,
-            &ac,
+            &automaton,
             &[&wikilink],
             &config,
         );
