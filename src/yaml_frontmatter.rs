@@ -56,7 +56,7 @@ macro_rules! yaml_frontmatter_struct {
 
 /// Error types specific to YAML frontmatter handling
 #[derive(Debug, Clone)]
-pub enum YamlFrontMatterError {
+pub(crate) enum YamlFrontMatterError {
     /// there are two lines with --- at the start, but nothing is there
     Empty,
     /// No YAML frontmatter section found (no opening ---)
@@ -100,7 +100,7 @@ impl std::fmt::Display for YamlFrontMatterError {
 impl Error for YamlFrontMatterError {}
 
 /// Trait for types that can be serialized to and deserialized from YAML frontmatter
-pub trait YamlFrontMatter: DeserializeOwned + Serialize {
+pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
     /// Creates an instance from a YAML string
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
         serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
@@ -154,7 +154,9 @@ pub trait YamlFrontMatter: DeserializeOwned + Serialize {
     }
 }
 
-pub fn find_yaml_section(content: &str) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
+pub(crate) fn find_yaml_section(
+    content: &str,
+) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
     if !content.starts_with("---\n") {
         return Err(YamlFrontMatterError::Missing); // No YAML section found
     }

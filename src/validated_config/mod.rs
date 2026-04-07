@@ -22,14 +22,14 @@ use crate::constants::OPENING_WIKILINK;
 use crate::utils;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum ChangeMode {
+pub(crate) enum ChangeMode {
     #[default]
     DryRun,
     Apply,
 }
 
 #[derive(Error, Debug)]
-pub enum ValidationError {
+pub(crate) enum ValidationError {
     #[error("Empty back populate file filter")]
     EmptyBackPopulateFileFilter,
     #[error("Empty output folder")]
@@ -60,7 +60,7 @@ impl From<UninitializedFieldError> for ValidationError {
         validate = "ValidatedConfigBuilder::validate"
     )
 )]
-pub struct ValidatedConfig {
+pub(crate) struct ValidatedConfig {
     #[builder(default)]
     change_mode:                  ChangeMode,
     #[builder(default)]
@@ -130,7 +130,7 @@ impl ValidatedConfigBuilder {
         Ok(())
     }
 
-    pub fn do_not_back_populate(&mut self, val: Option<Vec<String>>) -> &mut Self {
+    pub(crate) fn do_not_back_populate(&mut self, val: Option<Vec<String>>) -> &mut Self {
         if let Some(patterns) = val {
             let validated: Vec<String> = patterns
                 .iter()
@@ -178,7 +178,7 @@ impl ValidatedConfigBuilder {
             .unwrap_or_default()
     }
 
-    pub fn output_folder(&mut self, val: PathBuf) -> &mut Self {
+    pub(crate) fn output_folder(&mut self, val: PathBuf) -> &mut Self {
         // Handle empty path case
         if let Some(obsidian_path) = &self.obsidian_path
             && let Ok(relative) = val.strip_prefix(obsidian_path)
@@ -198,7 +198,7 @@ impl ValidatedConfigBuilder {
         self
     }
 
-    pub fn ignore_folders(&mut self, val: Option<Vec<PathBuf>>) -> &mut Self {
+    pub(crate) fn ignore_folders(&mut self, val: Option<Vec<PathBuf>>) -> &mut Self {
         let mut folders = val.unwrap_or_default();
         let obsidian_folder = PathBuf::from(".obsidian");
 
@@ -212,18 +212,16 @@ impl ValidatedConfigBuilder {
 }
 
 impl ValidatedConfig {
-    pub const fn change_mode(&self) -> ChangeMode { self.change_mode }
-
-    pub const fn apply_changes(&self) -> bool {
+    pub(crate) const fn apply_changes(&self) -> bool {
         match self.change_mode {
             ChangeMode::Apply => true,
             ChangeMode::DryRun => false,
         }
     }
 
-    pub const fn file_limit(&self) -> Option<usize> { self.file_limit }
+    pub(crate) const fn file_limit(&self) -> Option<usize> { self.file_limit }
 
-    pub fn back_populate_file_filter(&self) -> Option<String> {
+    pub(crate) fn back_populate_file_filter(&self) -> Option<String> {
         self.back_populate_file_filter.as_ref().map(|filter| {
             // If it's a wikilink, extract the inner text
             let filter_text =
@@ -245,15 +243,15 @@ impl ValidatedConfig {
     #[cfg(test)]
     pub fn do_not_back_populate(&self) -> Option<&[String]> { self.do_not_back_populate.as_deref() }
 
-    pub fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
+    pub(crate) fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
         self.do_not_back_populate_regexes.as_deref()
     }
 
-    pub fn ignore_folders(&self) -> Option<&[PathBuf]> { self.ignore_folders.as_deref() }
+    pub(crate) fn ignore_folders(&self) -> Option<&[PathBuf]> { self.ignore_folders.as_deref() }
 
-    pub fn obsidian_path(&self) -> &Path { &self.obsidian_path }
+    pub(crate) fn obsidian_path(&self) -> &Path { &self.obsidian_path }
 
-    pub fn operational_timezone(&self) -> &str { &self.operational_timezone }
+    pub(crate) fn operational_timezone(&self) -> &str { &self.operational_timezone }
 
-    pub fn output_folder(&self) -> &Path { &self.output_folder }
+    pub(crate) fn output_folder(&self) -> &Path { &self.output_folder }
 }

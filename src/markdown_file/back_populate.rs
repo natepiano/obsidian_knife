@@ -14,7 +14,7 @@ use crate::wikilink::ToWikilink;
 use crate::wikilink::Wikilink;
 
 impl MarkdownFile {
-    pub fn process_file_for_back_populate_replacements(
+    pub(crate) fn process_file_for_back_populate_replacements(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,

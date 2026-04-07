@@ -13,7 +13,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
 #[derive(Debug, Default, Deref, DerefMut, IntoIterator)]
-pub struct MarkdownFiles {
+pub(crate) struct MarkdownFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
@@ -45,11 +45,12 @@ impl<'a> IntoIterator for &'a mut MarkdownFiles {
 }
 
 impl MarkdownFiles {
-    pub const fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
+    #[cfg(test)]
+    pub(crate) const fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
         Self { files, file_limit }
     }
 
-    pub fn process_files_for_back_populate_matches(
+    pub(crate) fn process_files_for_back_populate_matches(
         &mut self,
         config: &ValidatedConfig,
         sorted_wikilinks: &[&Wikilink],
@@ -72,20 +73,20 @@ impl MarkdownFiles {
         });
     }
 
-    pub fn unambiguous_matches(&self) -> Vec<BackPopulateMatch> {
+    pub(crate) fn unambiguous_matches(&self) -> Vec<BackPopulateMatch> {
         self.iter()
             .flat_map(|file| file.matches.unambiguous.clone())
             .collect()
     }
 
-    pub fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub(crate) fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         for file_info in &self.files {
             file_info.persist()?;
         }
         Ok(())
     }
 
-    pub fn total_files_to_persist(&self) -> usize {
+    pub(crate) fn total_files_to_persist(&self) -> usize {
         self.iter()
             .filter(|file_info| {
                 file_info
@@ -96,7 +97,7 @@ impl MarkdownFiles {
             .count()
     }
 
-    pub fn files_to_persist(&self) -> Self {
+    pub(crate) fn files_to_persist(&self) -> Self {
         let mut files_to_persist: Vec<MarkdownFile> = self
             .iter()
             .filter(|file_info| {

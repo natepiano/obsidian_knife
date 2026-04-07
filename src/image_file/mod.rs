@@ -24,7 +24,7 @@ pub use self::image_file_types::IncompatibilityReason;
 use crate::utils::EnumFilter;
 
 #[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub struct ImageFiles {
+pub(crate) struct ImageFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
@@ -40,7 +40,7 @@ impl FromIterator<ImageFile> for ImageFiles {
 }
 
 impl ImageFiles {
-    pub fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub(crate) fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.files
             .iter()
             .filter(|file| file.deletion == DeletionStatus::Delete)
@@ -51,7 +51,7 @@ impl ImageFiles {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct ImageFile {
+pub(crate) struct ImageFile {
     pub deletion:                 DeletionStatus,
     pub file_type:                ImageFileType,
     pub hash:                     ImageHash,
@@ -72,7 +72,7 @@ impl ImageFile {
         clippy::expect_used,
         reason = "path existence is validated before ImageFile construction"
     )]
-    pub fn new(
+    pub(crate) fn new(
         path: PathBuf,
         hash: ImageHash,
         markdown_file_references: Vec<PathBuf>,

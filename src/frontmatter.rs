@@ -10,7 +10,7 @@ use crate::yaml_frontmatter_struct;
 // when we set `date_created_fix` to `None` it won't serialize - cool
 // the macro adds support for serializing any fields not explicitly named
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub enum PersistState {
+pub(crate) enum PersistState {
     #[default]
     Clean,
     Modified,
@@ -18,36 +18,36 @@ pub enum PersistState {
 
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize)]
-    pub struct FrontMatter {
+    pub(crate) struct FrontMatter {
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub aliases: Option<Vec<String>>,
+        pub(crate) aliases: Option<Vec<String>>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub date_created: Option<String>,
+        pub(crate) date_created: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub date_created_fix: Option<String>,
+        pub(crate) date_created_fix: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub date_modified: Option<String>,
+        pub(crate) date_modified: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
-        pub do_not_back_populate: Option<Vec<String>>,
+        pub(crate) do_not_back_populate: Option<Vec<String>>,
         #[serde(skip)]
-        pub persist_state: PersistState,
+        pub(crate) persist_state: PersistState,
         #[serde(skip)]
-        pub raw_date_created: Option<DateTime<Utc>>,
+        pub(crate) raw_date_created: Option<DateTime<Utc>>,
         #[serde(skip)]
-        pub raw_date_modified: Option<DateTime<Utc>>,
+        pub(crate) raw_date_modified: Option<DateTime<Utc>>,
     }
 }
 
 impl FrontMatter {
-    pub fn aliases(&self) -> Option<&[String]> { self.aliases.as_deref() }
+    pub(crate) fn aliases(&self) -> Option<&[String]> { self.aliases.as_deref() }
 
-    pub fn date_created(&self) -> Option<&str> { self.date_created.as_deref() }
+    pub(crate) fn date_created(&self) -> Option<&str> { self.date_created.as_deref() }
 
-    pub fn date_modified(&self) -> Option<&str> { self.date_modified.as_deref() }
+    pub(crate) fn date_modified(&self) -> Option<&str> { self.date_modified.as_deref() }
 
-    pub fn date_created_fix(&self) -> Option<&str> { self.date_created_fix.as_deref() }
+    pub(crate) fn date_created_fix(&self) -> Option<&str> { self.date_created_fix.as_deref() }
 
-    pub fn remove_date_created_fix(&mut self) {
+    pub(crate) fn remove_date_created_fix(&mut self) {
         // setting it to None will cause it to skip serialization
         self.date_created_fix = None;
     }
@@ -56,7 +56,7 @@ impl FrontMatter {
     // if we're changing the create date it's possible no change will be happening otherwise
     // in this case we still need to update the modify date so make sure we set it if it's
     // not already set
-    pub fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
+    pub(crate) fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&tz);
         self.raw_date_created = Some(date);
@@ -73,12 +73,12 @@ impl FrontMatter {
     // so that we then will persist it with an updated `date_modified` to match the file
     // `date_modified` date and this is also the sentinel for doing the persist operation at the
     // end of processing
-    pub fn set_date_modified_now(&mut self, operational_timezone: &str) {
+    pub(crate) fn set_date_modified_now(&mut self, operational_timezone: &str) {
         self.set_date_modified(Utc::now(), operational_timezone);
     }
 
     // we use this when `set_date_modified` is missing
-    pub fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
+    pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&tz);
         self.raw_date_modified = Some(date);
@@ -86,9 +86,9 @@ impl FrontMatter {
         self.persist_state = PersistState::Modified;
     }
 
-    pub fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
+    pub(crate) fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
 
-    pub fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
+    pub(crate) fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
         // first get `do_not_back_populate` explicit value
         let mut do_not_populate = self.do_not_back_populate.clone().unwrap_or_default();
 

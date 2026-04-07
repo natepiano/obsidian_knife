@@ -9,6 +9,7 @@ mod test_support;
 
 mod config;
 mod constants;
+mod description_builder;
 mod frontmatter;
 mod image_file;
 mod markdown_file;

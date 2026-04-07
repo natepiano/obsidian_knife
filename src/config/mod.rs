@@ -45,14 +45,14 @@ yaml_frontmatter_struct! {
 }
 
 impl Config {
-    pub fn from_frontmatter(
+    pub(crate) fn from_frontmatter(
         frontmatter: &FrontMatter,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
         let yaml_str = frontmatter.to_yaml_str()?;
         Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
     }
 
-    pub fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
+    pub(crate) fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         ValidatedConfigBuilder::default()
             .change_mode(if self.apply_changes.unwrap_or(false) {
                 ChangeMode::Apply

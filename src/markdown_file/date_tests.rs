@@ -4,7 +4,11 @@ use chrono::TimeZone;
 use chrono::Utc;
 use tempfile::TempDir;
 
-use super::*;
+use super::DateValidation;
+use super::PersistReason;
+use super::date_validation;
+use super::markdown_file_types::DateCreatedFixValidation;
+use super::markdown_file_types::DateValidationIssue;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::test_support as test_utils;
@@ -203,7 +207,7 @@ fn test_process_date_validations() {
         let created_validation = DateValidation {
             frontmatter_date:     case.date_created.clone(), // Add clone here
             file_system_date:     case.file_system_create_date,
-            issue:                get_date_validation_issue(
+            issue:                date_validation::get_date_validation_issue(
                 case.date_created.as_deref(),
                 &case.file_system_create_date,
                 DEFAULT_TIMEZONE,
@@ -214,7 +218,7 @@ fn test_process_date_validations() {
         let modified_validation = DateValidation {
             frontmatter_date:     case.date_modified.clone(), // Add clone here
             file_system_date:     case.file_system_mod_date,
-            issue:                get_date_validation_issue(
+            issue:                date_validation::get_date_validation_issue(
                 case.date_modified.as_deref(),
                 &case.file_system_mod_date,
                 DEFAULT_TIMEZONE,
@@ -223,7 +227,7 @@ fn test_process_date_validations() {
         };
 
         // Process validations
-        process_date_validations(
+        date_validation::process_date_validations(
             &mut frontmatter,
             &created_validation,
             &modified_validation,
@@ -415,7 +419,7 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
 
         let fm = create_frontmatter(case.date_modified.as_ref(), case.date_created.as_ref());
         let (created_validation, modified_validation) =
-            get_date_validations(Some(&fm), &file_path, timezone).unwrap();
+            date_validation::get_date_validations(Some(&fm), &file_path, timezone).unwrap();
 
         test_utils::assert_test_case(
             created_validation.issue,

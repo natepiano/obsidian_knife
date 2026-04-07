@@ -6,14 +6,14 @@ use itertools::Itertools;
 
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
-use crate::constants::DescriptionBuilder;
 use crate::constants::FOUND;
 use crate::constants::IN;
 use crate::constants::INVALID;
 use crate::constants::INVALID_WIKILINKS;
 use crate::constants::LEVEL2;
-use crate::constants::Phrase;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
+use crate::description_builder::DescriptionBuilder;
+use crate::description_builder::Phrase;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils;
 use crate::utils::ColumnAlignment;
