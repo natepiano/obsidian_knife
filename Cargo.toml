@@ -13,9 +13,7 @@ categories = ["command-line-utilities"]
 name = "ok"
 path = "src/main.rs"
 
-[workspace]
-
-[workspace.dependencies]
+[dependencies]
 aho-corasick = "1.1.4"
 chrono = "0.4.44"
 chrono-tz = "0.10.4"
@@ -33,29 +31,12 @@ serde = { version = "1.0.228", features = ["derive"] }
 serde_json = "1.0.149"
 serde_yaml = "~0.9.34"
 sha2 = "0.11.0"
-tempfile = "3.27.0"
 thiserror = "2.0.18"
 
-[dependencies]
-aho-corasick = { workspace = true }
-chrono = { workspace = true }
-chrono-tz = { workspace = true }
-derive_builder = { workspace = true }
-derive_more = { workspace = true }
-filetime = { workspace = true }
-itertools = { workspace = true }
-rayon = { workspace = true }
-regex = { workspace = true }
-serde = { workspace = true }
-serde_json = { workspace = true }
-serde_yaml = { workspace = true }
-sha2 = { workspace = true }
-thiserror = { workspace = true }
-
 [dev-dependencies]
-tempfile = { workspace = true }
+tempfile = "3.27.0"
 
-[workspace.lints.clippy]
+[lints.clippy]
 allow_attributes_without_reason = "deny"
 expect_used = "deny"
 panic = "deny"
@@ -69,9 +50,6 @@ pedantic = { level = "deny", priority = -1 }
 
 multiple_crate_versions = "allow"
 redundant_pub_crate = "allow"     # cargo mend is the visibility authority, not clippy
-
-[lints]
-workspace = true
 
 [profile.dev.package."*"]
 opt-level = 3
