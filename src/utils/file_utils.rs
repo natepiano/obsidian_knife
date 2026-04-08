@@ -47,7 +47,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
             return PathBuf::from(home).join(stripped);
         }
     } else {
-        // Handle invalid UTF-8 paths (OsStr -> PathBuf without assuming valid UTF-8)
+        // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
         let mut components = path.components();
         if let Some(std::path::Component::Normal(first)) = components.next()
             && first == "~"

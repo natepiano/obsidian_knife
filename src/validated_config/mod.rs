@@ -18,6 +18,7 @@ use thiserror::Error;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OBSIDIAN_FOLDER;
 use crate::constants::OPENING_WIKILINK;
 use crate::utils;
 
@@ -200,7 +201,7 @@ impl ValidatedConfigBuilder {
 
     pub(crate) fn ignore_folders(&mut self, val: Option<Vec<PathBuf>>) -> &mut Self {
         let mut folders = val.unwrap_or_default();
-        let obsidian_folder = PathBuf::from(".obsidian");
+        let obsidian_folder = PathBuf::from(OBSIDIAN_FOLDER);
 
         if !folders.contains(&obsidian_folder) {
             folders.push(obsidian_folder);

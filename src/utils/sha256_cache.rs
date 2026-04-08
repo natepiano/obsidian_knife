@@ -117,7 +117,7 @@ impl Sha256Cache {
             .cache
             .keys() // Iterate over all paths in cache
             .filter(|path| !valid_paths.contains(path.as_path())) // Keep only paths NOT in valid_paths
-            .cloned() // Clone the PathBufs we want to remove
+            .cloned() // Clone the `PathBuf`s we want to remove
             .collect(); // Collect into Vec
 
         self.files_deleted = to_remove.len();

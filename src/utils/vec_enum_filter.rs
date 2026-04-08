@@ -5,7 +5,7 @@ pub trait EnumFilter {
     fn as_enum(&self) -> &Self::EnumType;
 }
 
-// Trait that automatically implements filter_by_variant for any type that Derefs to Vec<T>
+// Trait that automatically implements `filter_by_variant` for any type that `Deref`s to `Vec<T>`
 pub trait VecEnumFilter<T>
 where
     T: EnumFilter + Clone,
@@ -33,9 +33,9 @@ where
     }
 }
 
-// Blanket implementation for any type that Derefs to Vec<T>
-// anything has items that implement EnumFilter and Deref to a Vec of those items
-// will get filter_by_variant automatically
+// Blanket implementation for any type that `Deref`s to `Vec<T>`
+// anything has items that implement `EnumFilter` and `Deref` to a `Vec` of those items
+// will get `filter_by_variant` automatically
 impl<S, T> VecEnumFilter<T> for S
 where
     T: EnumFilter + Clone,

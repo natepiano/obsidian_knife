@@ -214,22 +214,21 @@ impl ObsidianRepository {
                 .unwrap_or_default()
                 .to_str()
                 .unwrap_or_default();
-            if let ImageFileState::Duplicate { hash } = &duplicate.state {
-                // Find the keeper with matching hash
-                if let Some(keeper) = keepers.iter().find(|k| {
+            if let ImageFileState::Duplicate { hash } = &duplicate.state
+                && let Some(keeper) = keepers.iter().find(|k| {
                     matches!(&k.state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
-                }) {
-                    // Update `ImageLink` states in markdown files
-                    for markdown_file in &mut self.markdown_files {
-                        if let Some(image_link) = markdown_file
-                            .image_links
-                            .iter_mut()
-                            .find(|link| link.filename == duplicate_file_name)
-                        {
-                            image_link.state = ImageLinkState::Duplicate {
-                                keeper_path: keeper.path.clone(),
-                            };
-                        }
+                })
+            {
+                // Update `ImageLink` states in markdown files
+                for markdown_file in &mut self.markdown_files {
+                    if let Some(image_link) = markdown_file
+                        .image_links
+                        .iter_mut()
+                        .find(|link| link.filename == duplicate_file_name)
+                    {
+                        image_link.state = ImageLinkState::Duplicate {
+                            keeper_path: keeper.path.clone(),
+                        };
                     }
                 }
             }

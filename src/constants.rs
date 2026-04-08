@@ -11,6 +11,9 @@ pub(crate) const ERROR_NOT_FOUND: &str = "file not found: ";
 pub(crate) const ERROR_READING: &str = "error reading config file ";
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
+// Folders
+pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
+
 // Files and extensions
 pub(crate) const DS_STORE: &str = ".DS_Store";
 pub(crate) const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];

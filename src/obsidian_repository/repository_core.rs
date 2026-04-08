@@ -68,7 +68,7 @@ impl ObsidianRepository {
         timezone: &str,
         file_limit: Option<usize>,
     ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
-        // Use Arc<Mutex<...>> for safe shared collection
+        // Use `Arc<Mutex<...>>` for safe shared collection
         let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
 
         markdown_paths.par_iter().try_for_each(|file_path| {
@@ -84,7 +84,7 @@ impl ObsidianRepository {
             }
         })?;
 
-        // Extract data from Arc<Mutex<...>>
+        // Extract data from `Arc<Mutex<...>>`
         let mut markdown_files = Arc::try_unwrap(markdown_files)
             .unwrap()
             .into_inner()
