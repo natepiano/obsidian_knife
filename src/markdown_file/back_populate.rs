@@ -1,6 +1,6 @@
 use aho_corasick::AhoCorasick;
 
-use super::markdown_file_core::MarkdownFile;
+use super::MarkdownFile;
 use super::markdown_file_types::BackPopulateMatch;
 use super::markdown_file_types::MatchContext;
 use super::match_helpers;
@@ -14,7 +14,7 @@ use crate::wikilink::ToWikilink;
 use crate::wikilink::Wikilink;
 
 impl MarkdownFile {
-    pub(crate) fn process_file_for_back_populate_replacements(
+    pub(super) fn process_file_for_back_populate_replacements_inner(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
         config: &ValidatedConfig,

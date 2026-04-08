@@ -88,6 +88,7 @@ impl DateValidation {
 // In markdown_file.rs
 #[derive(Debug, Default, Clone)]
 pub struct DateCreatedFixValidation {
+    #[cfg(test)]
     pub date_string: Option<String>,
     pub fix_date:    Option<DateTime<Utc>>,
 }
@@ -139,8 +140,9 @@ impl DateCreatedFixValidation {
         });
 
         Self {
-            date_string: fix_str,
-            fix_date:    parsed_date,
+            #[cfg(test)]
+            date_string:              fix_str,
+            fix_date:                 parsed_date,
         }
     }
 }
