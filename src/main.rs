@@ -42,6 +42,7 @@ use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::Timer;
 use crate::yaml_frontmatter::YamlFrontMatter;
+use crate::yaml_frontmatter::YamlFrontMatterError;
 
 // Custom error type for main specific errors
 #[derive(Debug)]
@@ -66,7 +67,10 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
         Config::from_frontmatter(frontmatter)?
     } else {
-        return Err("Config file must have frontmatter".into());
+        return Err(markdown_file
+            .frontmatter_error
+            .unwrap_or(YamlFrontMatterError::Missing)
+            .into());
     };
 
     let validated_config = config.validate()?;

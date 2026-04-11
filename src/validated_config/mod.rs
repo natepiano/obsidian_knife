@@ -242,7 +242,9 @@ impl ValidatedConfig {
     }
 
     #[cfg(test)]
-    pub fn do_not_back_populate(&self) -> Option<&[String]> { self.do_not_back_populate.as_deref() }
+    pub(crate) fn do_not_back_populate(&self) -> Option<&[String]> {
+        self.do_not_back_populate.as_deref()
+    }
 
     pub(crate) fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
         self.do_not_back_populate_regexes.as_deref()

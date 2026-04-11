@@ -267,8 +267,7 @@ impl WikilinkState {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: "[[]]".to_string(),
                         reason:  InvalidWikilinkReason::EmptyWikilink,
-                        // span: (start_pos.checked_sub(2).unwrap_or(0), end_pos),
-                        span:    (start_pos.saturating_sub(2), end_pos),
+                        span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
@@ -289,7 +288,7 @@ impl WikilinkState {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: format!("[[{target}|{content}]]"),
                         reason:  InvalidWikilinkReason::EmptyWikilink,
-                        span:    (start_pos.saturating_sub(2), end_pos),
+                        span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
                 } else {
                     WikilinkParseResult::Valid(Wikilink {
@@ -416,8 +415,8 @@ pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     static WIKILINK_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[.*?\]\]").unwrap());
 
     for mat in WIKILINK_FINDER.find_iter(line) {
-        let content_start = mat.start() + 2; // Start of link content, after "[["
-        let content_end = mat.end() - 2; // End of link content, before "\]\]"
+        let content_start = mat.start() + OPENING_WIKILINK.len();
+        let content_end = mat.end() - CLOSING_WIKILINK.len();
 
         // Return true only if the byte_position falls within the link content
         if byte_position >= content_start && byte_position < content_end {

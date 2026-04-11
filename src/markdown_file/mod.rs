@@ -80,7 +80,6 @@ mod text_excluder;
 
 pub use markdown_file_types::BackPopulateMatch;
 pub use markdown_file_types::DateValidation;
-#[cfg(test)]
 pub use markdown_file_types::ImageLink;
 pub use markdown_file_types::ImageLinkState;
 pub use markdown_file_types::MatchContext;
@@ -194,7 +193,7 @@ impl MarkdownFile {
         let extracted_wikilinks = file_info.process_wikilinks();
         let image_links = file_info.process_image_links();
 
-        // Store results directly in self.
+        // Store results directly in `self`.
         file_info.wikilinks.invalid = extracted_wikilinks.invalid;
         file_info.wikilinks.valid = extracted_wikilinks.valid;
         file_info.image_links.links = image_links;
@@ -342,13 +341,13 @@ impl MarkdownFile {
         result
     }
 
-    fn process_image_links(&self) -> Vec<self::markdown_file_types::ImageLink> {
+    fn process_image_links(&self) -> Vec<ImageLink> {
         let mut image_links = Vec::new();
 
         for (line_idx, line) in self.content.lines().enumerate() {
             for capture in IMAGE_REGEX.captures_iter(line) {
                 if let Some(raw_image_link) = capture.get(0) {
-                    let image_link = self::markdown_file_types::ImageLink::new(
+                    let image_link = ImageLink::new(
                         raw_image_link.as_str().to_string(),
                         self.get_real_line_number(line_idx),
                         raw_image_link.start(),

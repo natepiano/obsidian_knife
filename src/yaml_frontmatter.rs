@@ -3,6 +3,11 @@ use std::error::Error;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 use serde_yaml::Value;
+
+use crate::constants::YAML_CLOSING_DELIMITER;
+use crate::constants::YAML_CLOSING_DELIMITER_EOF;
+use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+use crate::constants::YAML_OPENING_DELIMITER;
 /// this macro allows us to persist any extra fields not specifically implemented in
 /// a struct you want to deserialize into the yaml frontmatter of a markdown file
 ///
@@ -157,34 +162,37 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
 pub(crate) fn find_yaml_section(
     content: &str,
 ) -> Result<Option<(&str, &str)>, YamlFrontMatterError> {
-    if !content.starts_with("---\n") {
+    if !content.starts_with(YAML_OPENING_DELIMITER) {
         return Err(YamlFrontMatterError::Missing); // No YAML section found
     }
 
-    let after_start = &content[4..]; // Skip "---\n"
+    let after_start = &content[YAML_OPENING_DELIMITER.len()..];
 
     // Check for immediate closing delimiter for an empty YAML section
-    if after_start.starts_with("---\n") {
+    if after_start.starts_with(YAML_CLOSING_DELIMITER) {
         return Err(YamlFrontMatterError::Empty);
     }
 
     // Check for a closing delimiter followed by either `\n` or end of file
-    if let Some(end_index) = after_start.find("\n---\n").or_else(|| {
-        after_start
-            .find("\n---")
-            .filter(|&i| i + 4 == after_start.len())
-    }) {
+    if let Some(end_index) = after_start
+        .find(YAML_CLOSING_DELIMITER_NEWLINE)
+        .or_else(|| {
+            after_start
+                .find(YAML_CLOSING_DELIMITER_EOF)
+                .filter(|&i| i + YAML_CLOSING_DELIMITER_EOF.len() == after_start.len())
+        })
+    {
         let yaml_section = &after_start[..end_index].trim();
         if yaml_section.is_empty() {
             return Err(YamlFrontMatterError::Empty);
         }
 
-        // If `\n---\n` was found,d skip 5 characters; otherwise, skip only 4 for `\n---`
-        let after_yaml_start = if after_start[end_index..].starts_with("\n---\n") {
-            end_index + 5
-        } else {
-            end_index + 4
-        };
+        let after_yaml_start =
+            if after_start[end_index..].starts_with(YAML_CLOSING_DELIMITER_NEWLINE) {
+                end_index + YAML_CLOSING_DELIMITER_NEWLINE.len()
+            } else {
+                end_index + YAML_CLOSING_DELIMITER_EOF.len()
+            };
 
         let after_yaml = &after_start[after_yaml_start..];
         Ok(Some((yaml_section, after_yaml)))

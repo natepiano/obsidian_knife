@@ -25,6 +25,12 @@ pub(crate) const LEVEL1: &str = "#";
 pub(crate) const LEVEL2: &str = "##";
 pub(crate) const LEVEL3: &str = "###";
 
+// Frontmatter delimiters
+pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
+pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
+pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
+pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
+
 // Matching
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
 pub(crate) const FORWARD_SLASH: char = '/';

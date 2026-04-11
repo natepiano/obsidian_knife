@@ -14,7 +14,7 @@ use crate::wikilink::Wikilink;
 
 impl ObsidianRepository {
     pub fn identify_ambiguous_matches(&mut self) {
-        // Create target and display_text maps as before...
+        // Create `target` and `display_text` maps as before...
         let mut target_map: HashMap<String, String> = HashMap::new();
         for wikilink in &self.wikilinks_sorted {
             let lower_target = wikilink.target.to_lowercase();
