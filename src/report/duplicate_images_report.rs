@@ -14,6 +14,7 @@ use crate::constants::FILE;
 use crate::constants::FOUND;
 use crate::constants::IMAGE_FILE;
 use crate::constants::IMAGE_FILE_HASH;
+use crate::constants::KEEPER;
 use crate::constants::LEVEL2;
 use crate::constants::LEVEL3;
 use crate::constants::LINE;
@@ -97,7 +98,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
 
             let (image_type, action, base_reference_update) = match &image.state {
                 ImageFileState::DuplicateKeeper { .. } => {
-                    ("keeper", NO_CHANGE.to_string(), NO_CHANGE.to_string())
+                    (KEEPER, NO_CHANGE.to_string(), NO_CHANGE.to_string())
                 },
                 ImageFileState::Duplicate { .. } => {
                     let action = if config.apply_changes() {
@@ -118,9 +119,9 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
                         },
                     );
 
-                    ("duplicate", action, reference_update)
+                    (DUPLICATE, action, reference_update)
                 },
-                _ => ("unknown", UNKNOWN.to_string(), UNKNOWN.to_string()),
+                _ => (UNKNOWN, UNKNOWN.to_string(), UNKNOWN.to_string()),
             };
 
             if image.markdown_file_references.is_empty() {

@@ -68,7 +68,7 @@ pub struct RepositoryFiles {
     pub markdown_files: Vec<PathBuf>,
 }
 
-// using rayon (.into_par_iter()) and not using walkdir
+// using `rayon` (`.into_par_iter()`) and not using `walkdir`
 // takes this from 12ms down to 4ms
 #[allow(
     clippy::unwrap_used,

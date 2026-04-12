@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use super::report_writer::ReportDefinition;
@@ -9,8 +10,10 @@ use crate::constants::FILE;
 use crate::constants::INFO;
 use crate::constants::LEVEL1;
 use crate::constants::LEVEL2;
+use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::PATH;
 use crate::constants::REASON;
+use crate::constants::REPORT_CHUNK_SIZE;
 use crate::constants::UPDATE;
 use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
@@ -147,7 +150,7 @@ impl ObsidianRepository {
         writer.writeln(LEVEL1, "files to be updated")?;
         writer.writeln("", "")?;
 
-        for chunk in persist_data.chunks(500) {
+        for chunk in persist_data.chunks(REPORT_CHUNK_SIZE) {
             let table = PersistReasonsTable;
             let report = ReportWriter::new(chunk.to_vec());
             report.write(&table, writer)?;
@@ -165,13 +168,13 @@ impl ObsidianRepository {
             .strip_prefix(config.obsidian_path())
             .unwrap_or(&file.path)
             .to_string_lossy()
-            .trim_end_matches(".md")
+            .trim_end_matches(MARKDOWN_SUFFIX)
             .to_string();
 
         let file_name = file
             .path
             .file_stem()
-            .and_then(|f| f.to_str())
+            .and_then(OsStr::to_str)
             .unwrap_or_default();
 
         let parent_path = file

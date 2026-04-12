@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::path::Path;
 
 use super::report_writer::ReportDefinition;
@@ -66,7 +67,7 @@ impl ReportDefinition for BackPopulateTable {
 
         for m in consolidated {
             let file_path = Path::new(&m.file_path);
-            let file_stem = file_path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
+            let file_stem = file_path.file_stem().and_then(OsStr::to_str).unwrap_or("");
 
             for line_info in m.line_info {
                 let highlighted_line = super::orchestration::highlight_matches(
@@ -241,11 +242,11 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
     result.sort_by(|a, b| {
         let file_a = Path::new(&a.file_path)
             .file_stem()
-            .and_then(|s| s.to_str())
+            .and_then(OsStr::to_str)
             .unwrap_or("");
         let file_b = Path::new(&b.file_path)
             .file_stem()
-            .and_then(|s| s.to_str())
+            .and_then(OsStr::to_str)
             .unwrap_or("");
         file_a.cmp(file_b)
     });

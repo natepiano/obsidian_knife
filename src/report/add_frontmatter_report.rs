@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use super::report_writer::ReportDefinition;
@@ -32,7 +33,7 @@ impl ReportDefinition for AddFrontmatterTable {
                 vec![
                     file_path
                         .file_stem()
-                        .and_then(|s| s.to_str())
+                        .and_then(OsStr::to_str)
                         .unwrap_or("")
                         .to_wikilink(),
                 ]

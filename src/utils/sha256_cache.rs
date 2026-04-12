@@ -112,7 +112,7 @@ impl Sha256Cache {
     }
 
     pub fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
-        // Create vector of paths that exist in cache but not in valid_paths
+        // Create vector of paths that exist in cache but not in `valid_paths`
         let to_remove: Vec<_> = self
             .cache
             .keys() // Iterate over all paths in cache

@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fmt::Write;
 use std::path::Path;
 use std::path::PathBuf;
@@ -72,7 +73,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
             let file_path = Path::new(&file_path);
             let file_stem = file_path
                 .file_stem()
-                .and_then(|s| s.to_str())
+                .and_then(OsStr::to_str)
                 .unwrap_or_default();
 
             let highlighted_line = super::orchestration::highlight_matches(
@@ -189,7 +190,7 @@ impl ReportDefinition for TargetReferencesTable {
                 let file_stem = item
                     .file_path
                     .file_stem()
-                    .and_then(|s| s.to_str())
+                    .and_then(OsStr::to_str)
                     .unwrap_or_default();
 
                 vec![

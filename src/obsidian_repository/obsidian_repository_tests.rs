@@ -1,5 +1,6 @@
 use std::error::Error;
 use std::fs;
+use std::path::Path;
 use std::path::PathBuf;
 
 use tempfile::TempDir;
@@ -56,7 +57,7 @@ fn get_validated_config(temp_dir: &TempDir) -> ValidatedConfig {
         .unwrap()
 }
 
-pub fn find_image_file<'a>(files: &'a ImageFiles, path: &'a PathBuf) -> Option<&'a ImageFile> {
+pub fn find_image_file<'a>(files: &'a ImageFiles, path: &'a Path) -> Option<&'a ImageFile> {
     files.files.iter().find(|f| f.path == *path)
 }
 
@@ -77,7 +78,7 @@ fn test_new_handles_empty_repo() -> Result<(), Box<dyn Error + Send + Sync>> {
 fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> {
     fn assert_incompatible_state(
         files: &ImageFiles,
-        path: &PathBuf,
+        path: &Path,
         expected_reason: IncompatibilityReason,
         message: &str,
     ) {

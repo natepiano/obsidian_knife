@@ -26,10 +26,10 @@ pub(crate) const LEVEL2: &str = "##";
 pub(crate) const LEVEL3: &str = "###";
 
 // Frontmatter delimiters
-pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
-pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
+pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
+pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 
 // Matching
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
@@ -56,6 +56,7 @@ pub(crate) const TOTAL_TIME: &str = "total time";
 pub(crate) const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
 // Report image handling
+pub(crate) const REPORT_CHUNK_SIZE: usize = 500;
 pub(crate) const THUMBNAIL_WIDTH: usize = 50;
 
 // Report strings
@@ -80,11 +81,13 @@ pub(crate) const FRONTMATTER_ISSUES: &str = "frontmatter issues";
 pub(crate) const IMAGES: &str = "images";
 pub(crate) const IMAGE_FILE: &str = "image file";
 pub(crate) const IMAGE_FILE_HASH: &str = "image file hash";
+pub(crate) const INCOMPATIBLE_IMAGES: &str = "incompatible images";
 pub(crate) const IN: &str = "in";
-pub(crate) const IN_CHANGESET: &str = "in changeset";
 pub(crate) const INFO: &str = "info";
+pub(crate) const IN_CHANGESET: &str = "in changeset";
 pub(crate) const INVALID: &str = "invalid";
 pub(crate) const INVALID_WIKILINKS: &str = "invalid wikilinks";
+pub(crate) const KEEPER: &str = "keeper";
 pub(crate) const LINE: &str = "line";
 pub(crate) const MATCHES: &str = "matches";
 pub(crate) const MATCHES_AMBIGUOUS: &str = "ambiguous matches";

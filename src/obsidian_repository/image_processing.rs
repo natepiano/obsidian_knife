@@ -18,7 +18,7 @@ use crate::utils::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
 
 impl ObsidianRepository {
-    pub fn initialize_image_files(
+    pub(super) fn initialize_image_files(
         &self,
         image_files: &[PathBuf],
         validated_config: &ValidatedConfig,

@@ -17,10 +17,7 @@ use crate::yaml_frontmatter::YamlFrontMatter;
 
 // into_iter() consumes the array and yields owned values
 // filter_map filters out none values and unwraps Some values in one step
-fn create_frontmatter(
-    date_modified: Option<&String>,
-    date_created: Option<&String>,
-) -> FrontMatter {
+fn create_frontmatter(date_modified: Option<&str>, date_created: Option<&str>) -> FrontMatter {
     let yaml = [
         date_modified.map(|modified| format!("date_modified: \"{modified}\"")),
         date_created.map(|created| format!("date_created: \"{created}\"")),
@@ -199,8 +196,8 @@ fn test_process_date_validations() {
     for case in test_cases {
         // Create initial frontmatter
         let mut frontmatter = Some(create_frontmatter(
-            case.date_modified.as_ref(),
-            case.date_created.as_ref(),
+            case.date_modified.as_deref(),
+            case.date_created.as_deref(),
         ));
 
         // Get date validations
@@ -257,7 +254,7 @@ fn test_process_date_validations() {
         test_utils::assert_test_case(
             frontmatter
                 .as_ref()
-                .is_some_and(super::super::frontmatter::FrontMatter::needs_persist),
+                .is_some_and(crate::frontmatter::FrontMatter::needs_persist),
             case.should_persist,
             &format!("{} - needs persist flag", case.name),
             |actual, expected| assert_eq!(actual, expected),
@@ -417,7 +414,7 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
             .with_fs_dates(case.file_system_create_date, case.file_system_mod_date)
             .create(&temp_dir, "test.md");
 
-        let fm = create_frontmatter(case.date_modified.as_ref(), case.date_created.as_ref());
+        let fm = create_frontmatter(case.date_modified.as_deref(), case.date_created.as_deref());
         let (created_validation, modified_validation) =
             date_validation::get_date_validations(Some(&fm), &file_path, timezone).unwrap();
 

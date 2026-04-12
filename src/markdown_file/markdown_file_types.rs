@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fmt;
 use std::path::PathBuf;
 
@@ -281,7 +282,7 @@ impl ReplaceableContent for ImageLink {
             ImageLinkState::Duplicate { keeper_path } => {
                 let new_name = keeper_path
                     .file_name()
-                    .and_then(|n| n.to_str())
+                    .and_then(OsStr::to_str)
                     .unwrap_or_default();
                 let new_relative = format!("{}/{new_name}", self.relative_path);
 

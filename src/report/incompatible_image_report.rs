@@ -6,7 +6,9 @@ use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::CONFIG_EXPECT;
 use crate::constants::FILE;
+use crate::constants::FOUND;
 use crate::constants::IMAGE_FILE;
+use crate::constants::INCOMPATIBLE_IMAGES;
 use crate::constants::LEVEL2;
 use crate::constants::LINE;
 use crate::constants::NOT_REFERENCED;
@@ -133,7 +135,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         rows
     }
 
-    fn title(&self) -> Option<String> { Some("incompatible images".to_string()) }
+    fn title(&self) -> Option<String> { Some(INCOMPATIBLE_IMAGES.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
         let tiff_count = items.iter().filter(|i| {
@@ -144,16 +146,16 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         }).count();
 
         DescriptionBuilder::new()
-            .text("found")
+            .text(FOUND)
             .number(items.len())
             .text("incompatible")
             .pluralize(Phrase::Image(items.len()))
             .text("(")
             .number(tiff_count)
-            .text("TIFF")
+            .text(TIFF)
             .text("and")
             .number(zero_byte_count)
-            .text("zero-byte")
+            .text(ZERO_BYTE)
             .text(")")
             .build()
     }

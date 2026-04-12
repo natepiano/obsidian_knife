@@ -66,6 +66,7 @@ mod process_content_tests;
 mod table_handling_tests;
 
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 
@@ -298,7 +299,7 @@ impl MarkdownFile {
         let filename = self
             .path
             .file_name()
-            .and_then(|n| n.to_str())
+            .and_then(OsStr::to_str)
             .unwrap_or_default();
 
         let filename_wikilink = wikilink::create_filename_wikilink(filename);
