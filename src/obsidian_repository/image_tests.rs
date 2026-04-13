@@ -25,7 +25,6 @@ impl MarkdownFiles {
 }
 
 struct ImageTestCase {
-    _name:  &'static str,
     setup:  TestSetup,
     verify: VerifyOutcome,
 }
@@ -140,7 +139,6 @@ fn test_image_replacement_outcomes() {
 
     let test_cases = vec![
         ImageTestCase {
-            _name:  "zero_byte_images",
             setup:  TestSetup {
                 images:         vec![TestImage {
                     name:    "empty.jpg".into(),
@@ -159,7 +157,6 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name:  "duplicate_images",
             setup:  TestSetup {
                 images:         vec![
                     TestImage {
@@ -216,7 +213,6 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name:  "tiff_images",
             setup:  TestSetup {
                 images:         vec![TestImage {
                     name:    "image.tiff".into(),
@@ -235,7 +231,6 @@ fn test_image_replacement_outcomes() {
             },
         },
         ImageTestCase {
-            _name:  "unreferenced_images",
             setup:  TestSetup {
                 images:         vec![TestImage {
                     name:    "unused.jpg".into(),

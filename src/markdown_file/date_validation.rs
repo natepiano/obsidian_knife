@@ -28,11 +28,11 @@ pub(super) fn get_date_validations(
 
     let dates = [
         (
-            frontmatter.and_then(|fm| fm.date_created().map(String::from)),
+            frontmatter.and_then(|frontmatter| frontmatter.date_created().map(String::from)),
             metadata.created().map_or_else(|_| Utc::now(), Into::into),
         ),
         (
-            frontmatter.and_then(|fm| fm.date_modified().map(String::from)),
+            frontmatter.and_then(|frontmatter| frontmatter.date_modified().map(String::from)),
             metadata.modified().map_or_else(|_| Utc::now(), Into::into),
         ),
     ];
@@ -130,14 +130,14 @@ pub(super) fn process_date_validations(
 ) -> Vec<PersistReason> {
     let mut reasons = Vec::new();
 
-    if let Some(fm) = frontmatter {
+    if let Some(frontmatter) = frontmatter {
         let mut skip_date_created = false;
 
         if let Some(fix_date) = date_created_fix_validation.fix_date {
             skip_date_created = true;
 
-            fm.set_date_created(fix_date, operational_timezone);
-            fm.remove_date_created_fix();
+            frontmatter.set_date_created(fix_date, operational_timezone);
+            frontmatter.remove_date_created_fix();
             reasons.push(PersistReason::DateCreatedFixApplied);
         }
 
@@ -145,7 +145,7 @@ pub(super) fn process_date_validations(
         if let Some(ref issue) = created_validation.issue
             && !skip_date_created
         {
-            fm.set_date_created(created_validation.file_system_date, operational_timezone);
+            frontmatter.set_date_created(created_validation.file_system_date, operational_timezone);
             reasons.push(PersistReason::DateCreatedUpdated {
                 reason: issue.clone(),
             });
@@ -153,7 +153,8 @@ pub(super) fn process_date_validations(
 
         // Update modified date if there's an issue
         if let Some(ref issue) = modified_validation.issue {
-            fm.set_date_modified(modified_validation.file_system_date, operational_timezone);
+            frontmatter
+                .set_date_modified(modified_validation.file_system_date, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
                 reason: issue.clone(),
             });

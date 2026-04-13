@@ -11,8 +11,8 @@ pub(crate) const ERROR_NOT_FOUND: &str = "file not found: ";
 pub(crate) const ERROR_READING: &str = "error reading config file ";
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
-// Folders
-pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
+// Date handling
+pub(crate) const NOON_HOUR: u32 = 12;
 
 // Files and extensions
 pub(crate) const DS_STORE: &str = ".DS_Store";
@@ -20,16 +20,19 @@ pub(crate) const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "p
 pub(crate) const MARKDOWN_EXTENSION: &str = "md";
 pub(crate) const MARKDOWN_SUFFIX: &str = ".md";
 
-// Markdown outline levels
-pub(crate) const LEVEL1: &str = "#";
-pub(crate) const LEVEL2: &str = "##";
-pub(crate) const LEVEL3: &str = "###";
+// Folders
+pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
 
 // Frontmatter delimiters
 pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
 pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
+
+// Markdown outline levels
+pub(crate) const LEVEL1: &str = "#";
+pub(crate) const LEVEL2: &str = "##";
+pub(crate) const LEVEL3: &str = "###";
 
 // Matching
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
@@ -81,8 +84,8 @@ pub(crate) const FRONTMATTER_ISSUES: &str = "frontmatter issues";
 pub(crate) const IMAGES: &str = "images";
 pub(crate) const IMAGE_FILE: &str = "image file";
 pub(crate) const IMAGE_FILE_HASH: &str = "image file hash";
-pub(crate) const INCOMPATIBLE_IMAGES: &str = "incompatible images";
 pub(crate) const IN: &str = "in";
+pub(crate) const INCOMPATIBLE_IMAGES: &str = "incompatible images";
 pub(crate) const INFO: &str = "info";
 pub(crate) const IN_CHANGESET: &str = "in changeset";
 pub(crate) const INVALID: &str = "invalid";

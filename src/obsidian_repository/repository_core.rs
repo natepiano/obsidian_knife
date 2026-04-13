@@ -78,7 +78,7 @@ impl ObsidianRepository {
                     Ok(())
                 },
                 Err(e) => {
-                    eprintln!("Error processing file {}: {}", file_path.display(), e);
+                    eprintln!("Error processing file {}: {e}", file_path.display());
                     Err(e)
                 },
             }

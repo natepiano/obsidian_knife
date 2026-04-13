@@ -14,6 +14,7 @@ use super::date_validation;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
 use crate::constants::FORWARD_SLASH;
+use crate::constants::NOON_HOUR;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::OPENING_PAREN;
 use crate::constants::OPENING_WIKILINK;
@@ -100,7 +101,8 @@ impl DateCreatedFixValidation {
         file_created_date: DateTime<Utc>,
         operational_timezone: &str,
     ) -> Self {
-        let fix_str = frontmatter.and_then(|fm| fm.date_created_fix().map(String::from));
+        let fix_str =
+            frontmatter.and_then(|frontmatter| frontmatter.date_created_fix().map(String::from));
 
         let parsed_date = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
@@ -117,7 +119,7 @@ impl DateCreatedFixValidation {
 
                     // Create naive datetime at noon to ensure date consistency
                     #[allow(clippy::unwrap_used, reason = "noon (12:00:00) is always a valid time")]
-                    let naive_datetime = naive_date.and_hms_opt(12, 0, 0).unwrap();
+                    let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0).unwrap();
 
                     // Convert to UTC
                     let fixed_date = tz
@@ -130,10 +132,8 @@ impl DateCreatedFixValidation {
                     assert_eq!(
                         fixed_date_local.date_naive(),
                         naive_date,
-                        "Date mismatch: fixed_date converts to {} in {} but should be {}",
+                        "Date mismatch: fixed_date converts to {} in {operational_timezone} but should be {naive_date}",
                         fixed_date_local.date_naive(),
-                        operational_timezone,
-                        naive_date
                     );
 
                     fixed_date

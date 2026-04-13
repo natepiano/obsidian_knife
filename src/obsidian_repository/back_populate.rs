@@ -66,8 +66,7 @@ impl ObsidianRepository {
                 } else {
                     // Handle unclassified matches
                     println!(
-                        "[WARNING] Found unclassified matches for '{}' in file '{}'",
-                        found_text_lower,
+                        "[WARNING] Found unclassified matches for '{found_text_lower}' in file '{}'",
                         markdown_file.path.display()
                     );
                     markdown_file.matches.unambiguous.extend(text_matches);
@@ -240,12 +239,9 @@ fn apply_line_replacements(
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             eprintln!(
                 "Error: Invalid UTF-8 boundary in file '{}', line {}.\n\
-                Match position: {} to {}.\nLine content:\n{}\nFound text: '{}'\n",
+                Match position: {start} to {end}.\nLine content:\n{updated_line}\nFound text: '{}'\n",
                 file_path.display(),
                 match_info.line_number(),
-                start,
-                end,
-                updated_line,
                 match_info.matched_text()
             );
             panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
@@ -263,10 +259,9 @@ fn apply_line_replacements(
         if updated_line.contains("[[[") || updated_line.contains("]]]") {
             eprintln!(
                 "\nWarning: Potential nested pattern detected after replacement in file '{}', line {}.\n\
-                Current line:\n{}\n",
+                Current line:\n{updated_line}\n",
                 file_path.display(),
                 match_info.line_number(),
-                updated_line
             );
         }
     }

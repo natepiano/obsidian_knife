@@ -219,10 +219,8 @@ fn write_back_populate_report_header(
         writer.writeln(
             "",
             &format!(
-                "{} {}\n{}\n",
-                BACK_POPULATE_FILE_FILTER_PREFIX,
+                "{BACK_POPULATE_FILE_FILTER_PREFIX} {}\n{BACK_POPULATE_FILE_FILTER_SUFFIX}\n",
                 filter.to_wikilink(),
-                BACK_POPULATE_FILE_FILTER_SUFFIX
             ),
         )?;
     }

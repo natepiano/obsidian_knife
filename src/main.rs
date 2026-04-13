@@ -100,8 +100,8 @@ fn reset_apply_changes(
         .as_ref()
         .map_or(DEFAULT_TIMEZONE, |time_zone| time_zone.as_str());
 
-    if let Some(fm) = markdown_file.frontmatter.as_mut() {
-        fm.set_date_modified_now(operational_timezone);
+    if let Some(frontmatter) = markdown_file.frontmatter.as_mut() {
+        frontmatter.set_date_modified_now(operational_timezone);
     }
     markdown_file.persist()?;
     Ok(())
