@@ -189,6 +189,9 @@ pub fn set_file_dates(
 
 #[cfg(test)]
 mod expand_tilde_tests {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
     use super::*;
 
     #[test]
@@ -212,9 +215,6 @@ mod expand_tilde_tests {
 
     #[test]
     fn test_expand_tilde_invalid_utf8() {
-        use std::ffi::OsStr;
-        use std::os::unix::ffi::OsStrExt;
-
         // Create a path with invalid UTF-8
         let bytes = b"~/invalid-\xFF-path";
         let os_str = OsStr::from_bytes(bytes);

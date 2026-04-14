@@ -65,21 +65,21 @@ impl ReportDefinition for BackPopulateTable {
         let consolidated = consolidate_matches(items);
         let mut table_rows = Vec::new();
 
-        for m in consolidated {
-            let file_path = Path::new(&m.file_path);
+        for entry in consolidated {
+            let file_path = Path::new(&entry.file_path);
             let file_stem = file_path.file_stem().and_then(OsStr::to_str).unwrap_or("");
 
-            for line_info in m.line_info {
+            for line_info in entry.line_info {
                 let highlighted_line = super::orchestration::highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
                     self.display_text.len(),
                 );
 
-                let replacement = if m.match_context == MatchContext::MarkdownTable {
-                    m.replacement.clone()
+                let replacement = if entry.match_context == MatchContext::MarkdownTable {
+                    entry.replacement.clone()
                 } else {
-                    utils::escape_pipe(&m.replacement)
+                    utils::escape_pipe(&entry.replacement)
                 };
 
                 table_rows.push(vec![

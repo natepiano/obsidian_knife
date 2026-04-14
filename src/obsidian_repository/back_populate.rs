@@ -148,8 +148,8 @@ impl ObsidianRepository {
                         apply_line_replacements(line, &line_matches, &markdown_file.path);
 
                     // Track which types of changes occurred
-                    for m in &line_matches {
-                        match m.match_type() {
+                    for line_match in &line_matches {
+                        match line_match.match_type() {
                             MatchType::BackPopulate => has_back_populate_changes = true,
                             MatchType::ImageReference => has_image_reference_changes = true,
                         }

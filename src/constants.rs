@@ -12,6 +12,7 @@ pub(crate) const ERROR_READING: &str = "error reading config file ";
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // Date handling
+pub(crate) const FORMAT_DATE: &str = "%Y-%m-%d";
 pub(crate) const NOON_HOUR: u32 = 12;
 
 // Files and extensions

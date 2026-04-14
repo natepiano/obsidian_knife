@@ -11,6 +11,7 @@ use super::markdown_file_types::DateValidation;
 use super::markdown_file_types::DateValidationIssue;
 use super::markdown_file_types::PersistReason;
 use crate::constants::CLOSING_WIKILINK;
+use crate::constants::FORMAT_DATE;
 use crate::constants::OPENING_WIKILINK;
 use crate::frontmatter::FrontMatter;
 use crate::wikilink;
@@ -81,7 +82,7 @@ pub(super) fn get_date_validation_issue(
     }
 
     // Parse the frontmatter date string into a `NaiveDate`
-    let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), "%Y-%m-%d") else {
+    let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), FORMAT_DATE) else {
         return Some(DateValidationIssue::InvalidDateFormat);
     };
 
@@ -118,7 +119,7 @@ pub(super) fn extract_date(date_str: &str) -> &str {
 
 // Validates if a string is a valid YYYY-MM-DD date
 pub(super) fn is_valid_date(date_str: &str) -> bool {
-    NaiveDate::parse_from_str(date_str.trim(), "%Y-%m-%d").is_ok()
+    NaiveDate::parse_from_str(date_str.trim(), FORMAT_DATE).is_ok()
 }
 
 pub(super) fn process_date_validations(

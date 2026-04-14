@@ -88,7 +88,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         let config = config.expect(CONFIG_EXPECT);
         let keeper = items
             .iter()
-            .find(|img| matches!(img.state, ImageFileState::DuplicateKeeper { .. }));
+            .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
 
         let mut rows = Vec::new();
         for image in items {
@@ -196,7 +196,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_references: std::collections::HashSet<_> = items
             .iter()
-            .flat_map(|img| &img.markdown_file_references)
+            .flat_map(|image| &image.markdown_file_references)
             .collect();
 
         DescriptionBuilder::new()
@@ -228,9 +228,9 @@ impl ObsidianRepository {
         let duplicates = self
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
-        for img in duplicates {
-            if let ImageFileState::Duplicate { hash } = &img.state {
-                grouped_by_hash.entry(hash.clone()).or_default().push(img);
+        for image in duplicates {
+            if let ImageFileState::Duplicate { hash } = &image.state {
+                grouped_by_hash.entry(hash.clone()).or_default().push(image);
             }
         }
 
@@ -238,18 +238,18 @@ impl ObsidianRepository {
         let keepers = self
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
-        for img in keepers {
-            if let ImageFileState::DuplicateKeeper { hash } = &img.state {
-                grouped_by_hash.entry(hash.clone()).or_default().push(img);
+        for image in keepers {
+            if let ImageFileState::DuplicateKeeper { hash } = &image.state {
+                grouped_by_hash.entry(hash.clone()).or_default().push(image);
             }
         }
 
         // Write report for each group that has deletable duplicates
         for (hash, images) in grouped_by_hash {
             // Check if this group has any deletable duplicates
-            if images.iter().any(|img| {
-                matches!(img.state, ImageFileState::Duplicate { .. })
-                    && img.deletion == DeletionStatus::Delete
+            if images.iter().any(|image| {
+                matches!(image.state, ImageFileState::Duplicate { .. })
+                    && image.deletion == DeletionStatus::Delete
             }) {
                 if !header_written {
                     writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;

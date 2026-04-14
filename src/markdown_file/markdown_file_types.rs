@@ -13,6 +13,7 @@ use derive_more::IntoIterator;
 use super::date_validation;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
+use crate::constants::FORMAT_DATE;
 use crate::constants::FORWARD_SLASH;
 use crate::constants::NOON_HOUR;
 use crate::constants::OPENING_BRACKET;
@@ -112,7 +113,7 @@ impl DateCreatedFixValidation {
             };
 
             // First parse the date string
-            NaiveDate::parse_from_str(date.trim(), "%Y-%m-%d")
+            NaiveDate::parse_from_str(date.trim(), FORMAT_DATE)
                 .ok()
                 .map(|naive_date| {
                     let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);

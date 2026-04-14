@@ -7,6 +7,7 @@ use super::report_writer::ReportWriter;
 use crate::constants::AFTER;
 use crate::constants::BEFORE;
 use crate::constants::FILE;
+use crate::constants::FORMAT_DATE;
 use crate::constants::INFO;
 use crate::constants::LEVEL1;
 use crate::constants::LEVEL2;
@@ -206,11 +207,11 @@ impl ObsidianRepository {
                 "[[{}]]",
                 file.date_validation_created
                     .operational_file_system_date()
-                    .format("%Y-%m-%d")
+                    .format(FORMAT_DATE)
             ),
             file.date_created_fix
                 .fix_date
-                .map(|d| format!("[[{}]]", d.format("%Y-%m-%d")))
+                .map(|d| format!("[[{}]]", d.format(FORMAT_DATE)))
                 .unwrap_or_default(),
         ));
 
@@ -235,7 +236,9 @@ impl ObsidianRepository {
             validation.frontmatter_date.clone().unwrap_or_default(),
             format!(
                 "[[{}]]",
-                validation.operational_file_system_date().format("%Y-%m-%d")
+                validation
+                    .operational_file_system_date()
+                    .format(FORMAT_DATE)
             ),
         )
     }

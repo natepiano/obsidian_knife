@@ -5,11 +5,10 @@ pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> 
     // Helper to check if string matches a contraction pattern ending in apostrophe t or T
     fn is_t_contraction(chars: &str) -> bool {
         let mut chars = chars.chars();
-        match (chars.next(), chars.next()) {
-            // Check for "'t" or "\u{2019}t" (curly apostrophe)
-            (Some('\'' | '\u{2019}'), Some('t' | 'T')) => true,
-            _ => false,
-        }
+        matches!(
+            (chars.next(), chars.next()),
+            (Some('\'' | '\u{2019}'), Some('t' | 'T'))
+        )
     }
 
     // Get chars before and after safely
