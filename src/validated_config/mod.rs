@@ -131,12 +131,12 @@ impl ValidatedConfigBuilder {
         Ok(())
     }
 
-    pub(crate) fn do_not_back_populate(&mut self, val: Option<Vec<String>>) -> &mut Self {
-        if let Some(patterns) = val {
+    pub(crate) fn do_not_back_populate(&mut self, patterns: Option<Vec<String>>) -> &mut Self {
+        if let Some(patterns) = patterns {
             let validated: Vec<String> = patterns
                 .iter()
-                .map(|p| p.trim().to_string())
-                .filter(|p| !p.is_empty())
+                .map(|pattern| pattern.trim().to_string())
+                .filter(|pattern| !pattern.is_empty())
                 .collect();
 
             if validated.is_empty() {
@@ -158,11 +158,11 @@ impl ValidatedConfigBuilder {
         if let Some(obsidian_path) = &self.obsidian_path {
             paths
                 .iter()
-                .map(|p| {
-                    if p.is_absolute() {
-                        p.clone()
+                .map(|path| {
+                    if path.is_absolute() {
+                        path.clone()
                     } else {
-                        obsidian_path.join(p)
+                        obsidian_path.join(path)
                     }
                 })
                 .collect()
@@ -179,10 +179,10 @@ impl ValidatedConfigBuilder {
             .unwrap_or_default()
     }
 
-    pub(crate) fn output_folder(&mut self, val: PathBuf) -> &mut Self {
+    pub(crate) fn output_folder(&mut self, folder_path: PathBuf) -> &mut Self {
         // Handle empty path case
         if let Some(obsidian_path) = &self.obsidian_path
-            && let Ok(relative) = val.strip_prefix(obsidian_path)
+            && let Ok(relative) = folder_path.strip_prefix(obsidian_path)
             && relative.as_os_str().to_string_lossy().trim().is_empty()
         {
             self.output_folder = Some(PathBuf::from(relative));
@@ -190,17 +190,17 @@ impl ValidatedConfigBuilder {
         }
 
         let mut folders = self.get_or_create_ignore_folders();
-        if !folders.contains(&val) {
-            folders.push(val.clone());
+        if !folders.contains(&folder_path) {
+            folders.push(folder_path.clone());
         }
 
         self.ignore_folders = Some(Some(self.resolve_paths(folders)));
-        self.output_folder = Some(val);
+        self.output_folder = Some(folder_path);
         self
     }
 
-    pub(crate) fn ignore_folders(&mut self, val: Option<Vec<PathBuf>>) -> &mut Self {
-        let mut folders = val.unwrap_or_default();
+    pub(crate) fn ignore_folders(&mut self, folders: Option<Vec<PathBuf>>) -> &mut Self {
+        let mut folders = folders.unwrap_or_default();
         let obsidian_folder = PathBuf::from(OBSIDIAN_FOLDER);
 
         if !folders.contains(&obsidian_folder) {

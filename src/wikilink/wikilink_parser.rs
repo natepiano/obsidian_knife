@@ -318,7 +318,7 @@ impl WikilinkState {
 
 pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<WikilinkParseResult> {
     let initial_pos = chars.peek()?.0;
-    let start_pos = initial_pos.saturating_sub(2);
+    let start_pos = initial_pos.saturating_sub(OPENING_WIKILINK.len());
 
     let mut state = WikilinkState::Target {
         content: String::new(),

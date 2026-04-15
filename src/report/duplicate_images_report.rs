@@ -90,104 +90,12 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
             .iter()
             .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
 
-        let mut rows = Vec::new();
-        for image in items {
-            let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
-            let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
-            let image_link = format!("[[{filename}]]");
+        let mut rows: Vec<Vec<String>> = items
+            .iter()
+            .flat_map(|image| self.build_image_rows(image, config, keeper))
+            .collect();
 
-            let (image_type, action, base_reference_update) = match &image.state {
-                ImageFileState::DuplicateKeeper { .. } => {
-                    (KEEPER, NO_CHANGE.to_string(), NO_CHANGE.to_string())
-                },
-                ImageFileState::Duplicate { .. } => {
-                    let action = if config.apply_changes() {
-                        DELETED.to_string()
-                    } else {
-                        WILL_DELETE.to_string()
-                    };
-
-                    let reference_update = keeper.map_or_else(
-                        || UNKNOWN.to_string(),
-                        |keeper_img| {
-                            let keeper_name = keeper_img
-                                .path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy();
-                            utils::escape_brackets(&format!("![[{keeper_name}]]"))
-                        },
-                    );
-
-                    (DUPLICATE, action, reference_update)
-                },
-                _ => (UNKNOWN, UNKNOWN.to_string(), UNKNOWN.to_string()),
-            };
-
-            if image.markdown_file_references.is_empty() {
-                rows.push(vec![
-                    thumbnail.clone(),
-                    image_link.clone(),
-                    image_type.to_string(),
-                    NOT_REFERENCED.to_string(),
-                    String::new(),
-                    String::new(),
-                    action.clone(),
-                    String::new(), // No reference change for unreferenced files
-                ]);
-            } else {
-                for ref_path in &image.markdown_file_references {
-                    let file_link = super::orchestration::format_wikilink(
-                        Path::new(ref_path),
-                        config.obsidian_path(),
-                    );
-
-                    // Get line number and position from markdown files
-                    let (line_number, position) = self
-                        .markdown_files
-                        .iter()
-                        .find(|f| f.path == Path::new(ref_path))
-                        .and_then(|markdown_file| {
-                            let filename = image
-                                .path
-                                .file_name()
-                                .unwrap_or_default()
-                                .to_string_lossy()
-                                .to_string();
-                            markdown_file
-                                .image_links
-                                .iter()
-                                .find(|l| l.filename == filename)
-                        })
-                        .map_or_else(
-                            || (String::new(), String::new()),
-                            |image_link| {
-                                (
-                                    image_link.line_number.to_string(),
-                                    image_link.position.to_string(),
-                                )
-                            },
-                        );
-
-                    rows.push(vec![
-                        thumbnail.clone(),
-                        image_link.clone(),
-                        image_type.to_string(),
-                        file_link,
-                        line_number,
-                        position,
-                        action.clone(),
-                        if matches!(image.state, ImageFileState::Duplicate { .. }) {
-                            base_reference_update.clone()
-                        } else {
-                            String::new()
-                        },
-                    ]);
-                }
-            }
-        }
         rows.sort_by(|a, b| a[1].cmp(&b[1]));
-
         rows
     }
 
@@ -210,6 +118,120 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     }
 
     fn level(&self) -> &'static str { LEVEL3 }
+}
+
+impl DuplicateImagesTable<'_> {
+    fn build_image_rows(
+        &self,
+        image: &ImageFile,
+        config: &ValidatedConfig,
+        keeper: Option<&ImageFile>,
+    ) -> Vec<Vec<String>> {
+        let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
+        let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
+        let image_link = format!("[[{filename}]]");
+        let (image_type, action, reference_update) = Self::classify_image(image, config, keeper);
+
+        if image.markdown_file_references.is_empty() {
+            return vec![vec![
+                thumbnail,
+                image_link,
+                image_type.to_string(),
+                NOT_REFERENCED.to_string(),
+                String::new(),
+                String::new(),
+                action,
+                String::new(),
+            ]];
+        }
+
+        image
+            .markdown_file_references
+            .iter()
+            .map(|ref_path| {
+                let file_link = super::orchestration::format_wikilink(
+                    Path::new(ref_path),
+                    config.obsidian_path(),
+                );
+                let (line_number, position) = self.resolve_image_position(ref_path, &image.path);
+
+                vec![
+                    thumbnail.clone(),
+                    image_link.clone(),
+                    image_type.to_string(),
+                    file_link,
+                    line_number,
+                    position,
+                    action.clone(),
+                    if matches!(image.state, ImageFileState::Duplicate { .. }) {
+                        reference_update.clone()
+                    } else {
+                        String::new()
+                    },
+                ]
+            })
+            .collect()
+    }
+
+    fn classify_image(
+        image: &ImageFile,
+        config: &ValidatedConfig,
+        keeper: Option<&ImageFile>,
+    ) -> (&'static str, String, String) {
+        match &image.state {
+            ImageFileState::DuplicateKeeper { .. } => {
+                (KEEPER, NO_CHANGE.to_string(), NO_CHANGE.to_string())
+            },
+            ImageFileState::Duplicate { .. } => {
+                let action = if config.apply_changes() {
+                    DELETED.to_string()
+                } else {
+                    WILL_DELETE.to_string()
+                };
+
+                let reference_update = keeper.map_or_else(
+                    || UNKNOWN.to_string(),
+                    |keeper_img| {
+                        let keeper_name = keeper_img
+                            .path
+                            .file_name()
+                            .unwrap_or_default()
+                            .to_string_lossy();
+                        utils::escape_brackets(&format!("![[{keeper_name}]]"))
+                    },
+                );
+
+                (DUPLICATE, action, reference_update)
+            },
+            _ => (UNKNOWN, UNKNOWN.to_string(), UNKNOWN.to_string()),
+        }
+    }
+
+    fn resolve_image_position(&self, ref_path: &Path, image_path: &Path) -> (String, String) {
+        self.markdown_files
+            .iter()
+            .find(|f| f.path == ref_path)
+            .and_then(|markdown_file| {
+                let filename = image_path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+                markdown_file
+                    .image_links
+                    .iter()
+                    .find(|l| l.filename == filename)
+            })
+            .map_or_else(
+                || (String::new(), String::new()),
+                |image_link| {
+                    (
+                        image_link.line_number.to_string(),
+                        image_link.position.to_string(),
+                    )
+                },
+            )
+    }
 }
 
 impl ObsidianRepository {

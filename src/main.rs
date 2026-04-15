@@ -111,7 +111,8 @@ fn reset_apply_changes(
 fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
     eprintln!("{ERROR_OCCURRED}");
     eprintln!("{ERROR_TYPE}");
-    eprintln!("{}", std::any::type_name_of_val(&*e));
+    let error_type_name = std::any::type_name_of_val(&*e);
+    eprintln!("{error_type_name}");
     eprintln!("{ERROR_DETAILS} {e}");
 
     if let Some(source) = e.source() {

@@ -202,18 +202,21 @@ impl ObsidianRepository {
             Some(Self::format_date_validation(&file.date_validation_created));
         let date_validation_modified =
             Some(Self::format_date_validation(&file.date_validation_modified));
-        let date_created_fix = Some((
-            format!(
-                "[[{}]]",
-                file.date_validation_created
-                    .operational_file_system_date()
-                    .format(FORMAT_DATE)
-            ),
-            file.date_created_fix
+        let date_created_fix = Some({
+            let formatted_date = file
+                .date_validation_created
+                .operational_file_system_date()
+                .format(FORMAT_DATE);
+            let fix_date_formatted = file
+                .date_created_fix
                 .fix_date
-                .map(|d| format!("[[{}]]", d.format(FORMAT_DATE)))
-                .unwrap_or_default(),
-        ));
+                .map(|d| {
+                    let formatted = d.format(FORMAT_DATE);
+                    format!("[[{formatted}]]")
+                })
+                .unwrap_or_default();
+            (format!("[[{formatted_date}]]"), fix_date_formatted)
+        });
 
         file.persist_reasons
             .iter()
@@ -232,14 +235,12 @@ impl ObsidianRepository {
     }
 
     fn format_date_validation(validation: &DateValidation) -> (String, String) {
+        let formatted_date = validation
+            .operational_file_system_date()
+            .format(FORMAT_DATE);
         (
             validation.frontmatter_date.clone().unwrap_or_default(),
-            format!(
-                "[[{}]]",
-                validation
-                    .operational_file_system_date()
-                    .format(FORMAT_DATE)
-            ),
+            format!("[[{formatted_date}]]"),
         )
     }
 }

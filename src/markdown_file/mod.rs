@@ -142,7 +142,7 @@ impl MarkdownFile {
         let (mut frontmatter, content, frontmatter_error) = match yaml_result {
             Ok(Some((yaml_section, after_yaml))) => {
                 match FrontMatter::from_yaml_str(yaml_section) {
-                    Ok(fm) => (Some(fm), after_yaml.to_string(), None),
+                    Ok(frontmatter) => (Some(frontmatter), after_yaml.to_string(), None),
                     Err(e) => (None, after_yaml.to_string(), Some(e)),
                 }
             },
@@ -214,8 +214,8 @@ impl MarkdownFile {
     fn to_full_content(&self) -> String {
         self.frontmatter.as_ref().map_or_else(
             || self.content.clone(),
-            |fm| {
-                fm.to_yaml_str().map_or_else(
+            |frontmatter| {
+                frontmatter.to_yaml_str().map_or_else(
                     |_| self.content.clone(),
                     |yaml| format!("---\n{}\n---\n{}", yaml.trim(), self.content.trim()),
                 )
@@ -243,12 +243,12 @@ impl MarkdownFile {
 
     fn ensure_frontmatter(&mut self, operational_timezone: &str) {
         if self.frontmatter.is_none() {
-            let mut fm = FrontMatter::default();
-            fm.set_date_created(
+            let mut frontmatter = FrontMatter::default();
+            frontmatter.set_date_created(
                 self.date_validation_created.file_system_date,
                 operational_timezone,
             );
-            self.frontmatter = Some(fm);
+            self.frontmatter = Some(frontmatter);
             self.frontmatter_error = None;
             self.persist_reasons.push(PersistReason::FrontmatterCreated);
         }
@@ -294,7 +294,7 @@ impl MarkdownFile {
         let aliases = self
             .frontmatter
             .as_ref()
-            .and_then(|fm| fm.aliases().map(<[String]>::to_vec));
+            .and_then(|frontmatter| frontmatter.aliases().map(<[String]>::to_vec));
 
         let filename = self
             .path

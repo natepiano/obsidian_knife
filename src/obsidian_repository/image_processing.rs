@@ -25,7 +25,7 @@ impl ObsidianRepository {
     ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
         let mut cache = Self::initialize_image_cache(validated_config, image_files);
 
-        // Step 1: Create a map of markdown_file_path to their referenced image_file_names
+        // Step 1: Create a map of `markdown_file_path` to their referenced `image_file_names`
         let markdown_references = self.get_markdown_file_image_reference_map();
 
         // Step 2: Build an image hash-based grouping for duplicate handling

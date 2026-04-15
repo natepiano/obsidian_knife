@@ -232,7 +232,8 @@ pub(super) fn format_wikilink(path: &Path, obsidian_path: &Path) -> String {
     let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
     let display_name = path.file_stem().unwrap_or_default().to_string_lossy();
 
-    format!("[[{}\\|{display_name}]]", relative_path.display())
+    let path_display = relative_path.display();
+    format!("[[{path_display}\\|{display_name}]]")
 }
 
 pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {

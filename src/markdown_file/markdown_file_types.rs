@@ -15,6 +15,8 @@ use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
 use crate::constants::FORMAT_DATE;
 use crate::constants::FORWARD_SLASH;
+use crate::constants::IMAGE_LINK_PREFIX;
+use crate::constants::MARKDOWN_LINK_SEPARATOR;
 use crate::constants::NOON_HOUR;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::OPENING_PAREN;
@@ -370,11 +372,13 @@ impl ImageLink {
                 };
 
                 let alt_text = raw_link
-                    .find("](")
-                    .map(|alt_end| raw_link[2..alt_end].to_string())
+                    .find(MARKDOWN_LINK_SEPARATOR)
+                    .map(|alt_end| raw_link[IMAGE_LINK_PREFIX.len()..alt_end].to_string())
                     .unwrap_or_default();
 
-                let url_start = raw_link.find("](").map_or(0, |i| i + 2);
+                let url_start = raw_link
+                    .find(MARKDOWN_LINK_SEPARATOR)
+                    .map_or(0, |i| i + MARKDOWN_LINK_SEPARATOR.len());
                 let url = &raw_link[url_start..raw_link.len() - 1];
 
                 let location = if url.starts_with("http://") || url.starts_with("https://") {

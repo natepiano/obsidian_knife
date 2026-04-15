@@ -39,7 +39,7 @@ impl ObsidianRepository {
 
         // Process each file's matches
         for markdown_file in &mut self.markdown_files {
-            // Create a map to group matches by their lowercased found_text within this file
+            // Create a map to group matches by their lowercased `found_text` within this file
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
             // Drain matches from the file into our temporary map

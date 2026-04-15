@@ -61,7 +61,8 @@ impl FrontMatter {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&tz);
         self.raw_date_created = Some(date);
-        self.date_created = Some(format!("[[{}]]", local_date.format(FORMAT_DATE)));
+        let formatted_date = local_date.format(FORMAT_DATE);
+        self.date_created = Some(format!("[[{formatted_date}]]"));
 
         if self.raw_date_modified.is_none() {
             self.set_date_modified_now(operational_timezone);
@@ -83,7 +84,8 @@ impl FrontMatter {
         let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&tz);
         self.raw_date_modified = Some(date);
-        self.date_modified = Some(format!("[[{}]]", local_date.format(FORMAT_DATE)));
+        let formatted_date = local_date.format(FORMAT_DATE);
+        self.date_modified = Some(format!("[[{formatted_date}]]"));
         self.persist_state = PersistState::Modified;
     }
 

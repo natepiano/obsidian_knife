@@ -30,6 +30,10 @@ pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 
+// Markdown link syntax
+pub(crate) const IMAGE_LINK_PREFIX: &str = "![";
+pub(crate) const MARKDOWN_LINK_SEPARATOR: &str = "](";
+
 // Markdown outline levels
 pub(crate) const LEVEL1: &str = "#";
 pub(crate) const LEVEL2: &str = "##";
