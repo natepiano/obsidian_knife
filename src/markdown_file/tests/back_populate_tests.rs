@@ -1,6 +1,6 @@
 use tempfile::TempDir;
 
-use super::super::MarkdownFile;
+use crate::markdown_file::MarkdownFile;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;

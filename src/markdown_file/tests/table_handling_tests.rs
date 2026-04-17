@@ -1,6 +1,6 @@
-use super::super::BackPopulateMatch;
-use super::super::MarkdownFile;
-use super::super::MatchContext;
+use crate::markdown_file::BackPopulateMatch;
+use crate::markdown_file::MarkdownFile;
+use crate::markdown_file::MatchContext;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
