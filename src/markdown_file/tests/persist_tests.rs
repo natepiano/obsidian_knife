@@ -4,9 +4,9 @@ use std::fs;
 use filetime::FileTime;
 use tempfile::TempDir;
 
+use crate::constants::DEFAULT_TIMEZONE;
 use crate::markdown_file::PersistReason;
 use crate::markdown_file::date_validation::DateValidationIssue;
-use crate::constants::DEFAULT_TIMEZONE;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
