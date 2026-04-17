@@ -8,6 +8,7 @@ use crate::constants::MARKDOWN_EXTENSION;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::wikilink;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::Wikilink;
@@ -21,7 +22,7 @@ fn test_find_matches_with_existing_wikilinks() {
            But this Test Link should match";
 
     let (_temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, None, Some(content));
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, Some(content));
 
     // Find matches - this now stores them in repository.markdown_files
     repository.find_all_back_populate_matches(&config);
@@ -59,8 +60,12 @@ fn test_overlapping_wikilink_matches() {
         },
     ];
 
-    let (_temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, Some(wikilinks), Some(content));
+    let (_temp_dir, config, mut repository) = test_support::create_test_environment(
+        ChangeMode::DryRun,
+        None,
+        Some(wikilinks),
+        Some(content),
+    );
 
     // Find matches - this now stores them in repository.markdown_files
     repository.find_all_back_populate_matches(&config);

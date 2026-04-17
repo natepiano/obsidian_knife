@@ -1,11 +1,12 @@
 use crate::test_support;
+use crate::validated_config::ChangeMode;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::InvalidWikilinkReason;
 
 #[test]
 fn test_collect_exclusion_zones_with_invalid_wikilinks() {
     let (_, config, mut repository) = test_support::create_test_environment(
-        false,
+        ChangeMode::DryRun,
         None,
         None,
         Some("Text [[invalid|link|extra]] and more text"),
@@ -35,7 +36,7 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
 #[test]
 fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
     let (_, config, mut repository) =
-        test_support::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     let markdown_file = repository.markdown_files.first_mut().unwrap();
 
@@ -73,7 +74,7 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
 #[test]
 fn test_exclusion_zones_only_matches_current_line() {
     let (_, config, mut repository) = test_support::create_test_environment(
-        false,
+        ChangeMode::DryRun,
         None,
         None,
         Some("Line 1 with [[bad|link|here]]\nLine 2 with normal text"),

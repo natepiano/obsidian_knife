@@ -4,12 +4,13 @@ use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::MatchContext;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::wikilink::Wikilink;
 
 #[test]
 fn test_identify_ambiguous_matches() {
     let (temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Set up aliases that make "Ed" ambiguous
     repository.wikilinks_sorted = vec![
@@ -115,7 +116,7 @@ fn test_identify_ambiguous_matches() {
 #[test]
 fn test_truly_ambiguous_targets() {
     let (temp_dir, config, _) =
-        test_support::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create the test files using TestFileBuilder
     TestFileBuilder::new()
@@ -163,7 +164,7 @@ fn test_truly_ambiguous_targets() {
 #[test]
 fn test_mixed_case_and_truly_ambiguous() {
     let (temp_dir, config, _) =
-        test_support::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create test files for case variations
     TestFileBuilder::new()
@@ -253,7 +254,7 @@ Amazon is ambiguous",
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
     let (temp_dir, config, _) =
-        test_support::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create the files using TestFileBuilder
     TestFileBuilder::new()

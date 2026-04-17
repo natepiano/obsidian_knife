@@ -27,6 +27,7 @@ use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
+use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::ToWikilink;
@@ -166,7 +167,11 @@ impl ObsidianRepository {
             .file_limit()
             .map_or_else(|| "None".to_string(), |value| value.to_string());
 
-        let apply_changes = validated_config.apply_changes();
+        let change_mode = validated_config.change_mode();
+        let apply_changes = match change_mode {
+            ChangeMode::Apply => "true",
+            ChangeMode::DryRun => "false",
+        };
 
         let properties = DescriptionBuilder::new()
             .no_space(YAML_TIMESTAMP_UTC)
@@ -174,7 +179,7 @@ impl ObsidianRepository {
             .no_space(YAML_TIMESTAMP_LOCAL)
             .text_with_newline(&timestamp_local.to_string())
             .no_space(YAML_APPLY_CHANGES)
-            .text_with_newline(&apply_changes.to_string())
+            .text_with_newline(apply_changes)
             .no_space(YAML_FILE_LIMIT)
             .text_with_newline(&limit_string)
             .build();
@@ -199,10 +204,9 @@ impl ObsidianRepository {
 
         writer.writeln("", message.as_str())?;
 
-        if validated_config.apply_changes() {
-            writer.writeln("", MODE_APPLY_CHANGES)?;
-        } else {
-            writer.writeln("", MODE_APPLY_CHANGES_OFF)?;
+        match change_mode {
+            ChangeMode::Apply => writer.writeln("", MODE_APPLY_CHANGES)?,
+            ChangeMode::DryRun => writer.writeln("", MODE_APPLY_CHANGES_OFF)?,
         }
 
         Ok(())

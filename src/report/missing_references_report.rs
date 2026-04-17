@@ -21,6 +21,7 @@ use crate::utils;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
+use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct MissingReferencesTable;
@@ -63,10 +64,9 @@ impl ReportDefinition for MissingReferencesTable {
                     let image_link =
                         utils::escape_pipe(&utils::escape_brackets(&extracted_filename.clone()));
 
-                    let action = if config.apply_changes() {
-                        REFERENCE_REMOVED
-                    } else {
-                        REFERENCE_WILL_BE_REMOVED
+                    let action = match config.change_mode() {
+                        ChangeMode::Apply => REFERENCE_REMOVED,
+                        ChangeMode::DryRun => REFERENCE_WILL_BE_REMOVED,
                     };
 
                     vec![

@@ -6,6 +6,7 @@ use crate::obsidian_repository;
 use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::wikilink::Wikilink;
 
 #[test]
@@ -22,7 +23,7 @@ fn test_alias_priority() {
     ];
 
     let (temp_dir, config, mut repository_info) =
-        test_support::create_test_environment(false, None, Some(wikilinks), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
 
     let content = "I love tomatoes in my salad";
     test_support::create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
@@ -58,7 +59,7 @@ fn test_alias_priority() {
 #[test]
 fn test_no_matches_for_frontmatter_aliases() {
     let (temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),
@@ -120,7 +121,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 #[test]
 fn test_no_self_referential_back_population() {
     let (temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     let wikilink = Wikilink {
         display_text: "Will".to_string(),

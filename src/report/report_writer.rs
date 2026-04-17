@@ -20,7 +20,7 @@ pub(super) trait ReportDefinition<C = ()> {
     /// need to use it and the compiler won't complain
     ///
     /// reports that need config information can use `report_context: &ReportContext`
-    /// to access properties such as `apply_changes` or `obsidian_path`
+    /// to access properties such as `change_mode` or `obsidian_path`
     ///
     /// it's slightly hacky but prevents having to dramatically alter the structure and it's
     /// readable enough

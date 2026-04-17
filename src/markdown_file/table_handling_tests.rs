@@ -4,12 +4,14 @@ use super::MatchContext;
 use crate::markdown_files::MarkdownFiles;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::wikilink::Wikilink;
 
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, config, _) = test_support::create_test_environment(false, None, None, None);
+    let (temp_dir, config, _) =
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
     let markdown_file = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
@@ -25,7 +27,7 @@ fn test_should_create_match_in_table() {
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
     let (temp_dir, config, mut repository) =
-        test_support::create_test_environment(true, None, None, None);
+        test_support::create_test_environment(ChangeMode::Apply, None, None, None);
 
     let test_cases = vec![(
         "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
@@ -93,7 +95,7 @@ fn test_process_line_table_escaping_combined() {
 
     // Initialize environment with custom wikilinks
     let (temp_dir, config, repository) =
-        test_support::create_test_environment(false, None, Some(wikilinks), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
 
     // Compile the wikilinks
     let sorted_wikilinks = &repository.wikilinks_sorted;

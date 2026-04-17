@@ -212,9 +212,7 @@ impl ValidatedConfigBuilder {
 }
 
 impl ValidatedConfig {
-    pub(crate) const fn apply_changes(&self) -> bool {
-        matches!(self.change_mode, ChangeMode::Apply)
-    }
+    pub(crate) const fn change_mode(&self) -> ChangeMode { self.change_mode }
 
     pub(crate) const fn file_limit(&self) -> Option<usize> { self.file_limit }
 

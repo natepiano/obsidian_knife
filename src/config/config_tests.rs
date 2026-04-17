@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::Config;
+use super::ConfiguredChanges;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::OBSIDIAN_FOLDER;
@@ -11,6 +12,7 @@ use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::yaml_frontmatter::YamlFrontMatter;
 
 fn create_test_environment() -> (TempDir, PathBuf) {
@@ -71,7 +73,7 @@ output_folder: output"#
     let mut config = Config::from_frontmatter(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
 
     // Validate initial values
-    assert_eq!(config.apply_changes, Some(true));
+    assert_eq!(config.configured_changes, ConfiguredChanges::Apply);
     assert_eq!(config.file_limit, Some(5));
     assert_eq!(config.back_populate_file_filter, Some("*test*".to_string()));
     assert_eq!(config.do_not_back_populate, Some(vec!["*.png".to_string()]));
@@ -80,7 +82,7 @@ output_folder: output"#
     assert_eq!(config.obsidian_path, "/test/path".to_string());
 
     // Test apply_changes update
-    config.apply_changes = Some(false);
+    config.configured_changes = ConfiguredChanges::DryRun;
     let config_yaml = config.to_yaml_str().unwrap();
 
     let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml).unwrap();
@@ -96,7 +98,7 @@ output_folder: output"#
     let new_markdown_file = test_utils::get_test_markdown_file(config_path);
     let new_config = Config::from_frontmatter(&new_markdown_file.frontmatter.unwrap()).unwrap();
 
-    assert_eq!(new_config.apply_changes, Some(false));
+    assert_eq!(new_config.configured_changes, ConfiguredChanges::DryRun);
     assert_eq!(new_config.file_limit, Some(5));
     assert_eq!(
         new_config.back_populate_file_filter,
@@ -128,7 +130,7 @@ cleanup_image_files: true";
     let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(config.obsidian_path, "~/Documents/brain");
-    assert_eq!(config.apply_changes, Some(false));
+    assert_eq!(config.configured_changes, ConfiguredChanges::DryRun);
 }
 
 #[test]
@@ -191,6 +193,6 @@ fn test_process_config_with_valid_setup() {
     let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
 
     let validated_config = config.validate().unwrap();
-    assert!(!validated_config.apply_changes());
+    assert_eq!(validated_config.change_mode(), ChangeMode::DryRun);
     assert!(validated_config.obsidian_path().exists());
 }

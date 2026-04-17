@@ -40,6 +40,7 @@ use crate::utils;
 use crate::utils::ColumnAlignment;
 use crate::utils::OutputFileWriter;
 use crate::utils::VecEnumFilter;
+use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct DuplicateImagesTable<'a> {
@@ -183,10 +184,9 @@ impl DuplicateImagesTable<'_> {
                 (KEEPER, NO_CHANGE.to_string(), NO_CHANGE.to_string())
             },
             ImageFileState::Duplicate { .. } => {
-                let action = if config.apply_changes() {
-                    DELETED.to_string()
-                } else {
-                    WILL_DELETE.to_string()
+                let action = match config.change_mode() {
+                    ChangeMode::Apply => DELETED.to_string(),
+                    ChangeMode::DryRun => WILL_DELETE.to_string(),
                 };
 
                 let reference_update = keeper.map_or_else(

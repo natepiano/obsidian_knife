@@ -10,7 +10,9 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
+use serde::Serializer;
 
 use crate::constants::DEFAULT_OUTPUT_FOLDER;
 use crate::constants::DEFAULT_TIMEZONE;
@@ -22,11 +24,65 @@ use crate::validated_config::ValidatedConfigBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter_struct;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) enum ConfiguredChanges {
+    #[default]
+    Unspecified,
+    DryRun,
+    Apply,
+}
+
+impl ConfiguredChanges {
+    pub(crate) const fn is_unspecified(&self) -> bool { matches!(self, Self::Unspecified) }
+
+    const fn resolve(&self) -> ChangeMode {
+        match self {
+            Self::Apply => ChangeMode::Apply,
+            Self::DryRun | Self::Unspecified => ChangeMode::DryRun,
+        }
+    }
+}
+
+impl Serialize for ConfiguredChanges {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match self {
+            Self::Apply => true.serialize(serializer),
+            Self::DryRun | Self::Unspecified => false.serialize(serializer),
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for ConfiguredChanges {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        bool::deserialize(deserializer).map(Self::from)
+    }
+}
+
+impl From<bool> for ConfiguredChanges {
+    fn from(apply_changes: bool) -> Self {
+        if apply_changes {
+            Self::Apply
+        } else {
+            Self::DryRun
+        }
+    }
+}
+
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
     pub struct Config {
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub apply_changes: Option<bool>,
+        #[serde(
+            default,
+            rename = "apply_changes",
+            skip_serializing_if = "ConfiguredChanges::is_unspecified"
+        )]
+        pub configured_changes: ConfiguredChanges,
         #[serde(skip_serializing_if = "Option::is_none")]
         pub back_populate_file_filter: Option<String>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -45,6 +101,8 @@ yaml_frontmatter_struct! {
 }
 
 impl Config {
+    pub(crate) const fn change_mode(&self) -> ChangeMode { self.configured_changes.resolve() }
+
     pub(crate) fn from_frontmatter(
         frontmatter: &FrontMatter,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
@@ -54,11 +112,7 @@ impl Config {
 
     pub(crate) fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         ValidatedConfigBuilder::default()
-            .change_mode(if self.apply_changes.unwrap_or(false) {
-                ChangeMode::Apply
-            } else {
-                ChangeMode::DryRun
-            })
+            .change_mode(self.change_mode())
             .back_populate_file_filter(self.back_populate_file_filter.clone())
             .do_not_back_populate(self.do_not_back_populate.clone())
             .file_limit(self.file_limit)

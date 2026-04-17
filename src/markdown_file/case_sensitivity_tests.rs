@@ -4,6 +4,7 @@ use super::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 use crate::wikilink::Wikilink;
 
 // Helper struct for test cases
@@ -95,7 +96,7 @@ pub fn verify_match(
 fn test_case_insensitive_targets() {
     // Create test environment
     let (temp_dir, config, _) =
-        test_support::create_test_environment(false, None, Some(vec![]), None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create test files with case variations using TestFileBuilder
     TestFileBuilder::new()
@@ -147,7 +148,7 @@ fn test_case_insensitive_targets() {
 fn test_case_sensitivity_behavior() {
     // Initialize test environment without specific wikilinks
     let (temp_dir, config, mut repository) =
-        test_support::create_test_environment(false, None, None, None);
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     for case in get_case_sensitivity_test_cases() {
         let file_path = test_support::create_markdown_test_file(

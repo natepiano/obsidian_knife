@@ -26,7 +26,7 @@ pub fn build_aho_corasick(wikilinks: &[Wikilink]) -> AhoCorasick {
 }
 
 pub fn create_test_environment(
-    apply_changes: bool,
+    change_mode: ChangeMode,
     do_not_back_populate: Option<Vec<String>>,
     wikilinks: Option<Vec<Wikilink>>,
     initial_content: Option<&str>,
@@ -34,11 +34,7 @@ pub fn create_test_environment(
     let temp_dir = TempDir::new().unwrap();
 
     let config = ValidatedConfigBuilder::default()
-        .change_mode(if apply_changes {
-            ChangeMode::Apply
-        } else {
-            ChangeMode::DryRun
-        })
+        .change_mode(change_mode)
         .do_not_back_populate(do_not_back_populate)
         .obsidian_path(temp_dir.path().to_path_buf())
         .output_folder(temp_dir.path().join("output"))

@@ -332,7 +332,7 @@ impl ImageLink {
         let relative_path = extract_relative_path(&raw_link);
 
         // Determine link type and rendering first
-        let (filename, image_link_type, alt_text, size_parameter) =
+        let (filename, link_type, alt_text, size_parameter) =
             if raw_link.ends_with(CLOSING_WIKILINK) {
                 // Wikilink style
                 let rendering = if raw_link.starts_with('!') {
@@ -412,7 +412,7 @@ impl ImageLink {
             alt_text,
             size_parameter,
             state: ImageLinkState::default(),
-            link_type: image_link_type,
+            link_type,
         }
     }
 }

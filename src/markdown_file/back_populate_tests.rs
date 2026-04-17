@@ -4,12 +4,13 @@ use super::MarkdownFile;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
+use crate::validated_config::ChangeMode;
 
 #[test]
 fn test_apply_changes() {
     let initial_content = "This is Test Link in a sentence.";
     let (_temp_dir, config, mut repository) =
-        test_support::create_test_environment(true, None, None, Some(initial_content));
+        test_support::create_test_environment(ChangeMode::Apply, None, None, Some(initial_content));
 
     // First find the matches
     repository.find_all_back_populate_matches(&config);
@@ -27,26 +28,36 @@ fn test_apply_changes() {
 #[test]
 fn test_config_creation() {
     // Basic usage with defaults
-    let (_, basic_config, _) = test_support::create_test_environment(false, None, None, None);
-    assert!(!basic_config.apply_changes());
+    let (_, basic_config, _) =
+        test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
+    assert_eq!(basic_config.change_mode(), ChangeMode::DryRun);
 
     // With apply_changes set to true
-    let (_, apply_config, _) = test_support::create_test_environment(true, None, None, None);
-    assert!(apply_config.apply_changes());
+    let (_, apply_config, _) =
+        test_support::create_test_environment(ChangeMode::Apply, None, None, None);
+    assert_eq!(apply_config.change_mode(), ChangeMode::Apply);
 
     // With do_not_back_populate patterns
     let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
-    let (_, pattern_config, _) =
-        test_support::create_test_environment(false, Some(patterns.clone()), None, None);
+    let (_, pattern_config, _) = test_support::create_test_environment(
+        ChangeMode::DryRun,
+        Some(patterns.clone()),
+        None,
+        None,
+    );
     assert_eq!(
         pattern_config.do_not_back_populate(),
         Some(patterns.as_slice())
     );
 
     // With both parameters
-    let (_, full_config, _) =
-        test_support::create_test_environment(true, Some(vec!["pattern".to_string()]), None, None);
-    assert!(full_config.apply_changes());
+    let (_, full_config, _) = test_support::create_test_environment(
+        ChangeMode::Apply,
+        Some(vec!["pattern".to_string()]),
+        None,
+        None,
+    );
+    assert_eq!(full_config.change_mode(), ChangeMode::Apply);
     assert!(full_config.do_not_back_populate().is_some());
 }
 

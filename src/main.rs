@@ -25,6 +25,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use crate::config::Config;
+use crate::config::ConfiguredChanges;
 use crate::constants::DEFAULT_TIMEZONE;
 #[cfg(debug_assertions)]
 use crate::constants::DEV;
@@ -41,6 +42,7 @@ use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::utils::Timer;
+use crate::validated_config::ChangeMode;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatterError;
 
@@ -78,19 +80,19 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
     let obsidian_repository = ObsidianRepository::new(&validated_config)?;
     obsidian_repository.write_reports(&validated_config)?;
 
-    if config.apply_changes == Some(true) {
+    if matches!(config.change_mode(), ChangeMode::Apply) {
         obsidian_repository.persist()?;
-        reset_apply_changes(&mut markdown_file, &mut config)?;
+        reset_change_mode(&mut markdown_file, &mut config)?;
     }
 
     Ok(())
 }
 
-fn reset_apply_changes(
+fn reset_change_mode(
     markdown_file: &mut MarkdownFile,
     config: &mut Config,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    config.apply_changes = Some(false);
+    config.configured_changes = ConfiguredChanges::DryRun;
     let config_yaml = config.to_yaml_str()?;
     let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
     markdown_file.frontmatter = Some(updated_frontmatter);
