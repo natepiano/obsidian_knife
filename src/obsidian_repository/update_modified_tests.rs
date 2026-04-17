@@ -7,6 +7,10 @@ use crate::markdown_file::PersistReason;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
+fn eastern_date_wikilink(year: i32, month: u32, day: u32) -> String {
+    test_utils::frontmatter_date_wikilink(test_utils::eastern_midnight(year, month, day))
+}
+
 #[test]
 #[cfg_attr(
     target_os = "linux",
@@ -20,8 +24,8 @@ fn test_update_modified_dates_changes_frontmatter() {
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
-            Some("[[2024-01-15]]".to_string()),
-            Some("[[2024-01-15]]".to_string()),
+            Some(eastern_date_wikilink(2024, 1, 15)),
+            Some(eastern_date_wikilink(2024, 1, 15)),
         )
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test1.md");
@@ -44,12 +48,12 @@ fn test_update_modified_dates_changes_frontmatter() {
 
     assert_eq!(
         frontmatter.date_modified(),
-        Some("[[2024-01-20]]"),
+        Some(test_utils::frontmatter_date_wikilink(update_date).as_str()),
         "Modified date should be update date"
     );
     assert_eq!(
         frontmatter.date_created(),
-        Some("[[2024-01-15]]"),
+        Some(test_utils::frontmatter_date_wikilink(base_date).as_str()),
         "Created date should not have changed"
     );
     assert!(frontmatter.needs_persist(), "needs_persist should be true");
@@ -69,15 +73,15 @@ fn test_update_modified_dates_only_updates_specified_files() {
     // Create two files
     let file_path1 = TestFileBuilder::new()
         .with_frontmatter_dates(
-            Some("[[2024-01-15]]".to_string()),
-            Some("[[2024-01-15]]".to_string()),
+            Some(eastern_date_wikilink(2024, 1, 15)),
+            Some(eastern_date_wikilink(2024, 1, 15)),
         )
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test1.md");
     let file_path2 = TestFileBuilder::new()
         .with_frontmatter_dates(
-            Some("[[2024-01-15]]".to_string()),
-            Some("[[2024-01-15]]".to_string()),
+            Some(eastern_date_wikilink(2024, 1, 15)),
+            Some(eastern_date_wikilink(2024, 1, 15)),
         )
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test2.md");
@@ -104,14 +108,14 @@ fn test_update_modified_dates_only_updates_specified_files() {
     // First file should have new date and needs_persist
     assert_eq!(
         file1.frontmatter.as_ref().unwrap().date_modified(),
-        Some("[[2024-01-20]]")
+        Some(test_utils::frontmatter_date_wikilink(update_date).as_str())
     );
     assert!(file1.frontmatter.as_ref().unwrap().needs_persist());
 
     // Second file should have original date and not need persist
     assert_eq!(
         file2.frontmatter.as_ref().unwrap().date_modified(),
-        Some("[[2024-01-15]]")
+        Some(test_utils::frontmatter_date_wikilink(base_date).as_str())
     );
     assert!(!file2.frontmatter.as_ref().unwrap().needs_persist());
 }
@@ -127,8 +131,8 @@ fn test_update_modified_uses_current_date() {
 
     let file_path = TestFileBuilder::new()
         .with_frontmatter_dates(
-            Some("[[2024-01-15]]".to_string()),
-            Some("[[2024-01-15]]".to_string()),
+            Some(eastern_date_wikilink(2024, 1, 15)),
+            Some(eastern_date_wikilink(2024, 1, 15)),
         )
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test.md");
@@ -146,10 +150,7 @@ fn test_update_modified_uses_current_date() {
         .expect("Should have a modified date");
 
     // Get today's date in the same format as the frontmatter
-    let today = Utc::now()
-        .with_timezone(&DEFAULT_TIMEZONE.parse::<chrono_tz::Tz>().unwrap())
-        .format("[[%Y-%m-%d]]")
-        .to_string();
+    let today = test_utils::frontmatter_date_wikilink(Utc::now());
 
     assert_eq!(
         modified_date, &today,

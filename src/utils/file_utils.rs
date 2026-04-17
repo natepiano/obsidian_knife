@@ -40,23 +40,22 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
 
     // Handle paths that start with "~/"
-    if let Some(path_str) = path.to_str() {
-        if let Some(home) = std::env::var_os("HOME")
-            && let Some(stripped) = path_str.strip_prefix("~/")
-        {
-            return PathBuf::from(home).join(stripped);
-        }
-    } else {
-        // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
-        let mut components = path.components();
-        if let Some(std::path::Component::Normal(first)) = components.next()
-            && first == "~"
-            && let Some(home) = std::env::var_os("HOME")
-        {
-            let mut expanded_path = PathBuf::from(home);
-            expanded_path.extend(components);
-            return expanded_path;
-        }
+    if let Some(path_str) = path.to_str()
+        && let Some(home) = std::env::var_os("HOME")
+        && let Some(stripped) = path_str.strip_prefix("~/")
+    {
+        return PathBuf::from(home).join(stripped);
+    }
+
+    // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
+    let mut components = path.components();
+    if let Some(std::path::Component::Normal(first)) = components.next()
+        && first == "~"
+        && let Some(home) = std::env::var_os("HOME")
+    {
+        let mut expanded_path = PathBuf::from(home);
+        expanded_path.extend(components);
+        return expanded_path;
     }
 
     // Return the original path if no tilde expansion was needed

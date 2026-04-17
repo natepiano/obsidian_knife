@@ -91,12 +91,13 @@ impl ReportDefinition for AmbiguousMatchesTable {
         // Sort rows by file name and line number
         rows.sort_by(|a, b| {
             let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
-            if file_cmp != std::cmp::Ordering::Equal {
-                return file_cmp;
+            if file_cmp == std::cmp::Ordering::Equal {
+                a[1].parse::<usize>()
+                    .unwrap_or(0)
+                    .cmp(&b[1].parse::<usize>().unwrap_or(0))
+            } else {
+                file_cmp
             }
-            a[1].parse::<usize>()
-                .unwrap_or(0)
-                .cmp(&b[1].parse::<usize>().unwrap_or(0))
         });
 
         rows
@@ -201,12 +202,13 @@ impl ReportDefinition for TargetReferencesTable {
 
         rows.sort_by(|a, b| {
             let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
-            if file_cmp != std::cmp::Ordering::Equal {
-                return file_cmp;
+            if file_cmp == std::cmp::Ordering::Equal {
+                a[1].parse::<usize>()
+                    .unwrap_or(0)
+                    .cmp(&b[1].parse::<usize>().unwrap_or(0))
+            } else {
+                file_cmp
             }
-            a[1].parse::<usize>()
-                .unwrap_or(0)
-                .cmp(&b[1].parse::<usize>().unwrap_or(0))
         });
 
         rows

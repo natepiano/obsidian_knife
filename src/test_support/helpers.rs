@@ -9,6 +9,7 @@ use chrono::Utc;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::FORMAT_DATE;
 use crate::constants::FORMAT_TIME_STAMP;
+use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 
 pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
@@ -32,4 +33,10 @@ pub fn parse_datetime(s: &str) -> DateTime<Utc> {
 
 pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile {
     MarkdownFile::new(path, DEFAULT_TIMEZONE).unwrap()
+}
+
+pub fn frontmatter_date_wikilink(date: DateTime<Utc>) -> String {
+    let mut frontmatter = FrontMatter::default();
+    frontmatter.set_date_modified(date, DEFAULT_TIMEZONE);
+    frontmatter.date_modified().map(String::from).unwrap()
 }

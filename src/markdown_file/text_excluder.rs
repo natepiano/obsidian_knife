@@ -72,16 +72,16 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     where
         T: TryInto<CodeBlockDelimiter>,
     {
-        if let Ok(delimiter) = content.try_into() {
-            if delimiter == self.delimiter.delimiter_type() {
-                match self.location {
-                    BlockLocation::Inside => {
-                        self.location = BlockLocation::ClosingDelimiterFound;
-                    },
-                    BlockLocation::Outside | BlockLocation::ClosingDelimiterFound => {
-                        self.location = BlockLocation::Inside;
-                    },
-                }
+        if let Ok(delimiter) = content.try_into()
+            && delimiter == self.delimiter.delimiter_type()
+        {
+            match self.location {
+                BlockLocation::Inside => {
+                    self.location = BlockLocation::ClosingDelimiterFound;
+                },
+                BlockLocation::Outside | BlockLocation::ClosingDelimiterFound => {
+                    self.location = BlockLocation::Inside;
+                },
             }
         } else if self.location == BlockLocation::ClosingDelimiterFound {
             self.location = BlockLocation::Outside;
