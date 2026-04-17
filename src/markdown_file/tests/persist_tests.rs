@@ -4,8 +4,8 @@ use std::fs;
 use filetime::FileTime;
 use tempfile::TempDir;
 
-use super::PersistReason;
-use super::markdown_file_types::DateValidationIssue;
+use super::super::PersistReason;
+use super::super::date_validation::DateValidationIssue;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;

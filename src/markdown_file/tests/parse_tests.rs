@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use tempfile::TempDir;
 
-use super::MarkdownFile;
+use super::super::MarkdownFile;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 

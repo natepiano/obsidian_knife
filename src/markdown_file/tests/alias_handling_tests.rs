@@ -1,6 +1,6 @@
 use tempfile::TempDir;
 
-use super::MarkdownFile;
+use super::super::MarkdownFile;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::obsidian_repository;
 use crate::test_support;

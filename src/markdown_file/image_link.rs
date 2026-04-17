@@ -5,8 +5,8 @@ use derive_more::Deref;
 use derive_more::DerefMut;
 use derive_more::IntoIterator;
 
-use super::back_populate_match::MatchType;
-use super::back_populate_match::ReplaceableContent;
+use super::replaceable_content::MatchType;
+use super::replaceable_content::ReplaceableContent;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
 use crate::constants::FORWARD_SLASH;

@@ -4,11 +4,11 @@ use chrono::TimeZone;
 use chrono::Utc;
 use tempfile::TempDir;
 
-use super::DateValidation;
-use super::PersistReason;
-use super::date_validation;
-use super::markdown_file_types::DateCreatedFixValidation;
-use super::markdown_file_types::DateValidationIssue;
+use super::super::DateValidation;
+use super::super::PersistReason;
+use super::super::date_validation;
+use super::super::date_validation::DateCreatedFixValidation;
+use super::super::date_validation::DateValidationIssue;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::test_support as test_utils;

@@ -1,10 +1,10 @@
 use tempfile::TempDir;
 
-use super::ImageLink;
-use super::MarkdownFile;
-use super::markdown_file_types::ImageLinkRendering;
-use super::markdown_file_types::ImageLinkTarget;
-use super::markdown_file_types::ImageLinkType;
+use super::super::ImageLink;
+use super::super::MarkdownFile;
+use super::super::image_link::ImageLinkRendering;
+use super::super::image_link::ImageLinkTarget;
+use super::super::image_link::ImageLinkType;
 use crate::test_support::TestFileBuilder;
 use crate::utils::IMAGE_REGEX;
 use crate::wikilink::InvalidWikilinkReason;

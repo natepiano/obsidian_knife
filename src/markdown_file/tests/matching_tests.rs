@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use tempfile::TempDir;
 
-use super::MarkdownFile;
+use super::super::MarkdownFile;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_EXTENSION;
 use crate::obsidian_repository::ObsidianRepository;

@@ -1,69 +1,5 @@
 #[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod alias_handling_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod back_populate_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod case_sensitivity_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod date_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod exclusion_zone_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod matching_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod parse_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod persist_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    clippy::expect_used,
-    clippy::panic,
-    reason = "tests should panic on unexpected values"
-)]
-mod process_content_tests;
-#[cfg(test)]
-#[allow(
-    clippy::unwrap_used,
-    reason = "tests should panic on unexpected values"
-)]
-mod table_handling_tests;
+mod tests;
 
 use std::error::Error;
 use std::ffi::OsStr;
@@ -75,26 +11,27 @@ use regex::Regex;
 
 mod back_populate;
 mod date_validation;
-mod markdown_file_types;
+mod image_link;
 mod match_helpers;
+mod replaceable_content;
 mod text_excluder;
 
-pub use markdown_file_types::BackPopulateMatch;
-pub use markdown_file_types::DateValidation;
-pub use markdown_file_types::ImageLink;
-pub use markdown_file_types::ImageLinkState;
-pub use markdown_file_types::MatchContext;
-pub use markdown_file_types::MatchType;
-pub use markdown_file_types::PersistReason;
-pub use markdown_file_types::ReplaceableContent;
+pub use back_populate::BackPopulateMatch;
+pub use back_populate::MatchContext;
+pub use date_validation::DateValidation;
+pub use date_validation::PersistReason;
+pub use image_link::ImageLink;
+pub use image_link::ImageLinkState;
+pub use replaceable_content::MatchType;
+pub use replaceable_content::ReplaceableContent;
 pub use text_excluder::InlineCodeExcluder;
 
-use self::markdown_file_types::BackPopulateMatches;
-use self::markdown_file_types::DateCreatedFixValidation;
-use self::markdown_file_types::ImageLinkTarget;
-use self::markdown_file_types::ImageLinkType;
-use self::markdown_file_types::ImageLinks;
-use self::markdown_file_types::Wikilinks;
+use self::back_populate::BackPopulateMatches;
+use self::date_validation::DateCreatedFixValidation;
+use self::image_link::ImageLinkTarget;
+use self::image_link::ImageLinkType;
+use self::image_link::ImageLinks;
+use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
