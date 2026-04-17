@@ -6,6 +6,7 @@ use tempfile::TempDir;
 use super::Config;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::ERROR_NOT_FOUND;
+use crate::constants::OBSIDIAN_FOLDER;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support as test_utils;
@@ -18,7 +19,7 @@ fn create_test_environment() -> (TempDir, PathBuf) {
     // Create Obsidian vault structure
     let obsidian_path = temp_dir.path().join("vault");
     fs::create_dir(&obsidian_path).unwrap();
-    fs::create_dir(obsidian_path.join(".obsidian")).unwrap();
+    fs::create_dir(obsidian_path.join(OBSIDIAN_FOLDER)).unwrap();
 
     let canonical_path = obsidian_path
         .canonicalize()
@@ -48,20 +49,22 @@ fn create_test_environment() -> (TempDir, PathBuf) {
 #[test]
 fn test_reset_apply_changes() {
     let temp_dir = TempDir::new().unwrap();
-    let yaml = r#"
+    let yaml = format!(
+        r#"
 obsidian_path: /test/path
 apply_changes: true
 file_limit: 5
 back_populate_file_filter: "*test*"
-operational_timezone: America/New_York
+operational_timezone: {DEFAULT_TIMEZONE}
 do_not_back_populate:
  - "*.png"
 ignore_folders:
  - .git
-output_folder: output"#;
+output_folder: output"#
+    );
 
     let config_path = TestFileBuilder::new()
-        .with_custom_frontmatter(yaml.to_string())
+        .with_custom_frontmatter(yaml)
         .create(&temp_dir, "config.md");
 
     let mut markdown_file = test_utils::get_test_markdown_file(config_path.clone());

@@ -1,7 +1,6 @@
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
     reason = "tests should panic on unexpected values"
 )]
 mod image_file_tests;

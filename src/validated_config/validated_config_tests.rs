@@ -6,6 +6,9 @@ use tempfile::TempDir;
 use super::ValidatedConfigBuilder;
 use super::*;
 use crate::config::Config;
+use crate::constants::DEFAULT_OUTPUT_FOLDER;
+use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::OBSIDIAN_FOLDER;
 use crate::test_support;
 
 #[test]
@@ -49,12 +52,12 @@ fn test_preserve_obsidian_in_ignore_folders() {
     let temp_dir = TempDir::new().unwrap();
     let obsidian_path = temp_dir.path().to_path_buf();
 
-    // Create builder with initial ignore folders containing .obsidian
+    // Create builder with initial ignore folders containing the default Obsidian folder
     let mut builder = ValidatedConfigBuilder::default();
     builder.obsidian_path(obsidian_path.clone());
 
-    // First set ignore_folders with .obsidian
-    builder.ignore_folders(Some(vec![PathBuf::from(".obsidian")]));
+    // First set ignore_folders with the default Obsidian folder
+    builder.ignore_folders(Some(vec![PathBuf::from(OBSIDIAN_FOLDER)]));
 
     // Then set output folder
     builder.output_folder(obsidian_path.join("custom_output"));
@@ -63,7 +66,7 @@ fn test_preserve_obsidian_in_ignore_folders() {
     let config = builder.build().unwrap();
     let ignore_folders = config.ignore_folders().unwrap();
 
-    let obsidian_dir = obsidian_path.join(".obsidian");
+    let obsidian_dir = obsidian_path.join(OBSIDIAN_FOLDER);
     let output_dir = obsidian_path.join("custom_output");
 
     assert!(
@@ -129,7 +132,7 @@ obsidian_path: {}",
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
     let result = config.validate();
     assert!(result.is_ok());
-    assert_eq!(result.unwrap().operational_timezone(), "America/New_York");
+    assert_eq!(result.unwrap().operational_timezone(), DEFAULT_TIMEZONE);
 }
 
 #[test]
@@ -146,7 +149,7 @@ obsidian_path: {}",
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
     let validated = config.validate().unwrap();
 
-    let expected_output = temp_dir.path().join("obsidian_knife");
+    let expected_output = temp_dir.path().join(DEFAULT_OUTPUT_FOLDER);
     assert_eq!(validated.output_folder(), expected_output.as_path());
 }
 
@@ -155,8 +158,8 @@ fn test_output_folder_added_to_ignore() {
     // Create a temporary directory for the test
     let temp_dir = TempDir::new().unwrap();
 
-    // Create the .obsidian directory
-    let obsidian_dir = temp_dir.path().join(".obsidian");
+    // Create the default Obsidian directory
+    let obsidian_dir = temp_dir.path().join(OBSIDIAN_FOLDER);
     fs::create_dir(&obsidian_dir).unwrap();
 
     let yaml = format!(
@@ -164,8 +167,9 @@ fn test_output_folder_added_to_ignore() {
 obsidian_path: {}
 output_folder: custom_output
 ignore_folders:
-  - .obsidian",
-        temp_dir.path().display()
+  - {}",
+        temp_dir.path().display(),
+        OBSIDIAN_FOLDER
     );
 
     let config: Config = serde_yaml::from_str(&yaml).unwrap();
@@ -317,7 +321,7 @@ fn test_all_validation_passes() {
         builder
             .file_limit(Some(1))
             .back_populate_file_filter(Some("valid_filter".to_string()))
-            .operational_timezone("America/New_York".to_string());
+            .operational_timezone(DEFAULT_TIMEZONE.to_string());
     });
 
     assert!(result.is_ok());

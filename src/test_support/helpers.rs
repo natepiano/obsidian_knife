@@ -7,6 +7,8 @@ use chrono::TimeZone;
 use chrono::Utc;
 
 use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::FORMAT_DATE;
+use crate::constants::FORMAT_TIME_STAMP;
 use crate::markdown_file::MarkdownFile;
 
 pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
@@ -14,9 +16,9 @@ pub fn eastern_midnight(year: i32, month: u32, day: u32) -> DateTime<Utc> {
 }
 
 pub fn parse_datetime(s: &str) -> DateTime<Utc> {
-    NaiveDateTime::parse_from_str(s, "%Y-%m-%d %H:%M:%S").map_or_else(
+    NaiveDateTime::parse_from_str(s, FORMAT_TIME_STAMP).map_or_else(
         |_| {
-            NaiveDate::parse_from_str(s, "%Y-%m-%d").map_or_else(
+            NaiveDate::parse_from_str(s, FORMAT_DATE).map_or_else(
                 |_| panic!("Invalid format"),
                 |naive_date| {
                     let naive_dt = naive_date.and_hms_opt(0, 0, 0).unwrap();

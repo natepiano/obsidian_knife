@@ -7,6 +7,7 @@ use chrono::Utc;
 use tempfile::TempDir;
 
 use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::FORMAT_DATE;
 use crate::utils;
 
 #[derive(Clone)]
@@ -88,8 +89,8 @@ impl TestFileBuilder {
     }
 
     pub fn with_matching_dates(mut self, datetime: DateTime<Utc>) -> Self {
-        self.frontmatter_created = Some(format!("[[{}]]", datetime.format("%Y-%m-%d")));
-        self.frontmatter_modified = Some(format!("[[{}]]", datetime.format("%Y-%m-%d")));
+        self.frontmatter_created = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
+        self.frontmatter_modified = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
         self.fs_created = datetime;
         self.fs_modified = datetime;
         self

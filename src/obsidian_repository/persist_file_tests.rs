@@ -10,6 +10,7 @@ use filetime::FileTime;
 use tempfile::TempDir;
 
 use super::*;
+use crate::constants::FORMAT_DATE;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support;
 use crate::test_support as test_utils;
@@ -190,8 +191,8 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
             initial_frontmatter_modified:  Some("also invalid".to_string()),
             initial_fs_created:            last_week,
             initial_fs_modified:           last_week,
-            expected_frontmatter_created:  Some(last_week.format("%Y-%m-%d").to_string()),
-            expected_frontmatter_modified: Some(last_week.format("%Y-%m-%d").to_string()),
+            expected_frontmatter_created:  Some(last_week.format(FORMAT_DATE).to_string()),
+            expected_frontmatter_modified: Some(last_week.format(FORMAT_DATE).to_string()),
             expected_fs_created_date:      last_week.date_naive(),
             expected_fs_modified_date:     last_week.date_naive(),
             should_persist:                true,
