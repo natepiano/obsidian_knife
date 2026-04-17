@@ -6,6 +6,7 @@ use std::fmt::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::COLON;
@@ -76,11 +77,8 @@ impl ReportDefinition for AmbiguousMatchesTable {
                 .and_then(OsStr::to_str)
                 .unwrap_or_default();
 
-            let highlighted_line = super::orchestration::highlight_matches(
-                &line_text,
-                &positions,
-                self.display_text.len(),
-            );
+            let highlighted_line =
+                orchestration::highlight_matches(&line_text, &positions, self.display_text.len());
 
             rows.push(vec![
                 file_stem.to_wikilink(),

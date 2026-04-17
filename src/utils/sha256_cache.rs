@@ -41,10 +41,10 @@ pub struct CachedImageInfo {
 pub struct Sha256Cache {
     cache:                     HashMap<PathBuf, CachedImageInfo>,
     cache_file_path:           PathBuf,
-    files_read:                usize,
-    pub(super) files_added:    usize,
-    pub(super) files_modified: usize,
-    files_deleted:             usize,
+    read_count:                usize,
+    pub(super) added_count:    usize,
+    pub(super) modified_count: usize,
+    deleted_count:             usize,
 }
 
 impl Sha256Cache {
@@ -68,10 +68,10 @@ impl Sha256Cache {
             Self {
                 cache,
                 cache_file_path,
-                files_read: 0,
-                files_added: 0,
-                files_modified: 0,
-                files_deleted: 0,
+                read_count: 0,
+                added_count: 0,
+                modified_count: 0,
+                deleted_count: 0,
             },
             status,
         )
@@ -87,16 +87,16 @@ impl Sha256Cache {
         if let Some(cached_info) = self.cache.get(path)
             && cached_info.time_stamp == time_stamp
         {
-            self.files_read += 1;
+            self.read_count += 1;
             return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
         }
 
         let new_hash = ImageHash::from(Self::hash_file(path)?);
         let status = if self.cache.contains_key(path) {
-            self.files_modified += 1;
+            self.modified_count += 1;
             CacheEntryStatus::Modified
         } else {
-            self.files_added += 1;
+            self.added_count += 1;
             CacheEntryStatus::Added
         };
 
@@ -120,14 +120,14 @@ impl Sha256Cache {
             .cloned() // Clone the `PathBuf`s we want to remove
             .collect(); // Collect into Vec
 
-        self.files_deleted = to_remove.len();
+        self.deleted_count = to_remove.len();
         for path in to_remove {
             self.cache.remove(&path);
         }
     }
 
     pub const fn has_changes(&self) -> bool {
-        self.files_added > 0 || self.files_modified > 0 || self.files_deleted > 0
+        self.added_count > 0 || self.modified_count > 0 || self.deleted_count > 0
     }
 
     pub fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {

@@ -31,15 +31,15 @@ pub(super) struct PersistReasonsTable;
 
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
-    back_populate_count:      usize,
-    date_created_fix:         Option<(String, String)>,
-    date_validation_created:  Option<(String, String)>, // (before, after)
-    date_validation_modified: Option<(String, String)>,
-    full_path:                PathBuf, //for sorting
-    image_refs_count:         usize,
-    parent_path:              String,
-    reason:                   PersistReason,
-    wikilink:                 String,
+    back_populate_count: usize,
+    date_created_fix:    Option<(String, String)>,
+    created_validation:  Option<(String, String)>, // (before, after)
+    modified_validation: Option<(String, String)>,
+    full_path:           PathBuf, //for sorting
+    image_refs_count:    usize,
+    parent_path:         String,
+    reason:              PersistReason,
+    wikilink:            String,
 }
 
 impl ReportDefinition for PersistReasonsTable {
@@ -64,13 +64,11 @@ impl ReportDefinition for PersistReasonsTable {
             .map(|item| {
                 let (before, after, reason_info) = match &item.reason {
                     PersistReason::DateCreatedUpdated { reason } => {
-                        let (before, after) =
-                            item.date_validation_created.clone().unwrap_or_default();
+                        let (before, after) = item.created_validation.clone().unwrap_or_default();
                         (before, after, reason.to_string())
                     },
                     PersistReason::DateModifiedUpdated { reason } => {
-                        let (before, after) =
-                            item.date_validation_modified.clone().unwrap_or_default();
+                        let (before, after) = item.modified_validation.clone().unwrap_or_default();
                         (before, after, reason.to_string())
                     },
                     PersistReason::DateCreatedFixApplied => {
@@ -198,13 +196,11 @@ impl ObsidianRepository {
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
             .count();
 
-        let date_validation_created =
-            Some(Self::format_date_validation(&file.date_validation_created));
-        let date_validation_modified =
-            Some(Self::format_date_validation(&file.date_validation_modified));
+        let created_validation = Some(Self::format_date_validation(&file.created_validation));
+        let modified_validation = Some(Self::format_date_validation(&file.modified_validation));
         let date_created_fix = Some({
             let formatted_date = file
-                .date_validation_created
+                .created_validation
                 .operational_file_system_date()
                 .format(FORMAT_DATE);
             let fix_date_formatted = file
@@ -227,8 +223,8 @@ impl ObsidianRepository {
                 back_populate_count,
                 image_refs_count,
                 parent_path: parent_path.clone(),
-                date_validation_created: date_validation_created.clone(),
-                date_validation_modified: date_validation_modified.clone(),
+                created_validation: created_validation.clone(),
+                modified_validation: modified_validation.clone(),
                 date_created_fix: date_created_fix.clone(),
             })
             .collect()

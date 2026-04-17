@@ -4,6 +4,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::BACK_POPULATE;
@@ -70,7 +71,7 @@ impl ReportDefinition for BackPopulateTable {
             let file_stem = file_path.file_stem().and_then(OsStr::to_str).unwrap_or("");
 
             for line_info in entry.line_info {
-                let highlighted_line = super::orchestration::highlight_matches(
+                let highlighted_line = orchestration::highlight_matches(
                     &line_info.line_text,
                     &line_info.positions,
                     self.display_text.len(),

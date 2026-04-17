@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -56,10 +57,8 @@ impl ReportDefinition for MissingReferencesTable {
             .iter()
             .map(
                 |(markdown_path, extracted_filename, line_number, position)| {
-                    let markdown_link = super::orchestration::format_wikilink(
-                        markdown_path,
-                        config.obsidian_path(),
-                    );
+                    let markdown_link =
+                        orchestration::format_wikilink(markdown_path, config.obsidian_path());
 
                     let image_link =
                         utils::escape_pipe(&utils::escape_brackets(&extracted_filename.clone()));

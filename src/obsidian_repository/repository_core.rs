@@ -32,11 +32,11 @@ impl ObsidianRepository {
         let _timer = Timer::new("prescan+analyze");
         let ignore_folders = validated_config.ignore_folders().unwrap_or(&[]);
 
-        let files = utils::collect_repository_files(validated_config, ignore_folders)?;
+        let repository_files = utils::collect_repository_files(validated_config, ignore_folders)?;
 
         // Process markdown files
         let markdown_files = Self::initialize_markdown_files(
-            &files.markdown_files,
+            &repository_files.markdown_files,
             validated_config.operational_timezone(),
             validated_config.file_limit(),
         )?;
@@ -52,7 +52,7 @@ impl ObsidianRepository {
         };
 
         repository.image_files =
-            repository.initialize_image_files(&files.image_files, validated_config)?;
+            repository.initialize_image_files(&repository_files.image_files, validated_config)?;
 
         repository.analyze_repository(validated_config);
 
@@ -73,8 +73,8 @@ impl ObsidianRepository {
 
         markdown_paths.par_iter().try_for_each(|file_path| {
             match MarkdownFile::new(file_path.clone(), timezone) {
-                Ok(file_info) => {
-                    markdown_files.lock().unwrap().push(file_info);
+                Ok(markdown_file) => {
+                    markdown_files.lock().unwrap().push(markdown_file);
                     Ok(())
                 },
                 Err(e) => {
@@ -98,7 +98,7 @@ impl ObsidianRepository {
     fn initialize_wikilinks(markdown_files: &MarkdownFiles) -> (Vec<Wikilink>, AhoCorasick) {
         let all_wikilinks: HashSet<Wikilink> = markdown_files
             .iter()
-            .flat_map(|file_info| file_info.wikilinks.valid.clone())
+            .flat_map(|markdown_file| markdown_file.wikilinks.valid.clone())
             .collect();
         sort_and_build_wikilinks_automaton(all_wikilinks)
     }

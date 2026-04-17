@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::Path;
 
+use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -103,7 +104,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                         .iter()
                         .find(|f| f.path == Path::new(ref_path))
                     {
-                        let file_link = super::orchestration::format_wikilink(
+                        let file_link = orchestration::format_wikilink(
                             Path::new(ref_path),
                             config.obsidian_path(),
                         );

@@ -1,4 +1,5 @@
 use super::ToWikilink;
+use super::wikilink_parser;
 use super::wikilink_types::WikilinkParseResult;
 use super::*;
 /// Helper function to parse a full wikilink string.
@@ -9,7 +10,7 @@ fn parse_full_wikilink(input: &str) -> Option<WikilinkParseResult> {
         // Extract the substring after `[[` and include the closing `]]`
         let inner = &input[2..];
         let mut chars = inner.char_indices().peekable();
-        parse_wikilink(&mut chars)
+        wikilink_parser::parse_wikilink(&mut chars)
     } else {
         // Invalid format if it doesn't start and end with brackets
         None

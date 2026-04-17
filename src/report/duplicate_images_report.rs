@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::error::Error;
 use std::path::Path;
 
+use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -150,10 +151,8 @@ impl DuplicateImagesTable<'_> {
             .markdown_file_references
             .iter()
             .map(|ref_path| {
-                let file_link = super::orchestration::format_wikilink(
-                    Path::new(ref_path),
-                    config.obsidian_path(),
-                );
+                let file_link =
+                    orchestration::format_wikilink(Path::new(ref_path), config.obsidian_path());
                 let (line_number, position) = self.resolve_image_position(ref_path, &image.path);
 
                 vec![

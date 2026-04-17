@@ -113,8 +113,8 @@ use crate::yaml_frontmatter::YamlFrontMatterError;
 pub(crate) struct MarkdownFile {
     pub(crate) content:                      String,
     pub(crate) date_created_fix:             DateCreatedFixValidation,
-    pub(crate) date_validation_created:      DateValidation,
-    pub(crate) date_validation_modified:     DateValidation,
+    pub(crate) created_validation:           DateValidation,
+    pub(crate) modified_validation:          DateValidation,
     pub(crate) do_not_back_populate_regexes: Option<Vec<Regex>>,
     pub(crate) frontmatter:                  Option<FrontMatter>,
     pub(crate) frontmatter_error:            Option<YamlFrontMatterError>,
@@ -150,23 +150,22 @@ impl MarkdownFile {
             Err(e) => (None, full_content, Some(e)),
         };
 
-        let (date_validation_created, date_validation_modified) =
-            date_validation::get_date_validations(
-                frontmatter.as_ref(),
-                &path,
-                operational_timezone,
-            )?;
+        let (created_validation, modified_validation) = date_validation::get_date_validations(
+            frontmatter.as_ref(),
+            &path,
+            operational_timezone,
+        )?;
 
         let date_created_fix = DateCreatedFixValidation::from_frontmatter(
             frontmatter.as_ref(),
-            date_validation_created.file_system_date,
+            created_validation.file_system_date,
             operational_timezone,
         );
 
         let persist_reasons = date_validation::process_date_validations(
             &mut frontmatter,
-            &date_validation_created,
-            &date_validation_modified,
+            &created_validation,
+            &modified_validation,
             &date_created_fix,
             operational_timezone,
         );
@@ -175,12 +174,12 @@ impl MarkdownFile {
             .as_ref()
             .and_then(FrontMatter::get_do_not_back_populate_regexes);
 
-        let mut file_info = Self {
+        let mut markdown_file = Self {
             content,
             date_created_fix,
             do_not_back_populate_regexes,
-            date_validation_created,
-            date_validation_modified,
+            created_validation,
+            modified_validation,
             frontmatter,
             frontmatter_error,
             frontmatter_line_count,
@@ -191,15 +190,15 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        let extracted_wikilinks = file_info.process_wikilinks();
-        let image_links = file_info.process_image_links();
+        let extracted_wikilinks = markdown_file.process_wikilinks();
+        let image_links = markdown_file.process_image_links();
 
         // Store results directly in `self`.
-        file_info.wikilinks.invalid = extracted_wikilinks.invalid;
-        file_info.wikilinks.valid = extracted_wikilinks.valid;
-        file_info.image_links.links = image_links;
+        markdown_file.wikilinks.invalid = extracted_wikilinks.invalid;
+        markdown_file.wikilinks.valid = extracted_wikilinks.valid;
+        markdown_file.image_links.links = image_links;
 
-        Ok(file_info)
+        Ok(markdown_file)
     }
 
     pub(crate) fn process_file_for_back_populate_replacements(
@@ -245,7 +244,7 @@ impl MarkdownFile {
         if self.frontmatter.is_none() {
             let mut frontmatter = FrontMatter::default();
             frontmatter.set_date_created(
-                self.date_validation_created.file_system_date,
+                self.created_validation.file_system_date,
                 operational_timezone,
             );
             self.frontmatter = Some(frontmatter);
