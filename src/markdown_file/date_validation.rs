@@ -68,13 +68,14 @@ pub struct DateValidation {
 
 impl DateValidation {
     pub fn operational_file_system_date(&self) -> DateTime<Utc> {
-        self.operational_timezone
-            .parse::<chrono_tz::Tz>()
-            .map_or(self.file_system_date, |tz| {
-                let local = self.file_system_date.with_timezone(&tz);
-                let naive = local.naive_local();
-                DateTime::from_naive_utc_and_offset(naive, Utc)
-            })
+        self.operational_timezone.parse::<chrono_tz::Tz>().map_or(
+            self.file_system_date,
+            |timezone| {
+                let local_file_system_date = self.file_system_date.with_timezone(&timezone);
+                let naive_file_system_date = local_file_system_date.naive_local();
+                DateTime::from_naive_utc_and_offset(naive_file_system_date, Utc)
+            },
+        )
     }
 }
 
@@ -104,17 +105,18 @@ impl DateCreatedFixValidation {
             NaiveDate::parse_from_str(date.trim(), FORMAT_DATE)
                 .ok()
                 .map(|naive_date| {
-                    let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+                    let timezone: chrono_tz::Tz =
+                        operational_timezone.parse().unwrap_or(chrono_tz::UTC);
 
                     #[allow(clippy::unwrap_used, reason = "noon (12:00:00) is always a valid time")]
                     let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0).unwrap();
 
-                    let fixed_date = tz
+                    let fixed_date = timezone
                         .from_local_datetime(&naive_datetime)
                         .single()
                         .map_or_else(|| file_created_date, |dt| dt.with_timezone(&Utc));
 
-                    let fixed_date_local = fixed_date.with_timezone(&tz);
+                    let fixed_date_local = fixed_date.with_timezone(&timezone);
                     assert_eq!(
                         fixed_date_local.date_naive(),
                         naive_date,
@@ -160,15 +162,15 @@ pub(super) fn get_date_validations(
     // it's moot
     Ok(dates
         .into_iter()
-        .map(|(frontmatter_date, fs_date)| {
+        .map(|(frontmatter_date, file_system_date)| {
             let issue = get_date_validation_issue(
                 frontmatter_date.as_deref(),
-                &fs_date,
+                &file_system_date,
                 operational_timezone,
             );
             DateValidation {
                 frontmatter_date,
-                file_system_date: fs_date,
+                file_system_date,
                 issue,
                 operational_timezone: operational_timezone.to_string(),
             }
@@ -179,7 +181,7 @@ pub(super) fn get_date_validations(
 
 pub(super) fn get_date_validation_issue(
     date_opt: Option<&str>,
-    fs_date: &DateTime<Utc>,
+    file_system_date: &DateTime<Utc>,
     operational_timezone: &str,
 ) -> Option<DateValidationIssue> {
     // Check if the date is missing
@@ -205,16 +207,16 @@ pub(super) fn get_date_validation_issue(
     };
 
     // Parse timezone string into a Tz
-    let Ok(tz) = operational_timezone.parse::<chrono_tz::Tz>() else {
+    let Ok(timezone) = operational_timezone.parse::<chrono_tz::Tz>() else {
         return Some(DateValidationIssue::InvalidDateFormat);
     };
 
-    // Convert UTC fs_date to the specified timezone
-    let fs_date_local = fs_date.with_timezone(&tz);
-    let fs_date_naive = fs_date_local.date_naive();
+    // Convert UTC `file_system_date` to the specified timezone
+    let file_system_date_local = file_system_date.with_timezone(&timezone);
+    let file_system_date_naive = file_system_date_local.date_naive();
 
     // Compare the dates
-    if frontmatter_date != fs_date_naive {
+    if frontmatter_date != file_system_date_naive {
         return Some(DateValidationIssue::FileSystemMismatch);
     }
 

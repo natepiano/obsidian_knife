@@ -50,11 +50,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         ]
     }
 
-    fn build_rows(
-        &self,
-        items: &[Self::Item],
-        _config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         // Group matches by file path and line number for consolidation
         let mut line_map: HashMap<(String, usize), (String, Vec<usize>)> = HashMap::new();
 
@@ -178,11 +174,7 @@ impl ReportDefinition for TargetReferencesTable {
         ]
     }
 
-    fn build_rows(
-        &self,
-        items: &[Self::Item],
-        _config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
+    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
         let mut rows: Vec<Vec<String>> = items
             .iter()
             .map(|item| {

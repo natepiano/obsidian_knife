@@ -114,7 +114,7 @@ impl ReportDefinition for BackPopulateTable {
         Some(title)
     }
 
-    fn description(&self, _items: &[Self::Item]) -> String { String::new() }
+    fn description(&self, _: &[Self::Item]) -> String { String::new() }
 
     fn level(&self) -> &'static str { LEVEL3 }
 }

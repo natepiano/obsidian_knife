@@ -3,6 +3,7 @@ use tempfile::TempDir;
 
 use super::*;
 use crate::constants::DEFAULT_TIMEZONE;
+use crate::frontmatter::FrontMatter;
 use crate::markdown_file::PersistReason;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
@@ -146,7 +147,7 @@ fn test_update_modified_uses_current_date() {
     let modified_date = markdown_file
         .frontmatter
         .as_ref()
-        .and_then(|fm| fm.date_modified())
+        .and_then(FrontMatter::date_modified)
         .expect("Should have a modified date");
 
     // Get today's date in the same format as the frontmatter

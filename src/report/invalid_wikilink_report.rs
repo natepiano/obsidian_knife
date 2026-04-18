@@ -55,7 +55,7 @@ impl ReportDefinition for InvalidWikilinksTable {
                 vec![
                     file_path
                         .file_stem()
-                        .and_then(|s| s.to_str())
+                        .and_then(OsStr::to_str)
                         .unwrap_or("")
                         .to_wikilink(),
                     invalid_wikilink.line_number.to_string(),

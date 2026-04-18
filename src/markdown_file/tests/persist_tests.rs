@@ -251,8 +251,8 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
 
     if let Some(fm) = &mut file_info.frontmatter {
         // Update the frontmatter to match the intended created and modified dates
-        fm.raw_date_created = Some(created_date);
-        fm.raw_date_modified = Some(modified_date);
+        fm.raw_created = Some(created_date);
+        fm.raw_modified = Some(modified_date);
         fm.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
         fm.set_date_modified(modified_date, DEFAULT_TIMEZONE);
     }
@@ -286,7 +286,7 @@ fn test_disallow_persist_if_date_modified_not_set() {
 
     // Simulate the absence of `raw_date_modified` by explicitly removing it
     if let Some(fm) = &mut file_info.frontmatter {
-        fm.raw_date_modified = None;
+        fm.raw_modified = None;
     }
 
     // Attempt to persist and expect an error
@@ -365,12 +365,12 @@ fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
     let fm = file_info.frontmatter.as_ref().expect("just confirmed");
 
     // `date_created` set from filesystem date
-    assert!(fm.date_created.is_some());
-    assert!(fm.raw_date_created.is_some());
+    assert!(fm.created.is_some());
+    assert!(fm.raw_created.is_some());
 
     // `date_modified` set (by `set_date_created` auto-call and then `set_date_modified_now`)
-    assert!(fm.date_modified.is_some());
-    assert!(fm.raw_date_modified.is_some());
+    assert!(fm.modified.is_some());
+    assert!(fm.raw_modified.is_some());
 
     // Frontmatter error cleared
     assert!(file_info.frontmatter_error.is_none());

@@ -7,6 +7,7 @@ mod image_file_tests;
 mod image_file_types;
 
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
 use std::path::PathBuf;
 
@@ -80,7 +81,7 @@ impl ImageFile {
         let metadata = fs::metadata(&path).expect("Failed to get metadata");
         let size = metadata.len();
 
-        let file_type = path.extension().and_then(|ext| ext.to_str()).map_or_else(
+        let file_type = path.extension().and_then(OsStr::to_str).map_or_else(
             || ImageFileType::Other("unknown".to_string()),
             ImageFileType::from_extension,
         );

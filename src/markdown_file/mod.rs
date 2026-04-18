@@ -168,9 +168,9 @@ impl MarkdownFile {
 
         let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
         let modified_date = frontmatter
-            .raw_date_modified
+            .raw_modified
             .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
-        let created_date = frontmatter.raw_date_created;
+        let created_date = frontmatter.raw_created;
 
         utils::set_file_dates(&self.path, created_date, modified_date, DEFAULT_TIMEZONE)?;
 

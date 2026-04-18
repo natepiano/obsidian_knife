@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::ffi::OsStr;
 
 use tempfile::TempDir;
 
@@ -253,7 +254,7 @@ fn test_scan_folders_wikilink_collection() {
         .markdown_files
         .iter()
         .filter(|file_info| {
-            file_info.path.extension().and_then(|ext| ext.to_str()) == Some(MARKDOWN_EXTENSION)
+            file_info.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
         })
         .flat_map(|file_info| {
             let file_info = MarkdownFile::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();

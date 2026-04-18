@@ -1,5 +1,7 @@
 use std::error::Error;
+use std::ffi::OsStr;
 use std::fs;
+use std::fs::DirEntry;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -95,12 +97,12 @@ pub fn collect_repository_files(
             }
 
             let subdirs: Vec<PathBuf> = fs::read_dir(&dir)?
-                .filter_map(|entry| entry.ok().map(|e| e.path()))
-                .filter(|path| path.file_name().and_then(|s| s.to_str()) != Some(DS_STORE))
+                .filter_map(|entry| entry.ok().as_ref().map(DirEntry::path))
+                .filter(|path| path.file_name().and_then(OsStr::to_str) != Some(DS_STORE))
                 .inspect(|path| {
                     if let Some(ext) = path
                         .extension()
-                        .and_then(|s| s.to_str())
+                        .and_then(OsStr::to_str)
                         .map(str::to_lowercase)
                     {
                         if ext == MARKDOWN_EXTENSION {
@@ -146,10 +148,10 @@ pub fn set_file_dates(
     filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
 
     if let Some(created_date) = created {
-        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
 
         // Convert directly to local time without additional adjustment
-        let local_time = created_date.with_timezone(&tz);
+        let local_time = created_date.with_timezone(&timezone);
         let formatted_date = local_time.format("%m/%d/%Y %H:%M:%S").to_string();
 
         let output = std::process::Command::new("SetFile")
@@ -172,7 +174,7 @@ pub fn set_file_dates(
     path: &Path,
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
-    _operational_timezone: &str,
+    _: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(created_date) = created {
         filetime::set_file_times(
@@ -255,7 +257,7 @@ mod set_file_dates_tests {
     fn test_set_file_dates_with_operational_timezone() {
         // Define test parameters
         let operational_timezone = "America/New_York";
-        let tz: chrono_tz::Tz = operational_timezone.parse().unwrap();
+        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap();
 
         // Define creation and modification dates in UTC
         let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
@@ -283,15 +285,15 @@ mod set_file_dates_tests {
             .modified()
             .expect("Failed to retrieve modified date")
             .into();
-        let retrieved_modified_in_tz = retrieved_modified.with_timezone(&tz);
-        let expected_modified_in_tz = modified_date_utc.with_timezone(&tz);
+        let retrieved_modified_in_timezone = retrieved_modified.with_timezone(&timezone);
+        let expected_modified_in_timezone = modified_date_utc.with_timezone(&timezone);
 
         assert_eq!(
             retrieved_modified, modified_date_utc,
             "Modified dates do not match in UTC"
         );
         assert_eq!(
-            retrieved_modified_in_tz, expected_modified_in_tz,
+            retrieved_modified_in_timezone, expected_modified_in_timezone,
             "Modified dates do not match in the operational timezone"
         );
 
@@ -302,20 +304,22 @@ mod set_file_dates_tests {
                 .created()
                 .expect("Failed to retrieve created date")
                 .into();
-            let retrieved_created_in_tz = retrieved_created.with_timezone(&tz);
-            let expected_created_in_tz = created_date_utc.with_timezone(&tz);
+            let retrieved_created_in_timezone = retrieved_created.with_timezone(&timezone);
+            let expected_created_in_timezone = created_date_utc.with_timezone(&timezone);
 
             println!("\nCreation Time Verification:");
             println!("Created in UTC: {retrieved_created}");
-            println!("Retrieved created in {operational_timezone}: {retrieved_created_in_tz}");
-            println!("Expected created in {operational_timezone}: {expected_created_in_tz}");
+            println!(
+                "Retrieved created in {operational_timezone}: {retrieved_created_in_timezone}"
+            );
+            println!("Expected created in {operational_timezone}: {expected_created_in_timezone}");
 
             assert_eq!(
                 retrieved_created, created_date_utc,
                 "Created dates do not match in UTC"
             );
             assert_eq!(
-                retrieved_created_in_tz, expected_created_in_tz,
+                retrieved_created_in_timezone, expected_created_in_timezone,
                 "Created dates do not match in the operational timezone"
             );
         }

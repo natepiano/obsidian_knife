@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use rayon::prelude::*;
 use serde_json::Value;
 use tempfile::TempDir;
 
@@ -15,8 +16,6 @@ use crate::test_support::TestFileBuilder;
 
 #[test]
 fn test_parallel_image_reference_collection() {
-    use rayon::prelude::*;
-
     // Common filter logic
     fn has_common_image(info: &MarkdownFile) -> bool {
         info.image_links

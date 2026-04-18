@@ -28,33 +28,42 @@ impl From<Vec<u8>> for Content {
     fn from(v: Vec<u8>) -> Self { Self::Binary(v) }
 }
 
+#[derive(Default)]
+struct FrontmatterDates {
+    created:     Option<String>,
+    created_fix: Option<String>,
+    modified:    Option<String>,
+}
+
+struct FileSystemDates {
+    created:  DateTime<Utc>,
+    modified: DateTime<Utc>,
+}
+
 pub struct TestFileBuilder {
-    aliases:              Option<Vec<String>>,
-    content:              Content,
-    custom_frontmatter:   Option<String>,
-    date_created_fix:     Option<String>,
-    frontmatter_created:  Option<String>,
-    frontmatter_modified: Option<String>,
-    fs_created:           DateTime<Utc>,
-    fs_modified:          DateTime<Utc>,
-    tags:                 Option<Vec<String>>,
-    title:                Option<String>,
+    aliases:            Option<Vec<String>>,
+    content:            Content,
+    custom_frontmatter: Option<String>,
+    file_system_dates:  FileSystemDates,
+    frontmatter_dates:  FrontmatterDates,
+    tags:               Option<Vec<String>>,
+    title:              Option<String>,
 }
 
 impl Default for TestFileBuilder {
     fn default() -> Self {
         let now = Utc::now();
         Self {
-            aliases:              None,
-            content:              Content::Text("Test content".to_string()),
-            custom_frontmatter:   None,
-            date_created_fix:     None,
-            frontmatter_created:  None,
-            frontmatter_modified: None,
-            fs_created:           now,
-            fs_modified:          now,
-            tags:                 None,
-            title:                None,
+            aliases:            None,
+            content:            Content::Text("Test content".to_string()),
+            custom_frontmatter: None,
+            file_system_dates:  FileSystemDates {
+                created:  now,
+                modified: now,
+            },
+            frontmatter_dates:  FrontmatterDates::default(),
+            tags:               None,
+            title:              None,
         }
     }
 }
@@ -72,27 +81,27 @@ impl TestFileBuilder {
         created: Option<String>,
         modified: Option<String>,
     ) -> Self {
-        self.frontmatter_created = created;
-        self.frontmatter_modified = modified;
+        self.frontmatter_dates.created = created;
+        self.frontmatter_dates.modified = modified;
         self
     }
 
     pub fn with_date_created_fix(mut self, date_created_fix: Option<String>) -> Self {
-        self.date_created_fix = date_created_fix;
+        self.frontmatter_dates.created_fix = date_created_fix;
         self
     }
 
     pub fn with_fs_dates(mut self, created: DateTime<Utc>, modified: DateTime<Utc>) -> Self {
-        self.fs_created = created;
-        self.fs_modified = modified;
+        self.file_system_dates.created = created;
+        self.file_system_dates.modified = modified;
         self
     }
 
     pub fn with_matching_dates(mut self, datetime: DateTime<Utc>) -> Self {
-        self.frontmatter_created = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
-        self.frontmatter_modified = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
-        self.fs_created = datetime;
-        self.fs_modified = datetime;
+        self.frontmatter_dates.created = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
+        self.frontmatter_dates.modified = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
+        self.file_system_dates.created = datetime;
+        self.file_system_dates.modified = datetime;
         self
     }
 
@@ -117,58 +126,67 @@ impl TestFileBuilder {
     }
 
     pub fn create(self, temp_dir: &TempDir, filename: &str) -> PathBuf {
+        let Self {
+            aliases,
+            content,
+            custom_frontmatter,
+            file_system_dates,
+            frontmatter_dates,
+            tags,
+            title,
+        } = self;
         let file_path = temp_dir.path().join(filename);
         let mut file = File::create(&file_path).unwrap();
 
-        let has_frontmatter = self.frontmatter_created.is_some()
-            || self.frontmatter_modified.is_some()
-            || self.date_created_fix.is_some()
-            || self.tags.is_some()
-            || self.aliases.is_some()
-            || self.title.is_some()
-            || self.custom_frontmatter.is_some();
+        let has_frontmatter = frontmatter_dates.created.is_some()
+            || frontmatter_dates.modified.is_some()
+            || frontmatter_dates.created_fix.is_some()
+            || tags.is_some()
+            || aliases.is_some()
+            || title.is_some()
+            || custom_frontmatter.is_some();
 
         if has_frontmatter {
             writeln!(file, "---").unwrap();
-            if let Some(created) = self.frontmatter_created {
+            if let Some(created) = frontmatter_dates.created {
                 writeln!(file, "date_created: \"{created}\"").unwrap();
             }
-            if let Some(modified) = self.frontmatter_modified {
+            if let Some(modified) = frontmatter_dates.modified {
                 writeln!(file, "date_modified: \"{modified}\"").unwrap();
             }
-            if let Some(date_created_fix) = self.date_created_fix {
+            if let Some(date_created_fix) = frontmatter_dates.created_fix {
                 writeln!(file, "date_created_fix: \"{date_created_fix}\"").unwrap();
             }
-            if let Some(tags) = self.tags {
+            if let Some(tags) = tags {
                 writeln!(file, "tags:").unwrap();
                 for tag in tags {
                     writeln!(file, "- {tag}").unwrap();
                 }
             }
-            if let Some(aliases) = self.aliases {
+            if let Some(aliases) = aliases {
                 writeln!(file, "aliases:").unwrap();
                 for alias in aliases {
                     writeln!(file, "- {alias}").unwrap();
                 }
             }
-            if let Some(title) = self.title {
+            if let Some(title) = title {
                 writeln!(file, "title: {title}").unwrap();
             }
-            if let Some(custom) = self.custom_frontmatter {
+            if let Some(custom) = custom_frontmatter {
                 writeln!(file, "{custom}").unwrap();
             }
             writeln!(file, "---").unwrap();
         }
 
-        match self.content {
+        match content {
             Content::Text(text) => writeln!(file, "{text}").unwrap(),
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
         }
 
         utils::set_file_dates(
             &file_path,
-            Some(self.fs_created),
-            self.fs_modified,
+            Some(file_system_dates.created),
+            file_system_dates.modified,
             DEFAULT_TIMEZONE,
         )
         .unwrap();

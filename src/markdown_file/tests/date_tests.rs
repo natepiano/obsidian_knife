@@ -471,12 +471,12 @@ fn test_late_night_date_created_fix() {
     let markdown_info = test_utils::get_test_markdown_file(file_path);
 
     // Verify the parsed date shows as Jan 16 when viewed in Eastern
-    let tz: chrono_tz::Tz = DEFAULT_TIMEZONE.parse().unwrap();
+    let timezone: chrono_tz::Tz = DEFAULT_TIMEZONE.parse().unwrap();
     let parsed_date_local = markdown_info
         .date_created_fix
         .fix_date
         .unwrap()
-        .with_timezone(&tz);
+        .with_timezone(&timezone);
 
     assert_eq!(
         parsed_date_local.date_naive(),

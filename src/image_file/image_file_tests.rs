@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::path::PathBuf;
 
 use tempfile::TempDir;
@@ -23,7 +24,7 @@ fn test_image_file_type_from_extension() {
         let path = PathBuf::from(filename);
         let extension = path
             .extension()
-            .and_then(|ext| ext.to_str())
+            .and_then(OsStr::to_str)
             .unwrap_or("unknown");
 
         let file_type = ImageFileType::from_extension(extension);

@@ -1,3 +1,5 @@
+use std::ffi::OsStr;
+
 use aho_corasick::AhoCorasick;
 
 use super::MarkdownFile;
@@ -209,7 +211,7 @@ impl MarkdownFile {
         matched_text: &str,
     ) -> bool {
         // Check if this is the text's own page or matches any frontmatter aliases
-        if let Some(stem) = self.path.file_stem().and_then(|s| s.to_str()) {
+        if let Some(stem) = self.path.file_stem().and_then(OsStr::to_str) {
             if stem.eq_ignore_ascii_case(matched_text) {
                 return false;
             }

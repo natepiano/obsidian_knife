@@ -1,4 +1,5 @@
 use std::error::Error;
+use std::ffi::OsStr;
 use std::str::FromStr;
 
 use chrono::TimeZone;
@@ -20,8 +21,8 @@ struct FileLimitTestCase {
 }
 
 fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
-    let tz = chrono_tz::Tz::from_str(timezone).unwrap();
-    let base_date = tz.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
+    let timezone = chrono_tz::Tz::from_str(timezone).unwrap();
+    let base_date = timezone.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
 
     let _: Vec<MarkdownFile> = (0..count)
         .map(|i| {
@@ -103,7 +104,7 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
                     let file_index = file
                         .path
                         .file_stem()
-                        .and_then(|s| s.to_str())
+                        .and_then(OsStr::to_str)
                         .and_then(|s| s.strip_prefix("test_"))
                         .and_then(|s| s.parse::<i64>().ok())
                         .unwrap_or(0);
