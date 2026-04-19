@@ -42,14 +42,13 @@ pub(super) trait ReportDefinition<C = ()> {
     fn hide_title_if_no_rows(&self) -> bool { true }
 }
 
-/// writes out the `TableDefinition`
-/// the idea is you collect all the items that will get turned into rows and pass them
-/// in to the generic `Vec<T>` parameter
-/// then the `ReportWriter` will call `build_rows` with the items and the context (if provided)
-/// where the definition will do the work to transform items into rows
+/// Writes out the `ReportDefinition`.
+/// The caller collects the items that will become rows and passes them in as the generic
+/// `Vec<T>` parameter.
+/// Then `ReportWriter` calls `build_rows` with the items and context, if provided, where the
+/// definition transforms the items into rows.
 ///
-/// lifetime attribute required because we're storing a reference to `ValidatedConfig` - not owning
-/// it
+/// The lifetime is required because we're storing a reference to `ValidatedConfig`, not owning it.
 pub(super) struct ReportWriter<'a, T: Clone> {
     pub(super) items:            Vec<T>,
     pub(super) validated_config: Option<&'a ValidatedConfig>,
@@ -63,9 +62,9 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         }
     }
 
-    pub(super) fn with_validated_config(self, config: &'a ValidatedConfig) -> Self {
+    pub(super) fn with_validated_config(self, validated_config: &'a ValidatedConfig) -> Self {
         Self {
-            validated_config: Some(config),
+            validated_config: Some(validated_config),
             ..self
         }
     }

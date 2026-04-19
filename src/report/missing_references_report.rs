@@ -51,19 +51,21 @@ impl ReportDefinition for MissingReferencesTable {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        let config = config.expect(CONFIG_EXPECT);
+        let validated_config = config.expect(CONFIG_EXPECT);
 
         let mut rows: Vec<Vec<String>> = items
             .iter()
             .map(
                 |(markdown_path, extracted_filename, line_number, position)| {
-                    let markdown_link =
-                        orchestration::format_wikilink(markdown_path, config.obsidian_path());
+                    let markdown_link = orchestration::format_wikilink(
+                        markdown_path,
+                        validated_config.obsidian_path(),
+                    );
 
                     let image_link =
                         utils::escape_pipe(&utils::escape_brackets(&extracted_filename.clone()));
 
-                    let action = match config.change_mode() {
+                    let action = match validated_config.change_mode() {
                         ChangeMode::Apply => REFERENCE_REMOVED,
                         ChangeMode::DryRun => REFERENCE_WILL_BE_REMOVED,
                     };

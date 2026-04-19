@@ -24,8 +24,8 @@ fn setup_test_repo() -> (TempDir, ValidatedConfig) {
     let media_path = temp_dir.path().join("media");
     fs::create_dir_all(&media_path).unwrap();
 
-    // Create test cases with TestFileBuilder, putting them in the media folder
-    let md_content = r"---
+    // Create test cases with `TestFileBuilder`, putting them in the media folder
+    let markdown_content = r"---
 date_created: 2024-01-01
 date_modified: 2024-01-01
 ---
@@ -34,7 +34,7 @@ date_modified: 2024-01-01
 ![[test.tiff]]";
 
     TestFileBuilder::new()
-        .with_content(md_content.as_bytes().to_vec())
+        .with_content(markdown_content.as_bytes().to_vec())
         .create(&temp_dir, "special_images.md");
 
     TestFileBuilder::new()
@@ -97,7 +97,7 @@ fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> 
 
     let (temp_dir, config) = setup_test_repo();
 
-    // Create test cases with TestFileBuilder
+    // Create test cases with `TestFileBuilder`
     let zero_byte_path = TestFileBuilder::new()
         .with_content(vec![])
         .create(&temp_dir, "media/zero_byte.png");
@@ -105,7 +105,7 @@ fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> 
         .with_content(vec![0x4D, 0x4D, 0x00, 0x2A])
         .create(&temp_dir, "media/test.tiff");
 
-    let md_content = r"---
+    let markdown_content = r"---
 date_created: 2024-01-01
 date_modified: 2024-01-01
 ---
@@ -114,7 +114,7 @@ date_modified: 2024-01-01
 ![[test.tiff]]";
 
     let _ = TestFileBuilder::new()
-        .with_content(md_content.as_bytes().to_vec())
+        .with_content(markdown_content.as_bytes().to_vec())
         .create(&temp_dir, "special_images.md");
 
     let repository = ObsidianRepository::new(&config)?;

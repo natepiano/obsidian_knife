@@ -63,7 +63,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        let config = config.expect(CONFIG_EXPECT);
+        let validated_config = config.expect(CONFIG_EXPECT);
 
         let mut rows = Vec::new();
         for image in items {
@@ -73,8 +73,10 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                 continue;
             };
 
-            let relative_path =
-                obsidian_repository::format_relative_path(&image.path, config.obsidian_path());
+            let relative_path = obsidian_repository::format_relative_path(
+                &image.path,
+                validated_config.obsidian_path(),
+            );
             let image_file_link = format!(
                 "[{}]({})",
                 image.path.file_name().unwrap_or_default().to_string_lossy(),
@@ -106,7 +108,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                     {
                         let file_link = orchestration::format_wikilink(
                             Path::new(ref_path),
-                            config.obsidian_path(),
+                            validated_config.obsidian_path(),
                         );
 
                         // Find line number and position for this reference

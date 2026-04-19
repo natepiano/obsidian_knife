@@ -74,15 +74,14 @@ impl FrontMatter {
         self.persist_state = PersistState::Modified;
     }
 
-    // we invoke `set_modified_date` on any changes to `MarkdownFile`
-    // so that we then will persist it with an updated `date_modified` to match the file
-    // `date_modified` date and this is also the sentinel for doing the persist operation at the
-    // end of processing
+    // We invoke `set_date_modified` on any changes to `MarkdownFile` so we persist an updated
+    // `date_modified` that matches the file, and use `date_modified` as the sentinel for
+    // persisting at the end of processing.
     pub(crate) fn set_date_modified_now(&mut self, operational_timezone: &str) {
         self.set_date_modified(Utc::now(), operational_timezone);
     }
 
-    // we use this when `set_date_modified` is missing
+    // We use this when `date_modified` is missing.
     pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&timezone);

@@ -83,7 +83,7 @@ fn test_analyze_missing_references() {
 
     // Create a markdown file that references a non-existent image
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
-    let md_file = TestFileBuilder::new()
+    let markdown_file_path = TestFileBuilder::new()
         .with_content(
             "# Test\n![[missing.jpg]]\nSome content\n![Another](also_missing.jpg)".to_string(),
         )
@@ -92,8 +92,8 @@ fn test_analyze_missing_references() {
         .create(&temp_dir, "test.md");
 
     let mut repository = ObsidianRepository::new(&config).unwrap();
-    if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file) {
-        // Instead of using mark_image_reference_as_updated which uses current date,
+    if let Some(markdown_file) = repository.markdown_files.get_mut(&markdown_file_path) {
+        // Instead of using `mark_image_reference_as_updated`, which uses the current date,
         // directly set the date we want
         if let Some(frontmatter) = &mut markdown_file.frontmatter {
             frontmatter.set_date_modified(test_date, config.operational_timezone());
@@ -106,7 +106,7 @@ fn test_analyze_missing_references() {
     repository.persist().unwrap();
 
     // Verify the markdown file was updated
-    let updated_content = fs::read_to_string(&md_file).unwrap();
+    let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
     let expected_content = "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '[[2024-01-15]]'\n---\n# Test\nSome content".to_string();
     assert_eq!(updated_content, expected_content);
 
@@ -116,7 +116,7 @@ fn test_analyze_missing_references() {
     repository.persist().unwrap();
 
     // Verify content remains the same after second pass
-    let final_content = fs::read_to_string(&md_file).unwrap();
+    let final_content = fs::read_to_string(&markdown_file_path).unwrap();
     assert_eq!(
         final_content, expected_content,
         "Content should not change on second analyze/persist pass"
@@ -192,8 +192,8 @@ fn test_image_replacement_outcomes() {
                     "image2.jpg"
                 };
 
-                for (i, md_path) in paths[2..].iter().enumerate() {
-                    let content = fs::read_to_string(md_path).unwrap();
+                for (i, markdown_path) in paths[2..].iter().enumerate() {
+                    let content = fs::read_to_string(markdown_path).unwrap();
 
                     let possible_refs = [
                         format!("![[{keeper_name}]]"),
@@ -283,7 +283,7 @@ fn test_analyze_wikilink_errors() {
 
     // Create a markdown file with a wikilink as a path (invalid)
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
-    let md_file = TestFileBuilder::new()
+    let markdown_file_path = TestFileBuilder::new()
         .with_content("# Test\n![[[[Some File]]]]".to_string())
         .with_matching_dates(test_date)
         .with_fs_dates(test_date, test_date)
@@ -295,7 +295,7 @@ fn test_analyze_wikilink_errors() {
     repository.mark_image_files_for_deletion();
 
     // Verify the content wasn't modified
-    let final_content = fs::read_to_string(&md_file).unwrap();
+    let final_content = fs::read_to_string(&markdown_file_path).unwrap();
     assert!(
         final_content.contains("![[[[Some File]]]]"),
         "Content with invalid wikilinks should not be modified"
@@ -312,12 +312,12 @@ fn test_handle_missing_references() {
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
     // Create markdown files with references to non-existent images
-    let md_content = r"# Test Document
+    let markdown_content = r"# Test Document
 ![[missing_image1.jpg]]
 ![[missing_image2.jpg]]
 ";
-    let md_file = TestFileBuilder::new()
-        .with_content(md_content.to_string())
+    let markdown_file_path = TestFileBuilder::new()
+        .with_content(markdown_content.to_string())
         .with_matching_dates(test_date)
         .create(&temp_dir, "test_doc.md");
 
@@ -325,7 +325,10 @@ fn test_handle_missing_references() {
     let mut repository = ObsidianRepository::new(&config).unwrap();
 
     // Verify that the missing references are handled correctly
-    let markdown_file = &repository.markdown_files.get_mut(&md_file).unwrap();
+    let markdown_file = &repository
+        .markdown_files
+        .get_mut(&markdown_file_path)
+        .unwrap();
     let missing_references = &markdown_file
         .image_links
         .filter_by_variant(ImageLinkState::Missing);
@@ -335,11 +338,11 @@ fn test_handle_missing_references() {
         "Expected two missing image references"
     );
 
-    // Verify that the MarkdownFile.content does not have the references anymore
+    // Verify that `MarkdownFile.content` does not have the references anymore
     assert!(
         !&markdown_file.content.contains("![[missing_image1.jpg]]")
             && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
-        "MarkdownFile content should not contain missing references"
+        "`MarkdownFile` content should not contain missing references"
     );
 
     // verify needs persist has been activated
@@ -383,14 +386,14 @@ fn test_duplicate_grouping() {
     // Create markdown files referencing some of the images
     for (name, _, references) in &files {
         if !references.is_empty() {
-            let md_content = references
+            let markdown_content = references
                 .iter()
                 .map(|_| format!("![[{name}]]"))
                 .collect::<Vec<_>>()
                 .join("\n");
 
             TestFileBuilder::new()
-                .with_content(md_content)
+                .with_content(markdown_content)
                 .with_matching_dates(test_date)
                 .create(&temp_dir, references[0]);
         }

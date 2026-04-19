@@ -95,7 +95,7 @@ impl MarkdownFile {
 
         let date_created_fix = DateCreatedFixValidation::from_frontmatter(
             frontmatter.as_ref(),
-            created_validation.file_system_date,
+            created_validation.file_system,
             operational_timezone,
         );
 
@@ -180,10 +180,7 @@ impl MarkdownFile {
     fn ensure_frontmatter(&mut self, operational_timezone: &str) {
         if self.frontmatter.is_none() {
             let mut frontmatter = FrontMatter::default();
-            frontmatter.set_date_created(
-                self.created_validation.file_system_date,
-                operational_timezone,
-            );
+            frontmatter.set_date_created(self.created_validation.file_system, operational_timezone);
             self.frontmatter = Some(frontmatter);
             self.frontmatter_error = None;
             self.persist_reasons.push(PersistReason::FrontmatterCreated);

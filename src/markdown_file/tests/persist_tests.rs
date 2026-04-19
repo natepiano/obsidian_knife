@@ -188,9 +188,9 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
     // Update frontmatter directly
-    if let Some(fm) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut file_info.frontmatter {
         let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
-        fm.set_date_created(created_date, DEFAULT_TIMEZONE);
+        frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -216,9 +216,9 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
 
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(fm) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut file_info.frontmatter {
         let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
-        fm.set_date_created(created_date, DEFAULT_TIMEZONE);
+        frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -249,12 +249,12 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
 
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(fm) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut file_info.frontmatter {
         // Update the frontmatter to match the intended created and modified dates
-        fm.raw_created = Some(created_date);
-        fm.raw_modified = Some(modified_date);
-        fm.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
-        fm.set_date_modified(modified_date, DEFAULT_TIMEZONE);
+        frontmatter.raw_created = Some(created_date);
+        frontmatter.raw_modified = Some(modified_date);
+        frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
+        frontmatter.set_date_modified(modified_date, DEFAULT_TIMEZONE);
     }
 
     file_info.persist()?;
@@ -285,8 +285,8 @@ fn test_disallow_persist_if_date_modified_not_set() {
     let mut file_info = test_utils::get_test_markdown_file(file_path);
 
     // Simulate the absence of `raw_date_modified` by explicitly removing it
-    if let Some(fm) = &mut file_info.frontmatter {
-        fm.raw_modified = None;
+    if let Some(frontmatter) = &mut file_info.frontmatter {
+        frontmatter.raw_modified = None;
     }
 
     // Attempt to persist and expect an error
@@ -320,12 +320,12 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
 
     let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(fm) = &mut file_info.frontmatter {
-        fm.set_date_created(
+    if let Some(frontmatter) = &mut file_info.frontmatter {
+        frontmatter.set_date_created(
             test_utils::parse_datetime("2024-01-03 10:00:00"),
             DEFAULT_TIMEZONE,
         );
-        fm.set_date_modified(
+        frontmatter.set_date_modified(
             test_utils::parse_datetime("2024-01-04 15:00:00"),
             DEFAULT_TIMEZONE,
         );
@@ -362,15 +362,15 @@ fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
 
     // Frontmatter was created
     assert!(file_info.frontmatter.is_some());
-    let fm = file_info.frontmatter.as_ref().expect("just confirmed");
+    let frontmatter = file_info.frontmatter.as_ref().expect("just confirmed");
 
     // `date_created` set from filesystem date
-    assert!(fm.created.is_some());
-    assert!(fm.raw_created.is_some());
+    assert!(frontmatter.created.is_some());
+    assert!(frontmatter.raw_created.is_some());
 
     // `date_modified` set (by `set_date_created` auto-call and then `set_date_modified_now`)
-    assert!(fm.modified.is_some());
-    assert!(fm.raw_modified.is_some());
+    assert!(frontmatter.modified.is_some());
+    assert!(frontmatter.raw_modified.is_some());
 
     // Frontmatter error cleared
     assert!(file_info.frontmatter_error.is_none());

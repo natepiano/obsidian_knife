@@ -98,7 +98,7 @@ fn test_case_insensitive_targets() {
     let (temp_dir, config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
-    // Create test files with case variations using TestFileBuilder
+    // Create test files with case variations using `TestFileBuilder`
     TestFileBuilder::new()
         .with_content("# Sample\nAmazon") // Changed to not use "Test" in content
         .with_title("Sample".to_string()) // Changed from "Test"

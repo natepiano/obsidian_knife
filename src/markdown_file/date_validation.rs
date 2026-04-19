@@ -60,22 +60,21 @@ impl fmt::Display for DateValidationIssue {
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct DateValidation {
-    pub frontmatter_date:     Option<String>,
-    pub file_system_date:     DateTime<Utc>,
+    pub frontmatter:          Option<String>,
+    pub file_system:          DateTime<Utc>,
     pub issue:                Option<DateValidationIssue>,
     pub operational_timezone: String,
 }
 
 impl DateValidation {
     pub fn operational_file_system_date(&self) -> DateTime<Utc> {
-        self.operational_timezone.parse::<chrono_tz::Tz>().map_or(
-            self.file_system_date,
-            |timezone| {
-                let local_file_system_date = self.file_system_date.with_timezone(&timezone);
+        self.operational_timezone
+            .parse::<chrono_tz::Tz>()
+            .map_or(self.file_system, |timezone| {
+                let local_file_system_date = self.file_system.with_timezone(&timezone);
                 let naive_file_system_date = local_file_system_date.naive_local();
                 DateTime::from_naive_utc_and_offset(naive_file_system_date, Utc)
-            },
-        )
+            })
     }
 }
 
@@ -169,8 +168,8 @@ pub(super) fn get_date_validations(
                 operational_timezone,
             );
             DateValidation {
-                frontmatter_date,
-                file_system_date,
+                frontmatter: frontmatter_date,
+                file_system: file_system_date,
                 issue,
                 operational_timezone: operational_timezone.to_string(),
             }
@@ -266,7 +265,7 @@ pub(super) fn process_date_validations(
         if let Some(ref issue) = created_validation.issue
             && !skip_date_created
         {
-            frontmatter.set_date_created(created_validation.file_system_date, operational_timezone);
+            frontmatter.set_date_created(created_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateCreatedUpdated {
                 reason: issue.clone(),
             });
@@ -274,8 +273,7 @@ pub(super) fn process_date_validations(
 
         // Update modified date if there's an issue
         if let Some(ref issue) = modified_validation.issue {
-            frontmatter
-                .set_date_modified(modified_validation.file_system_date, operational_timezone);
+            frontmatter.set_date_modified(modified_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
                 reason: issue.clone(),
             });

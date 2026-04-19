@@ -18,7 +18,7 @@ fn test_apply_changes() {
     // Apply the changes
     repository.apply_replaceable_matches(config.operational_timezone());
 
-    // Verify changes by checking MarkdownFile content
+    // Verify changes by checking `MarkdownFile` content
     assert_eq!(
         repository.markdown_files[0].content,
         "This is [[Test Link]] in a sentence."

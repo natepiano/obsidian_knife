@@ -87,14 +87,14 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> Vec<Vec<String>> {
-        let config = config.expect(CONFIG_EXPECT);
+        let validated_config = config.expect(CONFIG_EXPECT);
         let keeper = items
             .iter()
             .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
 
         let mut rows: Vec<Vec<String>> = items
             .iter()
-            .flat_map(|image| self.build_image_rows(image, config, keeper))
+            .flat_map(|image| self.build_image_rows(image, validated_config, keeper))
             .collect();
 
         rows.sort_by(|a, b| a[1].cmp(&b[1]));
@@ -126,13 +126,14 @@ impl DuplicateImagesTable<'_> {
     fn build_image_rows(
         &self,
         image: &ImageFile,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         keeper: Option<&ImageFile>,
     ) -> Vec<Vec<String>> {
         let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
         let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
         let image_link = format!("[[{filename}]]");
-        let (image_type, action, reference_update) = Self::classify_image(image, config, keeper);
+        let (image_type, action, reference_update) =
+            Self::classify_image(image, validated_config, keeper);
 
         if image.markdown_file_references.is_empty() {
             return vec![vec![
@@ -151,8 +152,10 @@ impl DuplicateImagesTable<'_> {
             .markdown_file_references
             .iter()
             .map(|ref_path| {
-                let file_link =
-                    orchestration::format_wikilink(Path::new(ref_path), config.obsidian_path());
+                let file_link = orchestration::format_wikilink(
+                    Path::new(ref_path),
+                    validated_config.obsidian_path(),
+                );
                 let (line_number, position) = self.resolve_image_position(ref_path, &image.path);
 
                 vec![
@@ -175,7 +178,7 @@ impl DuplicateImagesTable<'_> {
 
     fn classify_image(
         image: &ImageFile,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         keeper: Option<&ImageFile>,
     ) -> (&'static str, String, String) {
         match &image.state {
@@ -183,7 +186,7 @@ impl DuplicateImagesTable<'_> {
                 (KEEPER, NO_CHANGE.to_string(), NO_CHANGE.to_string())
             },
             ImageFileState::Duplicate { .. } => {
-                let action = match config.change_mode() {
+                let action = match validated_config.change_mode() {
                     ChangeMode::Apply => DELETED.to_string(),
                     ChangeMode::DryRun => WILL_DELETE.to_string(),
                 };

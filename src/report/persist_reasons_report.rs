@@ -235,7 +235,7 @@ impl ObsidianRepository {
             .operational_file_system_date()
             .format(FORMAT_DATE);
         (
-            validation.frontmatter_date.clone().unwrap_or_default(),
+            validation.frontmatter.clone().unwrap_or_default(),
             format!("[[{formatted_date}]]"),
         )
     }

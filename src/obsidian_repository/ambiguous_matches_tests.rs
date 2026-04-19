@@ -118,7 +118,7 @@ fn test_truly_ambiguous_targets() {
     let (temp_dir, config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
-    // Create the test files using TestFileBuilder
+    // Create the test files using `TestFileBuilder`
     TestFileBuilder::new()
         .with_content("Amazon is huge")
         .create(&temp_dir, "test1.md");
@@ -256,7 +256,7 @@ fn test_combined_ambiguous_and_unambiguous_matches() {
     let (temp_dir, config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
-    // Create the files using TestFileBuilder
+    // Create the files using `TestFileBuilder`
     TestFileBuilder::new()
         .with_content(
             r"# Reference Page

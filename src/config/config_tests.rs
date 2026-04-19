@@ -30,7 +30,7 @@ fn create_test_environment() -> (TempDir, PathBuf) {
     // Create output directory
     fs::create_dir(canonical_path.join("output")).unwrap();
 
-    // Create config file using TestFileBuilder
+    // Create config file using `TestFileBuilder`
     let config_yaml = format!(
         "obsidian_path: {}\napply_changes: false\noutput_folder: output",
         canonical_path.to_string_lossy()
