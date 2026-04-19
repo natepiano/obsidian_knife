@@ -58,7 +58,7 @@ fn get_validated_config(temp_dir: &TempDir) -> ValidatedConfig {
 }
 
 pub fn find_image_file<'a>(files: &'a ImageFiles, path: &'a Path) -> Option<&'a ImageFile> {
-    files.files.iter().find(|f| f.path == *path)
+    files.images.iter().find(|image| image.path == *path)
 }
 
 #[test]

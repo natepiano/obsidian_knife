@@ -65,8 +65,8 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 }
 
 pub struct RepositoryFiles {
-    pub image_files:    Vec<PathBuf>,
-    pub markdown_files: Vec<PathBuf>,
+    pub images:   Vec<PathBuf>,
+    pub markdown: Vec<PathBuf>,
 }
 
 // using `rayon` (`.into_par_iter()`) and not using `walkdir`
@@ -133,8 +133,8 @@ pub fn collect_repository_files(
     )?;
 
     Ok(RepositoryFiles {
-        markdown_files: markdown_files.into_inner().unwrap(),
-        image_files:    image_files.into_inner().unwrap(),
+        markdown: markdown_files.into_inner().unwrap(),
+        images:   image_files.into_inner().unwrap(),
     })
 }
 

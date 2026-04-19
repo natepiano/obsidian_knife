@@ -36,14 +36,14 @@ impl ObsidianRepository {
         );
 
         // Step 3: Generate `ImageFiles` with duplicate and keeper logic
-        let files = Self::generate_image_files(hash_groups);
+        let images = Self::generate_image_files(hash_groups);
 
         // Step 4: Save cache if needed
         if cache.has_changes() {
             cache.save()?;
         }
 
-        Ok(ImageFiles { files })
+        Ok(ImageFiles { images })
     }
 
     // if a group has multiple references, check if any are referenced
@@ -177,7 +177,7 @@ impl ObsidianRepository {
         // match tiff/zero_byte image files to `image_links` that refer to them so we can mark the
         // `image_link` as incompatible the `image_link` will then be collected as a
         // `ReplaceableContent` match which happens in the next step
-        for image_file in incompatible.files {
+        for image_file in incompatible.images {
             if let ImageFileState::Incompatible { reason } = &image_file.state {
                 let image_file_name = image_file
                     .path
@@ -207,7 +207,7 @@ impl ObsidianRepository {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
-        for duplicate in duplicates.files {
+        for duplicate in duplicates.images {
             let duplicate_file_name = duplicate
                 .path
                 .file_name()
@@ -248,7 +248,7 @@ impl ObsidianRepository {
 
         let files_to_persist: HashSet<_> = files_to_persist.iter().map(|f| &f.path).collect();
 
-        for image_file in &mut self.image_files.files {
+        for image_file in &mut self.image_files.images {
             match &image_file.state {
                 ImageFileState::Unreferenced => {
                     image_file.deletion = DeletionStatus::Delete;

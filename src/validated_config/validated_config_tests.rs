@@ -8,38 +8,44 @@ use super::*;
 use crate::config::Config;
 use crate::constants::DEFAULT_OUTPUT_FOLDER;
 use crate::constants::DEFAULT_TIMEZONE;
+use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OBSIDIAN_FOLDER;
 use crate::test_support;
 
 #[test]
 fn test_back_populate_file_filter() {
+    let expected_markdown_file = format!("test_file{MARKDOWN_SUFFIX}");
     let temp_dir = TempDir::new().unwrap();
     let config = test_support::get_test_validated_config(&temp_dir, Some("test_file"));
 
     assert_eq!(
         config.back_populate_file_filter(),
-        Some("test_file.md".to_string())
+        Some(expected_markdown_file.clone())
     );
 
     // Test with wikilink format
     let config = test_support::get_test_validated_config(&temp_dir, Some("[[test_file]]"));
     assert_eq!(
         config.back_populate_file_filter(),
-        Some("test_file.md".to_string())
+        Some(expected_markdown_file.clone())
     );
 
     // Test with existing .md extension
-    let config = test_support::get_test_validated_config(&temp_dir, Some("test_file.md"));
+    let config =
+        test_support::get_test_validated_config(&temp_dir, Some(expected_markdown_file.as_str()));
     assert_eq!(
         config.back_populate_file_filter(),
-        Some("test_file.md".to_string())
+        Some(expected_markdown_file.clone())
     );
 
     // Test with wikilink and .md extension
-    let config = test_support::get_test_validated_config(&temp_dir, Some("[[test_file.md]]"));
+    let config = test_support::get_test_validated_config(
+        &temp_dir,
+        Some(format!("[[{expected_markdown_file}]]").as_str()),
+    );
     assert_eq!(
         config.back_populate_file_filter(),
-        Some("test_file.md".to_string())
+        Some(expected_markdown_file)
     );
 
     // Test with None

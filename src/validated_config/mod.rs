@@ -230,7 +230,7 @@ impl ValidatedConfig {
             if filter_text.ends_with(MARKDOWN_SUFFIX) {
                 filter_text.to_string()
             } else {
-                format!("{filter_text}.md")
+                format!("{filter_text}{MARKDOWN_SUFFIX}")
             }
         })
     }

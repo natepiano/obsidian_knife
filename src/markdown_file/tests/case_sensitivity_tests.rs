@@ -1,6 +1,6 @@
-use crate::markdown_file::BackPopulateMatch;
-use crate::markdown_file::MarkdownFile;
-use crate::markdown_file::MatchContext;
+use super::BackPopulateMatch;
+use super::MarkdownFile;
+use super::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::test_support;
 use crate::test_support::TestFileBuilder;
@@ -64,7 +64,7 @@ fn get_case_sensitivity_test_cases() -> Vec<TestCase> {
     ]
 }
 
-pub fn verify_match(
+fn verify_match(
     actual_match: &BackPopulateMatch,
     expected_text: &str,
     expected_base_replacement: &str,

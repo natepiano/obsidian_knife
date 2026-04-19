@@ -59,11 +59,11 @@ fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
     }
 
     // Create markdown files
-    for md in &setup.markdown_files {
+    for markdown in &setup.markdown_files {
         let path = TestFileBuilder::new()
-            .with_content(md.content.clone())
+            .with_content(markdown.content.clone())
             .with_matching_dates(test_date)
-            .create(temp_dir, &md.name);
+            .create(temp_dir, &markdown.name);
         paths.push(path);
     }
 
@@ -95,8 +95,8 @@ fn test_analyze_missing_references() {
     if let Some(markdown_file) = repository.markdown_files.get_mut(&md_file) {
         // Instead of using mark_image_reference_as_updated which uses current date,
         // directly set the date we want
-        if let Some(fm) = &mut markdown_file.frontmatter {
-            fm.set_date_modified(test_date, config.operational_timezone());
+        if let Some(frontmatter) = &mut markdown_file.frontmatter {
+            frontmatter.set_date_modified(test_date, config.operational_timezone());
         }
         markdown_file
             .persist_reasons
@@ -420,8 +420,8 @@ fn test_duplicate_grouping() {
     assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
 
     // Verify all duplicates share the same hash as the keeper
-    if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.files[0].state {
-        for duplicate in duplicates.files {
+    if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.images[0].state {
+        for duplicate in duplicates.images {
             if let ImageFileState::Duplicate { hash } = &duplicate.state {
                 assert_eq!(hash, keeper_hash, "Duplicate hash should match keeper hash");
             }

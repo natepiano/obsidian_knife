@@ -129,7 +129,7 @@ impl ObsidianRepository {
         validated_config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let has_report_entries = self.image_files.files.iter().any(|image| {
+        let has_report_entries = self.image_files.images.iter().any(|image| {
             matches!(
                 image.state,
                 ImageFileState::Unreferenced

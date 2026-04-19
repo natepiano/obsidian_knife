@@ -28,20 +28,20 @@ pub(crate) struct ImageFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
-    pub(super) files: Vec<ImageFile>,
+    pub(super) images: Vec<ImageFile>,
 }
 
 impl FromIterator<ImageFile> for ImageFiles {
     fn from_iter<I: IntoIterator<Item = ImageFile>>(iter: I) -> Self {
         Self {
-            files: iter.into_iter().collect(),
+            images: iter.into_iter().collect(),
         }
     }
 }
 
 impl ImageFiles {
     pub(crate) fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.files
+        self.images
             .iter()
             .filter(|file| file.deletion == DeletionStatus::Delete)
             .try_for_each(|file| fs::remove_file(&file.path))?;

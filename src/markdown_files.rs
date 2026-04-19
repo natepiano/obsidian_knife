@@ -17,14 +17,14 @@ pub(crate) struct MarkdownFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]
-    pub(super) files:      Vec<MarkdownFile>,
+    pub(super) markdown:   Vec<MarkdownFile>,
     pub(super) file_limit: Option<usize>,
 }
 
 impl FromIterator<MarkdownFile> for MarkdownFiles {
     fn from_iter<I: IntoIterator<Item = MarkdownFile>>(iter: I) -> Self {
         Self {
-            files:      iter.into_iter().collect(),
+            markdown:   iter.into_iter().collect(),
             file_limit: None,
         }
     }
@@ -34,20 +34,23 @@ impl<'a> IntoIterator for &'a MarkdownFiles {
     type Item = &'a MarkdownFile;
     type IntoIter = std::slice::Iter<'a, MarkdownFile>;
 
-    fn into_iter(self) -> Self::IntoIter { self.files.iter() }
+    fn into_iter(self) -> Self::IntoIter { self.markdown.iter() }
 }
 
 impl<'a> IntoIterator for &'a mut MarkdownFiles {
     type Item = &'a mut MarkdownFile;
     type IntoIter = std::slice::IterMut<'a, MarkdownFile>;
 
-    fn into_iter(self) -> Self::IntoIter { self.files.iter_mut() }
+    fn into_iter(self) -> Self::IntoIter { self.markdown.iter_mut() }
 }
 
 impl MarkdownFiles {
     #[cfg(test)]
-    pub(crate) const fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
-        Self { files, file_limit }
+    pub(crate) const fn new(markdown: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
+        Self {
+            markdown,
+            file_limit,
+        }
     }
 
     pub(crate) fn process_files_for_back_populate_matches(
@@ -80,7 +83,7 @@ impl MarkdownFiles {
     }
 
     pub(crate) fn persist_all(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        for file_info in &self.files {
+        for file_info in &self.markdown {
             file_info.persist()?;
         }
         Ok(())
@@ -115,7 +118,7 @@ impl MarkdownFiles {
         let count = self.file_limit.unwrap_or(total_files);
 
         Self {
-            files:      files_to_persist.into_iter().take(count).collect(),
+            markdown:   files_to_persist.into_iter().take(count).collect(),
             file_limit: self.file_limit,
         }
     }

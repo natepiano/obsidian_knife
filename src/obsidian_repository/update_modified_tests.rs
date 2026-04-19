@@ -36,8 +36,8 @@ fn test_update_modified_dates_changes_frontmatter() {
 
     // Instead of using mark_image_reference_as_updated which uses current date,
     // set the frontmatter dates directly
-    if let Some(fm) = &mut markdown_file.frontmatter {
-        fm.set_date_modified(update_date, DEFAULT_TIMEZONE);
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
+        frontmatter.set_date_modified(update_date, DEFAULT_TIMEZONE);
     }
     markdown_file
         .persist_reasons
@@ -91,8 +91,8 @@ fn test_update_modified_dates_only_updates_specified_files() {
     let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1);
 
     // Update only the first file with a fixed date
-    if let Some(fm) = &mut markdown_file1.frontmatter {
-        fm.set_date_modified(update_date, DEFAULT_TIMEZONE);
+    if let Some(frontmatter) = &mut markdown_file1.frontmatter {
+        frontmatter.set_date_modified(update_date, DEFAULT_TIMEZONE);
     }
     markdown_file1
         .persist_reasons

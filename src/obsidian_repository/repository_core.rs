@@ -36,7 +36,7 @@ impl ObsidianRepository {
 
         // Process markdown files
         let markdown_files = Self::initialize_markdown_files(
-            &repository_files.markdown_files,
+            &repository_files.markdown,
             validated_config.operational_timezone(),
             validated_config.file_limit(),
         )?;
@@ -52,7 +52,7 @@ impl ObsidianRepository {
         };
 
         repository.image_files =
-            repository.initialize_image_files(&repository_files.image_files, validated_config)?;
+            repository.initialize_image_files(&repository_files.images, validated_config)?;
 
         repository.analyze_repository(validated_config);
 
