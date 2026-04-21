@@ -1,6 +1,6 @@
 use super::ToWikilink;
-use super::link::WikilinkParseResult;
 use super::wikilink_parser;
+use super::wikilink_parser::WikilinkParseResult;
 use super::*;
 /// Helper function to parse a full wikilink string.
 /// It ensures the input starts with `[[` and ends with `]]`,

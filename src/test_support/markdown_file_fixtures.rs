@@ -33,7 +33,7 @@ pub fn create_test_environment(
 ) -> (TempDir, ValidatedConfig, ObsidianRepository) {
     let temp_dir = TempDir::new().unwrap();
 
-    let config = ValidatedConfigBuilder::default()
+    let validated_config = ValidatedConfigBuilder::default()
         .change_mode(change_mode)
         .do_not_back_populate(do_not_back_populate)
         .obsidian_path(temp_dir.path().to_path_buf())
@@ -41,7 +41,7 @@ pub fn create_test_environment(
         .build()
         .unwrap();
 
-    let mut repository = ObsidianRepository::default();
+    let mut obsidian_repository = ObsidianRepository::default();
 
     let file_path = test_support::TestFileBuilder::new()
         .with_matching_dates(test_support::eastern_midnight(2024, 1, 2))
@@ -52,21 +52,23 @@ pub fn create_test_environment(
         )
         .create(&temp_dir, "test.md");
 
-    let markdown_info = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
-    repository.markdown_files.push(markdown_info);
+    let markdown_file =
+        MarkdownFile::new(file_path, validated_config.operational_timezone()).unwrap();
+    obsidian_repository.markdown_files.push(markdown_file);
 
     if let Some(wikilinks) = wikilinks {
-        repository.wikilinks_sorted = wikilinks;
+        obsidian_repository.wikilinks_sorted = wikilinks;
     } else {
-        repository.wikilinks_sorted = vec![Wikilink {
+        obsidian_repository.wikilinks_sorted = vec![Wikilink {
             display_text: "Test Link".to_string(),
             target:       "Test Link".to_string(),
         }];
     }
 
-    repository.wikilinks_automaton = Some(build_aho_corasick(&repository.wikilinks_sorted));
+    obsidian_repository.wikilinks_automaton =
+        Some(build_aho_corasick(&obsidian_repository.wikilinks_sorted));
 
-    (temp_dir, config, repository)
+    (temp_dir, validated_config, obsidian_repository)
 }
 
 pub fn create_markdown_test_file(

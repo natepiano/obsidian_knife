@@ -9,11 +9,11 @@ use crate::wikilink::Wikilink;
 
 #[test]
 fn test_identify_ambiguous_matches() {
-    let (temp_dir, config, mut repository) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Set up aliases that make "Ed" ambiguous
-    repository.wikilinks_sorted = vec![
+    obsidian_repository.wikilinks_sorted = vec![
         Wikilink {
             display_text: "Ed".to_string(),
             target:       "Ed Barnes".to_string(),
@@ -40,7 +40,7 @@ fn test_identify_ambiguous_matches() {
     // Set up initial matches in test1.md
     let mut test_file = MarkdownFile::new(
         temp_dir.path().join("test1.md"),
-        config.operational_timezone(),
+        validated_config.operational_timezone(),
     )
     .unwrap();
     test_file.matches.unambiguous = vec![BackPopulateMatch {
@@ -56,7 +56,7 @@ fn test_identify_ambiguous_matches() {
     // Set up initial matches in test2.md
     let mut test_file2 = MarkdownFile::new(
         temp_dir.path().join("test2.md"),
-        config.operational_timezone(),
+        validated_config.operational_timezone(),
     )
     .unwrap();
     test_file2.matches.unambiguous = vec![BackPopulateMatch {
@@ -69,13 +69,13 @@ fn test_identify_ambiguous_matches() {
         match_context: MatchContext::Plaintext,
     }];
 
-    repository.markdown_files.push(test_file2);
-    repository.markdown_files.push(test_file);
+    obsidian_repository.markdown_files.push(test_file2);
+    obsidian_repository.markdown_files.push(test_file);
 
-    repository.identify_ambiguous_matches();
+    obsidian_repository.identify_ambiguous_matches();
 
     // Find test1.md to check its matches
-    let test_file = repository
+    let test_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -96,7 +96,7 @@ fn test_identify_ambiguous_matches() {
     assert_eq!(ambiguous_match.line_text, "Ed wrote this");
 
     // Verify unambiguous match for "Unique" remains unchanged
-    let test_file2 = repository
+    let test_file2 = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test2.md"))
@@ -115,7 +115,7 @@ fn test_identify_ambiguous_matches() {
 
 #[test]
 fn test_truly_ambiguous_targets() {
-    let (temp_dir, config, _) =
+    let (temp_dir, validated_config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create the test files using `TestFileBuilder`
@@ -136,10 +136,10 @@ fn test_truly_ambiguous_targets() {
         .create(&temp_dir, "Amazon (river).md");
 
     // Let `ObsidianRepository::new` find all the files and process them.
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Find test1.md again and verify final state
-    let test_file = repository
+    let test_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -163,7 +163,7 @@ fn test_truly_ambiguous_targets() {
 
 #[test]
 fn test_mixed_case_and_truly_ambiguous() {
-    let (temp_dir, config, _) =
+    let (temp_dir, validated_config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create test files for case variations
@@ -200,10 +200,10 @@ Amazon is ambiguous",
         .create(&temp_dir, "test1.md");
 
     // Let `ObsidianRepository::new` find all the files and process them.
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Find test1.md again and verify final state
-    let test_file = repository
+    let test_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -253,7 +253,7 @@ Amazon is ambiguous",
 // matches.
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
-    let (temp_dir, config, _) =
+    let (temp_dir, validated_config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create the files using `TestFileBuilder`
@@ -287,10 +287,10 @@ Nate was here and so was Nate"
         .create(&temp_dir, "Nathan Dye.md");
 
     // Let `ObsidianRepository::new` find all the files and process them.
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Find other.md again and verify final state
-    let other_file = repository
+    let other_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("other.md"))

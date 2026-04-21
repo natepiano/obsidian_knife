@@ -4,11 +4,9 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::link::InvalidWikilink;
 use super::link::InvalidWikilinkReason;
-use super::link::ParsedExtractedWikilinks;
-use super::link::ParsedInvalidWikilink;
 use super::link::Wikilink;
-use super::link::WikilinkParseResult;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;
@@ -16,6 +14,25 @@ use crate::markdown_file::InlineCodeExcluder;
 use crate::utils::EMAIL_REGEX;
 use crate::utils::RAW_HTTP_REGEX;
 use crate::utils::TAG_REGEX;
+
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum WikilinkParseResult {
+    Valid(Wikilink),
+    Invalid(ParsedInvalidWikilink),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct ParsedInvalidWikilink {
+    pub content: String,
+    pub reason:  InvalidWikilinkReason,
+    pub span:    (usize, usize),
+}
+
+#[derive(Debug, Default)]
+pub struct ParsedExtractedWikilinks {
+    pub valid:   Vec<Wikilink>,
+    pub invalid: Vec<ParsedInvalidWikilink>,
+}
 
 pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
     potential_wikilink.is_some_and(|test_wikilink| {
@@ -154,8 +171,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
 }
 
 impl ParsedInvalidWikilink {
-    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> super::InvalidWikilink {
-        super::InvalidWikilink {
+    pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
+        InvalidWikilink {
             content: self.content,
             reason: self.reason,
             span: self.span,

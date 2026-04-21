@@ -173,7 +173,7 @@ impl ValidatedConfigBuilder {
     fn get_or_create_ignore_folders(&self) -> Vec<PathBuf> {
         self.ignore_folders
             .as_ref()
-            .and_then(|opt| opt.as_ref())
+            .and_then(Option::as_ref)
             .cloned()
             .unwrap_or_default()
     }

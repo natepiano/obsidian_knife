@@ -10,11 +10,12 @@ use crate::wikilink::Wikilink;
 #[test]
 fn test_should_create_match_in_table() {
     // Set up the test environment
-    let (temp_dir, config, _) =
+    let (temp_dir, validated_config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
     let file_path = temp_dir.path().join("test.md");
 
-    let markdown_file = MarkdownFile::new(file_path, config.operational_timezone()).unwrap();
+    let markdown_file =
+        MarkdownFile::new(file_path, validated_config.operational_timezone()).unwrap();
 
     // Test simple table cell match
     assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
@@ -26,7 +27,7 @@ fn test_should_create_match_in_table() {
 #[test]
 fn test_back_populate_content() {
     // Initialize environment with `apply_changes` set to true
-    let (temp_dir, config, mut repository) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::Apply, None, None, None);
 
     let test_cases = vec![(
@@ -51,21 +52,25 @@ fn test_back_populate_content() {
             .create(&temp_dir, "test.md");
 
         // Prepare markdown info and repository state
-        let markdown_info = {
-            let mut markdown_info =
-                MarkdownFile::new(file.clone(), config.operational_timezone()).unwrap();
-            markdown_info.content = content.to_string();
-            markdown_info.matches.unambiguous = matches.clone();
-            markdown_info
+        let markdown_file = {
+            let mut markdown_file =
+                MarkdownFile::new(file.clone(), validated_config.operational_timezone()).unwrap();
+            markdown_file.content = content.to_string();
+            markdown_file.matches.unambiguous = matches.clone();
+            markdown_file
         };
 
-        repository.markdown_files = MarkdownFiles::new(vec![markdown_info], None);
+        obsidian_repository.markdown_files = MarkdownFiles::new(vec![markdown_file], None);
 
         // Apply back-populate changes
-        repository.apply_replaceable_matches(config.operational_timezone());
+        obsidian_repository.apply_replaceable_matches(validated_config.operational_timezone());
 
         // Validate replacements
-        if let Some(file) = repository.markdown_files.iter().find(|f| f.path == file) {
+        if let Some(file) = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path == file)
+        {
             for match_info in &matches {
                 assert!(
                     file.content.contains(&match_info.replacement),
@@ -94,15 +99,15 @@ fn test_process_line_table_escaping_combined() {
     ];
 
     // Initialize environment with custom wikilinks
-    let (temp_dir, config, repository) =
+    let (temp_dir, validated_config, obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
 
     // Compile the wikilinks
-    let sorted_wikilinks = &repository.wikilinks_sorted;
+    let sorted_wikilinks = &obsidian_repository.wikilinks_sorted;
 
     let automaton = test_support::build_aho_corasick(sorted_wikilinks);
 
-    let markdown_info = repository.markdown_files.first().unwrap();
+    let markdown_file = obsidian_repository.markdown_files.first().unwrap();
 
     // Define test cases with different table formats and expected replacements
     let test_cases = vec![
@@ -149,12 +154,12 @@ fn test_process_line_table_escaping_combined() {
             .with_content(line.to_string())
             .create(&temp_dir, "test.md");
 
-        let matches = markdown_info.process_line_for_back_populate_replacements(
+        let matches = markdown_file.process_line_for_back_populate_replacements(
             line,
             0,
             &automaton,
             &wikilink_refs,
-            &config,
+            &validated_config,
         );
 
         assert_eq!(

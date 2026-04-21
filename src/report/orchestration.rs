@@ -167,7 +167,7 @@ impl ObsidianRepository {
 
         let limit_string = validated_config
             .file_limit()
-            .map_or_else(|| "None".to_string(), |value| value.to_string());
+            .map_or_else(|| String::from("None"), |value| value.to_string());
 
         let change_mode = validated_config.change_mode();
         let apply_changes = match change_mode {
@@ -191,18 +191,22 @@ impl ObsidianRepository {
         let total_files_to_persist = self.markdown_files.total_files_to_persist();
         let files_to_persist = self.markdown_files.files_to_persist().len();
 
-        let message = match validated_config.file_limit() {
-            Some(_) => DescriptionBuilder::new()
-                .number(files_to_persist)
-                .text(OF)
-                .pluralize_with_count(Phrase::File(total_files_to_persist))
-                .text(IN_CHANGESET)
-                .build(),
-            None => DescriptionBuilder::new()
-                .pluralize_with_count(Phrase::File(total_files_to_persist))
-                .text(IN_CHANGESET)
-                .build(),
-        };
+        let message = validated_config.file_limit().map_or_else(
+            || {
+                DescriptionBuilder::new()
+                    .pluralize_with_count(Phrase::File(total_files_to_persist))
+                    .text(IN_CHANGESET)
+                    .build()
+            },
+            |_| {
+                DescriptionBuilder::new()
+                    .number(files_to_persist)
+                    .text(OF)
+                    .pluralize_with_count(Phrase::File(total_files_to_persist))
+                    .text(IN_CHANGESET)
+                    .build()
+            },
+        );
 
         writer.writeln("", message.as_str())?;
 

@@ -22,16 +22,21 @@ fn test_alias_priority() {
         },
     ];
 
-    let (temp_dir, config, mut repository_info) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
 
     let content = "I love tomatoes in my salad";
-    test_support::create_markdown_test_file(&temp_dir, "salad.md", content, &mut repository_info);
+    test_support::create_markdown_test_file(
+        &temp_dir,
+        "salad.md",
+        content,
+        &mut obsidian_repository,
+    );
 
-    repository_info.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get total matches across all files
-    let total_matches: usize = repository_info
+    let total_matches: usize = obsidian_repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -41,7 +46,7 @@ fn test_alias_priority() {
     assert_eq!(total_matches, 1, "Should find exactly one match");
 
     // Find the file that has matches
-    let file_with_matches = repository_info
+    let file_with_matches = obsidian_repository
         .markdown_files
         .iter()
         .find(|file| file.has_unambiguous_matches())
@@ -58,7 +63,7 @@ fn test_alias_priority() {
 
 #[test]
 fn test_no_matches_for_frontmatter_aliases() {
-    let (temp_dir, config, mut repository) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     let wikilink = Wikilink {
@@ -66,10 +71,10 @@ fn test_no_matches_for_frontmatter_aliases() {
         target:       "William.md".to_string(),
     };
 
-    repository.wikilinks_sorted.clear();
-    repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
-        &repository.wikilinks_sorted,
+    obsidian_repository.wikilinks_sorted.clear();
+    obsidian_repository.wikilinks_sorted.push(wikilink);
+    obsidian_repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
+        &obsidian_repository.wikilinks_sorted,
     ));
 
     let content = "Will is mentioned here but should not be replaced";
@@ -78,14 +83,14 @@ fn test_no_matches_for_frontmatter_aliases() {
         .with_content(content.to_string())
         .create(&temp_dir, "Will.md");
 
-    repository
+    obsidian_repository
         .markdown_files
         .push(test_utils::get_test_markdown_file(file_path));
 
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get total matches
-    let total_matches: usize = repository
+    let total_matches: usize = obsidian_repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -102,14 +107,14 @@ fn test_no_matches_for_frontmatter_aliases() {
         .with_content(content.to_string())
         .create(&temp_dir, "Other.md");
 
-    repository
+    obsidian_repository
         .markdown_files
         .push(test_utils::get_test_markdown_file(other_file_path));
 
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get total matches after adding other file
-    let total_matches: usize = repository
+    let total_matches: usize = obsidian_repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -120,7 +125,7 @@ fn test_no_matches_for_frontmatter_aliases() {
 
 #[test]
 fn test_no_self_referential_back_population() {
-    let (temp_dir, config, mut repository) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     let wikilink = Wikilink {
@@ -128,19 +133,24 @@ fn test_no_self_referential_back_population() {
         target:       "William.md".to_string(),
     };
 
-    repository.wikilinks_sorted.clear();
-    repository.wikilinks_sorted.push(wikilink);
-    repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
-        &repository.wikilinks_sorted,
+    obsidian_repository.wikilinks_sorted.clear();
+    obsidian_repository.wikilinks_sorted.push(wikilink);
+    obsidian_repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
+        &obsidian_repository.wikilinks_sorted,
     ));
 
     let content = "Will is mentioned here but should not be replaced";
-    test_support::create_markdown_test_file(&temp_dir, "Will.md", content, &mut repository);
+    test_support::create_markdown_test_file(
+        &temp_dir,
+        "Will.md",
+        content,
+        &mut obsidian_repository,
+    );
 
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get total matches
-    let total_matches: usize = repository
+    let total_matches: usize = obsidian_repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -151,13 +161,17 @@ fn test_no_self_referential_back_population() {
         "Should not find matches on page's own name"
     );
 
-    let other_file_path =
-        test_support::create_markdown_test_file(&temp_dir, "Other.md", content, &mut repository);
+    let other_file_path = test_support::create_markdown_test_file(
+        &temp_dir,
+        "Other.md",
+        content,
+        &mut obsidian_repository,
+    );
 
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get total matches after adding other file
-    let total_matches: usize = repository
+    let total_matches: usize = obsidian_repository
         .markdown_files
         .iter()
         .map(|file| file.matches.unambiguous.len())
@@ -166,15 +180,21 @@ fn test_no_self_referential_back_population() {
     assert_eq!(total_matches, 1, "Should find match on other pages");
 
     // Find the file with matches and check its path
-    let file_with_matches = repository
+    let file_with_matches = obsidian_repository
         .markdown_files
         .iter()
         .find(|file| file.has_unambiguous_matches())
         .expect("Should have a file with matches");
 
     assert_eq!(
-        obsidian_repository::format_relative_path(&file_with_matches.path, config.obsidian_path()),
-        obsidian_repository::format_relative_path(&other_file_path, config.obsidian_path()),
+        obsidian_repository::format_relative_path(
+            &file_with_matches.path,
+            validated_config.obsidian_path(),
+        ),
+        obsidian_repository::format_relative_path(
+            &other_file_path,
+            validated_config.obsidian_path(),
+        ),
         "Match should be in 'Other.md'"
     );
 }
@@ -187,10 +207,10 @@ fn test_markdown_file_aliases_only() {
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
-    assert!(file_info.do_not_back_populate_regexes.is_some());
-    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert!(markdown_file.do_not_back_populate_regexes.is_some());
+    let regexes = markdown_file.do_not_back_populate_regexes.unwrap();
     assert_eq!(regexes.len(), 1);
 
     let test_line = "Only Alias appears here";

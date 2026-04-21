@@ -22,14 +22,14 @@ fn test_find_matches_with_existing_wikilinks() {
            This don't match either\n\
            But this Test Link should match";
 
-    let (_temp_dir, config, mut repository) =
+    let (_temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, Some(content));
 
     // Find matches - this now stores them in repository.markdown_files
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get all matches from the first (and only) file
-    let matches = &repository.markdown_files[0].matches;
+    let matches = &obsidian_repository.markdown_files[0].matches;
 
     // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
     assert_eq!(
@@ -61,18 +61,19 @@ fn test_overlapping_wikilink_matches() {
         },
     ];
 
-    let (_temp_dir, config, mut repository) = test_support::create_test_environment(
-        ChangeMode::DryRun,
-        None,
-        Some(wikilinks),
-        Some(content),
-    );
+    let (_temp_dir, validated_config, mut obsidian_repository) =
+        test_support::create_test_environment(
+            ChangeMode::DryRun,
+            None,
+            Some(wikilinks),
+            Some(content),
+        );
 
     // Find matches - this now stores them in repository.markdown_files
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Get matches from the first (and only) file
-    let matches = &repository.markdown_files[0].matches;
+    let matches = &obsidian_repository.markdown_files[0].matches;
 
     assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
     assert_eq!(
@@ -128,8 +129,8 @@ fn test_markdown_file_with_invalid_wikilinks() {
         )
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
-    let valid_wikilinks = file_info.wikilinks.valid;
+    let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let valid_wikilinks = markdown_file.wikilinks.valid;
 
     // Check valid wikilinks
     assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
@@ -140,10 +141,10 @@ fn test_markdown_file_with_invalid_wikilinks() {
     );
 
     // Check invalid wikilinks
-    assert_eq!(file_info.wikilinks.invalid.len(), 3);
+    assert_eq!(markdown_file.wikilinks.invalid.len(), 3);
 
     // Verify specific invalid wikilinks
-    let double_alias = file_info
+    let double_alias = markdown_file
         .wikilinks
         .invalid
         .iter()
@@ -151,7 +152,7 @@ fn test_markdown_file_with_invalid_wikilinks() {
         .expect("Should have a double alias invalid wikilink");
     assert_eq!(double_alias.content, "[[invalid|link|extra]]");
 
-    let unmatched = file_info
+    let unmatched = markdown_file
         .wikilinks
         .invalid
         .iter()
@@ -159,7 +160,7 @@ fn test_markdown_file_with_invalid_wikilinks() {
         .expect("Should have an unmatched opening invalid wikilink");
     assert_eq!(unmatched.content, "[[unmatched");
 
-    let empty = file_info
+    let empty = markdown_file
         .wikilinks
         .invalid
         .iter()
@@ -183,8 +184,8 @@ Also linking to [[Alias One]] which is defined in frontmatter."
         )
         .create(&temp_dir, "test_note.md");
 
-    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
-    let wikilinks = file_info.wikilinks.valid;
+    let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let wikilinks = markdown_file.wikilinks.valid;
 
     // Collect unique target-display pairs
     let wikilink_pairs: HashSet<(String, String)> = wikilinks
@@ -244,21 +245,22 @@ fn test_scan_folders_wikilink_collection() {
         .create(&temp_dir, "note2.md");
 
     // Create minimal validated config
-    let config = test_support::get_test_validated_config(&temp_dir, None);
+    let validated_config = test_support::get_test_validated_config(&temp_dir, None);
 
     // Scan the folders
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Filter for .md files only and exclude "obsidian knife output" explicitly
-    let wikilinks: HashSet<String> = repository
+    let wikilinks: HashSet<String> = obsidian_repository
         .markdown_files
         .iter()
-        .filter(|file_info| {
-            file_info.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
+        .filter(|markdown_file| {
+            markdown_file.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
         })
-        .flat_map(|file_info| {
-            let file_info = MarkdownFile::new(file_info.path.clone(), DEFAULT_TIMEZONE).unwrap();
-            let file_wikilinks = file_info.wikilinks.valid;
+        .flat_map(|markdown_file| {
+            let markdown_file =
+                MarkdownFile::new(markdown_file.path.clone(), DEFAULT_TIMEZONE).unwrap();
+            let file_wikilinks = markdown_file.wikilinks.valid;
             file_wikilinks.into_iter().map(|w| w.display_text)
         })
         .filter(|link| link != "obsidian knife output")

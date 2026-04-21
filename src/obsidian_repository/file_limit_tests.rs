@@ -84,17 +84,21 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
 
         let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
         builder.file_limit(case.process_limit);
-        let config = builder.build()?;
+        let validated_config = builder.build()?;
 
         // Create test files
-        create_test_files(&temp_dir, case.file_count, config.operational_timezone());
-        let repository = ObsidianRepository::new(&config)?;
+        create_test_files(
+            &temp_dir,
+            case.file_count,
+            validated_config.operational_timezone(),
+        );
+        let obsidian_repository = ObsidianRepository::new(&validated_config)?;
 
         // Run persistence
-        repository.persist()?;
+        obsidian_repository.persist()?;
 
         // Verify files were actually processed by checking their content
-        let processed_count = repository
+        let processed_count = obsidian_repository
             .markdown_files
             .files_to_persist()
             .iter()

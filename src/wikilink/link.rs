@@ -137,27 +137,8 @@ impl fmt::Display for InvalidWikilink {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub(super) enum WikilinkParseResult {
-    Valid(Wikilink),
-    Invalid(ParsedInvalidWikilink),
-}
-
-#[derive(Debug, PartialEq, Eq)]
-pub struct ParsedInvalidWikilink {
-    pub content: String,
-    pub reason:  InvalidWikilinkReason,
-    pub span:    (usize, usize),
-}
-
 #[derive(Debug, Default)]
 pub struct ExtractedWikilinks {
     pub valid:   Vec<Wikilink>,
     pub invalid: Vec<InvalidWikilink>,
-}
-
-#[derive(Debug, Default)]
-pub struct ParsedExtractedWikilinks {
-    pub valid:   Vec<Wikilink>,
-    pub invalid: Vec<ParsedInvalidWikilink>,
 }

@@ -20,17 +20,17 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
         .with_title("test".to_string()) // to force valid frontmatter with missing dates
         .create(&temp_dir, "missing_dates.md");
 
-    let file_info = test_utils::get_test_markdown_file(file_path);
+    let markdown_file = test_utils::get_test_markdown_file(file_path);
 
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateCreatedUpdated {
                 reason: DateValidationIssue::Missing,
             })
     );
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateModifiedUpdated {
                 reason: DateValidationIssue::Missing,
@@ -45,17 +45,17 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
         )
         .create(&temp_dir, "invalid_dates.md");
 
-    let file_info = test_utils::get_test_markdown_file(file_path);
+    let markdown_file = test_utils::get_test_markdown_file(file_path);
 
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateCreatedUpdated {
                 reason: DateValidationIssue::InvalidDateFormat,
             })
     );
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateModifiedUpdated {
                 reason: DateValidationIssue::InvalidDateFormat,
@@ -79,10 +79,10 @@ fn test_date_created_fix_persist_reason() -> Result<(), Box<dyn Error + Send + S
         .with_date_created_fix(Some("2024-01-01".to_string()))
         .create(&temp_dir, "date_fix.md");
 
-    let file_info = test_utils::get_test_markdown_file(file_path);
+    let markdown_file = test_utils::get_test_markdown_file(file_path);
 
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateCreatedFixApplied)
     );
@@ -100,11 +100,11 @@ fn test_back_populate_persist_reason() -> Result<(), Box<dyn Error + Send + Sync
         )
         .create(&temp_dir, "back_populate.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path);
-    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
 
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::BackPopulated)
     );
@@ -122,11 +122,11 @@ fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + S
         )
         .create(&temp_dir, "image_refs.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path);
-    file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
+    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::ImageReferencesModified)
     );
@@ -142,11 +142,11 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_title("test".to_string()) // to force frontmatter creation
         .create(&temp_dir, "multiple_reasons.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path);
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // This will add DateCreatedUpdated and DateModifiedUpdated
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::DateCreatedUpdated {
                 reason: DateValidationIssue::Missing,
@@ -154,23 +154,23 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     );
 
     // Add back populate reason
-    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
 
     // Add image reference change
-    file_info.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
+    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
 
     // Verify all reasons are present
     // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated,
     // ImageReferencesModified we don't have an update date missing because if we BackPopulate
     // we automatically remove the modified date reason
-    assert_eq!(file_info.persist_reasons.len(), 3);
+    assert_eq!(markdown_file.persist_reasons.len(), 3);
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::BackPopulated)
     );
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::ImageReferencesModified)
     );
@@ -185,15 +185,15 @@ fn test_persist_frontmatter() -> Result<(), Box<dyn Error + Send + Sync>> {
         .with_frontmatter_dates(Some("2024-01-01".to_string()), None)
         .create(&temp_dir, "test.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
     // Update frontmatter directly
-    if let Some(frontmatter) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
         let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
         frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
-    file_info.persist()?;
+    markdown_file.persist()?;
 
     // Verify frontmatter was updated but content preserved
     let updated_content = fs::read_to_string(&file_path)?;
@@ -214,14 +214,14 @@ fn test_persist_frontmatter_preserves_format() -> Result<(), Box<dyn Error + Sen
         .with_tags(vec!["tag1".to_string(), "tag2".to_string()])
         .create(&temp_dir, "test.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(frontmatter) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
         let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
         frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
     }
 
-    file_info.persist()?;
+    markdown_file.persist()?;
 
     let updated_content = fs::read_to_string(&file_path)?;
     assert!(updated_content.contains("tags:\n- tag1\n- tag2"));
@@ -247,9 +247,9 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
         .with_matching_dates(created_date) // Set both FS and frontmatter dates to created_date
         .create(&temp_dir, "test_with_both_dates.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(frontmatter) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
         // Update the frontmatter to match the intended created and modified dates
         frontmatter.raw_created = Some(created_date);
         frontmatter.raw_modified = Some(modified_date);
@@ -257,7 +257,7 @@ fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + 
         frontmatter.set_date_modified(modified_date, DEFAULT_TIMEZONE);
     }
 
-    file_info.persist()?;
+    markdown_file.persist()?;
 
     let metadata_after = fs::metadata(&file_path)?;
     let created_time_after = FileTime::from_creation_time(&metadata_after).unwrap();
@@ -282,15 +282,15 @@ fn test_disallow_persist_if_date_modified_not_set() {
         .with_matching_dates(matching_date)
         .create(&temp_dir, "test_invalid_state.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path);
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Simulate the absence of `raw_date_modified` by explicitly removing it
-    if let Some(frontmatter) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
         frontmatter.raw_modified = None;
     }
 
     // Attempt to persist and expect an error
-    let result = file_info.persist();
+    let result = markdown_file.persist();
 
     assert!(
         result.is_err(),
@@ -318,9 +318,9 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
         )
         .create(&temp_dir, "test_content_preservation.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path.clone());
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-    if let Some(frontmatter) = &mut file_info.frontmatter {
+    if let Some(frontmatter) = &mut markdown_file.frontmatter {
         frontmatter.set_date_created(
             test_utils::parse_datetime("2024-01-03 10:00:00"),
             DEFAULT_TIMEZONE,
@@ -331,7 +331,7 @@ fn test_persist_preserves_file_content() -> Result<(), Box<dyn Error + Send + Sy
         );
     }
 
-    file_info.persist()?;
+    markdown_file.persist()?;
 
     // Verify that the file content remains unchanged except for the frontmatter
     let updated_content = fs::read_to_string(&file_path)?;
@@ -352,17 +352,17 @@ fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
         .with_content("Some text that mentions a wikilink target")
         .create(&temp_dir, "no_frontmatter.md");
 
-    let mut file_info = test_utils::get_test_markdown_file(file_path);
+    let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Confirm starting state: no frontmatter, has frontmatter error
-    assert!(file_info.frontmatter.is_none());
-    assert!(file_info.frontmatter_error.is_some());
+    assert!(markdown_file.frontmatter.is_none());
+    assert!(markdown_file.frontmatter_error.is_some());
 
-    file_info.mark_as_back_populated(DEFAULT_TIMEZONE);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
 
     // Frontmatter was created
-    assert!(file_info.frontmatter.is_some());
-    let frontmatter = file_info.frontmatter.as_ref().expect("just confirmed");
+    assert!(markdown_file.frontmatter.is_some());
+    let frontmatter = markdown_file.frontmatter.as_ref().expect("just confirmed");
 
     // `date_created` set from filesystem date
     assert!(frontmatter.created.is_some());
@@ -373,16 +373,16 @@ fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
     assert!(frontmatter.raw_modified.is_some());
 
     // Frontmatter error cleared
-    assert!(file_info.frontmatter_error.is_none());
+    assert!(markdown_file.frontmatter_error.is_none());
 
     // Persist reasons include both `FrontmatterCreated` and `BackPopulated`
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::FrontmatterCreated)
     );
     assert!(
-        file_info
+        markdown_file
             .persist_reasons
             .contains(&PersistReason::BackPopulated)
     );

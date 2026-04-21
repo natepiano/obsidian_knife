@@ -78,8 +78,8 @@ fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
 fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
-    fs::create_dir_all(config.output_folder()).unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    fs::create_dir_all(validated_config.output_folder()).unwrap();
 
     // Create a markdown file that references a non-existent image
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
@@ -91,19 +91,22 @@ fn test_analyze_missing_references() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test.md");
 
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-    if let Some(markdown_file) = repository.markdown_files.get_mut(&markdown_file_path) {
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+    if let Some(markdown_file) = obsidian_repository
+        .markdown_files
+        .get_mut(&markdown_file_path)
+    {
         // Instead of using `mark_image_reference_as_updated`, which uses the current date,
         // directly set the date we want
         if let Some(frontmatter) = &mut markdown_file.frontmatter {
-            frontmatter.set_date_modified(test_date, config.operational_timezone());
+            frontmatter.set_date_modified(test_date, validated_config.operational_timezone());
         }
         markdown_file
             .persist_reasons
             .push(PersistReason::ImageReferencesModified);
     }
 
-    repository.persist().unwrap();
+    obsidian_repository.persist().unwrap();
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
@@ -111,9 +114,9 @@ fn test_analyze_missing_references() {
     assert_eq!(updated_content, expected_content);
 
     // Second analyze pass to verify idempotency
-    let mut repository = ObsidianRepository::new(&config).unwrap();
-    repository.mark_image_files_for_deletion();
-    repository.persist().unwrap();
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+    obsidian_repository.mark_image_files_for_deletion();
+    obsidian_repository.persist().unwrap();
 
     // Verify content remains the same after second pass
     let final_content = fs::read_to_string(&markdown_file_path).unwrap();
@@ -247,26 +250,27 @@ fn test_image_replacement_outcomes() {
     for test_case in test_cases {
         let temp_dir = TempDir::new().unwrap();
         let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-        let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
-        fs::create_dir_all(config.output_folder()).unwrap();
+        let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+        fs::create_dir_all(validated_config.output_folder()).unwrap();
 
         let created_paths = create_test_files(&temp_dir, &test_case.setup);
-        let mut repository = ObsidianRepository::new(&config).unwrap();
+        let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
         // Mark markdown files for persistence
         for path in &created_paths {
             if path
                 .extension()
                 .is_some_and(|ext| ext == MARKDOWN_EXTENSION)
-                && let Some(markdown_file) = repository.markdown_files.get_mut(path)
+                && let Some(markdown_file) = obsidian_repository.markdown_files.get_mut(path)
             {
-                markdown_file.mark_image_reference_as_updated(config.operational_timezone());
+                markdown_file
+                    .mark_image_reference_as_updated(validated_config.operational_timezone());
             }
         }
 
-        repository.persist().unwrap();
+        obsidian_repository.persist().unwrap();
 
-        (test_case.verify)(&created_paths, &repository);
+        (test_case.verify)(&created_paths, &obsidian_repository);
     }
 }
 
@@ -278,8 +282,8 @@ fn test_image_replacement_outcomes() {
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
-    fs::create_dir_all(config.output_folder()).unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    fs::create_dir_all(validated_config.output_folder()).unwrap();
 
     // Create a markdown file with a wikilink as a path (invalid)
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
@@ -289,10 +293,10 @@ fn test_analyze_wikilink_errors() {
         .with_fs_dates(test_date, test_date)
         .create(&temp_dir, "test_file.md");
 
-    let mut repository = ObsidianRepository::new(&config).unwrap();
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Run analyze and verify it handles wikilink paths appropriately
-    repository.mark_image_files_for_deletion();
+    obsidian_repository.mark_image_files_for_deletion();
 
     // Verify the content wasn't modified
     let final_content = fs::read_to_string(&markdown_file_path).unwrap();
@@ -306,8 +310,8 @@ fn test_analyze_wikilink_errors() {
 fn test_handle_missing_references() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
-    fs::create_dir_all(config.output_folder()).unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    fs::create_dir_all(validated_config.output_folder()).unwrap();
 
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
@@ -322,10 +326,10 @@ fn test_handle_missing_references() {
         .create(&temp_dir, "test_doc.md");
 
     // Initialize the repository info
-    let mut repository = ObsidianRepository::new(&config).unwrap();
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Verify that the missing references are handled correctly
-    let markdown_file = &repository
+    let markdown_file = &obsidian_repository
         .markdown_files
         .get_mut(&markdown_file_path)
         .unwrap();
@@ -360,8 +364,8 @@ fn test_handle_missing_references() {
 fn test_duplicate_grouping() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
-    fs::create_dir_all(config.output_folder()).unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    fs::create_dir_all(validated_config.output_folder()).unwrap();
 
     let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
@@ -399,14 +403,14 @@ fn test_duplicate_grouping() {
         }
     }
 
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Verify all files are in the same duplicate group
-    let duplicates = repository
+    let duplicates = obsidian_repository
         .image_files
         .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
 
-    let keepers = repository
+    let keepers = obsidian_repository
         .image_files
         .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
@@ -417,7 +421,7 @@ fn test_duplicate_grouping() {
     assert_eq!(duplicates.len(), 3, "Should have exactly three duplicates");
 
     // Verify no files were marked as unreferenced
-    let unreferenced = repository
+    let unreferenced = obsidian_repository
         .image_files
         .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
     assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
@@ -436,7 +440,7 @@ fn test_duplicate_grouping() {
 fn test_multiple_file_deletion() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
     // Create multiple files marked for deletion
     let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
@@ -459,11 +463,11 @@ fn test_multiple_file_deletion() {
     };
 
     let created_paths = create_test_files(&temp_dir, &test_setup);
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Verify all files are marked for deletion
     assert_eq!(
-        repository
+        obsidian_repository
             .image_files
             .iter()
             .filter(|f| f.deletion == DeletionStatus::Delete)
@@ -472,7 +476,7 @@ fn test_multiple_file_deletion() {
         "Expected all files to be marked for deletion"
     );
 
-    repository.persist().unwrap();
+    obsidian_repository.persist().unwrap();
 
     // Verify all files were deleted
     for path in created_paths {
@@ -484,7 +488,7 @@ fn test_multiple_file_deletion() {
 fn test_referenced_and_unreferenced_duplicates() {
     let temp_dir = TempDir::new().unwrap();
     let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
-    let config = builder.change_mode(ChangeMode::Apply).build().unwrap();
+    let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
     // Create two sets of duplicate files with different content
     let test_setup = TestSetup {
@@ -515,14 +519,17 @@ fn test_referenced_and_unreferenced_duplicates() {
     };
 
     let created_paths = create_test_files(&temp_dir, &test_setup);
-    let mut repository = ObsidianRepository::new(&config).unwrap();
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Mark markdown file for persistence so files can be deleted
-    if let Some(markdown_file) = repository.markdown_files.get_mut(&created_paths[4]) {
-        markdown_file.mark_image_reference_as_updated(config.operational_timezone());
+    if let Some(markdown_file) = obsidian_repository
+        .markdown_files
+        .get_mut(&created_paths[4])
+    {
+        markdown_file.mark_image_reference_as_updated(validated_config.operational_timezone());
     }
 
-    repository.persist().unwrap();
+    obsidian_repository.persist().unwrap();
 
     // Verify unreferenced duplicates - both should be deleted
     assert!(

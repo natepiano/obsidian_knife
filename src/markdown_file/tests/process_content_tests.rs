@@ -38,9 +38,9 @@ fn test_process_content_with_aliases() {
         .with_aliases(aliases.as_ref().unwrap_or(&Vec::new()).clone())
         .create(&temp_dir, "test file.md");
 
-    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks();
-    let image_links = file_info.process_image_links();
+    let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
+    let extracted = markdown_file.process_wikilinks();
+    let image_links = markdown_file.process_image_links();
 
     // Verify expected wikilinks
     assert_contains_wikilink(&extracted.valid, "test file", None, false);
@@ -68,9 +68,9 @@ fn test_process_content_with_invalid() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks();
-    let image_links = file_info.process_image_links();
+    let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
+    let extracted = markdown_file.process_wikilinks();
+    let image_links = markdown_file.process_image_links();
 
     // Check valid wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
@@ -121,9 +121,9 @@ fn test_process_content_with_empty() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks();
-    let image_links = file_info.process_image_links();
+    let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
+    let extracted = markdown_file.process_wikilinks();
+    let image_links = markdown_file.process_image_links();
 
     assert_eq!(
         extracted.invalid.len(),
@@ -158,9 +158,9 @@ fn test_process_content_with_images() {
         .with_content(content.to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, "UTC").unwrap();
-    let extracted = file_info.process_wikilinks();
-    let image_links = file_info.process_image_links();
+    let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
+    let extracted = markdown_file.process_wikilinks();
+    let image_links = markdown_file.process_image_links();
 
     // Check wikilinks
     assert_contains_wikilink(&extracted.valid, "test", None, false);

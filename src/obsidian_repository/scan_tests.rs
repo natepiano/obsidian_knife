@@ -98,13 +98,13 @@ fn test_wikilink_sorting_with_aliases() {
         .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
         .create(&temp_dir, "other.md");
 
-    let config = test_support::get_test_validated_config(&temp_dir, None);
+    let validated_config = test_support::get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
-    let repository = ObsidianRepository::new(&config).unwrap();
+    let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Find the wikilinks for "tomatoes" in the sorted list
-    let tomatoes_wikilinks: Vec<_> = repository
+    let tomatoes_wikilinks: Vec<_> = obsidian_repository
         .wikilinks_sorted
         .iter()
         .filter(|w| w.display_text.eq_ignore_ascii_case("tomatoes"))
@@ -124,7 +124,7 @@ fn test_wikilink_sorting_with_aliases() {
     );
 
     // Add test for total ordering property
-    let sorted = repository.wikilinks_sorted;
+    let sorted = obsidian_repository.wikilinks_sorted;
     for i in 1..sorted.len() {
         let comparison = sorted[i - 1]
             .display_text
@@ -156,16 +156,16 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
-        let config = test_support::get_test_validated_config(&temp_dir, None);
+        let validated_config = test_support::get_test_validated_config(&temp_dir, None);
 
         // First scan - creates cache with the image
-        let _ = ObsidianRepository::new(&config).unwrap();
+        let _ = ObsidianRepository::new(&validated_config).unwrap();
 
         // Delete the image file
         std::fs::remove_file(temp_dir.path().join("test.png")).unwrap();
 
         // Second scan - should detect the deleted image
-        let _ = ObsidianRepository::new(&config).unwrap();
+        let _ = ObsidianRepository::new(&validated_config).unwrap();
 
         // Verify cache was cleaned up
         let cache_content = std::fs::read_to_string(&cache_path).unwrap();

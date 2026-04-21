@@ -9,18 +9,18 @@ use crate::validated_config::ChangeMode;
 #[test]
 fn test_apply_changes() {
     let initial_content = "This is Test Link in a sentence.";
-    let (_temp_dir, config, mut repository) =
+    let (_temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::Apply, None, None, Some(initial_content));
 
     // First find the matches
-    repository.find_all_back_populate_matches(&config);
+    obsidian_repository.find_all_back_populate_matches(&validated_config);
 
     // Apply the changes
-    repository.apply_replaceable_matches(config.operational_timezone());
+    obsidian_repository.apply_replaceable_matches(validated_config.operational_timezone());
 
     // Verify changes by checking `MarkdownFile` content
     assert_eq!(
-        repository.markdown_files[0].content,
+        obsidian_repository.markdown_files[0].content,
         "This is [[Test Link]] in a sentence."
     );
 }
@@ -75,10 +75,10 @@ fn test_scan_markdown_file_with_do_not_back_populate() {
         )
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
-    assert!(file_info.do_not_back_populate_regexes.is_some());
-    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert!(markdown_file.do_not_back_populate_regexes.is_some());
+    let regexes = markdown_file.do_not_back_populate_regexes.unwrap();
     assert_eq!(regexes.len(), 2);
 
     let test_line = "here is a test phrase and another phrase";
@@ -100,10 +100,10 @@ fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
         .with_content("# Test Content".to_string())
         .create(&temp_dir, "test.md");
 
-    let file_info = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+    let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
 
-    assert!(file_info.do_not_back_populate_regexes.is_some());
-    let regexes = file_info.do_not_back_populate_regexes.unwrap();
+    assert!(markdown_file.do_not_back_populate_regexes.is_some());
+    let regexes = markdown_file.do_not_back_populate_regexes.unwrap();
     assert_eq!(regexes.len(), 3);
 
     let test_line = "First Alias and Second Alias and exclude this";

@@ -95,7 +95,7 @@ fn verify_match(
 #[test]
 fn test_case_insensitive_targets() {
     // Create test environment
-    let (temp_dir, config, _) =
+    let (temp_dir, validated_config, _) =
         test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
     // Create test files with case variations using `TestFileBuilder`
@@ -110,10 +110,10 @@ fn test_case_insensitive_targets() {
         .create(&temp_dir, "test1.md");
 
     // Scan folders to populate repository
-    let mut repository = ObsidianRepository::new(&config).unwrap();
+    let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
     // Find our test file
-    let test_file = repository
+    let test_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -127,10 +127,10 @@ fn test_case_insensitive_targets() {
     );
 
     // Get ambiguous matches
-    repository.identify_ambiguous_matches();
+    obsidian_repository.identify_ambiguous_matches();
 
     // Find our test file again after ambiguous matching
-    let test_file = repository
+    let test_file = obsidian_repository
         .markdown_files
         .iter()
         .find(|f| f.path.ends_with("test1.md"))
@@ -147,7 +147,7 @@ fn test_case_insensitive_targets() {
 #[test]
 fn test_case_sensitivity_behavior() {
     // Initialize test environment without specific wikilinks
-    let (temp_dir, config, mut repository) =
+    let (temp_dir, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
     for case in get_case_sensitivity_test_cases() {
@@ -155,22 +155,22 @@ fn test_case_sensitivity_behavior() {
             &temp_dir,
             "test.md",
             case.content,
-            &mut repository,
+            &mut obsidian_repository,
         );
 
         // Create a custom wikilink and build AC automaton directly
         let wikilink = case.wikilink;
         let automaton = test_support::build_aho_corasick(std::slice::from_ref(&wikilink));
 
-        let markdown_info =
-            MarkdownFile::new(file_path.clone(), config.operational_timezone()).unwrap();
+        let markdown_file =
+            MarkdownFile::new(file_path.clone(), validated_config.operational_timezone()).unwrap();
 
-        let matches = markdown_info.process_line_for_back_populate_replacements(
+        let matches = markdown_file.process_line_for_back_populate_replacements(
             case.content,
             0,
             &automaton,
             &[&wikilink],
-            &config,
+            &validated_config,
         );
 
         assert_eq!(

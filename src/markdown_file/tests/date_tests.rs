@@ -344,25 +344,25 @@ fn test_date_created_fix_integration() {
             .create(&temp_dir, "test1.md");
 
         // Create `MarkdownFile` from the test file
-        let markdown_info = test_utils::get_test_markdown_file(file_path);
+        let markdown_file = test_utils::get_test_markdown_file(file_path);
 
         // Verify the DateCreatedFixValidation state
         test_utils::assert_test_case(
-            markdown_info.date_created_fix.date_string,
+            markdown_file.date_created_fix.date_string,
             case.date_created_fix,
             &format!("{} - date string", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         test_utils::assert_test_case(
-            markdown_info.frontmatter.unwrap().needs_persist(),
+            markdown_file.frontmatter.unwrap().needs_persist(),
             case.expect_persist,
             &format!("{} - expect persist", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         test_utils::assert_test_case(
-            markdown_info
+            markdown_file
                 .date_created_fix
                 .fix_date
                 .map(|dt| dt.date_naive()),
@@ -469,11 +469,11 @@ fn test_late_night_date_created_fix() {
         .create(&temp_dir, "test1.md");
 
     // Create `MarkdownFile` from the test file
-    let markdown_info = test_utils::get_test_markdown_file(file_path);
+    let markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Verify the parsed date shows as Jan 16 when viewed in Eastern
     let timezone: chrono_tz::Tz = DEFAULT_TIMEZONE.parse().unwrap();
-    let parsed_date_local = markdown_info
+    let parsed_date_local = markdown_file
         .date_created_fix
         .fix_date
         .unwrap()
@@ -486,7 +486,7 @@ fn test_late_night_date_created_fix() {
     );
 
     // Also verify that the persist report would show Jan 16
-    let persist_reasons = &markdown_info.persist_reasons;
+    let persist_reasons = &markdown_file.persist_reasons;
     assert!(
         persist_reasons
             .iter()

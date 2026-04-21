@@ -100,7 +100,7 @@ fn reset_change_mode(
     let operational_timezone = config
         .operational_timezone
         .as_ref()
-        .map_or(DEFAULT_TIMEZONE, |time_zone| time_zone.as_str());
+        .map_or(DEFAULT_TIMEZONE, String::as_str);
 
     if let Some(frontmatter) = markdown_file.frontmatter.as_mut() {
         frontmatter.set_date_modified_now(operational_timezone);
@@ -148,10 +148,7 @@ fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
 
     let config_path = get_config_file()?;
 
-    match process_obsidian_repository(config_path) {
-        Ok(()) => Ok(()),
-        Err(e) => handle_error(e), // Removed writer parameter
-    }
+    process_obsidian_repository(config_path).or_else(handle_error)
 }
 
 #[cfg(test)]

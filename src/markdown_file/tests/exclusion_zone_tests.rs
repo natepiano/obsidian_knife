@@ -5,17 +5,17 @@ use crate::wikilink::InvalidWikilinkReason;
 
 #[test]
 fn test_collect_exclusion_zones_with_invalid_wikilinks() {
-    let (_, config, mut repository) = test_support::create_test_environment(
+    let (_, validated_config, mut obsidian_repository) = test_support::create_test_environment(
         ChangeMode::DryRun,
         None,
         None,
         Some("Text [[invalid|link|extra]] and more text"),
     );
 
-    let file_info = repository.markdown_files.first_mut().unwrap();
+    let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
     // Add an invalid wikilink
-    file_info.wikilinks.invalid.push(InvalidWikilink {
+    markdown_file.wikilinks.invalid.push(InvalidWikilink {
         content:     "[[invalid|link|extra]]".to_string(),
         reason:      InvalidWikilinkReason::DoubleAlias,
         span:        (5, 27),
@@ -23,8 +23,10 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
         line_number: 1,
     });
 
-    let zones =
-        file_info.collect_exclusion_zones("Text [[invalid|link|extra]] and more text", &config);
+    let zones = markdown_file.collect_exclusion_zones(
+        "Text [[invalid|link|extra]] and more text",
+        &validated_config,
+    );
 
     assert!(!zones.is_empty(), "Should have at least one exclusion zone");
     assert!(
@@ -35,10 +37,10 @@ fn test_collect_exclusion_zones_with_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
-    let (_, config, mut repository) =
+    let (_, validated_config, mut obsidian_repository) =
         test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
-    let markdown_file = repository.markdown_files.first_mut().unwrap();
+    let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
     // Add multiple invalid wikilinks
     markdown_file.wikilinks.invalid.extend(vec![
@@ -58,7 +60,8 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
         },
     ]);
 
-    let zones = markdown_file.collect_exclusion_zones("[[test|one|two]] some text [[]]", &config);
+    let zones =
+        markdown_file.collect_exclusion_zones("[[test|one|two]] some text [[]]", &validated_config);
 
     assert_eq!(zones.len(), 2, "Should have two exclusion zones");
     assert!(
@@ -73,14 +76,14 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
 
 #[test]
 fn test_exclusion_zones_only_matches_current_line() {
-    let (_, config, mut repository) = test_support::create_test_environment(
+    let (_, validated_config, mut obsidian_repository) = test_support::create_test_environment(
         ChangeMode::DryRun,
         None,
         None,
         Some("Line 1 with [[bad|link|here]]\nLine 2 with normal text"),
     );
 
-    let markdown_file = repository.markdown_files.first_mut().unwrap();
+    let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
     // Add invalid wikilink from a different line
     markdown_file.wikilinks.invalid.push(InvalidWikilink {
@@ -92,7 +95,7 @@ fn test_exclusion_zones_only_matches_current_line() {
     });
 
     // Check exclusion zones for line2
-    let zones = markdown_file.collect_exclusion_zones("Line 2 with normal text", &config);
+    let zones = markdown_file.collect_exclusion_zones("Line 2 with normal text", &validated_config);
 
     assert!(
         zones.is_empty(),

@@ -31,7 +31,7 @@ fn test_update_modified_dates_changes_frontmatter() {
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test1.md");
 
-    let mut repository = ObsidianRepository::default();
+    let mut obsidian_repository = ObsidianRepository::default();
     let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Instead of using mark_image_reference_as_updated which uses current date,
@@ -43,9 +43,12 @@ fn test_update_modified_dates_changes_frontmatter() {
         .persist_reasons
         .push(PersistReason::ImageReferencesModified);
 
-    repository.markdown_files.push(markdown_file);
+    obsidian_repository.markdown_files.push(markdown_file);
 
-    let frontmatter = repository.markdown_files[0].frontmatter.as_ref().unwrap();
+    let frontmatter = obsidian_repository.markdown_files[0]
+        .frontmatter
+        .as_ref()
+        .unwrap();
 
     assert_eq!(
         frontmatter.date_modified(),
@@ -87,7 +90,7 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .with_fs_dates(base_date, base_date)
         .create(&temp_dir, "test2.md");
 
-    let mut repository = ObsidianRepository::default();
+    let mut obsidian_repository = ObsidianRepository::default();
     let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1);
 
     // Update only the first file with a fixed date
@@ -98,13 +101,13 @@ fn test_update_modified_dates_only_updates_specified_files() {
         .persist_reasons
         .push(PersistReason::ImageReferencesModified);
 
-    repository.markdown_files.push(markdown_file1);
-    repository
+    obsidian_repository.markdown_files.push(markdown_file1);
+    obsidian_repository
         .markdown_files
         .push(test_utils::get_test_markdown_file(file_path2));
 
-    let file1 = &repository.markdown_files[0];
-    let file2 = &repository.markdown_files[1];
+    let file1 = &obsidian_repository.markdown_files[0];
+    let file2 = &obsidian_repository.markdown_files[1];
 
     // First file should have new date and needs_persist
     assert_eq!(

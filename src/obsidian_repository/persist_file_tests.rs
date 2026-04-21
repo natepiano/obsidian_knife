@@ -144,20 +144,20 @@ fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
     for case in test_cases {
         // temp_dir needs to go out of scope each time for the file to be cleaned up
         let temp_dir = TempDir::new()?;
-        let config = test_support::get_test_validated_config(&temp_dir, None);
+        let validated_config = test_support::get_test_validated_config(&temp_dir, None);
 
         let file_path = create_test_file_from_case(&temp_dir, &case);
 
-        let mut repository = ObsidianRepository::new(&config)?;
-        let file_info = test_utils::get_test_markdown_file(file_path);
+        let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
+        let markdown_file = test_utils::get_test_markdown_file(file_path);
 
-        repository.markdown_files.push(file_info);
+        obsidian_repository.markdown_files.push(markdown_file);
 
         // Run persistence
-        repository.persist()?;
+        obsidian_repository.persist()?;
 
         // Verify results
-        verify_dates(&repository.markdown_files[0], &case)?;
+        verify_dates(&obsidian_repository.markdown_files[0], &case)?;
     }
 
     Ok(())

@@ -16,41 +16,42 @@ use crate::test_support;
 fn test_back_populate_file_filter() {
     let expected_markdown_file = format!("test_file{MARKDOWN_SUFFIX}");
     let temp_dir = TempDir::new().unwrap();
-    let config = test_support::get_test_validated_config(&temp_dir, Some("test_file"));
+    let validated_config = test_support::get_test_validated_config(&temp_dir, Some("test_file"));
 
     assert_eq!(
-        config.back_populate_file_filter(),
+        validated_config.back_populate_file_filter(),
         Some(expected_markdown_file.clone())
     );
 
     // Test with wikilink format
-    let config = test_support::get_test_validated_config(&temp_dir, Some("[[test_file]]"));
+    let validated_config =
+        test_support::get_test_validated_config(&temp_dir, Some("[[test_file]]"));
     assert_eq!(
-        config.back_populate_file_filter(),
+        validated_config.back_populate_file_filter(),
         Some(expected_markdown_file.clone())
     );
 
     // Test with existing .md extension
-    let config =
+    let validated_config =
         test_support::get_test_validated_config(&temp_dir, Some(expected_markdown_file.as_str()));
     assert_eq!(
-        config.back_populate_file_filter(),
+        validated_config.back_populate_file_filter(),
         Some(expected_markdown_file.clone())
     );
 
     // Test with wikilink and .md extension
-    let config = test_support::get_test_validated_config(
+    let validated_config = test_support::get_test_validated_config(
         &temp_dir,
         Some(format!("[[{expected_markdown_file}]]").as_str()),
     );
     assert_eq!(
-        config.back_populate_file_filter(),
+        validated_config.back_populate_file_filter(),
         Some(expected_markdown_file)
     );
 
     // Test with None
-    let config = test_support::get_test_validated_config(&temp_dir, None);
-    assert_eq!(config.back_populate_file_filter(), None);
+    let validated_config = test_support::get_test_validated_config(&temp_dir, None);
+    assert_eq!(validated_config.back_populate_file_filter(), None);
 }
 
 #[test]
@@ -69,8 +70,8 @@ fn test_preserve_obsidian_in_ignore_folders() {
     builder.output_folder(obsidian_path.join("custom_output"));
 
     // Build and verify both paths are in ignore folders
-    let config = builder.build().unwrap();
-    let ignore_folders = config.ignore_folders().unwrap();
+    let validated_config = builder.build().unwrap();
+    let ignore_folders = validated_config.ignore_folders().unwrap();
 
     let obsidian_dir = obsidian_path.join(OBSIDIAN_FOLDER);
     let output_dir = obsidian_path.join("custom_output");
@@ -366,8 +367,13 @@ fn test_output_folder_edge_cases() {
         builder.output_folder(absolute_path.clone());
     });
     assert!(result.is_ok());
-    let config = result.unwrap();
-    assert!(config.ignore_folders().unwrap().contains(&absolute_path));
+    let validated_config = result.unwrap();
+    assert!(
+        validated_config
+            .ignore_folders()
+            .unwrap()
+            .contains(&absolute_path)
+    );
 
     // Test with relative path
     let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
@@ -376,12 +382,15 @@ fn test_output_folder_edge_cases() {
     assert!(result.is_ok());
 
     // Test that output folder is properly resolved and added to ignore folders
-    let config = result.unwrap();
+    let validated_config = result.unwrap();
     let expected_path = temp_dir.path().join("relative_output");
     assert!(
-        config.ignore_folders().unwrap().contains(&expected_path),
+        validated_config
+            .ignore_folders()
+            .unwrap()
+            .contains(&expected_path),
         "\nExpected path: {:?}\nIgnore folders: {:?}",
         expected_path,
-        config.ignore_folders().unwrap()
+        validated_config.ignore_folders().unwrap()
     );
 }

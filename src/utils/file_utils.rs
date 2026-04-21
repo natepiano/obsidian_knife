@@ -1,7 +1,6 @@
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
-use std::fs::DirEntry;
 use std::io;
 use std::path::Path;
 use std::path::PathBuf;
@@ -97,7 +96,8 @@ pub fn collect_repository_files(
             }
 
             let subdirs: Vec<PathBuf> = fs::read_dir(&dir)?
-                .filter_map(|entry| entry.ok().as_ref().map(DirEntry::path))
+                .filter_map(Result::ok)
+                .map(|entry| entry.path())
                 .filter(|path| path.file_name().and_then(OsStr::to_str) != Some(DS_STORE))
                 .inspect(|path| {
                     if let Some(ext) = path

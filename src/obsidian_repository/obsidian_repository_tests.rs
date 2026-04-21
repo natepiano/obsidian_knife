@@ -18,7 +18,7 @@ fn setup_test_repo() -> (TempDir, ValidatedConfig) {
     let temp_dir = TempDir::new().unwrap();
 
     // First create the validated config so we know the correct media path
-    let config = get_validated_config(&temp_dir);
+    let validated_config = get_validated_config(&temp_dir);
 
     // Now create our test files using the config's media path
     let media_path = temp_dir.path().join("media");
@@ -45,7 +45,7 @@ date_modified: 2024-01-01
         .with_content(vec![0x4D, 0x4D, 0x00, 0x2A]) // TIFF header
         .create(&temp_dir, "media/test.tiff");
 
-    (temp_dir, config)
+    (temp_dir, validated_config)
 }
 
 fn get_validated_config(temp_dir: &TempDir) -> ValidatedConfig {
@@ -65,11 +65,11 @@ pub fn find_image_file<'a>(files: &'a ImageFiles, path: &'a Path) -> Option<&'a 
 fn test_new_handles_empty_repo() -> Result<(), Box<dyn Error + Send + Sync>> {
     let temp_dir = TempDir::new().unwrap();
 
-    let config = get_validated_config(&temp_dir);
+    let validated_config = get_validated_config(&temp_dir);
 
-    let repository = ObsidianRepository::new(&config)?;
+    let obsidian_repository = ObsidianRepository::new(&validated_config)?;
 
-    assert!(repository.image_files.is_empty());
+    assert!(obsidian_repository.image_files.is_empty());
 
     Ok(())
 }
@@ -95,7 +95,7 @@ fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> 
         }
     }
 
-    let (temp_dir, config) = setup_test_repo();
+    let (temp_dir, validated_config) = setup_test_repo();
 
     // Create test cases with `TestFileBuilder`
     let zero_byte_path = TestFileBuilder::new()
@@ -117,17 +117,17 @@ date_modified: 2024-01-01
         .with_content(markdown_content.as_bytes().to_vec())
         .create(&temp_dir, "special_images.md");
 
-    let repository = ObsidianRepository::new(&config)?;
+    let obsidian_repository = ObsidianRepository::new(&validated_config)?;
 
     assert_incompatible_state(
-        &repository.image_files,
+        &obsidian_repository.image_files,
         &zero_byte_path,
         IncompatibilityReason::ZeroByte,
         "Zero-byte file should have ZeroByte state",
     );
 
     assert_incompatible_state(
-        &repository.image_files,
+        &obsidian_repository.image_files,
         &tiff_path,
         IncompatibilityReason::TiffFormat,
         "TIFF file should have Tiff state",
