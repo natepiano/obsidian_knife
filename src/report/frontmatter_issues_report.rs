@@ -2,6 +2,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+use super::constants::TABLE_HEADER_ERROR_MESSAGE;
+use super::constants::TABLE_HEADER_FILE_NAME;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::FOUND;
@@ -22,7 +24,7 @@ pub(super) struct FrontmatterIssuesTable;
 impl ReportDefinition for FrontmatterIssuesTable {
     type Item = (PathBuf, String); // (file_path, error_message)
 
-    fn headers(&self) -> Vec<&str> { vec!["file name", "error message"] }
+    fn headers(&self) -> Vec<&str> { vec![TABLE_HEADER_FILE_NAME, TABLE_HEADER_ERROR_MESSAGE] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]

@@ -27,7 +27,7 @@ fn test_image_file_type_from_extension() {
             .and_then(OsStr::to_str)
             .unwrap_or("unknown");
 
-        let file_type = ImageFileType::from_extension(extension);
+        let file_type = ImageFileType::from(extension);
         assert_eq!(
             file_type, expected_type,
             "Failed for extension: {extension}"

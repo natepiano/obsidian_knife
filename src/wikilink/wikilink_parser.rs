@@ -4,11 +4,11 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::wikilink_types::InvalidWikilinkReason;
-use super::wikilink_types::ParsedExtractedWikilinks;
-use super::wikilink_types::ParsedInvalidWikilink;
-use super::wikilink_types::Wikilink;
-use super::wikilink_types::WikilinkParseResult;
+use super::link::InvalidWikilinkReason;
+use super::link::ParsedExtractedWikilinks;
+use super::link::ParsedInvalidWikilink;
+use super::link::Wikilink;
+use super::link::WikilinkParseResult;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;

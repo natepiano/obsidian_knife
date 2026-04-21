@@ -67,7 +67,7 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
 
     let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
-        Config::from_frontmatter(frontmatter)?
+        Config::try_from(frontmatter)?
     } else {
         return Err(markdown_file
             .frontmatter_error

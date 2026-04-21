@@ -42,8 +42,8 @@ pub enum ImageFileType {
     Other(String),
 }
 
-impl ImageFileType {
-    pub fn from_extension(ext: &str) -> Self {
+impl From<&str> for ImageFileType {
+    fn from(ext: &str) -> Self {
         match ext.to_lowercase().as_str() {
             "tiff" | "tif" => Self::Tiff,
             "jpg" | "jpeg" => Self::Jpeg,

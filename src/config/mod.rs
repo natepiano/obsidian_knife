@@ -103,13 +103,6 @@ yaml_frontmatter_struct! {
 impl Config {
     pub(crate) const fn change_mode(&self) -> ChangeMode { self.configured_changes.resolve() }
 
-    pub(crate) fn from_frontmatter(
-        frontmatter: &FrontMatter,
-    ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let yaml_str = frontmatter.to_yaml_str()?;
-        Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
-    }
-
     pub(crate) fn validate(&self) -> Result<ValidatedConfig, Box<dyn Error + Send + Sync>> {
         ValidatedConfigBuilder::default()
             .change_mode(self.change_mode())
@@ -132,5 +125,14 @@ impl Config {
             )
             .build()
             .map_err(|e| Box::new(e) as Box<dyn Error + Send + Sync>)
+    }
+}
+
+impl TryFrom<&FrontMatter> for Config {
+    type Error = Box<dyn Error + Send + Sync>;
+
+    fn try_from(frontmatter: &FrontMatter) -> Result<Self, Self::Error> {
+        let yaml_str = frontmatter.to_yaml_str()?;
+        Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Self::Error)
     }
 }

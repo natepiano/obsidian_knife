@@ -117,7 +117,7 @@ impl ObsidianRepository {
             })
     }
 
-    // map of markdown file paths to the image file names that are referenced on that markdown_file
+    // Map of `markdown_file` paths to the image file names referenced on that `markdown_file`.
     fn get_markdown_file_image_reference_map(&self) -> HashMap<String, HashSet<String>> {
         self.markdown_files
             .iter()

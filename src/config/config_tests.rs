@@ -70,7 +70,7 @@ output_folder: output"#
         .create(&temp_dir, "config.md");
 
     let mut markdown_file = test_utils::get_test_markdown_file(config_path.clone());
-    let mut config = Config::from_frontmatter(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
+    let mut config = Config::try_from(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
 
     // Validate initial values
     assert_eq!(config.configured_changes, ConfiguredChanges::Apply);
@@ -96,7 +96,7 @@ output_folder: output"#
 
     // Verify all fields after update
     let new_markdown_file = test_utils::get_test_markdown_file(config_path);
-    let new_config = Config::from_frontmatter(&new_markdown_file.frontmatter.unwrap()).unwrap();
+    let new_config = Config::try_from(&new_markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(new_config.configured_changes, ConfiguredChanges::DryRun);
     assert_eq!(new_config.file_limit, Some(5));
@@ -127,7 +127,7 @@ cleanup_image_files: true";
         .create(&temp_dir, "config.md");
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
+    let config = Config::try_from(&markdown_file.frontmatter.unwrap()).unwrap();
 
     assert_eq!(config.obsidian_path, "~/Documents/brain");
     assert_eq!(config.configured_changes, ConfiguredChanges::DryRun);
@@ -159,7 +159,7 @@ invalid: yaml: content:
         .create(&temp_dir, "config.md");
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let result = Config::from_frontmatter(&markdown_file.frontmatter.unwrap_or_default());
+    let result = Config::try_from(&markdown_file.frontmatter.unwrap_or_default());
 
     assert!(result.is_err());
 }
@@ -190,7 +190,7 @@ fn test_process_config_with_valid_setup() {
     let (_temp_dir, config_path) = create_test_environment();
 
     let markdown_file = test_utils::get_test_markdown_file(config_path);
-    let config = Config::from_frontmatter(&markdown_file.frontmatter.unwrap()).unwrap();
+    let config = Config::try_from(&markdown_file.frontmatter.unwrap()).unwrap();
 
     let validated_config = config.validate().unwrap();
     assert_eq!(validated_config.change_mode(), ChangeMode::DryRun);

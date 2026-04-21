@@ -49,7 +49,7 @@ mod update_modified_tests;
 
 mod back_populate;
 mod image_processing;
-mod repository_core;
+mod repository;
 
-pub use repository_core::ObsidianRepository;
-pub use repository_core::format_relative_path;
+pub use repository::ObsidianRepository;
+pub use repository::format_relative_path;

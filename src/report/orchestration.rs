@@ -4,6 +4,8 @@ use std::path::Path;
 use chrono::Local;
 use chrono::Utc;
 
+use super::constants::HIGHLIGHT_CLOSE_TAG;
+use super::constants::HIGHLIGHT_OPEN_TAG;
 use crate::constants::BACK_POPULATE;
 use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
 use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
@@ -256,9 +258,9 @@ pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: u
         }
 
         result.push_str(&text[last_end..start]);
-        result.push_str("<span style=\"color: red;\">");
+        result.push_str(HIGHLIGHT_OPEN_TAG);
         result.push_str(&text[start..end]);
-        result.push_str("</span>");
+        result.push_str(HIGHLIGHT_CLOSE_TAG);
         last_end = end;
     }
 

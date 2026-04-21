@@ -4,6 +4,11 @@ use std::path::PathBuf;
 
 use itertools::Itertools;
 
+use super::constants::TABLE_HEADER_FILE_NAME;
+use super::constants::TABLE_HEADER_INVALID_REASON;
+use super::constants::TABLE_HEADER_LINE;
+use super::constants::TABLE_HEADER_LINE_TEXT;
+use super::constants::TABLE_HEADER_SOURCE_TEXT;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::FOUND;
@@ -30,11 +35,11 @@ impl ReportDefinition for InvalidWikilinksTable {
 
     fn headers(&self) -> Vec<&str> {
         vec![
-            "file name",
-            "line",
-            "line text",
-            "invalid reason",
-            "source text",
+            TABLE_HEADER_FILE_NAME,
+            TABLE_HEADER_LINE,
+            TABLE_HEADER_LINE_TEXT,
+            TABLE_HEADER_INVALID_REASON,
+            TABLE_HEADER_SOURCE_TEXT,
         ]
     }
 

@@ -135,7 +135,7 @@ fn test_truly_ambiguous_targets() {
         .with_aliases(vec!["Amazon".to_string()])
         .create(&temp_dir, "Amazon (river).md");
 
-    // Let scan_folders find all the files and process them
+    // Let `ObsidianRepository::new` find all the files and process them.
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find test1.md again and verify final state
@@ -199,7 +199,7 @@ Amazon is ambiguous",
         .with_title("Test Document".to_string()) // This adds frontmatter with the title
         .create(&temp_dir, "test1.md");
 
-    // Let scan_folders find all the files and process them
+    // Let `ObsidianRepository::new` find all the files and process them.
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find test1.md again and verify final state
@@ -245,12 +245,12 @@ Amazon is ambiguous",
 // of `"Nate"` as **ambiguous**.
 //
 // Validate that the function can handle **both unambiguous and ambiguous matches simultaneously**
-// without interference. prior to this the real world failure was that it would find Karen as an
-// alias but not karen even though we have a case-insensitive search
-// the problem with the old test is that when there wa sno ambiguous matches - then
-// the lower case karen wasn't getting stripped out and the test would pass even though the real
-// world failed so in this case we are creating a more realistic test that has a mix of ambiguous
-// and unambiguous
+// without interference. Prior to this, the real-world failure was that it would find `Karen` as an
+// alias but not `karen` even though we have a case-insensitive search.
+// The problem with the old test is that when there were no ambiguous matches, the lowercase
+// `karen` was not getting stripped out and the test would pass even though the real world failed.
+// In this case we are creating a more realistic test that has a mix of ambiguous and unambiguous
+// matches.
 #[test]
 fn test_combined_ambiguous_and_unambiguous_matches() {
     let (temp_dir, config, _) =
@@ -286,7 +286,7 @@ Nate was here and so was Nate"
         .with_aliases(vec!["Nate".to_string()])
         .create(&temp_dir, "Nathan Dye.md");
 
-    // Let scan_folders find all the files and process them
+    // Let `ObsidianRepository::new` find all the files and process them.
     let repository = ObsidianRepository::new(&config).unwrap();
 
     // Find other.md again and verify final state

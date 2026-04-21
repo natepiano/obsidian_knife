@@ -4,6 +4,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use super::constants::TABLE_HEADER_FILE_NAME;
+use super::constants::TABLE_HEADER_LINE;
 use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -42,8 +44,8 @@ impl ReportDefinition for BackPopulateTable {
 
     fn headers(&self) -> Vec<&str> {
         vec![
-            "file name",
-            "line",
+            TABLE_HEADER_FILE_NAME,
+            TABLE_HEADER_LINE,
             TEXT,
             OCCURRENCES,
             WILL_REPLACE_WITH,

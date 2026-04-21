@@ -1,6 +1,7 @@
 mod add_frontmatter_report;
 mod ambiguous_matches_report;
 mod back_populate_report;
+mod constants;
 mod duplicate_images_report;
 mod frontmatter_issues_report;
 mod incompatible_image_report;

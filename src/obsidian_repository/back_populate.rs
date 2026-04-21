@@ -37,12 +37,12 @@ impl ObsidianRepository {
             }
         }
 
-        // Process each file's matches
+        // Process each file's matches.
         for markdown_file in &mut self.markdown_files {
-            // Create a map to group matches by their lowercased `found_text` within this file
+            // Group matches by their lowercased `found_text` within this file.
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
-            // Drain matches from the file into our temporary map
+            // Drain matches from the file into a temporary map.
             let file_matches = std::mem::take(&mut markdown_file.matches.unambiguous);
             for match_info in file_matches {
                 let lower_found_text = match_info.found_text.to_lowercase();
@@ -52,19 +52,19 @@ impl ObsidianRepository {
                     .push(match_info);
             }
 
-            // Process each group of matches
+            // Process each group of matches.
             for (found_text_lower, text_matches) in matches_by_text {
                 if let Some(targets) = display_text_map.get(&found_text_lower) {
                     if targets.len() > 1 {
-                        // This is an ambiguous match
-                        // Add to the file's ambiguous collection
+                        // This is an ambiguous match.
+                        // Add it to the file's ambiguous collection.
                         markdown_file.matches.ambiguous.extend(text_matches.clone());
                     } else {
-                        // Unambiguous matches go back into the markdown_file
+                        // Unambiguous matches go back into the `markdown_file`.
                         markdown_file.matches.unambiguous.extend(text_matches);
                     }
                 } else {
-                    // Handle unclassified matches
+                    // Handle unclassified matches.
                     println!(
                         "[WARNING] Found unclassified matches for '{found_text_lower}' in file '{}'",
                         markdown_file.path.display()
@@ -85,7 +85,7 @@ impl ObsidianRepository {
             .as_ref()
             .expect("Wikilinks automaton should be initialized");
 
-        // turn them into references
+        // Turn `wikilinks_sorted` into references.
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
 
         self.markdown_files.process_files_for_back_populate_matches(
@@ -180,7 +180,7 @@ impl ObsidianRepository {
     ) -> Vec<Box<dyn ReplaceableContent>> {
         let mut matches = Vec::new();
 
-        // Add `BackPopulateMatches`
+        // Add `BackPopulateMatch` values.
         matches.extend(
             markdown_file
                 .matches
@@ -190,7 +190,7 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
-        // Add the image link states that need replacement
+        // Add `ImageLinkState` values that need replacement.
         matches.extend(
             markdown_file
                 .image_links

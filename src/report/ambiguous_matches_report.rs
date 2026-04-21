@@ -6,6 +6,8 @@ use std::fmt::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use super::constants::TABLE_HEADER_FILE_NAME;
+use super::constants::TABLE_HEADER_LINE;
 use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -39,7 +41,9 @@ struct AmbiguousMatchesTable {
 impl ReportDefinition for AmbiguousMatchesTable {
     type Item = BackPopulateMatch;
 
-    fn headers(&self) -> Vec<&str> { vec!["file name", "line", TEXT, OCCURRENCES] }
+    fn headers(&self) -> Vec<&str> {
+        vec![TABLE_HEADER_FILE_NAME, TABLE_HEADER_LINE, TEXT, OCCURRENCES]
+    }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -164,7 +168,7 @@ struct TargetReference {
 impl ReportDefinition for TargetReferencesTable {
     type Item = TargetReference;
 
-    fn headers(&self) -> Vec<&str> { vec!["file name", "line", TEXT] }
+    fn headers(&self) -> Vec<&str> { vec![TABLE_HEADER_FILE_NAME, TABLE_HEADER_LINE, TEXT] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![

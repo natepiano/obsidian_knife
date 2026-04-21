@@ -1,10 +1,10 @@
+mod image;
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
     reason = "tests should panic on unexpected values"
 )]
 mod image_file_tests;
-mod image_file_types;
 
 use std::error::Error;
 use std::ffi::OsStr;
@@ -15,12 +15,12 @@ use derive_more::Deref;
 use derive_more::DerefMut;
 use derive_more::IntoIterator;
 
-pub use self::image_file_types::DeletionStatus;
-pub use self::image_file_types::DuplicateRole;
-pub use self::image_file_types::ImageFileState;
-use self::image_file_types::ImageFileType;
-pub use self::image_file_types::ImageHash;
-pub use self::image_file_types::IncompatibilityReason;
+pub use self::image::DeletionStatus;
+pub use self::image::DuplicateRole;
+pub use self::image::ImageFileState;
+use self::image::ImageFileType;
+pub use self::image::ImageHash;
+pub use self::image::IncompatibilityReason;
 use crate::utils::EnumFilter;
 
 #[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
@@ -83,7 +83,7 @@ impl ImageFile {
 
         let file_type = path.extension().and_then(OsStr::to_str).map_or_else(
             || ImageFileType::Other("unknown".to_string()),
-            ImageFileType::from_extension,
+            ImageFileType::from,
         );
 
         let initial_state = if matches!(file_type, ImageFileType::Tiff) {

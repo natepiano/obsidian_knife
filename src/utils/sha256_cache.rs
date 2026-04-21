@@ -15,6 +15,7 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha256;
 
+use super::constants::SHA256_BUFFER_SIZE;
 use crate::image_file::ImageHash;
 
 #[derive(Debug, Clone, Copy)]
@@ -39,12 +40,12 @@ pub struct CachedImageInfo {
 
 #[derive(Debug)]
 pub struct Sha256Cache {
-    cache:                     HashMap<PathBuf, CachedImageInfo>,
-    cache_file_path:           PathBuf,
-    read_count:                usize,
-    pub(super) added_count:    usize,
-    pub(super) modified_count: usize,
-    deleted_count:             usize,
+    cache:               HashMap<PathBuf, CachedImageInfo>,
+    cache_file_path:     PathBuf,
+    reads:               usize,
+    pub(super) added:    usize,
+    pub(super) modified: usize,
+    deleted:             usize,
 }
 
 impl Sha256Cache {
@@ -68,10 +69,10 @@ impl Sha256Cache {
             Self {
                 cache,
                 cache_file_path,
-                read_count: 0,
-                added_count: 0,
-                modified_count: 0,
-                deleted_count: 0,
+                reads: 0,
+                added: 0,
+                modified: 0,
+                deleted: 0,
             },
             status,
         )
@@ -87,16 +88,16 @@ impl Sha256Cache {
         if let Some(cached_info) = self.cache.get(path)
             && cached_info.time_stamp == time_stamp
         {
-            self.read_count += 1;
+            self.reads += 1;
             return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
         }
 
         let new_hash = ImageHash::from(Self::hash_file(path)?);
         let status = if self.cache.contains_key(path) {
-            self.modified_count += 1;
+            self.modified += 1;
             CacheEntryStatus::Modified
         } else {
-            self.added_count += 1;
+            self.added += 1;
             CacheEntryStatus::Added
         };
 
@@ -120,14 +121,14 @@ impl Sha256Cache {
             .cloned() // Clone the `PathBuf`s we want to remove
             .collect(); // Collect into Vec
 
-        self.deleted_count = to_remove.len();
+        self.deleted = to_remove.len();
         for path in to_remove {
             self.cache.remove(&path);
         }
     }
 
     pub const fn has_changes(&self) -> bool {
-        self.added_count > 0 || self.modified_count > 0 || self.deleted_count > 0
+        self.added > 0 || self.modified > 0 || self.deleted > 0
     }
 
     pub fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -142,7 +143,7 @@ impl Sha256Cache {
     fn hash_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut file = File::open(path)?;
         let mut hasher = Sha256::new();
-        let mut buffer = [0; 1024];
+        let mut buffer = [0; SHA256_BUFFER_SIZE];
 
         loop {
             let bytes_read = file.read(&mut buffer)?;

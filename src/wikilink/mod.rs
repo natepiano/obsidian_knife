@@ -10,15 +10,15 @@ mod markdown_link_tests;
 )]
 mod wikilink_creation_tests;
 
+mod link;
 mod wikilink_parser;
-mod wikilink_types;
 
+pub use link::ExtractedWikilinks;
+pub use link::InvalidWikilink;
+pub use link::InvalidWikilinkReason;
+pub use link::ToWikilink;
+pub use link::Wikilink;
 pub use wikilink_parser::create_filename_wikilink;
 pub use wikilink_parser::extract_wikilinks;
 pub use wikilink_parser::is_wikilink;
 pub use wikilink_parser::is_within_wikilink;
-pub use wikilink_types::ExtractedWikilinks;
-pub use wikilink_types::InvalidWikilink;
-pub use wikilink_types::InvalidWikilinkReason;
-pub use wikilink_types::ToWikilink;
-pub use wikilink_types::Wikilink;
