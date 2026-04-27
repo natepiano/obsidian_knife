@@ -298,7 +298,7 @@ fn test_uninitialized_fields() {
     builder.output_folder(temp_dir.path().join("output"));
     let result = builder.build();
 
-    // This should fail with MissingObsidianPath first
+    // This should fail with `MissingObsidianPath` first
     assert!(matches!(
         result.unwrap_err(),
         ValidationError::MissingObsidianPath

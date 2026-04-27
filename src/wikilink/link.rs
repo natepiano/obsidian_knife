@@ -136,9 +136,3 @@ impl fmt::Display for InvalidWikilink {
         )
     }
 }
-
-#[derive(Debug, Default)]
-pub struct ExtractedWikilinks {
-    pub valid:   Vec<Wikilink>,
-    pub invalid: Vec<InvalidWikilink>,
-}

@@ -99,10 +99,10 @@ impl MarkdownFile {
         let exclusion_zones = self.collect_exclusion_zones(line, config);
 
         // Collect all valid matches
-        for mat in automaton.find_iter(line) {
-            let wikilink = sorted_wikilinks[mat.pattern()];
-            let starts_at = mat.start();
-            let ends_at = mat.end();
+        for match_result in automaton.find_iter(line) {
+            let wikilink = sorted_wikilinks[match_result.pattern()];
+            let starts_at = match_result.start();
+            let ends_at = match_result.end();
 
             if match_helpers::range_overlaps(&exclusion_zones, starts_at, ends_at) {
                 continue;
@@ -170,8 +170,8 @@ impl MarkdownFile {
         // Flatten the iterator to get a single iterator over regexes
         for do_not_back_populate_regexes in regex_sources.iter().flatten() {
             for regex in *do_not_back_populate_regexes {
-                for mat in regex.find_iter(line) {
-                    exclusion_zones.push((mat.start(), mat.end()));
+                for regex_match in regex.find_iter(line) {
+                    exclusion_zones.push((regex_match.start(), regex_match.end()));
                 }
             }
         }
@@ -195,8 +195,8 @@ impl MarkdownFile {
         }
 
         // Add Markdown links as exclusion zones
-        for mat in MARKDOWN_REGEX.find_iter(line) {
-            exclusion_zones.push((mat.start(), mat.end()));
+        for markdown_link_match in MARKDOWN_REGEX.find_iter(line) {
+            exclusion_zones.push((markdown_link_match.start(), markdown_link_match.end()));
         }
 
         // they need to be ordered!

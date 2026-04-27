@@ -13,7 +13,6 @@ mod wikilink_creation_tests;
 mod link;
 mod wikilink_parser;
 
-pub use link::ExtractedWikilinks;
 pub use link::InvalidWikilink;
 pub use link::InvalidWikilinkReason;
 pub use link::ToWikilink;

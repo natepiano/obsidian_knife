@@ -104,10 +104,8 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     fn title(&self) -> Option<String> { Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash)) }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        let unique_references: std::collections::HashSet<_> = items
-            .iter()
-            .flat_map(|image| &image.markdown_file_references)
-            .collect();
+        let unique_references: std::collections::HashSet<_> =
+            items.iter().flat_map(|image| &image.references).collect();
 
         DescriptionBuilder::new()
             .text(FOUND)
@@ -135,7 +133,7 @@ impl DuplicateImagesTable<'_> {
         let (image_type, action, reference_update) =
             Self::classify_image(image, validated_config, keeper);
 
-        if image.markdown_file_references.is_empty() {
+        if image.references.is_empty() {
             return vec![vec![
                 thumbnail,
                 image_link,
@@ -149,7 +147,7 @@ impl DuplicateImagesTable<'_> {
         }
 
         image
-            .markdown_file_references
+            .references
             .iter()
             .map(|ref_path| {
                 let file_link = orchestration::format_wikilink(

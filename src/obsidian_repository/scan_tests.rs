@@ -145,7 +145,7 @@ fn test_cache_file_cleanup() {
         let temp_dir = TempDir::new().unwrap();
         let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
 
-        // Create a test file and image using TestFileBuilder
+        // Create a test file and image using `TestFileBuilder`
         TestFileBuilder::new()
             .with_content("# Test\n![test](test.png)".to_string())
             .with_title("Test Document".to_string())

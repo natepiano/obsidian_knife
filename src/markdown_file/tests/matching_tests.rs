@@ -232,13 +232,13 @@ Also linking to [[Alias One]] which is defined in frontmatter."
 fn test_scan_folders_wikilink_collection() {
     let temp_dir = TempDir::new().unwrap();
 
-    // Create first note using TestFileBuilder
+    // Create first note using `TestFileBuilder`
     TestFileBuilder::new()
         .with_aliases(vec!["Alias One".to_string()])
         .with_content("# Note 1\n[[Simple Link]]".to_string())
         .create(&temp_dir, "note1.md");
 
-    // Create second note using TestFileBuilder
+    // Create second note using `TestFileBuilder`
     TestFileBuilder::new()
         .with_aliases(vec!["Alias Two".to_string()])
         .with_content("# Note 2\n[[Target|Display Text]]\n[[Simple Link]]".to_string())

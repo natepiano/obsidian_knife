@@ -93,7 +93,7 @@ fn to_aliased_wikilink_variants() {
         );
     }
 
-    // Testing with String type
+    // Testing with `String` type
     let string_target = String::from("Target");
     assert_eq!(
         string_target.to_aliased_wikilink("target"),

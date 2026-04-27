@@ -113,7 +113,7 @@ impl DateCreatedFixValidation {
                     let fixed_date = timezone
                         .from_local_datetime(&naive_datetime)
                         .single()
-                        .map_or_else(|| file_created_date, |dt| dt.with_timezone(&Utc));
+                        .map_or_else(|| file_created_date, |date_time| date_time.with_timezone(&Utc));
 
                     let fixed_date_local = fixed_date.with_timezone(&timezone);
                     assert_eq!(

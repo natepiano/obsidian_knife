@@ -39,7 +39,6 @@ use crate::utils;
 use crate::utils::IMAGE_REGEX;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
-use crate::wikilink::ExtractedWikilinks;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::Wikilink;
 use crate::yaml_frontmatter;
@@ -61,6 +60,12 @@ pub(crate) struct MarkdownFile {
     pub(crate) matches:                      BackPopulateMatches,
     pub(crate) path:                         PathBuf,
     pub(crate) persist_reasons:              Vec<PersistReason>,
+}
+
+#[derive(Debug, Default)]
+struct ExtractedWikilinks {
+    valid:   Vec<Wikilink>,
+    invalid: Vec<InvalidWikilink>,
 }
 
 impl MarkdownFile {

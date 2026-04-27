@@ -27,7 +27,7 @@ macro_rules! yaml_frontmatter_struct {
             $(,)?
         }
     ) => {
-        // Main struct with flattened HashMap
+        // Main struct with flattened `HashMap`
         $(#[$struct_meta])*
         $vis struct $name {
             $(
@@ -125,7 +125,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
             // Collect all keys and sort them
             let mut keys: Vec<String> = map
                 .keys()
-                .filter_map(|k| k.as_str().map(String::from))
+                .filter_map(|key| key.as_str().map(String::from))
                 .collect();
             keys.sort();
 
@@ -137,7 +137,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
                         Value::Sequence(seq) => {
                             let mut sorted_seq: Vec<String> = seq
                                 .iter()
-                                .filter_map(|v| v.as_str().map(String::from))
+                                .filter_map(|value| value.as_str().map(String::from))
                                 .collect();
                             sorted_seq.sort();
                             Value::Sequence(sorted_seq.into_iter().map(Value::String).collect())

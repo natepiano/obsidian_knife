@@ -94,7 +94,7 @@ impl ObsidianRepository {
         image_files
             .iter()
             .filter_map(|image_path| {
-                // Use `ok()?` to convert Result to Option and get ImageHash
+                // Use `ok()?` to convert `Result` to `Option` and get `ImageHash`
                 let (hash, _) = cache.get_or_update(image_path).ok()?; // hash is `ImageHash`
                 let image_name = image_path.file_name()?.to_str()?.to_lowercase();
 
@@ -239,7 +239,7 @@ impl ObsidianRepository {
         // Check if all references are in files being persisted
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
             image_file
-                .markdown_file_references
+                .references
                 .iter()
                 .all(|path| files_to_persist.contains(&path))
         }
@@ -254,8 +254,7 @@ impl ObsidianRepository {
                     image_file.deletion = DeletionStatus::Delete;
                 },
                 ImageFileState::Incompatible { .. } => {
-                    if image_file.markdown_file_references.is_empty()
-                        || can_delete(&files_to_persist, image_file)
+                    if image_file.references.is_empty() || can_delete(&files_to_persist, image_file)
                     {
                         image_file.deletion = DeletionStatus::Delete;
                     }

@@ -88,7 +88,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                 IncompatibilityReason::ZeroByte => ZERO_BYTE,
             };
 
-            if image.markdown_file_references.is_empty() {
+            if image.references.is_empty() {
                 rows.push(vec![
                     image_file_link.clone(),
                     incompatibility_type.to_string(),
@@ -99,7 +99,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                     String::new(),
                 ]);
             } else {
-                for ref_path in &image.markdown_file_references {
+                for ref_path in &image.references {
                     // Only output the row if we can find the markdown file
                     if let Some(markdown_file) = self
                         .markdown_files
@@ -184,8 +184,8 @@ impl ObsidianRepository {
 
             // Check if there would be any rows after filtering
             let would_have_rows = incompatible_images.iter().any(|image| {
-                image.markdown_file_references.is_empty()
-                    || image.markdown_file_references.iter().any(|ref_path| {
+                image.references.is_empty()
+                    || image.references.iter().any(|ref_path| {
                         self.markdown_files
                             .files_to_persist()
                             .iter()

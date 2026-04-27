@@ -15,8 +15,8 @@ use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
 
-// into_iter() consumes the array and yields owned values
-// filter_map filters out none values and unwraps Some values in one step
+// `into_iter()` consumes the array and yields owned values
+// `filter_map` filters out none values and unwraps `Some` values in one step
 fn create_frontmatter(date_modified: Option<&str>, date_created: Option<&str>) -> FrontMatter {
     let yaml = [
         date_modified.map(|modified| format!("date_modified: \"{modified}\"")),
@@ -346,7 +346,7 @@ fn test_date_created_fix_integration() {
         // Create `MarkdownFile` from the test file
         let markdown_file = test_utils::get_test_markdown_file(file_path);
 
-        // Verify the DateCreatedFixValidation state
+        // Verify the `DateCreatedFixValidation` state
         test_utils::assert_test_case(
             markdown_file.date_created_fix.date_string,
             case.date_created_fix,

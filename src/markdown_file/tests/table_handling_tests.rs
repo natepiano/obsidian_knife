@@ -148,7 +148,7 @@ fn test_process_line_table_escaping_combined() {
     // Create references to the compiled wikilinks
     let wikilink_refs: Vec<&Wikilink> = sorted_wikilinks.iter().collect();
     for (line, expected_replacements, description) in test_cases {
-        // Create test file using TestFileBuilder
+        // Create test file using `TestFileBuilder`
         let _ = TestFileBuilder::new()
             .with_title("test".to_string())
             .with_content(line.to_string())
