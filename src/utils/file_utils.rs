@@ -143,15 +143,14 @@ pub fn set_file_dates(
     path: &Path,
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
-    operational_timezone: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
 
     if let Some(created_date) = created {
-        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
-
-        // Convert directly to local time without additional adjustment
-        let local_time = created_date.with_timezone(&timezone);
+        // `SetFile -d` parses the date string in the system's local timezone, so format
+        // the UTC instant in system-local time to round-trip the correct UTC instant
+        // regardless of where this machine is physically located.
+        let local_time: DateTime<chrono::Local> = created_date.into();
         let formatted_date = local_time.format("%m/%d/%Y %H:%M:%S").to_string();
 
         let output = std::process::Command::new("SetFile")
@@ -174,7 +173,6 @@ pub fn set_file_dates(
     path: &Path,
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
-    _: &str,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(created_date) = created {
         filetime::set_file_times(
@@ -254,8 +252,7 @@ mod set_file_dates_tests {
     use super::*;
 
     #[test]
-    fn test_set_file_dates_with_operational_timezone() {
-        // Define test parameters
+    fn test_set_file_dates_round_trips_utc() {
         let operational_timezone = "America/New_York";
         let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap();
 
@@ -268,14 +265,8 @@ mod set_file_dates_tests {
         let temp_file_path = temp_dir.path().join("test_file.txt");
         File::create(&temp_file_path).expect("Failed to create test file");
 
-        // Apply `set_file_dates` with the operational timezone
-        set_file_dates(
-            &temp_file_path,
-            Some(created_date_utc),
-            modified_date_utc,
-            operational_timezone,
-        )
-        .expect("Failed to set file dates");
+        set_file_dates(&temp_file_path, Some(created_date_utc), modified_date_utc)
+            .expect("Failed to set file dates");
 
         // Retrieve metadata for verification
         let metadata = fs::metadata(&temp_file_path).expect("Failed to retrieve metadata");

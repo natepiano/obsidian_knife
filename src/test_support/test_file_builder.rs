@@ -6,7 +6,6 @@ use chrono::DateTime;
 use chrono::Utc;
 use tempfile::TempDir;
 
-use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::FORMAT_DATE;
 use crate::utils;
 
@@ -187,7 +186,6 @@ impl TestFileBuilder {
             &file_path,
             Some(file_system_dates.created),
             file_system_dates.modified,
-            DEFAULT_TIMEZONE,
         )
         .unwrap();
 

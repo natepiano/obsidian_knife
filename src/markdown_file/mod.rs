@@ -33,7 +33,6 @@ use self::image_link::ImageLinkType;
 use self::image_link::ImageLinks;
 use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
-use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::utils;
 use crate::utils::IMAGE_REGEX;
@@ -177,7 +176,7 @@ impl MarkdownFile {
             .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
         let created_date = frontmatter.raw_created;
 
-        utils::set_file_dates(&self.path, created_date, modified_date, DEFAULT_TIMEZONE)?;
+        utils::set_file_dates(&self.path, created_date, modified_date)?;
 
         Ok(())
     }
