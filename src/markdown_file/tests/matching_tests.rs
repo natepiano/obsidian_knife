@@ -26,7 +26,9 @@ fn test_find_matches_with_existing_wikilinks() {
         test_support::create_test_environment(ChangeMode::DryRun, None, None, Some(content));
 
     // Find matches - this now stores them in repository.markdown_files
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get all matches from the first (and only) file
     let matches = &obsidian_repository.markdown_files[0].matches;
@@ -70,7 +72,9 @@ fn test_overlapping_wikilink_matches() {
         );
 
     // Find matches - this now stores them in repository.markdown_files
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get matches from the first (and only) file
     let matches = &obsidian_repository.markdown_files[0].matches;

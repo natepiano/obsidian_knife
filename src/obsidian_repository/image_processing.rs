@@ -36,7 +36,7 @@ impl ObsidianRepository {
         );
 
         // Step 3: Generate `ImageFiles` with duplicate and keeper logic
-        let images = Self::generate_image_files(hash_groups);
+        let images = Self::generate_image_files(hash_groups)?;
 
         // Step 4: Save cache if needed
         if cache.has_changes() {
@@ -51,38 +51,42 @@ impl ObsidianRepository {
     // remaining files are marked as `Duplicate`
     fn generate_image_files(
         hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
-    ) -> Vec<ImageFile> {
-        hash_groups
-            .into_iter()
-            .flat_map(|(hash, mut group)| {
-                let is_duplicate_group = group.len() > 1;
-                let mut should_have_keeper = false;
+    ) -> Result<Vec<ImageFile>, Box<dyn Error + Send + Sync>> {
+        let mut images = Vec::new();
 
-                if is_duplicate_group {
-                    let any_referenced = group.iter().any(|(_, refs)| !refs.is_empty());
-                    if any_referenced {
-                        should_have_keeper = true;
-                        group.sort_by(|a, b| a.0.cmp(&b.0));
-                    }
+        for (hash, mut group) in hash_groups {
+            let is_duplicate_group = group.len() > 1;
+            let mut should_have_keeper = false;
+
+            if is_duplicate_group {
+                let any_referenced = group.iter().any(|(_, refs)| !refs.is_empty());
+                if any_referenced {
+                    should_have_keeper = true;
+                    group.sort_by(|a, b| a.0.cmp(&b.0));
                 }
+            }
 
-                group
-                    .into_iter()
-                    .enumerate()
-                    .map(move |(idx, (path, references))| {
-                        let path_references: Vec<PathBuf> =
-                            references.into_iter().map(PathBuf::from).collect();
-                        let duplicate_role = if !is_duplicate_group {
-                            DuplicateRole::NotDuplicate
-                        } else if should_have_keeper && idx == 0 {
-                            DuplicateRole::Original
-                        } else {
-                            DuplicateRole::Duplicate
-                        };
-                        ImageFile::new(path, hash.clone(), path_references, duplicate_role)
-                    })
-            })
-            .collect()
+            for (idx, (path, references)) in group.into_iter().enumerate() {
+                let path_references: Vec<PathBuf> =
+                    references.into_iter().map(PathBuf::from).collect();
+                let duplicate_role = if !is_duplicate_group {
+                    DuplicateRole::NotDuplicate
+                } else if should_have_keeper && idx == 0 {
+                    DuplicateRole::Original
+                } else {
+                    DuplicateRole::Duplicate
+                };
+
+                images.push(ImageFile::new(
+                    path,
+                    hash.clone(),
+                    path_references,
+                    duplicate_role,
+                )?);
+            }
+        }
+
+        Ok(images)
     }
 
     // this map is keyed on image hash

@@ -5,7 +5,6 @@ use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
-use crate::constants::CONFIG_EXPECT;
 use crate::constants::FILE;
 use crate::constants::FOUND;
 use crate::constants::IMAGE_FILE;
@@ -54,16 +53,14 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         ]
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "config is structurally guaranteed Some by callers of this report"
-    )]
     fn build_rows(
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
-        let validated_config = config.expect(CONFIG_EXPECT);
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        let validated_config = config.ok_or_else(|| {
+            anyhow::anyhow!("ValidatedConfig required for incompatible-images report")
+        })?;
 
         let mut rows = Vec::new();
         for image in items {
@@ -135,7 +132,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
             }
         }
 
-        rows
+        Ok(rows)
     }
 
     fn title(&self) -> Option<String> { Some(INCOMPATIBLE_IMAGES.to_string()) }

@@ -15,6 +15,7 @@ path = "src/main.rs"
 
 [dependencies]
 aho-corasick = "1.1.4"
+anyhow = "1.0.100"
 chrono = "0.4.44"
 chrono-tz = "0.10.4"
 derive_builder = "0.20.2"
@@ -39,7 +40,7 @@ tempfile = "3.27.0"
 [lints.clippy]
 allow_attributes_without_reason = "deny"
 expect_used = "deny"
-self_named_module_files = "deny" # use module/mod.rs (directory form) when a module has submodules
+self_named_module_files = "deny"         # use module/mod.rs (directory form) when a module has submodules
 panic = "deny"
 unreachable = "deny"
 unwrap_used = "deny"

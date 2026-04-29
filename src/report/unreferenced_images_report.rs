@@ -42,8 +42,8 @@ impl ReportDefinition for UnreferencedImagesReport {
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
-        items
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        Ok(items
             .iter()
             .map(|image| {
                 let file_name = image.path.file_name().unwrap_or_default().to_string_lossy();
@@ -60,7 +60,7 @@ impl ReportDefinition for UnreferencedImagesReport {
 
                 vec![sample, file_link, action.to_string()]
             })
-            .collect()
+            .collect())
     }
 
     fn title(&self) -> Option<String> { Some(UNREFERENCED_IMAGES.to_string()) }

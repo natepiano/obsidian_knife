@@ -5,7 +5,6 @@ use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
-use crate::constants::CONFIG_EXPECT;
 use crate::constants::FILE;
 use crate::constants::LEVEL2;
 use crate::constants::LINE;
@@ -42,16 +41,14 @@ impl ReportDefinition for MissingReferencesTable {
         ]
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "config is structurally guaranteed Some by callers of this report"
-    )]
     fn build_rows(
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
-        let validated_config = config.expect(CONFIG_EXPECT);
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        let validated_config = config.ok_or_else(|| {
+            anyhow::anyhow!("ValidatedConfig required for missing-references report")
+        })?;
 
         let mut rows: Vec<Vec<String>> = items
             .iter()
@@ -83,7 +80,7 @@ impl ReportDefinition for MissingReferencesTable {
 
         // Sort rows by markdown link (first column)
         rows.sort_by(|a, b| a[0].cmp(&b[0]));
-        rows
+        Ok(rows)
     }
 
     fn title(&self) -> Option<String> { Some(MISSING_IMAGE_REFERENCES.to_string()) }

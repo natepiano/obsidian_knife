@@ -2,6 +2,9 @@ use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
 
+use anyhow::Context as _;
+use anyhow::bail;
+
 use super::ObsidianRepository;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::ImageLinkState;
@@ -75,15 +78,13 @@ impl ObsidianRepository {
         }
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "wikilinks_automaton is always initialized in ObsidianRepository::new"
-    )]
-    pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) {
-        let automaton = self
-            .wikilinks_automaton
-            .as_ref()
-            .expect("Wikilinks automaton should be initialized");
+    pub fn find_all_back_populate_matches(
+        &mut self,
+        config: &ValidatedConfig,
+    ) -> anyhow::Result<()> {
+        let automaton = self.wikilinks_automaton.as_ref().context(
+            "wikilinks_automaton was not initialized — ObsidianRepository::new must run first",
+        )?;
 
         // Turn `wikilinks_sorted` into references.
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
@@ -93,9 +94,10 @@ impl ObsidianRepository {
             &sorted_wikilinks,
             automaton,
         );
+        Ok(())
     }
 
-    pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) {
+    pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) -> anyhow::Result<()> {
         for markdown_file in &mut self.markdown_files {
             let has_replaceable_image_links = markdown_file.image_links.iter().any(|link| {
                 matches!(
@@ -145,7 +147,7 @@ impl ObsidianRepository {
                     updated_content.push('\n');
                 } else {
                     let updated_line =
-                        apply_line_replacements(line, &line_matches, &markdown_file.path);
+                        apply_line_replacements(line, &line_matches, &markdown_file.path)?;
 
                     // Track which types of changes occurred
                     for line_match in &line_matches {
@@ -167,12 +169,13 @@ impl ObsidianRepository {
             markdown_file.content = updated_content.trim_end().to_string();
 
             if has_back_populate_changes {
-                markdown_file.mark_as_back_populated(operational_timezone);
+                markdown_file.mark_as_back_populated(operational_timezone)?;
             }
             if has_image_reference_changes {
-                markdown_file.mark_image_reference_as_updated(operational_timezone);
+                markdown_file.mark_image_reference_as_updated(operational_timezone)?;
             }
         }
+        Ok(())
     }
 
     fn collect_replaceable_matches(
@@ -214,15 +217,11 @@ impl ObsidianRepository {
     }
 }
 
-#[allow(
-    clippy::panic,
-    reason = "UTF-8 boundary violation indicates a bug in position calculation"
-)]
 fn apply_line_replacements(
     line: &str,
     line_matches: &[&dyn ReplaceableContent],
     file_path: &Path,
-) -> String {
+) -> anyhow::Result<String> {
     let mut updated_line = line.to_string();
     let mut has_image_replacement = false;
 
@@ -237,14 +236,12 @@ fn apply_line_replacements(
 
         // Check for UTF-8 boundary issues
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
-            eprintln!(
-                "Error: Invalid UTF-8 boundary in file '{}', line {}.\n\
-                Match position: {start} to {end}.\nLine content:\n{updated_line}\nFound text: '{}'\n",
+            bail!(
+                "invalid UTF-8 boundary in {}, line {}: match {start}..{end} in {updated_line:?}, found {:?}",
                 file_path.display(),
                 match_info.line_number(),
-                match_info.matched_text()
+                match_info.matched_text(),
             );
-            panic!("Invalid UTF-8 boundary detected. Check positions and text encoding.");
         }
 
         // Track if this is an image replacement
@@ -267,7 +264,7 @@ fn apply_line_replacements(
     }
 
     // If we had any image replacements, clean up the line
-    if has_image_replacement {
+    Ok(if has_image_replacement {
         let trimmed = updated_line.trim();
         if trimmed.is_empty() {
             String::new()
@@ -276,7 +273,7 @@ fn apply_line_replacements(
         }
     } else {
         updated_line
-    }
+    })
 }
 
 fn normalize_spaces(text: &str) -> String { text.split_whitespace().collect::<Vec<_>>().join(" ") }

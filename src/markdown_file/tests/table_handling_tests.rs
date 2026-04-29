@@ -63,7 +63,9 @@ fn test_back_populate_content() {
         obsidian_repository.markdown_files = MarkdownFiles::new(vec![markdown_file], None);
 
         // Apply back-populate changes
-        obsidian_repository.apply_replaceable_matches(validated_config.operational_timezone());
+        obsidian_repository
+            .apply_replaceable_matches(validated_config.operational_timezone())
+            .unwrap();
 
         // Validate replacements
         if let Some(file) = obsidian_repository

@@ -101,7 +101,7 @@ fn test_back_populate_persist_reason() -> Result<(), Box<dyn Error + Send + Sync
         .create(&temp_dir, "back_populate.md");
 
     let mut markdown_file = test_utils::get_test_markdown_file(file_path);
-    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
     assert!(
         markdown_file
@@ -123,7 +123,7 @@ fn test_image_references_persist_reason() -> Result<(), Box<dyn Error + Send + S
         .create(&temp_dir, "image_refs.md");
 
     let mut markdown_file = test_utils::get_test_markdown_file(file_path);
-    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
+    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE)?;
 
     assert!(
         markdown_file
@@ -154,10 +154,10 @@ fn test_multiple_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
     );
 
     // Add back populate reason
-    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
     // Add image reference change
-    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
+    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE)?;
 
     // Verify all reasons are present
     // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated,
@@ -358,7 +358,7 @@ fn test_ensure_frontmatter_creates_frontmatter_on_back_populate()
     assert!(markdown_file.frontmatter.is_none());
     assert!(markdown_file.frontmatter_error.is_some());
 
-    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE);
+    markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
     // Frontmatter was created
     assert!(markdown_file.frontmatter.is_some());

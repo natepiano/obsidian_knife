@@ -13,10 +13,14 @@ fn test_apply_changes() {
         test_support::create_test_environment(ChangeMode::Apply, None, None, Some(initial_content));
 
     // First find the matches
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Apply the changes
-    obsidian_repository.apply_replaceable_matches(validated_config.operational_timezone());
+    obsidian_repository
+        .apply_replaceable_matches(validated_config.operational_timezone())
+        .unwrap();
 
     // Verify changes by checking `MarkdownFile` content
     assert_eq!(
@@ -45,10 +49,16 @@ fn test_config_creation() {
         None,
         None,
     );
-    assert_eq!(
-        pattern_config.do_not_back_populate(),
-        Some(patterns.as_slice())
-    );
+    let Some(regexes) = pattern_config.do_not_back_populate_regexes() else {
+        panic!("expected do-not-back-populate regexes")
+    };
+    assert_eq!(regexes.len(), patterns.len());
+    for pattern in &patterns {
+        assert!(
+            regexes.iter().any(|regex| regex.is_match(pattern)),
+            "missing regex for pattern {pattern}"
+        );
+    }
 
     // With both parameters
     let (_, full_config, _) = test_support::create_test_environment(
@@ -58,7 +68,7 @@ fn test_config_creation() {
         None,
     );
     assert_eq!(full_config.change_mode(), ChangeMode::Apply);
-    assert!(full_config.do_not_back_populate().is_some());
+    assert!(full_config.do_not_back_populate_regexes().is_some());
 }
 
 #[test]

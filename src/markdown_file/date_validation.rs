@@ -6,7 +6,6 @@ use chrono::DateTime;
 use chrono::NaiveDate;
 use chrono::TimeZone;
 use chrono::Utc;
-use itertools::Itertools;
 
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FORMAT_DATE;
@@ -101,30 +100,25 @@ impl DateCreatedFixValidation {
                 date_str.trim().trim_matches('"')
             };
 
-            NaiveDate::parse_from_str(date.trim(), FORMAT_DATE)
-                .ok()
-                .map(|naive_date| {
-                    let timezone: chrono_tz::Tz =
-                        operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+            let naive_date = NaiveDate::parse_from_str(date.trim(), FORMAT_DATE).ok()?;
+            let timezone: chrono_tz::Tz =
+                operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+            let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0)?;
 
-                    #[allow(clippy::unwrap_used, reason = "noon (12:00:00) is always a valid time")]
-                    let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0).unwrap();
+            let fixed_date = timezone
+                .from_local_datetime(&naive_datetime)
+                .single()
+                .map_or_else(|| file_created_date, |date_time| date_time.with_timezone(&Utc));
 
-                    let fixed_date = timezone
-                        .from_local_datetime(&naive_datetime)
-                        .single()
-                        .map_or_else(|| file_created_date, |date_time| date_time.with_timezone(&Utc));
+            let fixed_date_local = fixed_date.with_timezone(&timezone);
+            assert_eq!(
+                fixed_date_local.date_naive(),
+                naive_date,
+                "Date mismatch: fixed_date converts to {} in {operational_timezone} but should be {naive_date}",
+                fixed_date_local.date_naive(),
+            );
 
-                    let fixed_date_local = fixed_date.with_timezone(&timezone);
-                    assert_eq!(
-                        fixed_date_local.date_naive(),
-                        naive_date,
-                        "Date mismatch: fixed_date converts to {} in {operational_timezone} but should be {naive_date}",
-                        fixed_date_local.date_naive(),
-                    );
-
-                    fixed_date
-                })
+            Some(fixed_date)
         });
 
         Self {
@@ -135,10 +129,6 @@ impl DateCreatedFixValidation {
     }
 }
 
-#[allow(
-    clippy::unwrap_used,
-    reason = "iterator always yields exactly 2 elements from fixed-size array"
-)]
 pub(super) fn get_date_validations(
     frontmatter: Option<&FrontMatter>,
     path: &Path,
@@ -159,9 +149,8 @@ pub(super) fn get_date_validations(
 
     // skip when the create date has a `date_created_fix` in place, we don't need to validate as
     // it's moot
-    Ok(dates
-        .into_iter()
-        .map(|(frontmatter_date, file_system_date)| {
+    let [created_validation, modified_validation] =
+        dates.map(|(frontmatter_date, file_system_date)| {
             let issue = get_date_validation_issue(
                 frontmatter_date.as_deref(),
                 &file_system_date,
@@ -173,9 +162,9 @@ pub(super) fn get_date_validations(
                 issue,
                 operational_timezone: operational_timezone.to_string(),
             }
-        })
-        .collect_tuple()
-        .unwrap())
+        });
+
+    Ok([created_validation, modified_validation].into())
 }
 
 pub(super) fn get_date_validation_issue(

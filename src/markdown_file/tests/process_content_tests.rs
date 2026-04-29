@@ -202,39 +202,39 @@ fn test_image_link_types() {
         ImageLinkTestCase::new(
             "![[image.png]]",
             "image.png",
-            ImageLinkType::Wikilink(ImageLinkRendering::Embedded),
+            ImageLinkType::Wiki(ImageLinkRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[[image.jpg]]",
             "image.jpg",
-            ImageLinkType::Wikilink(ImageLinkRendering::LinkOnly),
+            ImageLinkType::Wiki(ImageLinkRendering::LinkOnly),
         ),
         ImageLinkTestCase::new(
             "![[image.png|alt text]]",
             "image.png",
-            ImageLinkType::Wikilink(ImageLinkRendering::Embedded),
+            ImageLinkType::Wiki(ImageLinkRendering::Embedded),
         ),
         // Markdown Internal Links
         ImageLinkTestCase::new(
             "![alt](image.png)",
             "image.png",
-            ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, ImageLinkRendering::Embedded),
+            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageLinkRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](image.jpg)",
             "image.jpg",
-            ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly),
+            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly),
         ),
         // Markdown External Links
         ImageLinkTestCase::new(
             "![alt](https://example.com/image.png)",
             "https://example.com/image.png",
-            ImageLinkType::MarkdownLink(ImageLinkTarget::External, ImageLinkRendering::Embedded),
+            ImageLinkType::Markdown(ImageLinkTarget::External, ImageLinkRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](https://example.com/image.jpg)",
             "https://example.com/image.jpg",
-            ImageLinkType::MarkdownLink(ImageLinkTarget::External, ImageLinkRendering::LinkOnly),
+            ImageLinkType::Markdown(ImageLinkTarget::External, ImageLinkRendering::LinkOnly),
         ),
     ];
 
@@ -249,7 +249,7 @@ fn test_image_link_types() {
             .as_str();
 
         // Add line number 1 and position 0 as test defaults
-        let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0);
+        let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0).unwrap();
 
         assert_eq!(
             image_link.filename, case.expected_filename,

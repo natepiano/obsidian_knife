@@ -78,7 +78,6 @@ pub(crate) const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
 pub(crate) const BEFORE: &str = "before";
 pub(crate) const COLON: &str = ":";
-pub(crate) const CONFIG_EXPECT: &str = "ValidatedConfig required for this report";
 pub(crate) const DELETED: &str = "deleted";
 pub(crate) const DUPLICATE: &str = "duplicate";
 pub(crate) const DUPLICATE_IMAGES: &str = "duplicate images";

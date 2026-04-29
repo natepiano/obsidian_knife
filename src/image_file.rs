@@ -131,17 +131,13 @@ impl EnumFilter for ImageFile {
 }
 
 impl ImageFile {
-    #[allow(
-        clippy::expect_used,
-        reason = "path existence is validated before ImageFile construction"
-    )]
     pub(crate) fn new(
         path: PathBuf,
         hash: ImageHash,
         references: Vec<PathBuf>,
         duplicate_role: DuplicateRole,
-    ) -> Self {
-        let metadata = fs::metadata(&path).expect("Failed to get metadata");
+    ) -> std::io::Result<Self> {
+        let metadata = fs::metadata(&path)?;
         let size = metadata.len();
 
         let kind = path.extension().and_then(OsStr::to_str).map_or_else(
@@ -171,7 +167,7 @@ impl ImageFile {
             }
         };
 
-        Self {
+        Ok(Self {
             deletion: DeletionStatus::Keep,
             kind,
             hash,
@@ -179,7 +175,7 @@ impl ImageFile {
             path,
             references,
             size,
-        }
+        })
     }
 }
 
@@ -295,7 +291,8 @@ mod tests {
             let image_hash = ImageHash::from(hash);
 
             let image_file =
-                ImageFile::new(path.clone(), image_hash.clone(), references, duplicate_role);
+                ImageFile::new(path.clone(), image_hash.clone(), references, duplicate_role)
+                    .unwrap();
 
             assert_eq!(image_file.path, path);
             assert_eq!(image_file.hash, image_hash);
@@ -317,7 +314,8 @@ mod tests {
             ImageHash::from("hash1"),
             vec![],
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
         assert!(matches!(
             tiff_image.state,
             ImageFileState::Incompatible {
@@ -333,7 +331,8 @@ mod tests {
             ImageHash::from("hash2"),
             vec![PathBuf::from("note.md")],
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
         assert!(matches!(
             zero_byte_image.state,
             ImageFileState::Incompatible {
@@ -354,7 +353,8 @@ mod tests {
             ImageHash::from("hash1"),
             vec![],
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
         assert_eq!(unreferenced.state, ImageFileState::Unreferenced);
 
         let referenced = ImageFile::new(
@@ -362,7 +362,8 @@ mod tests {
             ImageHash::from("hash2"),
             vec![PathBuf::from("note.md")],
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
         assert_eq!(referenced.state, ImageFileState::Valid);
     }
 
@@ -381,7 +382,8 @@ mod tests {
             ImageHash::from("testhash"),
             references.clone(),
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
 
         let cloned = original.clone();
         assert_eq!(original, cloned, "Cloned ImageFile should equal original");
@@ -395,7 +397,8 @@ mod tests {
             ImageHash::from("differenthash"),
             references,
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
         assert_ne!(
             original, different,
             "Different ImageFile instances should not be equal"
@@ -417,7 +420,8 @@ mod tests {
             ImageHash::from("testhash"),
             references,
             DuplicateRole::NotDuplicate,
-        );
+        )
+        .unwrap();
 
         let debug_string = format!("{image_file:?}");
 

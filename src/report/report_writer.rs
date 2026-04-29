@@ -28,7 +28,7 @@ pub(super) trait ReportDefinition<C = ()> {
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>>;
+    ) -> anyhow::Result<Vec<Vec<String>>>;
 
     /// Optional table title
     fn title(&self) -> Option<String> { None }
@@ -98,7 +98,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         // Build and write the table
         let headers = report.headers();
         let alignments = report.alignments();
-        let rows = report.build_rows(&self.items, self.validated_config);
+        let rows = report.build_rows(&self.items, self.validated_config)?;
 
         writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 

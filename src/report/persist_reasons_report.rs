@@ -58,8 +58,12 @@ impl ReportDefinition for PersistReasonsTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
-        items
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _: Option<&ValidatedConfig>,
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        Ok(items
             .iter()
             .map(|item| {
                 let (before, after, reason_info) = match &item.reason {
@@ -99,7 +103,7 @@ impl ReportDefinition for PersistReasonsTable {
                     after,
                 ]
             })
-            .collect()
+            .collect())
     }
 
     fn title(&self) -> Option<String> { None }

@@ -163,14 +163,12 @@ impl MarkdownFile {
         )
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "persist is only called on files with frontmatter"
-    )]
     pub(crate) fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         fs::write(&self.path, self.to_full_content())?;
 
-        let frontmatter = self.frontmatter.as_ref().expect("Frontmatter is required");
+        let Some(frontmatter) = self.frontmatter.as_ref() else {
+            return Err("frontmatter is required to persist a markdown file".into());
+        };
         let modified_date = frontmatter
             .raw_modified
             .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
@@ -191,11 +189,10 @@ impl MarkdownFile {
         }
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "ensure_frontmatter guarantees frontmatter is present"
-    )]
-    pub(crate) fn mark_as_back_populated(&mut self, operational_timezone: &str) {
+    pub(crate) fn mark_as_back_populated(
+        &mut self,
+        operational_timezone: &str,
+    ) -> anyhow::Result<()> {
         self.ensure_frontmatter(operational_timezone);
 
         // Remove any `DateModifiedUpdated` reasons since we'll be setting the date to now.
@@ -203,26 +200,33 @@ impl MarkdownFile {
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
-        self.frontmatter
-            .as_mut()
-            .expect("ensured above")
-            .set_date_modified_now(operational_timezone);
+        let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
+            anyhow::anyhow!(
+                "frontmatter missing after ensure_frontmatter for {}",
+                self.path.display()
+            )
+        })?;
+        frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
+        Ok(())
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "ensure_frontmatter guarantees frontmatter is present"
-    )]
-    pub(crate) fn mark_image_reference_as_updated(&mut self, operational_timezone: &str) {
+    pub(crate) fn mark_image_reference_as_updated(
+        &mut self,
+        operational_timezone: &str,
+    ) -> anyhow::Result<()> {
         self.ensure_frontmatter(operational_timezone);
 
-        self.frontmatter
-            .as_mut()
-            .expect("ensured above")
-            .set_date_modified_now(operational_timezone);
+        let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
+            anyhow::anyhow!(
+                "frontmatter missing after ensure_frontmatter for {}",
+                self.path.display()
+            )
+        })?;
+        frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);
+        Ok(())
     }
 
     fn process_wikilinks(&self) -> ExtractedWikilinks {
@@ -285,17 +289,19 @@ impl MarkdownFile {
         for (line_idx, line) in self.content.lines().enumerate() {
             for capture in IMAGE_REGEX.captures_iter(line) {
                 if let Some(raw_image_link) = capture.get(0) {
-                    let image_link = ImageLink::new(
+                    let Ok(image_link) = ImageLink::new(
                         raw_image_link.as_str().to_string(),
                         self.get_real_line_number(line_idx),
                         raw_image_link.start(),
-                    );
+                    ) else {
+                        continue;
+                    };
                     match image_link.link_type {
-                        ImageLinkType::Wikilink(_)
-                        | ImageLinkType::MarkdownLink(ImageLinkTarget::Internal, _) => {
+                        ImageLinkType::Wiki(_)
+                        | ImageLinkType::Markdown(ImageLinkTarget::Internal, _) => {
                             image_links.push(image_link);
                         },
-                        ImageLinkType::MarkdownLink(..) => {},
+                        ImageLinkType::Markdown(..) => {},
                     }
                 }
             }

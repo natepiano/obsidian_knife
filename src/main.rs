@@ -63,9 +63,9 @@ impl std::fmt::Display for MainError {
 impl Error for MainError {}
 
 fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let expanded_path = utils::expand_tilde(config_path);
+    let path = utils::expand_tilde(config_path);
 
-    let mut markdown_file = MarkdownFile::new(expanded_path, DEFAULT_TIMEZONE)?;
+    let mut markdown_file = MarkdownFile::new(path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
         Config::try_from(frontmatter)?
     } else {
@@ -93,8 +93,8 @@ fn reset_change_mode(
     config: &mut Config,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     config.configured_changes = ConfiguredChanges::DryRun;
-    let config_yaml = config.to_yaml_str()?;
-    let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml)?;
+    let yaml = config.to_yaml_str()?;
+    let updated_frontmatter = FrontMatter::from_yaml_str(&yaml)?;
     markdown_file.frontmatter = Some(updated_frontmatter);
 
     let operational_timezone = config

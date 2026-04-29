@@ -33,7 +33,9 @@ fn test_alias_priority() {
         &mut obsidian_repository,
     );
 
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get total matches across all files
     let total_matches: usize = obsidian_repository
@@ -87,7 +89,9 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(test_utils::get_test_markdown_file(file_path));
 
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get total matches
     let total_matches: usize = obsidian_repository
@@ -111,7 +115,9 @@ fn test_no_matches_for_frontmatter_aliases() {
         .markdown_files
         .push(test_utils::get_test_markdown_file(other_file_path));
 
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get total matches after adding other file
     let total_matches: usize = obsidian_repository
@@ -147,7 +153,9 @@ fn test_no_self_referential_back_population() {
         &mut obsidian_repository,
     );
 
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get total matches
     let total_matches: usize = obsidian_repository
@@ -168,7 +176,9 @@ fn test_no_self_referential_back_population() {
         &mut obsidian_repository,
     );
 
-    obsidian_repository.find_all_back_populate_matches(&validated_config);
+    obsidian_repository
+        .find_all_back_populate_matches(&validated_config)
+        .unwrap();
 
     // Get total matches after adding other file
     let total_matches: usize = obsidian_repository

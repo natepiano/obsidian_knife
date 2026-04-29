@@ -5,59 +5,43 @@ use regex::Regex;
 
 use crate::constants::IMAGE_EXTENSIONS;
 
-#[allow(
-    clippy::unwrap_used,
-    reason = "static regex pattern is validated at development time"
-)]
-pub static MARKDOWN_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\[.*?\]\(.*?\)").unwrap());
-#[allow(
-    clippy::unwrap_used,
-    reason = "static regex pattern is validated at development time"
-)]
+pub(crate) fn compile_regex(pattern: &str) -> Regex {
+    match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(error) => {
+            eprintln!("invalid regex pattern {pattern:?}: {error}");
+            std::process::exit(1);
+        },
+    }
+}
+
+pub static MARKDOWN_REGEX: LazyLock<Regex> = LazyLock::new(|| compile_regex(r"\[.*?\]\(.*?\)"));
 pub static EMAIL_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}").unwrap());
-#[allow(
-    clippy::unwrap_used,
-    reason = "static regex pattern is validated at development time"
-)]
+    LazyLock::new(|| compile_regex(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"));
 pub static TAG_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?:^|\s)(#[a-zA-Z0-9_-]+)").unwrap());
-#[allow(
-    clippy::unwrap_used,
-    reason = "static regex pattern is validated at development time"
-)]
-pub static RAW_HTTP_REGEX: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"https?://[^\s]+").unwrap());
+    LazyLock::new(|| compile_regex(r"(?:^|\s)(#[a-zA-Z0-9_-]+)"));
+pub static RAW_HTTP_REGEX: LazyLock<Regex> = LazyLock::new(|| compile_regex(r"https?://[^\s]+"));
 static IMAGE_EXTENSIONS_PATTERN: LazyLock<String> = LazyLock::new(|| IMAGE_EXTENSIONS.join("|"));
-#[allow(
-    clippy::unwrap_used,
-    reason = "static regex pattern is validated at development time"
-)]
 pub static IMAGE_REGEX: LazyLock<Arc<Regex>> = LazyLock::new(|| {
-    Arc::new(
-        Regex::new(&format!(
-            r"(?ix)
-            (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])
-            |
-            (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))
-            ",
-            *IMAGE_EXTENSIONS_PATTERN, *IMAGE_EXTENSIONS_PATTERN
-        ))
-        .unwrap(),
-    )
+    let image_pattern = format!(
+        r"(?ix)
+        (!?\[\[([^\]|]+\.(?:{}))[^\]]*\]\])
+        |
+        (!?\[[^\]]*\]\(([^)]+\.(?:{}))[^)]*\))
+        ",
+        *IMAGE_EXTENSIONS_PATTERN, *IMAGE_EXTENSIONS_PATTERN
+    );
+
+    Arc::new(compile_regex(&image_pattern))
 });
 
-#[allow(
-    clippy::expect_used,
-    reason = "regex pattern from escaped user input is validated"
-)]
 pub fn build_case_insensitive_word_finder(patterns: &[String]) -> Vec<Regex> {
     patterns
         .iter()
         .map(|pattern| {
-            Regex::new(&format!(r"(?i)\b{}\b", regex::escape(pattern)))
-                .expect("Failed to build regex for exclusion pattern")
+            let escaped_pattern = regex::escape(pattern);
+            let finder_pattern = format!(r"(?i)\b{escaped_pattern}\b");
+            compile_regex(&finder_pattern)
         })
         .collect()
 }

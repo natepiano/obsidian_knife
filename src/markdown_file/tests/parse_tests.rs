@@ -5,6 +5,8 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::MarkdownFile;
+use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+use crate::constants::YAML_OPENING_DELIMITER;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
@@ -30,10 +32,11 @@ fn test_parse_content_separation() {
     assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
 
     // Test 3: File with --- separators in content
-    let content = "First line\n---\nMiddle section\n---\nLast section";
+    let delimiter = YAML_OPENING_DELIMITER.trim_end();
+    let content = format!("First line\n{delimiter}\nMiddle section\n{delimiter}\nLast section");
     let file_with_separators = TestFileBuilder::new()
         .with_title("Test".to_string())
-        .with_content(content)
+        .with_content(content.clone())
         .create(&temp_dir, "with_separators.md");
 
     let mfi = test_utils::get_test_markdown_file(file_with_separators);
@@ -52,24 +55,28 @@ fn test_frontmatter_line_counting() {
 
     let test_cases = vec![
         (
-            "---\ntitle: test\n---\nContent",
+            format!("{YAML_OPENING_DELIMITER}title: test{YAML_CLOSING_DELIMITER_NEWLINE}Content"),
             3, // 1 line of YAML + 2 delimiters = 3
         ),
         (
-            "---\ntitle: test\ntags: [a,b]\n---\nContent",
+            format!(
+                "{YAML_OPENING_DELIMITER}title: test\ntags: [a,b]{YAML_CLOSING_DELIMITER_NEWLINE}Content"
+            ),
             4, // 2 lines of YAML + 2 delimiters = 4
         ),
         (
-            "---\ntitle: test\ntags:\n  - a\n  - b\n---\nContent",
+            format!(
+                "{YAML_OPENING_DELIMITER}title: test\ntags:\n  - a\n  - b{YAML_CLOSING_DELIMITER_NEWLINE}Content"
+            ),
             6, // 4 lines of YAML + 2 delimiters = 6
         ),
     ];
 
-    for (content, expected_frontmatter_lines) in test_cases {
+    for (content, expected_frontmatter_lines) in &test_cases {
         let file_path = create_test_file(content, temp_dir.path());
         let markdown_file = MarkdownFile::new(file_path, "UTC").unwrap();
         assert_eq!(
-            markdown_file.frontmatter_line_count, expected_frontmatter_lines,
+            markdown_file.frontmatter_line_count, *expected_frontmatter_lines,
             "Failed for content:\n{content}"
         );
     }

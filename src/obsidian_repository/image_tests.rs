@@ -6,6 +6,9 @@ use tempfile::TempDir;
 
 use super::ObsidianRepository;
 use crate::constants::MARKDOWN_EXTENSION;
+use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+use crate::constants::YAML_OPENING_DELIMITER;
+use crate::frontmatter::FrontMatter;
 use crate::image_file::DeletionStatus;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
@@ -17,6 +20,7 @@ use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 use crate::utils::VecEnumFilter;
 use crate::validated_config::ChangeMode;
+use crate::yaml_frontmatter::YamlFrontMatter;
 
 impl MarkdownFiles {
     fn get_mut(&mut self, path: &Path) -> Option<&mut MarkdownFile> {
@@ -110,7 +114,14 @@ fn test_analyze_missing_references() {
 
     // Verify the markdown file was updated
     let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
-    let expected_content = "---\ndate_created: '[[2024-01-15]]'\ndate_modified: '[[2024-01-15]]'\n---\n# Test\nSome content".to_string();
+    let mut expected_frontmatter = FrontMatter::default();
+    expected_frontmatter.set_date_created(test_date, validated_config.operational_timezone());
+    expected_frontmatter.set_date_modified(test_date, validated_config.operational_timezone());
+    let yaml = expected_frontmatter.to_yaml_str().unwrap();
+    let expected_content = format!(
+        "{YAML_OPENING_DELIMITER}{}{YAML_CLOSING_DELIMITER_NEWLINE}# Test\nSome content",
+        yaml.trim()
+    );
     assert_eq!(updated_content, expected_content);
 
     // Second analyze pass to verify idempotency
@@ -264,7 +275,8 @@ fn test_image_replacement_outcomes() {
                 && let Some(markdown_file) = obsidian_repository.markdown_files.get_mut(path)
             {
                 markdown_file
-                    .mark_image_reference_as_updated(validated_config.operational_timezone());
+                    .mark_image_reference_as_updated(validated_config.operational_timezone())
+                    .unwrap();
             }
         }
 
@@ -526,7 +538,9 @@ fn test_referenced_and_unreferenced_duplicates() {
         .markdown_files
         .get_mut(&created_paths[4])
     {
-        markdown_file.mark_image_reference_as_updated(validated_config.operational_timezone());
+        markdown_file
+            .mark_image_reference_as_updated(validated_config.operational_timezone())
+            .unwrap();
     }
 
     obsidian_repository.persist().unwrap();

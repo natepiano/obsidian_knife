@@ -41,7 +41,7 @@ impl ObsidianRepository {
             validated_config.file_limit(),
         )?;
 
-        let (sorted, automaton) = Self::initialize_wikilinks(&markdown_files);
+        let (sorted, automaton) = Self::initialize_wikilinks(&markdown_files)?;
 
         // Initialize instance with defaults
         let mut repository = Self {
@@ -54,15 +54,11 @@ impl ObsidianRepository {
         repository.image_files =
             repository.initialize_image_files(&repository_files.images, validated_config)?;
 
-        repository.analyze_repository(validated_config);
+        repository.analyze_repository(validated_config)?;
 
         Ok(repository)
     }
 
-    #[allow(
-        clippy::unwrap_used,
-        reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
-    )]
     fn initialize_markdown_files(
         markdown_paths: &[PathBuf],
         timezone: &str,
@@ -74,7 +70,12 @@ impl ObsidianRepository {
         markdown_paths.par_iter().try_for_each(|file_path| {
             match MarkdownFile::new(file_path.clone(), timezone) {
                 Ok(markdown_file) => {
-                    markdown_files.lock().unwrap().push(markdown_file);
+                    markdown_files
+                        .lock()
+                        .map_err(|error| {
+                            format!("markdown file collection lock poisoned: {error}")
+                        })?
+                        .push(markdown_file);
                     Ok(())
                 },
                 Err(e) => {
@@ -85,17 +86,20 @@ impl ObsidianRepository {
         })?;
 
         // Extract data from `Arc<Mutex<...>>`
-        let mut markdown_files = Arc::try_unwrap(markdown_files)
-            .unwrap()
+        let markdown_files_mutex = Arc::try_unwrap(markdown_files)
+            .map_err(|_| "markdown file collection still had shared references".to_string())?;
+        let mut markdown_files = markdown_files_mutex
             .into_inner()
-            .unwrap();
+            .map_err(|error| format!("markdown file collection lock poisoned: {error}"))?;
 
         markdown_files.file_limit = file_limit;
 
         Ok(markdown_files)
     }
 
-    fn initialize_wikilinks(markdown_files: &MarkdownFiles) -> (Vec<Wikilink>, AhoCorasick) {
+    fn initialize_wikilinks(
+        markdown_files: &MarkdownFiles,
+    ) -> Result<(Vec<Wikilink>, AhoCorasick), Box<dyn Error + Send + Sync>> {
         let all_wikilinks: HashSet<Wikilink> = markdown_files
             .iter()
             .flat_map(|markdown_file| markdown_file.wikilinks.valid.clone())
@@ -103,13 +107,14 @@ impl ObsidianRepository {
         sort_and_build_wikilinks_automaton(all_wikilinks)
     }
 
-    fn analyze_repository(&mut self, validated_config: &ValidatedConfig) {
+    fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> anyhow::Result<()> {
         let _timer = Timer::new("analyze");
-        self.find_all_back_populate_matches(validated_config);
+        self.find_all_back_populate_matches(validated_config)?;
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();
-        self.apply_replaceable_matches(validated_config.operational_timezone());
+        self.apply_replaceable_matches(validated_config.operational_timezone())?;
         self.mark_image_files_for_deletion();
+        Ok(())
     }
 
     pub fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
@@ -118,13 +123,9 @@ impl ObsidianRepository {
     }
 }
 
-#[allow(
-    clippy::expect_used,
-    reason = "AhoCorasick build from valid wikilink strings cannot fail"
-)]
 fn sort_and_build_wikilinks_automaton(
     all_wikilinks: HashSet<Wikilink>,
-) -> (Vec<Wikilink>, AhoCorasick) {
+) -> Result<(Vec<Wikilink>, AhoCorasick), Box<dyn Error + Send + Sync>> {
     let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
     // uses
     wikilinks.sort_unstable();
@@ -135,10 +136,9 @@ fn sort_and_build_wikilinks_automaton(
     let automaton = AhoCorasickBuilder::new()
         .ascii_case_insensitive(true)
         .match_kind(MatchKind::LeftmostLongest)
-        .build(&patterns)
-        .expect("Failed to build Aho-Corasick automaton for wikilinks");
+        .build(&patterns)?;
 
-    (wikilinks, automaton)
+    Ok((wikilinks, automaton))
 }
 
 pub fn format_relative_path(path: &Path, base_path: &Path) -> String {

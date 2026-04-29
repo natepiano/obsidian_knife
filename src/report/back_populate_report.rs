@@ -64,7 +64,11 @@ impl ReportDefinition for BackPopulateTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _: Option<&ValidatedConfig>,
+    ) -> anyhow::Result<Vec<Vec<String>>> {
         let consolidated = consolidate_matches(items);
         let mut table_rows = Vec::new();
 
@@ -96,7 +100,7 @@ impl ReportDefinition for BackPopulateTable {
             }
         }
 
-        table_rows
+        Ok(table_rows)
     }
 
     fn title(&self) -> Option<String> {

@@ -144,7 +144,9 @@ fn test_update_modified_uses_current_date() {
     let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Use the actual mark_image_reference_as_updated method
-    markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE);
+    markdown_file
+        .mark_image_reference_as_updated(DEFAULT_TIMEZONE)
+        .unwrap();
 
     // Get the frontmatter modified date
     let modified_date = markdown_file

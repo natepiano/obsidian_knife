@@ -30,8 +30,12 @@ impl ReportDefinition for FrontmatterIssuesTable {
         vec![ColumnAlignment::Left, ColumnAlignment::Left]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
-        items
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _: Option<&ValidatedConfig>,
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        Ok(items
             .iter()
             .map(|(file_path, error_message)| {
                 vec![
@@ -43,7 +47,7 @@ impl ReportDefinition for FrontmatterIssuesTable {
                     error_message.clone(),
                 ]
             })
-            .collect()
+            .collect())
     }
 
     fn title(&self) -> Option<String> { Some(FRONTMATTER_ISSUES.to_string()) }

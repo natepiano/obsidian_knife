@@ -26,8 +26,12 @@ impl ReportDefinition for AddFrontmatterTable {
 
     fn alignments(&self) -> Vec<ColumnAlignment> { vec![ColumnAlignment::Left] }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
-        items
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _: Option<&ValidatedConfig>,
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        Ok(items
             .iter()
             .map(|file_path| {
                 vec![
@@ -38,7 +42,7 @@ impl ReportDefinition for AddFrontmatterTable {
                         .to_wikilink(),
                 ]
             })
-            .collect()
+            .collect())
     }
 
     fn title(&self) -> Option<String> { Some(ADD_FRONTMATTER.to_string()) }

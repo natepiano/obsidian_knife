@@ -70,10 +70,6 @@ pub struct RepositoryFiles {
 
 // using `rayon` (`.into_par_iter()`) and not using `walkdir`
 // takes this from 12ms down to 4ms
-#[allow(
-    clippy::unwrap_used,
-    reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
-)]
 pub fn collect_repository_files(
     validated_config: &ValidatedConfig,
     ignore_folders: &[PathBuf],
@@ -95,25 +91,42 @@ pub fn collect_repository_files(
                 return Ok(());
             }
 
-            let subdirs: Vec<PathBuf> = fs::read_dir(&dir)?
+            let mut subdirs = Vec::new();
+
+            for path in fs::read_dir(&dir)?
                 .filter_map(Result::ok)
                 .map(|entry| entry.path())
-                .filter(|path| path.file_name().and_then(OsStr::to_str) != Some(DS_STORE))
-                .inspect(|path| {
-                    if let Some(ext) = path
-                        .extension()
-                        .and_then(OsStr::to_str)
-                        .map(str::to_lowercase)
-                    {
-                        if ext == MARKDOWN_EXTENSION {
-                            markdown_files.lock().unwrap().push(path.clone());
-                        } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
-                            image_files.lock().unwrap().push(path.clone());
-                        }
+            {
+                if path.file_name().and_then(OsStr::to_str) == Some(DS_STORE) {
+                    continue;
+                }
+
+                if let Some(ext) = path
+                    .extension()
+                    .and_then(OsStr::to_str)
+                    .map(str::to_lowercase)
+                {
+                    if ext == MARKDOWN_EXTENSION {
+                        markdown_files
+                            .lock()
+                            .map_err(|error| {
+                                format!("markdown file collection lock poisoned: {error}")
+                            })?
+                            .push(path.clone());
+                    } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
+                        image_files
+                            .lock()
+                            .map_err(|error| {
+                                format!("image file collection lock poisoned: {error}")
+                            })?
+                            .push(path.clone());
                     }
-                })
-                .filter(|path| path.is_dir())
-                .collect();
+                }
+
+                if path.is_dir() {
+                    subdirs.push(path);
+                }
+            }
 
             if !subdirs.is_empty() {
                 visit_dirs(subdirs, ignore_folders, markdown_files, image_files)?;
@@ -133,8 +146,12 @@ pub fn collect_repository_files(
     )?;
 
     Ok(RepositoryFiles {
-        markdown: markdown_files.into_inner().unwrap(),
-        images:   image_files.into_inner().unwrap(),
+        markdown: markdown_files
+            .into_inner()
+            .map_err(|error| format!("markdown file collection lock poisoned: {error}"))?,
+        images:   image_files
+            .into_inner()
+            .map_err(|error| format!("image file collection lock poisoned: {error}"))?,
     })
 }
 
@@ -253,7 +270,7 @@ mod set_file_dates_tests {
 
     #[test]
     fn test_set_file_dates_round_trips_utc() {
-        let operational_timezone = "America/New_York";
+        let operational_timezone = crate::constants::DEFAULT_TIMEZONE;
         let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap();
 
         // Define creation and modification dates in UTC

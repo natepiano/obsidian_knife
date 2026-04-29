@@ -132,7 +132,7 @@ impl TryFrom<&FrontMatter> for Config {
     type Error = Box<dyn Error + Send + Sync>;
 
     fn try_from(frontmatter: &FrontMatter) -> Result<Self, Self::Error> {
-        let yaml_str = frontmatter.to_yaml_str()?;
-        Self::from_yaml_str(&yaml_str).map_err(|e| Box::new(e) as Self::Error)
+        let yaml = frontmatter.to_yaml_str()?;
+        Self::from_yaml_str(&yaml).map_err(|e| Box::new(e) as Self::Error)
     }
 }

@@ -7,6 +7,8 @@ use chrono::Utc;
 use tempfile::TempDir;
 
 use crate::constants::FORMAT_DATE;
+use crate::constants::YAML_CLOSING_DELIMITER;
+use crate::constants::YAML_OPENING_DELIMITER;
 use crate::utils;
 
 #[derive(Clone)]
@@ -146,7 +148,7 @@ impl TestFileBuilder {
             || custom_frontmatter.is_some();
 
         if has_frontmatter {
-            writeln!(file, "---").unwrap();
+            writeln!(file, "{}", YAML_OPENING_DELIMITER.trim_end()).unwrap();
             if let Some(created) = frontmatter_dates.created {
                 writeln!(file, "date_created: \"{created}\"").unwrap();
             }
@@ -174,7 +176,7 @@ impl TestFileBuilder {
             if let Some(custom) = custom_frontmatter {
                 writeln!(file, "{custom}").unwrap();
             }
-            writeln!(file, "---").unwrap();
+            writeln!(file, "{}", YAML_CLOSING_DELIMITER.trim_end()).unwrap();
         }
 
         match content {

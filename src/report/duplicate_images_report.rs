@@ -7,7 +7,6 @@ use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::COLON;
-use crate::constants::CONFIG_EXPECT;
 use crate::constants::DELETED;
 use crate::constants::DUPLICATE;
 use crate::constants::DUPLICATE_IMAGES;
@@ -78,16 +77,14 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         ]
     }
 
-    #[allow(
-        clippy::expect_used,
-        reason = "config is structurally guaranteed Some by callers of this report"
-    )]
     fn build_rows(
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> Vec<Vec<String>> {
-        let validated_config = config.expect(CONFIG_EXPECT);
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        let validated_config = config.ok_or_else(|| {
+            anyhow::anyhow!("ValidatedConfig required for duplicate-images report")
+        })?;
         let keeper = items
             .iter()
             .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
@@ -98,7 +95,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
             .collect();
 
         rows.sort_by(|a, b| a[1].cmp(&b[1]));
-        rows
+        Ok(rows)
     }
 
     fn title(&self) -> Option<String> { Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash)) }

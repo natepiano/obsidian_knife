@@ -34,8 +34,8 @@ pub enum ImageLinkRendering {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkType {
-    Wikilink(ImageLinkRendering),
-    MarkdownLink(ImageLinkTarget, ImageLinkRendering),
+    Wiki(ImageLinkRendering),
+    Markdown(ImageLinkTarget, ImageLinkRendering),
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -109,14 +109,14 @@ impl ReplaceableContent for ImageLink {
                 let new_relative = format!("{}/{new_name}", self.relative_path);
 
                 match &self.link_type {
-                    ImageLinkType::Wikilink(rendering) => match rendering {
+                    ImageLinkType::Wiki(rendering) => match rendering {
                         ImageLinkRendering::Embedded => self.size_parameter.as_ref().map_or_else(
                             || format!("![[{new_relative}]]"),
                             |size| format!("![[{new_relative}|{size}]]"),
                         ),
                         ImageLinkRendering::LinkOnly => format!("[[{new_relative}]]"),
                     },
-                    ImageLinkType::MarkdownLink(target, rendering) => match (target, rendering) {
+                    ImageLinkType::Markdown(target, rendering) => match (target, rendering) {
                         (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
                             format!("![{}]({new_relative})", self.alt_text)
                         },
@@ -136,11 +136,7 @@ impl ReplaceableContent for ImageLink {
 }
 
 impl ImageLink {
-    #[allow(
-        clippy::panic,
-        reason = "invalid image link format indicates a bug in the regex that calls this constructor"
-    )]
-    pub fn new(raw_link: String, line_number: usize, position: usize) -> Self {
+    pub fn new(raw_link: String, line_number: usize, position: usize) -> Result<Self, String> {
         let relative_path = extract_relative_path(&raw_link);
 
         let (filename, link_type, alt_text, size_parameter) =
@@ -169,7 +165,7 @@ impl ImageLink {
 
                 (
                     filename,
-                    ImageLinkType::Wikilink(rendering),
+                    ImageLinkType::Wiki(rendering),
                     String::new(),
                     size_parameter,
                 )
@@ -204,15 +200,17 @@ impl ImageLink {
 
                 (
                     filename,
-                    ImageLinkType::MarkdownLink(target, rendering),
+                    ImageLinkType::Markdown(target, rendering),
                     alt_text,
                     None,
                 )
             } else {
-                panic!("Invalid image link format passed to ImageLink::new(): {raw_link}");
+                return Err(format!(
+                    "invalid image link format passed to ImageLink::new: {raw_link}"
+                ));
             };
 
-        Self {
+        Ok(Self {
             matched_text: raw_link,
             position,
             line_number,
@@ -222,7 +220,7 @@ impl ImageLink {
             size_parameter,
             state: ImageLinkState::default(),
             link_type,
-        }
+        })
     }
 }
 

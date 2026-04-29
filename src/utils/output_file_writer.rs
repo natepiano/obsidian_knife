@@ -4,6 +4,7 @@ use std::io;
 use std::io::Write;
 use std::path::Path;
 use std::sync::Mutex;
+use std::sync::MutexGuard;
 
 use crate::constants::OUTPUT_MARKDOWN_FILE;
 
@@ -18,11 +19,13 @@ pub enum ColumnAlignment {
     Right,
 }
 
-#[allow(
-    clippy::unwrap_used,
-    reason = "mutex poisoning is unrecoverable — unwrap is the standard pattern"
-)]
 impl OutputFileWriter {
+    fn lock_file(&self) -> io::Result<MutexGuard<'_, File>> {
+        self.file
+            .lock()
+            .map_err(|error| io::Error::other(format!("output file lock poisoned: {error}")))
+    }
+
     pub fn new(obsidian_path: &Path) -> io::Result<Self> {
         let file_path = obsidian_path.join(OUTPUT_MARKDOWN_FILE);
 
@@ -67,7 +70,7 @@ impl OutputFileWriter {
             },
         );
 
-        let mut file = self.file.lock().unwrap();
+        let mut file = self.lock_file()?;
 
         // markdown tables always have to have a blank line before them
         writeln!(file, "\n| {} |", headers.join(" | "))?;
@@ -86,7 +89,7 @@ impl OutputFileWriter {
     }
 
     pub fn write_properties(&self, properties: &str) -> io::Result<()> {
-        let mut file = self.file.lock().unwrap();
+        let mut file = self.lock_file()?;
         writeln!(file, "---")?;
         writeln!(file, "{properties}")?;
         writeln!(file, "---")?;
@@ -103,7 +106,7 @@ impl OutputFileWriter {
         };
 
         let file_message = format!("{prefix}{message}\n");
-        let mut file = self.file.lock().unwrap();
+        let mut file = self.lock_file()?;
         file.write_all(file_message.as_bytes())?;
         file.flush()
     }

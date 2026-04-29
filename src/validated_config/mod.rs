@@ -65,9 +65,6 @@ pub(crate) struct ValidatedConfig {
     change_mode:                  ChangeMode,
     #[builder(default)]
     back_populate_file_filter:    Option<String>,
-    #[builder(setter(custom), default)]
-    #[allow(dead_code, reason = "read only in tests via #[cfg(test)] getter")]
-    do_not_back_populate:         Option<Vec<String>>,
     #[builder(setter(strip_option), default)]
     do_not_back_populate_regexes: Option<Vec<Regex>>,
     #[builder(default)]
@@ -139,15 +136,12 @@ impl ValidatedConfigBuilder {
                 .collect();
 
             if validated.is_empty() {
-                self.do_not_back_populate = Some(None);
                 self.do_not_back_populate_regexes = Some(Some(Vec::new()));
             } else {
-                self.do_not_back_populate = Some(Some(validated.clone()));
                 self.do_not_back_populate_regexes =
                     Some(Some(utils::build_case_insensitive_word_finder(&validated)));
             }
         } else {
-            self.do_not_back_populate = Some(None);
             self.do_not_back_populate_regexes = Some(Some(Vec::new()));
         }
         self
@@ -234,12 +228,6 @@ impl ValidatedConfig {
             }
         })
     }
-
-    #[cfg(test)]
-    pub(crate) fn do_not_back_populate(&self) -> Option<&[String]> {
-        self.do_not_back_populate.as_deref()
-    }
-
     pub(crate) fn do_not_back_populate_regexes(&self) -> Option<&[Regex]> {
         self.do_not_back_populate_regexes.as_deref()
     }

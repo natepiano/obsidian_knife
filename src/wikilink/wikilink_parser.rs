@@ -11,6 +11,7 @@ use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;
 use crate::markdown_file::InlineCodeExcluder;
+use crate::utils;
 use crate::utils::EMAIL_REGEX;
 use crate::utils::RAW_HTTP_REGEX;
 use crate::utils::TAG_REGEX;
@@ -425,11 +426,8 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 }
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
-    #[allow(
-        clippy::unwrap_used,
-        reason = "static regex pattern is validated at development time"
-    )]
-    static WIKILINK_FINDER: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\[\[.*?\]\]").unwrap());
+    static WIKILINK_FINDER: LazyLock<Regex> =
+        LazyLock::new(|| utils::compile_regex(r"\[\[.*?\]\]"));
 
     for mat in WIKILINK_FINDER.find_iter(line) {
         let content_start = mat.start() + OPENING_WIKILINK.len();

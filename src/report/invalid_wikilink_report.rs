@@ -53,8 +53,12 @@ impl ReportDefinition for InvalidWikilinksTable {
         ]
     }
 
-    fn build_rows(&self, items: &[Self::Item], _: Option<&ValidatedConfig>) -> Vec<Vec<String>> {
-        items
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        _: Option<&ValidatedConfig>,
+    ) -> anyhow::Result<Vec<Vec<String>>> {
+        Ok(items
             .iter()
             .map(|(file_path, invalid_wikilink)| {
                 vec![
@@ -69,7 +73,7 @@ impl ReportDefinition for InvalidWikilinksTable {
                     utils::escape_brackets(&invalid_wikilink.content),
                 ]
             })
-            .collect()
+            .collect())
     }
 
     fn title(&self) -> Option<String> { Some(INVALID_WIKILINKS.to_string()) }

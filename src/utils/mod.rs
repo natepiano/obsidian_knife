@@ -19,6 +19,7 @@ pub use regex_utils::MARKDOWN_REGEX;
 pub use regex_utils::RAW_HTTP_REGEX;
 pub use regex_utils::TAG_REGEX;
 pub use regex_utils::build_case_insensitive_word_finder;
+pub(crate) use regex_utils::compile_regex;
 pub use sha256_cache::Sha256Cache;
 pub use string_utils::escape_brackets;
 pub use string_utils::escape_pipe;
