@@ -1,14 +1,6 @@
 #[cfg(test)]
 mod tests;
 
-use std::error::Error;
-use std::ffi::OsStr;
-use std::fs;
-use std::path::PathBuf;
-
-use aho_corasick::AhoCorasick;
-use regex::Regex;
-
 mod back_populate;
 mod date_validation;
 mod image_link;
@@ -16,12 +8,19 @@ mod match_helpers;
 mod replaceable_content;
 mod text_excluder;
 
+use std::error::Error;
+use std::ffi::OsStr;
+use std::fs;
+use std::path::PathBuf;
+
+use aho_corasick::AhoCorasick;
 pub use back_populate::BackPopulateMatch;
 pub use back_populate::MatchContext;
 pub use date_validation::DateValidation;
 pub use date_validation::PersistReason;
 pub use image_link::ImageLink;
 pub use image_link::ImageLinkState;
+use regex::Regex;
 pub use replaceable_content::MatchType;
 pub use replaceable_content::ReplaceableContent;
 pub use text_excluder::InlineCodeExcluder;

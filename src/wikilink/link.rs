@@ -12,7 +12,7 @@ pub trait ToWikilink {
     /// Converts the string to a wikilink format by surrounding it with [[]]
     fn to_wikilink(&self) -> String;
 
-    /// Creates an aliased wikilink using the target (self) and display text
+    /// Creates an aliased wikilink using the target (`self`) and display text
     /// If the texts match (case-sensitive), returns a simple wikilink
     /// Otherwise returns an aliased wikilink in the format [[target|display]]
     fn to_aliased_wikilink(&self, display_text: &str) -> String
