@@ -19,7 +19,7 @@ use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OBSIDIAN_FOLDER;
 use crate::constants::OPENING_WIKILINK;
-use crate::utils;
+use crate::support;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub(crate) enum ChangeMode {
@@ -138,8 +138,9 @@ impl ValidatedConfigBuilder {
             if validated.is_empty() {
                 self.do_not_back_populate_regexes = Some(Some(Vec::new()));
             } else {
-                self.do_not_back_populate_regexes =
-                    Some(Some(utils::build_case_insensitive_word_finder(&validated)));
+                self.do_not_back_populate_regexes = Some(Some(
+                    support::build_case_insensitive_word_finder(&validated),
+                ));
             }
         } else {
             self.do_not_back_populate_regexes = Some(Some(Vec::new()));
@@ -215,7 +216,7 @@ impl ValidatedConfig {
             // If it's a wikilink, extract the inner text
             let filter_text =
                 if filter.starts_with(OPENING_WIKILINK) && filter.ends_with(CLOSING_WIKILINK) {
-                    &filter[2..filter.len() - 2]
+                    &filter[OPENING_WIKILINK.len()..filter.len() - CLOSING_WIKILINK.len()]
                 } else {
                     filter
                 };

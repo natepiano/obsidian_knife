@@ -4,13 +4,14 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use crate::constants::IMAGE_EXTENSIONS;
+use crate::constants::INVALID_REGEX_EXIT_CODE;
 
 pub(crate) fn compile_regex(pattern: &str) -> Regex {
     match Regex::new(pattern) {
         Ok(regex) => regex,
         Err(error) => {
             eprintln!("invalid regex pattern {pattern:?}: {error}");
-            std::process::exit(1);
+            std::process::exit(INVALID_REGEX_EXIT_CODE);
         },
     }
 }

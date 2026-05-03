@@ -5,8 +5,8 @@ use super::ImageLinkRendering;
 use super::ImageLinkTarget;
 use super::ImageLinkType;
 use super::MarkdownFile;
+use crate::support::IMAGE_REGEX;
 use crate::test_support::TestFileBuilder;
-use crate::utils::IMAGE_REGEX;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::Wikilink;
 

@@ -27,10 +27,10 @@ use crate::markdown_file::ImageLinkState;
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
-use crate::utils::VecEnumFilter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 
 pub(super) struct IncompatibleImagesReport<'a> {
     markdown_files: &'a MarkdownFiles,

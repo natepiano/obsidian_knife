@@ -17,7 +17,7 @@ use serde::Serializer;
 use crate::constants::DEFAULT_OUTPUT_FOLDER;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
-use crate::utils;
+use crate::support;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 use crate::validated_config::ValidatedConfigBuilder;
@@ -110,14 +110,14 @@ impl Config {
             .do_not_back_populate(self.do_not_back_populate.clone())
             .file_limit(self.file_limit)
             .ignore_folders(self.ignore_folders.clone())
-            .obsidian_path(utils::expand_tilde(&self.obsidian_path))
+            .obsidian_path(support::expand_tilde(&self.obsidian_path))
             .operational_timezone(
                 self.operational_timezone
                     .clone()
                     .unwrap_or_else(|| DEFAULT_TIMEZONE.to_string()),
             )
             .output_folder(
-                utils::expand_tilde(&self.obsidian_path).join(
+                support::expand_tilde(&self.obsidian_path).join(
                     self.output_folder
                         .as_deref()
                         .unwrap_or(DEFAULT_OUTPUT_FOLDER),

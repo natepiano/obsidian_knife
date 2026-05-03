@@ -17,12 +17,12 @@ use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
 use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
-use crate::utils::VecEnumFilter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 
 pub(super) struct MissingReferencesTable;
 
@@ -59,8 +59,9 @@ impl ReportDefinition for MissingReferencesTable {
                         validated_config.obsidian_path(),
                     );
 
-                    let image_link =
-                        utils::escape_pipe(&utils::escape_brackets(&extracted_filename.clone()));
+                    let image_link = support::escape_pipe(&support::escape_brackets(
+                        &extracted_filename.clone(),
+                    ));
 
                     let action = match validated_config.change_mode() {
                         ChangeMode::Apply => REFERENCE_REMOVED,

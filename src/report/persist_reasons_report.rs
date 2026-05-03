@@ -22,9 +22,9 @@ use crate::markdown_file::DateValidation;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct PersistReasonsTable;
@@ -222,7 +222,7 @@ impl ObsidianRepository {
             .iter()
             .map(|reason| PersistReasonData {
                 full_path: file.path.clone(),
-                wikilink: utils::escape_pipe(&wikilink),
+                wikilink: support::escape_pipe(&wikilink),
                 reason: reason.clone(),
                 back_populate_count,
                 image_refs_count,

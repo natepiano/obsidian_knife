@@ -27,10 +27,10 @@ use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils::OutputFileWriter;
-use crate::utils::VecEnumFilter;
+use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::ToWikilink;
 

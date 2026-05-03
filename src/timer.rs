@@ -2,13 +2,13 @@ use std::time::Instant;
 
 use crate::constants::MILLISECONDS;
 
-pub struct Timer {
+pub(crate) struct Timer {
     start: Instant,
     label: String,
 }
 
 impl Timer {
-    pub fn new(label: impl Into<String>) -> Self {
+    pub(crate) fn new(label: impl Into<String>) -> Self {
         Self {
             start: Instant::now(),
             label: label.into(),

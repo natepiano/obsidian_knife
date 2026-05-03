@@ -14,8 +14,8 @@ use rayon::iter::ParallelIterator;
 use crate::image_file::ImageFiles;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_files::MarkdownFiles;
-use crate::utils;
-use crate::utils::Timer;
+use crate::support;
+use crate::timer::Timer;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
@@ -32,7 +32,7 @@ impl ObsidianRepository {
         let _timer = Timer::new("prescan+analyze");
         let ignore_folders = validated_config.ignore_folders().unwrap_or(&[]);
 
-        let repository_files = utils::collect_repository_files(validated_config, ignore_folders)?;
+        let repository_files = support::collect_repository_files(validated_config, ignore_folders)?;
 
         // Process markdown files
         let markdown_files = Self::initialize_markdown_files(

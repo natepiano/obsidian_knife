@@ -10,7 +10,6 @@ use crate::constants::CACHE_FILE;
 use crate::constants::CACHE_FOLDER;
 use crate::markdown_file::ImageLink;
 use crate::markdown_file::MarkdownFile;
-use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
 
@@ -98,7 +97,7 @@ fn test_wikilink_sorting_with_aliases() {
         .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
         .create(&temp_dir, "other.md");
 
-    let validated_config = test_support::get_test_validated_config(&temp_dir, None);
+    let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
 
     // Scan folders and check results
     let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
@@ -156,7 +155,7 @@ fn test_cache_file_cleanup() {
             .create(&temp_dir, "test.png");
 
         // Create config that will create cache in temp dir
-        let validated_config = test_support::get_test_validated_config(&temp_dir, None);
+        let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
 
         // First scan - creates cache with the image
         let _ = ObsidianRepository::new(&validated_config).unwrap();

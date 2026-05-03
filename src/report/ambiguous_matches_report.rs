@@ -26,9 +26,9 @@ use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
@@ -87,7 +87,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
             rows.push(vec![
                 file_stem.to_wikilink(),
                 line_number.to_string(),
-                utils::escape_pipe(&highlighted_line),
+                support::escape_pipe(&highlighted_line),
                 positions.len().to_string(),
             ]);
         }
@@ -199,7 +199,7 @@ impl ReportDefinition for TargetReferencesTable {
                 vec![
                     file_stem.to_wikilink(),
                     item.line_number.to_string(),
-                    utils::escape_pipe(&item.line_text),
+                    support::escape_pipe(&item.line_text),
                 ]
             })
             .collect();

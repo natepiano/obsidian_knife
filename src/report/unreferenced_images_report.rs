@@ -16,12 +16,12 @@ use crate::description_builder::Phrase;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
-use crate::utils::VecEnumFilter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 
 pub(super) struct UnreferencedImagesReport;
 
@@ -48,7 +48,7 @@ impl ReportDefinition for UnreferencedImagesReport {
             .map(|image| {
                 let file_name = image.path.file_name().unwrap_or_default().to_string_lossy();
                 let sample =
-                    utils::escape_pipe(format!("![[{file_name}|{THUMBNAIL_WIDTH}]]").as_str());
+                    support::escape_pipe(format!("![[{file_name}|{THUMBNAIL_WIDTH}]]").as_str());
                 let file_link = format!("[[{file_name}]]");
                 let action = if config
                     .is_some_and(|config| matches!(config.change_mode(), ChangeMode::Apply))

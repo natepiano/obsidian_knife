@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 
 /// definition of the elements of a report to write out as a markdown table

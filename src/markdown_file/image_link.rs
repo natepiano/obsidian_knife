@@ -16,7 +16,7 @@ use crate::constants::OPENING_BRACKET;
 use crate::constants::OPENING_PAREN;
 use crate::constants::OPENING_WIKILINK;
 use crate::image_file::IncompatibilityReason;
-use crate::utils::EnumFilter;
+use crate::vec_enum_filter::EnumFilter;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::Wikilink;
 

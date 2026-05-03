@@ -15,9 +15,13 @@ mod image_file;
 mod markdown_file;
 mod markdown_files;
 mod obsidian_repository;
+mod output_file_writer;
 mod report;
-mod utils;
+mod sha256_cache;
+mod support;
+mod timer;
 mod validated_config;
+mod vec_enum_filter;
 mod wikilink;
 mod yaml_frontmatter;
 
@@ -26,6 +30,7 @@ use std::path::PathBuf;
 
 use crate::config::Config;
 use crate::config::ConfiguredChanges;
+use crate::constants::CONFIG_ARG_INDEX;
 use crate::constants::DEFAULT_TIMEZONE;
 #[cfg(debug_assertions)]
 use crate::constants::DEV;
@@ -33,6 +38,7 @@ use crate::constants::ERROR_DETAILS;
 use crate::constants::ERROR_OCCURRED;
 use crate::constants::ERROR_SOURCE;
 use crate::constants::ERROR_TYPE;
+use crate::constants::EXPECTED_ARG_COUNT;
 use crate::constants::OBSIDIAN_KNIFE;
 #[cfg(not(debug_assertions))]
 use crate::constants::RELEASE;
@@ -41,7 +47,7 @@ use crate::constants::USAGE;
 use crate::frontmatter::FrontMatter;
 use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils::Timer;
+use crate::timer::Timer;
 use crate::validated_config::ChangeMode;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatterError;
@@ -63,7 +69,7 @@ impl std::fmt::Display for MainError {
 impl Error for MainError {}
 
 fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let path = utils::expand_tilde(config_path);
+    let path = support::expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFile::new(path, DEFAULT_TIMEZONE)?;
     let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
@@ -127,11 +133,11 @@ fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + S
 fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
     let args: Vec<String> = std::env::args().collect();
 
-    if args.len() != 2 {
+    if args.len() != EXPECTED_ARG_COUNT {
         return Err(Box::new(MainError::Usage(USAGE.into())));
     }
 
-    Ok(PathBuf::from(&args[1]))
+    Ok(PathBuf::from(&args[CONFIG_ARG_INDEX]))
 }
 
 fn main() -> Result<(), Box<dyn Error + Send + Sync>> {

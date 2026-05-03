@@ -1,6 +1,15 @@
+// CLI invocation
+/// Program name plus a single config-file argument.
+pub(crate) const EXPECTED_ARG_COUNT: usize = 2;
+/// Index of the config-file argument in `std::env::args()`.
+pub(crate) const CONFIG_ARG_INDEX: usize = 1;
+/// Exit code used when regex compilation fails at startup.
+pub(crate) const INVALID_REGEX_EXIT_CODE: i32 = 1;
+
 // Cache
 pub(crate) const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub(crate) const CACHE_FOLDER: &str = ".ok";
+pub(crate) const SHA256_BUFFER_SIZE: usize = 1024;
 
 // Config
 /// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo

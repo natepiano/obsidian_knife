@@ -36,12 +36,12 @@ use crate::image_file::ImageFileState;
 use crate::image_file::ImageHash;
 use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
-use crate::utils::VecEnumFilter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 
 pub(super) struct DuplicateImagesTable<'a> {
     hash:           ImageHash,
@@ -194,7 +194,7 @@ impl DuplicateImagesTable<'_> {
                             .file_name()
                             .unwrap_or_default()
                             .to_string_lossy();
-                        utils::escape_brackets(&format!("![[{keeper_name}]]"))
+                        support::escape_brackets(&format!("![[{keeper_name}]]"))
                     },
                 );
 

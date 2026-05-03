@@ -11,10 +11,10 @@ use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;
 use crate::markdown_file::InlineCodeExcluder;
-use crate::utils;
-use crate::utils::EMAIL_REGEX;
-use crate::utils::RAW_HTTP_REGEX;
-use crate::utils::TAG_REGEX;
+use crate::support;
+use crate::support::EMAIL_REGEX;
+use crate::support::RAW_HTTP_REGEX;
+use crate::support::TAG_REGEX;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum WikilinkParseResult {
@@ -427,7 +427,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     static WIKILINK_FINDER: LazyLock<Regex> =
-        LazyLock::new(|| utils::compile_regex(r"\[\[.*?\]\]"));
+        LazyLock::new(|| support::compile_regex(r"\[\[.*?\]\]"));
 
     for mat in WIKILINK_FINDER.find_iter(line) {
         let content_start = mat.start() + OPENING_WIKILINK.len();

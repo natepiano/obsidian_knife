@@ -3,13 +3,13 @@ use std::ffi::OsStr;
 use aho_corasick::AhoCorasick;
 
 use super::MarkdownFile;
-use super::match_helpers;
+use super::matching;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use super::text_excluder::CodeBlockExcluder;
 use super::text_excluder::InlineCodeExcluder;
 use crate::obsidian_repository;
-use crate::utils::MARKDOWN_REGEX;
+use crate::support::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
 use crate::wikilink::ToWikilink;
@@ -104,12 +104,12 @@ impl MarkdownFile {
             let starts_at = match_result.start();
             let ends_at = match_result.end();
 
-            if match_helpers::range_overlaps(&exclusion_zones, starts_at, ends_at) {
+            if matching::range_overlaps(&exclusion_zones, starts_at, ends_at) {
                 continue;
             }
 
             let matched_text = &line[starts_at..ends_at];
-            if !match_helpers::is_word_boundary(line, starts_at, ends_at) {
+            if !matching::is_word_boundary(line, starts_at, ends_at) {
                 continue;
             }
 
@@ -120,7 +120,7 @@ impl MarkdownFile {
                     wikilink.target.to_aliased_wikilink(matched_text)
                 };
 
-                let match_context = if match_helpers::is_in_markdown_table(line, matched_text) {
+                let match_context = if matching::is_in_markdown_table(line, matched_text) {
                     MatchContext::MarkdownTable
                 } else {
                     MatchContext::Plaintext

@@ -27,9 +27,9 @@ use crate::description_builder::Phrase;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
@@ -86,16 +86,16 @@ impl ReportDefinition for BackPopulateTable {
                 let replacement = if entry.match_context == MatchContext::MarkdownTable {
                     entry.replacement.clone()
                 } else {
-                    utils::escape_pipe(&entry.replacement)
+                    support::escape_pipe(&entry.replacement)
                 };
 
                 table_rows.push(vec![
                     file_stem.to_wikilink(),
                     line_info.line_number.to_string(),
-                    utils::escape_pipe(&highlighted_line),
+                    support::escape_pipe(&highlighted_line),
                     line_info.positions.len().to_string(),
                     replacement.clone(),
-                    utils::escape_brackets(&replacement),
+                    support::escape_brackets(&replacement),
                 ]);
             }
         }

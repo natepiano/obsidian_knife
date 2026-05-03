@@ -20,9 +20,9 @@ use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::InvalidWikilinkReason;
@@ -68,9 +68,9 @@ impl ReportDefinition for InvalidWikilinksTable {
                         .unwrap_or("")
                         .to_wikilink(),
                     invalid_wikilink.line_number.to_string(),
-                    utils::escape_pipe(&invalid_wikilink.line),
+                    support::escape_pipe(&invalid_wikilink.line),
                     invalid_wikilink.reason.to_string(),
-                    utils::escape_brackets(&invalid_wikilink.content),
+                    support::escape_brackets(&invalid_wikilink.content),
                 ]
             })
             .collect())

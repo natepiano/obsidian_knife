@@ -8,12 +8,12 @@ use std::sync::MutexGuard;
 
 use crate::constants::OUTPUT_MARKDOWN_FILE;
 
-pub struct OutputFileWriter {
+pub(crate) struct OutputFileWriter {
     file: Mutex<File>,
 }
 
 #[derive(Clone, Copy)]
-pub enum ColumnAlignment {
+pub(crate) enum ColumnAlignment {
     Left,
     Center,
     Right,
@@ -26,7 +26,7 @@ impl OutputFileWriter {
             .map_err(|error| io::Error::other(format!("output file lock poisoned: {error}")))
     }
 
-    pub fn new(obsidian_path: &Path) -> io::Result<Self> {
+    pub(crate) fn new(obsidian_path: &Path) -> io::Result<Self> {
         let file_path = obsidian_path.join(OUTPUT_MARKDOWN_FILE);
 
         let file = OpenOptions::new()
@@ -40,7 +40,7 @@ impl OutputFileWriter {
         })
     }
 
-    pub fn write_markdown_table(
+    pub(crate) fn write_markdown_table(
         &self,
         headers: &[&str],
         rows: &[Vec<String>],
@@ -88,7 +88,7 @@ impl OutputFileWriter {
         Ok(())
     }
 
-    pub fn write_properties(&self, properties: &str) -> io::Result<()> {
+    pub(crate) fn write_properties(&self, properties: &str) -> io::Result<()> {
         let mut file = self.lock_file()?;
         writeln!(file, "---")?;
         writeln!(file, "{properties}")?;
@@ -96,7 +96,7 @@ impl OutputFileWriter {
         file.flush()
     }
 
-    pub fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
+    pub(crate) fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
         let prefix = if markdown_prefix.is_empty() {
             String::new()
         } else if markdown_prefix.ends_with(' ') {

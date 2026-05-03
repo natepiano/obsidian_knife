@@ -15,31 +15,31 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha256;
 
-use super::constants::SHA256_BUFFER_SIZE;
+use crate::constants::SHA256_BUFFER_SIZE;
 use crate::image_file::ImageHash;
 
 #[derive(Debug, Clone, Copy)]
-pub enum CacheFileStatus {
+pub(crate) enum CacheFileStatus {
     ReadFromCache,
     CreatedNewCache,
     CacheCorrupted,
 }
 
 #[derive(Debug, Clone, Copy)]
-pub enum CacheEntryStatus {
+pub(crate) enum CacheEntryStatus {
     Read,
     Added,
     Modified,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct CachedImageInfo {
+pub(crate) struct CachedImageInfo {
     pub hash:       ImageHash,
     pub time_stamp: SystemTime,
 }
 
 #[derive(Debug)]
-pub struct Sha256Cache {
+pub(crate) struct Sha256Cache {
     cache:               HashMap<PathBuf, CachedImageInfo>,
     cache_file_path:     PathBuf,
     reads:               usize,
@@ -49,7 +49,7 @@ pub struct Sha256Cache {
 }
 
 impl Sha256Cache {
-    pub fn load_or_create(cache_file_path: PathBuf) -> (Self, CacheFileStatus) {
+    pub(crate) fn load_or_create(cache_file_path: PathBuf) -> (Self, CacheFileStatus) {
         let (cache, status) = if cache_file_path.exists() {
             File::open(&cache_file_path).map_or_else(
                 |_| (HashMap::new(), CacheFileStatus::CreatedNewCache),
@@ -78,7 +78,7 @@ impl Sha256Cache {
         )
     }
 
-    pub fn get_or_update(
+    pub(crate) fn get_or_update(
         &mut self,
         path: &Path,
     ) -> Result<(ImageHash, CacheEntryStatus), Box<dyn Error + Send + Sync>> {
@@ -112,7 +112,7 @@ impl Sha256Cache {
         Ok((new_hash, status))
     }
 
-    pub fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
+    pub(crate) fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
         // Create vector of paths that exist in cache but not in `valid_paths`
         let to_remove: Vec<_> = self
             .cache
@@ -127,11 +127,11 @@ impl Sha256Cache {
         }
     }
 
-    pub const fn has_changes(&self) -> bool {
+    pub(crate) const fn has_changes(&self) -> bool {
         self.added > 0 || self.modified > 0 || self.deleted > 0
     }
 
-    pub fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
+    pub(crate) fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         if let Some(parent) = self.cache_file_path.parent() {
             fs::create_dir_all(parent)?;
         }

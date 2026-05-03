@@ -15,11 +15,10 @@ use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::markdown_files::MarkdownFiles;
-use crate::test_support;
 use crate::test_support as test_utils;
 use crate::test_support::TestFileBuilder;
-use crate::utils::VecEnumFilter;
 use crate::validated_config::ChangeMode;
+use crate::vec_enum_filter::VecEnumFilter;
 use crate::yaml_frontmatter::YamlFrontMatter;
 
 impl MarkdownFiles {
@@ -81,7 +80,7 @@ fn create_test_files(temp_dir: &TempDir, setup: &TestSetup) -> Vec<PathBuf> {
 )]
 fn test_analyze_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
     fs::create_dir_all(validated_config.output_folder()).unwrap();
 
@@ -260,7 +259,7 @@ fn test_image_replacement_outcomes() {
 
     for test_case in test_cases {
         let temp_dir = TempDir::new().unwrap();
-        let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+        let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
         let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
         fs::create_dir_all(validated_config.output_folder()).unwrap();
 
@@ -293,7 +292,7 @@ fn test_image_replacement_outcomes() {
 )]
 fn test_analyze_wikilink_errors() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
     fs::create_dir_all(validated_config.output_folder()).unwrap();
 
@@ -321,7 +320,7 @@ fn test_analyze_wikilink_errors() {
 #[test]
 fn test_handle_missing_references() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
     fs::create_dir_all(validated_config.output_folder()).unwrap();
 
@@ -375,7 +374,7 @@ fn test_handle_missing_references() {
 )]
 fn test_duplicate_grouping() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
     fs::create_dir_all(validated_config.output_folder()).unwrap();
 
@@ -451,7 +450,7 @@ fn test_duplicate_grouping() {
 #[test]
 fn test_multiple_file_deletion() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
     // Create multiple files marked for deletion
@@ -499,7 +498,7 @@ fn test_multiple_file_deletion() {
 #[test]
 fn test_referenced_and_unreferenced_duplicates() {
     let temp_dir = TempDir::new().unwrap();
-    let mut builder = test_support::get_test_validated_config_builder(&temp_dir);
+    let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
     let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
     // Create two sets of duplicate files with different content

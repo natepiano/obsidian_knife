@@ -4,7 +4,7 @@ mod tests;
 mod back_populate;
 mod date_validation;
 mod image_link;
-mod match_helpers;
+mod matching;
 mod replaceable_content;
 mod text_excluder;
 
@@ -32,9 +32,11 @@ use self::image_link::ImageLinkType;
 use self::image_link::ImageLinks;
 use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
+use crate::constants::YAML_CLOSING_DELIMITER;
+use crate::constants::YAML_OPENING_DELIMITER;
 use crate::frontmatter::FrontMatter;
-use crate::utils;
-use crate::utils::IMAGE_REGEX;
+use crate::support;
+use crate::support::IMAGE_REGEX;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
 use crate::wikilink::InvalidWikilink;
@@ -71,7 +73,7 @@ impl MarkdownFile {
         path: PathBuf,
         operational_timezone: &str,
     ) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let full_content = utils::read_contents_from_file(&path)?;
+        let full_content = support::read_contents_from_file(&path)?;
 
         let yaml_result = yaml_frontmatter::find_yaml_section(&full_content);
         let frontmatter_line_count = match &yaml_result {
@@ -156,7 +158,13 @@ impl MarkdownFile {
             |frontmatter| {
                 frontmatter.to_yaml_str().map_or_else(
                     |_| self.content.clone(),
-                    |yaml| format!("---\n{}\n---\n{}", yaml.trim(), self.content.trim()),
+                    |yaml| {
+                        format!(
+                            "{YAML_OPENING_DELIMITER}{}\n{YAML_CLOSING_DELIMITER}{}",
+                            yaml.trim(),
+                            self.content.trim()
+                        )
+                    },
                 )
             },
         )
@@ -173,7 +181,7 @@ impl MarkdownFile {
             .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
         let created_date = frontmatter.raw_created;
 
-        utils::set_file_dates(&self.path, created_date, modified_date)?;
+        support::set_file_dates(&self.path, created_date, modified_date)?;
 
         Ok(())
     }

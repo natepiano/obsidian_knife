@@ -9,7 +9,7 @@ use tempfile::TempDir;
 use crate::constants::FORMAT_DATE;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
-use crate::utils;
+use crate::support;
 
 #[derive(Clone)]
 pub enum Content {
@@ -184,7 +184,7 @@ impl TestFileBuilder {
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
         }
 
-        utils::set_file_dates(
+        support::set_file_dates(
             &file_path,
             Some(file_system_dates.created),
             file_system_dates.modified,

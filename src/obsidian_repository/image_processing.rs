@@ -13,9 +13,9 @@ use crate::image_file::ImageFileState;
 use crate::image_file::ImageFiles;
 use crate::image_file::ImageHash;
 use crate::markdown_file::ImageLinkState;
-use crate::utils::Sha256Cache;
-use crate::utils::VecEnumFilter;
+use crate::sha256_cache::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
+use crate::vec_enum_filter::VecEnumFilter;
 
 impl ObsidianRepository {
     pub(super) fn initialize_image_files(

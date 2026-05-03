@@ -5,7 +5,7 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::constants::FORMAT_DATE;
-use crate::utils;
+use crate::support;
 use crate::yaml_frontmatter_struct;
 
 // when we set `date_created_fix` to `None` it won't serialize - cool
@@ -108,7 +108,9 @@ impl FrontMatter {
             // we got nothing from valid frontmatter
             None
         } else {
-            Some(utils::build_case_insensitive_word_finder(&do_not_populate))
+            Some(support::build_case_insensitive_word_finder(
+                &do_not_populate,
+            ))
         }
     }
 }

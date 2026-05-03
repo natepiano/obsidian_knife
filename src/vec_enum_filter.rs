@@ -1,12 +1,12 @@
 use std::ops::Deref;
 
-pub trait EnumFilter {
+pub(crate) trait EnumFilter {
     type EnumType;
     fn as_enum(&self) -> &Self::EnumType;
 }
 
 // Trait that automatically implements `filter_by_variant` for any type that `Deref`s to `Vec<T>`
-pub trait VecEnumFilter<T>
+pub(crate) trait VecEnumFilter<T>
 where
     T: EnumFilter + Clone,
     Self: Deref<Target = Vec<T>> + FromIterator<T>,

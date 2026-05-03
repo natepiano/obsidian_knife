@@ -10,7 +10,8 @@ use derive_more::IntoIterator;
 use serde::Deserialize;
 use serde::Serialize;
 
-use crate::utils::EnumFilter;
+use crate::constants::UNKNOWN;
+use crate::vec_enum_filter::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) struct ImageHash(pub String);
@@ -141,7 +142,7 @@ impl ImageFile {
         let size = metadata.len();
 
         let kind = path.extension().and_then(OsStr::to_str).map_or_else(
-            || ImageFileType::Other("unknown".to_string()),
+            || ImageFileType::Other(UNKNOWN.to_string()),
             ImageFileType::from,
         );
 

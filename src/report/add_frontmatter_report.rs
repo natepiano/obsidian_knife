@@ -12,8 +12,8 @@ use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
-use crate::utils::ColumnAlignment;
-use crate::utils::OutputFileWriter;
+use crate::output_file_writer::ColumnAlignment;
+use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
