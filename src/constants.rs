@@ -34,6 +34,7 @@ pub(crate) const MARKDOWN_SUFFIX: &str = ".md";
 pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
 
 // Frontmatter delimiters
+pub(crate) const FRONTMATTER_DELIMITER_LINE_COUNT: usize = 2;
 pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
 pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";

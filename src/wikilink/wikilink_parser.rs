@@ -79,14 +79,14 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
 
         // Handle unmatched closing brackets when not in a wikilink
         if ch == ']' && is_next_char(&mut chars, ']') {
-            let content = line[last_position..=start_idx + 1].to_string();
+            let content = line[last_position..(start_idx + CLOSING_WIKILINK.len())].to_string();
             extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                 content,
                 reason: InvalidWikilinkReason::UnmatchedClosing,
-                span: (last_position, start_idx + 2),
+                span: (last_position, start_idx + CLOSING_WIKILINK.len()),
             });
             markdown_opening = None;
-            last_position = start_idx + 2;
+            last_position = start_idx + CLOSING_WIKILINK.len();
             continue;
         }
 
@@ -346,7 +346,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
     while let Some((pos, c)) = chars.next() {
         if matches!(state, WikilinkState::Invalid { .. }) {
             if c == ']' && is_next_char(chars, ']') {
-                return Some(state.to_wikilink(pos + 2));
+                return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
             }
             state.push_char(c);
             continue;
@@ -382,7 +382,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
             },
             ']' => {
                 if is_next_char(chars, ']') {
-                    return Some(state.to_wikilink(pos + 2));
+                    return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
                 }
                 state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                 state.push_char(c);
@@ -403,7 +403,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
 
     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedOpening);
     let content_len = state.formatted_content().len();
-    Some(state.to_wikilink(start_pos + content_len + 2))
+    Some(state.to_wikilink(start_pos + content_len + CLOSING_WIKILINK.len()))
 }
 
 /// Helper function to check if the next character matches the expected one

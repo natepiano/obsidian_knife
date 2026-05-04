@@ -15,6 +15,21 @@ use crate::validated_config::ValidatedConfig;
 use crate::vec_enum_filter::VecEnumFilter;
 use crate::wikilink::Wikilink;
 
+#[derive(Debug, Default)]
+struct ChangeSet {
+    match_types: Vec<MatchType>,
+}
+
+impl ChangeSet {
+    fn merge(&mut self, match_type: MatchType) {
+        if !self.contains(&match_type) {
+            self.match_types.push(match_type);
+        }
+    }
+
+    fn contains(&self, match_type: &MatchType) -> bool { self.match_types.contains(match_type) }
+}
+
 impl ObsidianRepository {
     pub fn identify_ambiguous_matches(&mut self) {
         // Create `target` and `display_text` maps as before...
@@ -120,8 +135,7 @@ impl ObsidianRepository {
 
             let mut updated_content = String::new();
             let mut content_line_number = 1;
-            let mut has_back_populate_changes = false;
-            let mut has_image_reference_changes = false;
+            let mut change_set = ChangeSet::default();
 
             // Process line by line
             for (zero_based_idx, line) in markdown_file.content.lines().enumerate() {
@@ -151,10 +165,7 @@ impl ObsidianRepository {
 
                     // Track which types of changes occurred
                     for line_match in &line_matches {
-                        match line_match.match_type() {
-                            MatchType::BackPopulate => has_back_populate_changes = true,
-                            MatchType::ImageReference => has_image_reference_changes = true,
-                        }
+                        change_set.merge(line_match.match_type());
                     }
 
                     if !updated_line.is_empty() {
@@ -168,10 +179,10 @@ impl ObsidianRepository {
             // Update the content and mark file as modified
             markdown_file.content = updated_content.trim_end().to_string();
 
-            if has_back_populate_changes {
+            if change_set.contains(&MatchType::BackPopulate) {
                 markdown_file.mark_as_back_populated(operational_timezone)?;
             }
-            if has_image_reference_changes {
+            if change_set.contains(&MatchType::ImageReference) {
                 markdown_file.mark_image_reference_as_updated(operational_timezone)?;
             }
         }
@@ -223,11 +234,14 @@ fn apply_line_replacements(
     file_path: &Path,
 ) -> anyhow::Result<String> {
     let mut updated_line = line.to_string();
-    let mut has_image_replacement = false;
 
     // Sort matches in descending order by `position`
     let mut sorted_matches = line_matches.to_vec();
     sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position()));
+
+    let has_image_replacement = sorted_matches
+        .iter()
+        .any(|m| m.match_type() == MatchType::ImageReference);
 
     // Apply replacements in sorted (reverse) order
     for match_info in sorted_matches {
@@ -242,11 +256,6 @@ fn apply_line_replacements(
                 match_info.line_number(),
                 match_info.matched_text(),
             );
-        }
-
-        // Track if this is an image replacement
-        if match_info.match_type() == MatchType::ImageReference {
-            has_image_replacement = true;
         }
 
         // Perform the replacement

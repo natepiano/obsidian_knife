@@ -32,6 +32,7 @@ use self::image_link::ImageLinkType;
 use self::image_link::ImageLinks;
 use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
+use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
 use crate::frontmatter::FrontMatter;
@@ -77,7 +78,9 @@ impl MarkdownFile {
 
         let yaml_result = yaml_frontmatter::find_yaml_section(&full_content);
         let frontmatter_line_count = match &yaml_result {
-            Ok(Some((yaml_section, _))) => yaml_section.lines().count() + 2,
+            Ok(Some((yaml_section, _))) => {
+                yaml_section.lines().count() + FRONTMATTER_DELIMITER_LINE_COUNT
+            },
             _ => 0,
         };
 
