@@ -52,16 +52,22 @@ impl ObsidianRepository {
     fn generate_image_files(
         hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
     ) -> Result<Vec<ImageFile>, Box<dyn Error + Send + Sync>> {
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+        enum KeeperSelection {
+            None,
+            FirstSortedImage,
+        }
+
         let mut images = Vec::new();
 
         for (hash, mut group) in hash_groups {
             let is_duplicate_group = group.len() > 1;
-            let mut should_have_keeper = false;
+            let mut keeper_selection = KeeperSelection::None;
 
             if is_duplicate_group {
                 let any_referenced = group.iter().any(|(_, refs)| !refs.is_empty());
                 if any_referenced {
-                    should_have_keeper = true;
+                    keeper_selection = KeeperSelection::FirstSortedImage;
                     group.sort_by(|a, b| a.0.cmp(&b.0));
                 }
             }
@@ -71,7 +77,7 @@ impl ObsidianRepository {
                     references.into_iter().map(PathBuf::from).collect();
                 let duplicate_role = if !is_duplicate_group {
                     DuplicateRole::NotDuplicate
-                } else if should_have_keeper && idx == 0 {
+                } else if keeper_selection == KeeperSelection::FirstSortedImage && idx == 0 {
                     DuplicateRole::Original
                 } else {
                     DuplicateRole::Duplicate

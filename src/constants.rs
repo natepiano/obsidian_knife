@@ -1,17 +1,17 @@
-// CLI invocation
-/// Program name plus a single config-file argument.
-pub(crate) const EXPECTED_ARG_COUNT: usize = 2;
-/// Index of the config-file argument in `std::env::args()`.
-pub(crate) const CONFIG_ARG_INDEX: usize = 1;
-/// Exit code used when regex compilation fails at startup.
-pub(crate) const INVALID_REGEX_EXIT_CODE: i32 = 1;
-
-// Cache
+// cache
 pub(crate) const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub(crate) const CACHE_FOLDER: &str = ".ok";
 pub(crate) const SHA256_BUFFER_SIZE: usize = 1024;
 
-// Config
+// cli invocation
+/// Index of the config-file argument in `std::env::args()`.
+pub(crate) const CONFIG_ARG_INDEX: usize = 1;
+/// Program name plus a single config-file argument.
+pub(crate) const EXPECTED_ARG_COUNT: usize = 2;
+/// Exit code used when regex compilation fails at startup.
+pub(crate) const INVALID_REGEX_EXIT_CODE: i32 = 1;
+
+// config
 /// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo
 pub(crate) const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub(crate) const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
@@ -20,43 +20,68 @@ pub(crate) const ERROR_NOT_FOUND: &str = "file not found: ";
 pub(crate) const ERROR_READING: &str = "error reading config file ";
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
-// Date handling
+// date handling
 pub(crate) const FORMAT_DATE: &str = "%Y-%m-%d";
 pub(crate) const NOON_HOUR: u32 = 12;
 
-// Files and extensions
+// files and extensions
 pub(crate) const DS_STORE: &str = ".DS_Store";
-pub(crate) const IMAGE_EXTENSIONS: [&str; 6] = ["jpg", "png", "jpeg", "tiff", "pdf", "gif"];
+pub(crate) const GIF_EXTENSION: &str = "gif";
+pub(crate) const IMAGE_EXTENSIONS: [&str; 8] = [
+    GIF_EXTENSION,
+    JPEG_EXTENSION,
+    JPG_EXTENSION,
+    PDF_EXTENSION,
+    PNG_EXTENSION,
+    TIF_EXTENSION,
+    TIFF_EXTENSION,
+    WEBP_EXTENSION,
+];
+pub(crate) const JPEG_EXTENSION: &str = "jpeg";
+pub(crate) const JPG_EXTENSION: &str = "jpg";
 pub(crate) const MARKDOWN_EXTENSION: &str = "md";
 pub(crate) const MARKDOWN_SUFFIX: &str = ".md";
+pub(crate) const PDF_EXTENSION: &str = "pdf";
+pub(crate) const PNG_EXTENSION: &str = "png";
+pub(crate) const TIF_EXTENSION: &str = "tif";
+pub(crate) const TIFF_EXTENSION: &str = "tiff";
+pub(crate) const WEBP_EXTENSION: &str = "webp";
 
-// Folders
+// folders
 pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
 
-// Frontmatter delimiters
+// frontmatter delimiters
 pub(crate) const FRONTMATTER_DELIMITER_LINE_COUNT: usize = 2;
 pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
 pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 
-// Markdown link syntax
+// markdown link syntax
 pub(crate) const IMAGE_LINK_PREFIX: &str = "![";
 pub(crate) const MARKDOWN_LINK_SEPARATOR: &str = "](";
 
-// Markdown outline levels
+// markdown outline levels
 pub(crate) const LEVEL1: &str = "#";
 pub(crate) const LEVEL2: &str = "##";
 pub(crate) const LEVEL3: &str = "###";
 
-// Matching
+// markdown tables
+pub(crate) const MARKDOWN_TABLE_ALIGNMENT_CENTER: &str = ":---:";
+pub(crate) const MARKDOWN_TABLE_ALIGNMENT_LEFT: &str = ":---";
+pub(crate) const MARKDOWN_TABLE_ALIGNMENT_RIGHT: &str = "---:";
+pub(crate) const MARKDOWN_TABLE_ROW_TEMPLATE: &str = "| {} |";
+pub(crate) const MARKDOWN_TABLE_SEPARATOR: &str = "---";
+pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";
+
+// matching
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
 pub(crate) const FORWARD_SLASH: char = '/';
 pub(crate) const OPENING_BRACKET: char = '[';
 pub(crate) const OPENING_PAREN: char = '(';
 pub(crate) const OPENING_WIKILINK: &str = "[[";
 
-// Processing
+// processing
 #[cfg(debug_assertions)]
 pub(crate) const DEV: &str = "dev";
 pub(crate) const ERROR_DETAILS: &str = "error details:";
@@ -73,11 +98,11 @@ pub(crate) const RELEASE: &str = "release";
 pub(crate) const TOTAL_TIME: &str = "total time";
 pub(crate) const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
 
-// Report image handling
+// report image handling
 pub(crate) const REPORT_CHUNK_SIZE: usize = 500;
 pub(crate) const THUMBNAIL_WIDTH: usize = 50;
 
-// Report strings
+// report strings
 pub(crate) const ACTION: &str = "action";
 pub(crate) const ADD_FRONTMATTER: &str = "add frontmatter";
 pub(crate) const AFTER: &str = "after";

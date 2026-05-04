@@ -12,6 +12,12 @@ use filetime::FileTime;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
+#[cfg(target_os = "macos")]
+use super::constants::SET_FILE_CREATED_DATE_FLAG;
+#[cfg(target_os = "macos")]
+use super::constants::SET_FILE_CREATED_DATE_FORMAT;
+#[cfg(target_os = "macos")]
+use super::constants::SET_FILE_EXECUTABLE;
 use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
@@ -168,10 +174,10 @@ pub fn set_file_dates(
         // the UTC instant in system-local time to round-trip the correct UTC instant
         // regardless of where this machine is physically located.
         let local_time: DateTime<chrono::Local> = created_date.into();
-        let formatted_date = local_time.format("%m/%d/%Y %H:%M:%S").to_string();
+        let formatted_date = local_time.format(SET_FILE_CREATED_DATE_FORMAT).to_string();
 
-        let output = std::process::Command::new("SetFile")
-            .arg("-d")
+        let output = std::process::Command::new(SET_FILE_EXECUTABLE)
+            .arg(SET_FILE_CREATED_DATE_FLAG)
             .arg(&formatted_date)
             .arg(path)
             .output()?;

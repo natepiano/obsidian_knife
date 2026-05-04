@@ -6,6 +6,12 @@ use std::path::Path;
 use std::sync::Mutex;
 use std::sync::MutexGuard;
 
+use crate::constants::MARKDOWN_TABLE_ALIGNMENT_CENTER;
+use crate::constants::MARKDOWN_TABLE_ALIGNMENT_LEFT;
+use crate::constants::MARKDOWN_TABLE_ALIGNMENT_RIGHT;
+use crate::constants::MARKDOWN_TABLE_ROW_TEMPLATE;
+use crate::constants::MARKDOWN_TABLE_SEPARATOR;
+use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
 use crate::constants::OUTPUT_MARKDOWN_FILE;
 
 pub(crate) struct OutputFileWriter {
@@ -20,6 +26,10 @@ pub(crate) enum ColumnAlignment {
 }
 
 impl OutputFileWriter {
+    fn markdown_table_row(cells: &str) -> String {
+        MARKDOWN_TABLE_ROW_TEMPLATE.replacen("{}", cells, 1)
+    }
+
     fn lock_file(&self) -> io::Result<MutexGuard<'_, File>> {
         self.file
             .lock()
@@ -48,40 +58,39 @@ impl OutputFileWriter {
     ) -> io::Result<()> {
         let separator = alignments.map_or_else(
             || {
-                format!(
-                    "| {} |",
-                    headers
+                Self::markdown_table_row(
+                    &headers
                         .iter()
-                        .map(|_| "---")
+                        .map(|_| MARKDOWN_TABLE_SEPARATOR)
                         .collect::<Vec<_>>()
-                        .join(" | ")
+                        .join(" | "),
                 )
             },
             |aligns| {
                 let sep: Vec<String> = aligns
                     .iter()
-                    .map(|&a| match a {
-                        ColumnAlignment::Left => ":---".to_string(),
-                        ColumnAlignment::Center => ":---:".to_string(),
-                        ColumnAlignment::Right => "---:".to_string(),
+                    .map(|&alignment| match alignment {
+                        ColumnAlignment::Left => MARKDOWN_TABLE_ALIGNMENT_LEFT.to_string(),
+                        ColumnAlignment::Center => MARKDOWN_TABLE_ALIGNMENT_CENTER.to_string(),
+                        ColumnAlignment::Right => MARKDOWN_TABLE_ALIGNMENT_RIGHT.to_string(),
                     })
                     .collect();
-                format!("| {} |", sep.join(" | "))
+                Self::markdown_table_row(&sep.join(" | "))
             },
         );
 
         let mut file = self.lock_file()?;
 
         // markdown tables always have to have a blank line before them
-        writeln!(file, "\n| {} |", headers.join(" | "))?;
+        writeln!(file, "\n{}", Self::markdown_table_row(&headers.join(" | ")))?;
         writeln!(file, "{separator}")?;
 
         for row in rows {
-            writeln!(file, "| {} |", row.join(" | "))?;
+            writeln!(file, "{}", Self::markdown_table_row(&row.join(" | ")))?;
         }
 
         // there has to be a blank line after a table or it won't render
-        writeln!(file, "\n---")?;
+        writeln!(file, "{MARKDOWN_TABLE_TRAILING_SEPARATOR}")?;
 
         file.flush()?;
         drop(file);

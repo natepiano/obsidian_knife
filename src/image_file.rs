@@ -10,7 +10,14 @@ use derive_more::IntoIterator;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::constants::GIF_EXTENSION;
+use crate::constants::JPEG_EXTENSION;
+use crate::constants::JPG_EXTENSION;
+use crate::constants::PNG_EXTENSION;
+use crate::constants::TIF_EXTENSION;
+use crate::constants::TIFF_EXTENSION;
 use crate::constants::UNKNOWN;
+use crate::constants::WEBP_EXTENSION;
 use crate::vec_enum_filter::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -55,11 +62,11 @@ pub(crate) enum ImageFileType {
 impl From<&str> for ImageFileType {
     fn from(extension: &str) -> Self {
         match extension.to_lowercase().as_str() {
-            "tiff" | "tif" => Self::Tiff,
-            "jpg" | "jpeg" => Self::Jpeg,
-            "png" => Self::Png,
-            "gif" => Self::Gif,
-            "webp" => Self::WebP,
+            TIFF_EXTENSION | TIF_EXTENSION => Self::Tiff,
+            JPG_EXTENSION | JPEG_EXTENSION => Self::Jpeg,
+            PNG_EXTENSION => Self::Png,
+            GIF_EXTENSION => Self::Gif,
+            WEBP_EXTENSION => Self::WebP,
             other => Self::Other(other.to_string()),
         }
     }

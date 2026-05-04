@@ -237,13 +237,19 @@ pub(super) fn process_date_validations(
     date_created_fix_validation: &DateCreatedFixValidation,
     operational_timezone: &str,
 ) -> Vec<PersistReason> {
+    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+    enum CreatedDateUpdate {
+        Skip,
+        IfInvalid,
+    }
+
     let mut reasons = Vec::new();
 
     if let Some(frontmatter) = frontmatter {
-        let mut skip_date_created = false;
+        let mut created_date_update = CreatedDateUpdate::IfInvalid;
 
         if let Some(fix_date) = date_created_fix_validation.fix_date {
-            skip_date_created = true;
+            created_date_update = CreatedDateUpdate::Skip;
 
             frontmatter.set_date_created(fix_date, operational_timezone);
             frontmatter.remove_date_created_fix();
@@ -252,7 +258,7 @@ pub(super) fn process_date_validations(
 
         // Update created date if there's an issue
         if let Some(ref issue) = created_validation.issue
-            && !skip_date_created
+            && created_date_update == CreatedDateUpdate::IfInvalid
         {
             frontmatter.set_date_created(created_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateCreatedUpdated {

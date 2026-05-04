@@ -1,3 +1,6 @@
+use super::constants::FENCED_CODE_DELIMITER;
+use super::constants::INLINE_CODE_DELIMITER;
+
 #[derive(Debug, PartialEq)]
 enum CodeBlockDelimiter {
     Backtick,
@@ -8,7 +11,7 @@ impl TryFrom<&str> for CodeBlockDelimiter {
     type Error = (); // Using unit type for error since we don't care if it fails
 
     fn try_from(s: &str) -> Result<Self, Self::Error> {
-        if s.trim().starts_with("```") {
+        if s.trim().starts_with(FENCED_CODE_DELIMITER) {
             Ok(Self::TripleBacktick)
         } else {
             Err(())
@@ -21,7 +24,7 @@ impl TryFrom<char> for CodeBlockDelimiter {
 
     fn try_from(c: char) -> Result<Self, Self::Error> {
         match c {
-            '`' => Ok(Self::Backtick),
+            INLINE_CODE_DELIMITER => Ok(Self::Backtick),
             _ => Err(()),
         }
     }

@@ -237,8 +237,14 @@ impl ObsidianRepository {
         config: &ValidatedConfig,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
+        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+        enum HeaderState {
+            Pending,
+            Written,
+        }
+
         // Only write the header if we find at least one group with deletable duplicates
-        let mut header_written = false;
+        let mut header_state = HeaderState::Pending;
 
         // Collect both duplicates and keepers by hash
         let mut grouped_by_hash: HashMap<ImageHash, Vec<ImageFile>> = HashMap::new();
@@ -270,9 +276,9 @@ impl ObsidianRepository {
                 matches!(image.state, ImageFileState::Duplicate { .. })
                     && image.deletion == DeletionStatus::Delete
             }) {
-                if !header_written {
+                if header_state == HeaderState::Pending {
                     writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
-                    header_written = true;
+                    header_state = HeaderState::Written;
                 }
 
                 let report = ReportWriter::new(images.clone()).with_validated_config(config);

@@ -1,3 +1,4 @@
+mod constants;
 mod escaping;
 mod filesystem;
 mod patterns;
