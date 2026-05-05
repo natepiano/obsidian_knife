@@ -158,19 +158,19 @@ impl ReportDefinition for AmbiguousMatchesTable {
     fn level(&self) -> &'static str { LEVEL2 }
 }
 
-struct TargetReferencesTable {
+struct TargetLinesTable {
     target: String,
 }
 
 #[derive(Clone)]
-struct TargetReference {
-    file_path:   PathBuf,
-    line_number: usize,
-    line_text:   String,
+struct TargetLine {
+    file_path: PathBuf,
+    number:    usize,
+    text:      String,
 }
 
-impl ReportDefinition for TargetReferencesTable {
-    type Item = TargetReference;
+impl ReportDefinition for TargetLinesTable {
+    type Item = TargetLine;
 
     fn headers(&self) -> Vec<&str> { vec![TABLE_HEADER_FILE_NAME, TABLE_HEADER_LINE, TEXT] }
 
@@ -198,8 +198,8 @@ impl ReportDefinition for TargetReferencesTable {
 
                 vec![
                     file_stem.to_wikilink(),
-                    item.line_number.to_string(),
-                    support::escape_pipe(&item.line_text),
+                    item.number.to_string(),
+                    support::escape_pipe(&item.text),
                 ]
             })
             .collect();
@@ -304,13 +304,13 @@ impl ObsidianRepository {
             let report = ReportWriter::new(matches.clone());
             report.write(&table, writer)?;
 
-            // Write per-target reference tables
+            // Write per-target line tables
             for target in &sorted_targets {
-                let references = self.collect_target_references(target);
-                let target_table = TargetReferencesTable {
+                let lines = self.collect_target_lines(target);
+                let target_table = TargetLinesTable {
                     target: target.clone(),
                 };
-                let report = ReportWriter::new(references);
+                let report = ReportWriter::new(lines);
                 report.write(&target_table, writer)?;
             }
         }
@@ -318,7 +318,7 @@ impl ObsidianRepository {
         Ok(())
     }
 
-    fn collect_target_references(&self, target: &str) -> Vec<TargetReference> {
+    fn collect_target_lines(&self, target: &str) -> Vec<TargetLine> {
         let target_lower = target.to_lowercase();
 
         self.markdown_files
@@ -338,10 +338,10 @@ impl ObsidianRepository {
                         let line_lower = line.to_lowercase();
                         line_lower.contains(&format!("[[{target_lower}"))
                     })
-                    .map(move |(idx, line)| TargetReference {
-                        file_path:   file.path.clone(),
-                        line_number: frontmatter_offset + idx + 1,
-                        line_text:   line.to_string(),
+                    .map(move |(idx, line)| TargetLine {
+                        file_path: file.path.clone(),
+                        number:    frontmatter_offset + idx + 1,
+                        text:      line.to_string(),
                     })
             })
             .collect()

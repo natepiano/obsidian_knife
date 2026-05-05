@@ -13,41 +13,60 @@ use super::*;
 use crate::constants::FORMAT_DATE;
 use crate::markdown_file::MarkdownFile;
 use crate::test_support as test_utils;
+use crate::test_support::PersistExpectation;
 use crate::test_support::TestFileBuilder;
 
 #[derive(Debug)]
-struct PersistenceTestCase {
-    name:                         &'static str,
-    // Input state
-    initial_frontmatter_created:  Option<String>,
-    initial_frontmatter_modified: Option<String>,
-    initial_file_system_created:  DateTime<Utc>,
-    initial_file_system_modified: DateTime<Utc>,
+struct FrontmatterDates {
+    created:  Option<String>,
+    modified: Option<String>,
+}
 
-    // Expected outcomes
-    expected_frontmatter_created:  Option<String>,
-    expected_frontmatter_modified: Option<String>,
-    expected_file_system_created:  NaiveDate,
-    expected_file_system_modified: NaiveDate,
-    should_persist:                bool,
+#[derive(Debug)]
+struct FileSystemDates<T> {
+    created:  T,
+    modified: T,
+}
+
+#[derive(Debug)]
+struct PersistenceState<T> {
+    frontmatter: FrontmatterDates,
+    file_system: FileSystemDates<T>,
+}
+
+#[derive(Debug)]
+struct PersistenceOutcome {
+    dates:   PersistenceState<NaiveDate>,
+    persist: PersistExpectation,
+}
+
+#[derive(Debug)]
+struct PersistenceTestCase {
+    name:     &'static str,
+    initial:  PersistenceState<DateTime<Utc>>,
+    expected: PersistenceOutcome,
 }
 
 fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) -> PathBuf {
     // Format dates in wikilink format if they exist
     let created = case
-        .initial_frontmatter_created
+        .initial
+        .frontmatter
+        .created
         .as_ref()
         .map(|d| format!("[[{d}]]"));
     let modified = case
-        .initial_frontmatter_modified
+        .initial
+        .frontmatter
+        .modified
         .as_ref()
         .map(|d| format!("[[{d}]]"));
 
     TestFileBuilder::new()
         .with_frontmatter_dates(created, modified)
         .with_fs_dates(
-            case.initial_file_system_created,
-            case.initial_file_system_modified,
+            case.initial.file_system.created,
+            case.initial.file_system.modified,
         )
         .create(temp_dir, "test.md")
 }
@@ -59,7 +78,7 @@ fn verify_dates(
     if let Some(frontmatter) = &info.frontmatter {
         assert_eq!(
             frontmatter.needs_persist(),
-            case.should_persist,
+            case.expected.persist.needs_persist(),
             "Persistence flag mismatch for case: {}",
             case.name
         );
@@ -70,7 +89,7 @@ fn verify_dates(
                 .trim_matches('[')
                 .trim_matches(']')
                 .to_string()),
-            case.expected_frontmatter_created,
+            case.expected.dates.frontmatter.created,
             "Frontmatter created date mismatch for case: {}",
             case.name
         );
@@ -81,12 +100,12 @@ fn verify_dates(
                 .trim_matches('[')
                 .trim_matches(']')
                 .to_string()),
-            case.expected_frontmatter_modified,
+            case.expected.dates.frontmatter.modified,
             "Frontmatter modified date mismatch for case: {}",
             case.name
         );
-    } else if case.expected_frontmatter_created.is_some()
-        || case.expected_frontmatter_modified.is_some()
+    } else if case.expected.dates.frontmatter.created.is_some()
+        || case.expected.dates.frontmatter.modified.is_some()
     {
         panic!(
             "Expected frontmatter but none found for case: {}",
@@ -118,13 +137,13 @@ fn verify_dates(
 
     // Compare dates
     assert_eq!(
-        file_system_created_date, case.expected_file_system_created,
+        file_system_created_date, case.expected.dates.file_system.created,
         "Filesystem created date mismatch for case: {}",
         case.name
     );
 
     assert_eq!(
-        file_system_modified_date, case.expected_file_system_modified,
+        file_system_modified_date, case.expected.dates.file_system.modified,
         "Filesystem modified date mismatch for case: {}",
         case.name
     );
@@ -167,41 +186,82 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
 
     vec![
         PersistenceTestCase {
-            name:                          "no changes needed - dates match",
-            // Both frontmatter and fs should use January 1st
-            initial_frontmatter_created:   Some("2024-01-01".to_string()),
-            initial_frontmatter_modified:  Some("2024-01-01".to_string()),
-            initial_file_system_created:   test_utils::eastern_midnight(2024, 1, 1),
-            initial_file_system_modified:  test_utils::eastern_midnight(2024, 1, 1),
-            expected_frontmatter_created:  Some("2024-01-01".to_string()),
-            expected_frontmatter_modified: Some("2024-01-01".to_string()),
-            expected_file_system_created:  NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-            expected_file_system_modified: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-            should_persist:                false,
+            name:     "no changes needed - dates match",
+            initial:  PersistenceState {
+                frontmatter: FrontmatterDates {
+                    created:  Some("2024-01-01".to_string()),
+                    modified: Some("2024-01-01".to_string()),
+                },
+                file_system: FileSystemDates {
+                    created:  test_utils::eastern_midnight(2024, 1, 1),
+                    modified: test_utils::eastern_midnight(2024, 1, 1),
+                },
+            },
+            expected: PersistenceOutcome {
+                dates:   PersistenceState {
+                    frontmatter: FrontmatterDates {
+                        created:  Some("2024-01-01".to_string()),
+                        modified: Some("2024-01-01".to_string()),
+                    },
+                    file_system: FileSystemDates {
+                        created:  NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                        modified: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
+                    },
+                },
+                persist: PersistExpectation::DoesNotPersist,
+            },
         },
         PersistenceTestCase {
-            name:                          "created date mismatch triggers both dates update",
-            initial_frontmatter_created:   Some("2024-01-15".to_string()),
-            initial_frontmatter_modified:  Some("2024-01-15".to_string()),
-            initial_file_system_created:   test_utils::eastern_midnight(2024, 1, 20),
-            initial_file_system_modified:  test_utils::eastern_midnight(2024, 1, 20),
-            expected_frontmatter_created:  Some("2024-01-20".to_string()),
-            expected_frontmatter_modified: Some("2024-01-20".to_string()),
-            expected_file_system_created:  NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-            expected_file_system_modified: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-            should_persist:                true,
+            name:     "created date mismatch triggers both dates update",
+            initial:  PersistenceState {
+                frontmatter: FrontmatterDates {
+                    created:  Some("2024-01-15".to_string()),
+                    modified: Some("2024-01-15".to_string()),
+                },
+                file_system: FileSystemDates {
+                    created:  test_utils::eastern_midnight(2024, 1, 20),
+                    modified: test_utils::eastern_midnight(2024, 1, 20),
+                },
+            },
+            expected: PersistenceOutcome {
+                dates:   PersistenceState {
+                    frontmatter: FrontmatterDates {
+                        created:  Some("2024-01-20".to_string()),
+                        modified: Some("2024-01-20".to_string()),
+                    },
+                    file_system: FileSystemDates {
+                        created:  NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+                        modified: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
+                    },
+                },
+                persist: PersistExpectation::Persists,
+            },
         },
         PersistenceTestCase {
-            name:                          "invalid dates fixed from filesystem",
-            initial_frontmatter_created:   Some("invalid date".to_string()),
-            initial_frontmatter_modified:  Some("also invalid".to_string()),
-            initial_file_system_created:   last_week,
-            initial_file_system_modified:  last_week,
-            expected_frontmatter_created:  Some(last_week.format(FORMAT_DATE).to_string()),
-            expected_frontmatter_modified: Some(last_week.format(FORMAT_DATE).to_string()),
-            expected_file_system_created:  last_week.date_naive(),
-            expected_file_system_modified: last_week.date_naive(),
-            should_persist:                true,
+            name:     "invalid dates fixed from filesystem",
+            initial:  PersistenceState {
+                frontmatter: FrontmatterDates {
+                    created:  Some("invalid date".to_string()),
+                    modified: Some("also invalid".to_string()),
+                },
+                file_system: FileSystemDates {
+                    created:  last_week,
+                    modified: last_week,
+                },
+            },
+            expected: PersistenceOutcome {
+                dates:   PersistenceState {
+                    frontmatter: FrontmatterDates {
+                        created:  Some(last_week.format(FORMAT_DATE).to_string()),
+                        modified: Some(last_week.format(FORMAT_DATE).to_string()),
+                    },
+                    file_system: FileSystemDates {
+                        created:  last_week.date_naive(),
+                        modified: last_week.date_naive(),
+                    },
+                },
+                persist: PersistExpectation::Persists,
+            },
         },
     ]
 }

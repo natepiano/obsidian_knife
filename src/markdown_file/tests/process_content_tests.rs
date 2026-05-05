@@ -6,6 +6,7 @@ use super::ImageLinkTarget;
 use super::ImageLinkType;
 use super::MarkdownFile;
 use crate::support::IMAGE_REGEX;
+use crate::test_support::AliasExpectation;
 use crate::test_support::TestFileBuilder;
 use crate::wikilink::InvalidWikilinkReason;
 use crate::wikilink::Wikilink;
@@ -14,16 +15,17 @@ fn assert_contains_wikilink(
     wikilinks: &[Wikilink],
     target: &str,
     display: Option<&str>,
-    is_alias: bool,
+    alias_expectation: AliasExpectation,
 ) {
     let exists = wikilinks.iter().any(|w| {
         w.target == target
             && w.display_text == display.unwrap_or(target)
-            && w.is_alias() == is_alias
+            && w.is_alias() == alias_expectation.is_alias()
     });
     assert!(
         exists,
-        "Expected wikilink with target '{target}', display '{display:?}', is_alias '{is_alias}'"
+        "Expected wikilink with target '{target}', display '{display:?}', alias '{}'",
+        alias_expectation.is_alias()
     );
 }
 
@@ -43,11 +45,36 @@ fn test_process_content_with_aliases() {
     let image_links = markdown_file.process_image_links();
 
     // Verify expected wikilinks
-    assert_contains_wikilink(&extracted.valid, "test file", None, false);
-    assert_contains_wikilink(&extracted.valid, "test file", Some("Alias One"), true);
-    assert_contains_wikilink(&extracted.valid, "test file", Some("Alias Two"), true);
-    assert_contains_wikilink(&extracted.valid, "Regular Link", None, false);
-    assert_contains_wikilink(&extracted.valid, "Target", Some("Display Text"), true);
+    assert_contains_wikilink(
+        &extracted.valid,
+        "test file",
+        None,
+        AliasExpectation::DirectLink,
+    );
+    assert_contains_wikilink(
+        &extracted.valid,
+        "test file",
+        Some("Alias One"),
+        AliasExpectation::Alias,
+    );
+    assert_contains_wikilink(
+        &extracted.valid,
+        "test file",
+        Some("Alias Two"),
+        AliasExpectation::Alias,
+    );
+    assert_contains_wikilink(
+        &extracted.valid,
+        "Regular Link",
+        None,
+        AliasExpectation::DirectLink,
+    );
+    assert_contains_wikilink(
+        &extracted.valid,
+        "Target",
+        Some("Display Text"),
+        AliasExpectation::Alias,
+    );
 
     // Verify no invalid wikilinks in this case
     assert!(
@@ -73,8 +100,13 @@ fn test_process_content_with_invalid() {
     let image_links = markdown_file.process_image_links();
 
     // Check valid wikilinks
-    assert_contains_wikilink(&extracted.valid, "test", None, false); // filename
-    assert_contains_wikilink(&extracted.valid, "good link", None, false);
+    assert_contains_wikilink(&extracted.valid, "test", None, AliasExpectation::DirectLink);
+    assert_contains_wikilink(
+        &extracted.valid,
+        "good link",
+        None,
+        AliasExpectation::DirectLink,
+    );
 
     // Verify invalid wikilinks with line information
     assert_eq!(
@@ -163,8 +195,8 @@ fn test_process_content_with_images() {
     let image_links = markdown_file.process_image_links();
 
     // Check wikilinks
-    assert_contains_wikilink(&extracted.valid, "test", None, false);
-    assert_contains_wikilink(&extracted.valid, "link", None, false);
+    assert_contains_wikilink(&extracted.valid, "test", None, AliasExpectation::DirectLink);
+    assert_contains_wikilink(&extracted.valid, "link", None, AliasExpectation::DirectLink);
 
     // Check image links
     assert_eq!(image_links.len(), 2, "Should have two image links");
@@ -180,17 +212,17 @@ fn test_process_content_with_images() {
 
 #[derive(Debug)]
 struct ImageLinkTestCase {
-    input:             &'static str,
-    expected_filename: &'static str,
-    expected_type:     ImageLinkType,
+    input:     &'static str,
+    filename:  &'static str,
+    link_type: ImageLinkType,
 }
 
 impl ImageLinkTestCase {
     const fn new(input: &'static str, filename: &'static str, link_type: ImageLinkType) -> Self {
         Self {
             input,
-            expected_filename: filename,
-            expected_type: link_type,
+            filename,
+            link_type,
         }
     }
 }
@@ -252,12 +284,12 @@ fn test_image_link_types() {
         let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0).unwrap();
 
         assert_eq!(
-            image_link.filename, case.expected_filename,
+            image_link.filename, case.filename,
             "Filename mismatch for input: {}",
             case.input
         );
         assert_eq!(
-            image_link.link_type, case.expected_type,
+            image_link.link_type, case.link_type,
             "ImageLinkType mismatch for input: {}",
             case.input
         );

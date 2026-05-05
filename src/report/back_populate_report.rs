@@ -76,10 +76,10 @@ impl ReportDefinition for BackPopulateTable {
             let file_path = Path::new(&entry.file_path);
             let file_stem = file_path.file_stem().and_then(OsStr::to_str).unwrap_or("");
 
-            for line_info in entry.line_info {
+            for match_line in entry.lines {
                 let highlighted_line = orchestration::highlight_matches(
-                    &line_info.line_text,
-                    &line_info.positions,
+                    &match_line.text,
+                    &match_line.positions,
                     self.display_text.len(),
                 );
 
@@ -91,9 +91,9 @@ impl ReportDefinition for BackPopulateTable {
 
                 table_rows.push(vec![
                     file_stem.to_wikilink(),
-                    line_info.line_number.to_string(),
+                    match_line.number.to_string(),
                     support::escape_pipe(&highlighted_line),
-                    line_info.positions.len().to_string(),
+                    match_line.positions.len().to_string(),
                     replacement.clone(),
                     support::escape_brackets(&replacement),
                 ]);
@@ -193,31 +193,31 @@ impl ObsidianRepository {
 #[derive(Debug, Clone)]
 struct ConsolidatedMatch {
     file_path:     String,
-    line_info:     Vec<LineInfo>,
+    lines:         Vec<MatchLine>,
     replacement:   String,
     match_context: MatchContext,
 }
 
 #[derive(Debug, Clone)]
-struct LineInfo {
-    line_number: usize,
-    line_text:   String,
-    positions:   Vec<usize>,
+struct MatchLine {
+    number:    usize,
+    text:      String,
+    positions: Vec<usize>,
 }
 
 fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> {
-    let mut line_map: HashMap<(String, usize), LineInfo> = HashMap::new();
+    let mut line_map: HashMap<(String, usize), MatchLine> = HashMap::new();
     let mut file_info: HashMap<String, (String, MatchContext)> = HashMap::new();
 
     for match_info in matches {
         let key = (match_info.relative_path.clone(), match_info.line_number);
 
-        let line_info = line_map.entry(key).or_insert_with(|| LineInfo {
-            line_number: match_info.line_number,
-            line_text:   match_info.line_text.clone(),
-            positions:   Vec::new(),
+        let match_line = line_map.entry(key).or_insert_with(|| MatchLine {
+            number:    match_info.line_number,
+            text:      match_info.line_text.clone(),
+            positions: Vec::new(),
         });
-        line_info.positions.push(match_info.position);
+        match_line.positions.push(match_info.position);
 
         file_info.insert(
             match_info.relative_path.clone(),
@@ -230,17 +230,17 @@ fn consolidate_matches(matches: &[BackPopulateMatch]) -> Vec<ConsolidatedMatch> 
 
     let mut result = Vec::new();
     for (file_path, (replacement, match_context)) in file_info {
-        let mut file_lines: Vec<LineInfo> = line_map
+        let mut file_lines: Vec<MatchLine> = line_map
             .iter()
             .filter(|((path, _), _)| path == &file_path)
-            .map(|((_, _), line_info)| line_info.clone())
+            .map(|((_, _), match_line)| match_line.clone())
             .collect();
 
-        file_lines.sort_by_key(|line| line.line_number);
+        file_lines.sort_by_key(|line| line.number);
 
         result.push(ConsolidatedMatch {
             file_path,
-            line_info: file_lines,
+            lines: file_lines,
             replacement,
             match_context,
         });

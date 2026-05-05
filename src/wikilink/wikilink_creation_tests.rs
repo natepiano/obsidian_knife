@@ -2,6 +2,8 @@ use super::ToWikilink;
 use super::wikilink_parser;
 use super::wikilink_parser::WikilinkParseResult;
 use super::*;
+use crate::test_support::AliasExpectation;
+
 /// Helper function to parse a full wikilink string.
 /// It ensures the input starts with `[[` and ends with `]]`,
 /// extracts the inner content, and passes it to `parse_wikilink`.
@@ -22,7 +24,7 @@ fn assert_valid_wikilink(
     input: &str,
     expected_target: &str,
     expected_display: &str,
-    expected_is_alias: bool,
+    alias_expectation: AliasExpectation,
 ) {
     let result = parse_full_wikilink(input).expect("Failed to parse wikilink");
 
@@ -38,7 +40,7 @@ fn assert_valid_wikilink(
             );
             assert_eq!(
                 wikilink.is_alias(),
-                expected_is_alias,
+                alias_expectation.is_alias(),
                 "Alias flag mismatch for input: {input}"
             );
         },
@@ -121,20 +123,45 @@ fn test_empty_wikilink_variants() {
 fn test_parse_wikilink_basic_and_aliased() {
     let test_cases = vec![
         // Basic cases
-        ("[[test]]", "test", "test", false),
-        ("[[simple link]]", "simple link", "simple link", false),
-        ("[[  spaced  ]]", "spaced", "spaced", false),
-        ("[[测试]]", "测试", "测试", false),
+        ("[[test]]", "test", "test", AliasExpectation::DirectLink),
+        (
+            "[[simple link]]",
+            "simple link",
+            "simple link",
+            AliasExpectation::DirectLink,
+        ),
+        (
+            "[[  spaced  ]]",
+            "spaced",
+            "spaced",
+            AliasExpectation::DirectLink,
+        ),
+        ("[[测试]]", "测试", "测试", AliasExpectation::DirectLink),
         // Aliased cases
-        ("[[target|display]]", "target", "display", true),
-        ("[[  target  |  display  ]]", "target", "display", true),
-        ("[[测试|test]]", "测试", "test", true),
-        ("[[test|测试]]", "test", "测试", true),
-        ("[[a/b/c|display]]", "a/b/c", "display", true),
+        (
+            "[[target|display]]",
+            "target",
+            "display",
+            AliasExpectation::Alias,
+        ),
+        (
+            "[[  target  |  display  ]]",
+            "target",
+            "display",
+            AliasExpectation::Alias,
+        ),
+        ("[[测试|test]]", "测试", "test", AliasExpectation::Alias),
+        ("[[test|测试]]", "test", "测试", AliasExpectation::Alias),
+        (
+            "[[a/b/c|display]]",
+            "a/b/c",
+            "display",
+            AliasExpectation::Alias,
+        ),
     ];
 
-    for (input, target, display, is_alias) in test_cases {
-        assert_valid_wikilink(input, target, display, is_alias);
+    for (input, target, display, alias_expectation) in test_cases {
+        assert_valid_wikilink(input, target, display, alias_expectation);
     }
 }
 
@@ -182,33 +209,43 @@ fn test_parse_wikilink_double_alias() {
 fn test_parse_wikilink_escaped_chars() {
     let test_cases = vec![
         // Regular escape in target
-        ("[[test\\]text]]", "test]text", "test]text", false),
+        (
+            "[[test\\]text]]",
+            "test]text",
+            "test]text",
+            AliasExpectation::DirectLink,
+        ),
         // Escaped characters in aliased link
-        ("[[target|display\\]text]]", "target", "display]text", true),
+        (
+            "[[target|display\\]text]]",
+            "target",
+            "display]text",
+            AliasExpectation::Alias,
+        ),
         // Multiple escaped characters
         (
             "[[test\\]with\\[brackets]]",
             "test]with[brackets",
             "test]with[brackets",
-            false,
+            AliasExpectation::DirectLink,
         ),
         // Escaped single brackets
         (
             "[[text\\[in\\]brackets]]",
             "text[in]brackets",
             "text[in]brackets",
-            false,
+            AliasExpectation::DirectLink,
         ),
         (
             "[[target\\[x\\]|display\\[y\\]]]",
             "target[x]",
             "display[y]",
-            true,
+            AliasExpectation::Alias,
         ),
     ];
 
-    for (input, target, display, is_alias) in test_cases {
-        assert_valid_wikilink(input, target, display, is_alias);
+    for (input, target, display, alias_expectation) in test_cases {
+        assert_valid_wikilink(input, target, display, alias_expectation);
     }
 }
 
@@ -252,19 +289,39 @@ fn test_parse_wikilink_unmatched_brackets() {
 #[test]
 fn test_parse_wikilink_special_chars() {
     let test_cases = vec![
-        ("[[!@#$%^&*()]]", "!@#$%^&*()", "!@#$%^&*()", false),
+        (
+            "[[!@#$%^&*()]]",
+            "!@#$%^&*()",
+            "!@#$%^&*()",
+            AliasExpectation::DirectLink,
+        ),
         (
             "[[../path/to/file]]",
             "../path/to/file",
             "../path/to/file",
-            false,
+            AliasExpectation::DirectLink,
         ),
-        ("[[file (1)]]", "file (1)", "file (1)", false),
-        ("[[file (1)|version 1]]", "file (1)", "version 1", true),
-        ("[[target|(text)]]", "target", "(text)", true),
+        (
+            "[[file (1)]]",
+            "file (1)",
+            "file (1)",
+            AliasExpectation::DirectLink,
+        ),
+        (
+            "[[file (1)|version 1]]",
+            "file (1)",
+            "version 1",
+            AliasExpectation::Alias,
+        ),
+        (
+            "[[target|(text)]]",
+            "target",
+            "(text)",
+            AliasExpectation::Alias,
+        ),
     ];
 
-    for (input, target, display, is_alias) in test_cases {
-        assert_valid_wikilink(input, target, display, is_alias);
+    for (input, target, display, alias_expectation) in test_cases {
+        assert_valid_wikilink(input, target, display, alias_expectation);
     }
 }

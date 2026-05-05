@@ -38,8 +38,6 @@ pub(super) trait ReportDefinition<C = ()> {
 
     /// markdown level
     fn level(&self) -> &'static str;
-
-    fn hide_title_if_no_rows(&self) -> bool { true }
 }
 
 /// Writes out the `ReportDefinition`.
@@ -75,7 +73,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         report: &B,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if self.items.is_empty() && report.hide_title_if_no_rows() {
+        if self.items.is_empty() {
             return Ok(());
         }
 

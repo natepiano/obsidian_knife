@@ -12,6 +12,7 @@ use super::date_validation;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::frontmatter::FrontMatter;
 use crate::test_support as test_utils;
+use crate::test_support::PersistExpectation;
 use crate::test_support::TestFileBuilder;
 use crate::yaml_frontmatter::YamlFrontMatter;
 
@@ -34,15 +35,33 @@ fn eastern_date_wikilink(year: i32, month: u32, day: u32) -> String {
     test_utils::frontmatter_date_wikilink(test_utils::eastern_midnight(year, month, day))
 }
 
-// Main test case struct for validating dates
+struct FileSystemDates {
+    modified: DateTime<Utc>,
+    created:  DateTime<Utc>,
+}
+
+struct ValidationIssues {
+    modified: Option<DateValidationIssue>,
+    created:  Option<DateValidationIssue>,
+}
+
+struct DateFixExpectations {
+    persist:  PersistExpectation,
+    modified: Option<String>,
+    created:  Option<String>,
+}
+
+struct DateCreatedFixExpectations {
+    persist:     PersistExpectation,
+    parsed_date: Option<DateTime<Utc>>,
+}
+
 struct DateValidationTestCase {
-    name:                    &'static str,
-    modified:                Option<String>,
-    created:                 Option<String>,
-    file_system_modified:    DateTime<Utc>,
-    file_system_created:     DateTime<Utc>,
-    expected_modified_issue: Option<DateValidationIssue>,
-    expected_created_issue:  Option<DateValidationIssue>,
+    name:        &'static str,
+    modified:    Option<String>,
+    created:     Option<String>,
+    file_system: FileSystemDates,
+    issues:      ValidationIssues,
 }
 
 #[test]
@@ -53,51 +72,71 @@ struct DateValidationTestCase {
 fn test_process_frontmatter_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
-            name:                    "both dates valid and matching filesystem",
-            modified:                Some(eastern_date_wikilink(2024, 1, 15)),
-            created:                 Some(eastern_date_wikilink(2024, 1, 15)),
-            file_system_modified:    test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:     test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified_issue: None,
-            expected_created_issue:  None,
+            name:        "both dates valid and matching filesystem",
+            modified:    Some(eastern_date_wikilink(2024, 1, 15)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            issues:      ValidationIssues {
+                modified: None,
+                created:  None,
+            },
         },
         DateValidationTestCase {
-            name:                    "missing wikilink brackets",
+            name:        "missing wikilink brackets",
             // malformed-on-purpose — do not derive from production constants
-            modified:                Some("2024-01-15".to_string()),
-            created:                 Some("2024-01-15".to_string()),
-            file_system_modified:    test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:     test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified_issue: Some(DateValidationIssue::InvalidWikilink),
-            expected_created_issue:  Some(DateValidationIssue::InvalidWikilink),
+            modified:    Some("2024-01-15".to_string()),
+            created:     Some("2024-01-15".to_string()),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            issues:      ValidationIssues {
+                modified: Some(DateValidationIssue::InvalidWikilink),
+                created:  Some(DateValidationIssue::InvalidWikilink),
+            },
         },
         DateValidationTestCase {
-            name:                    "filesystem mismatch",
-            modified:                Some(eastern_date_wikilink(2024, 1, 15)),
-            created:                 Some(eastern_date_wikilink(2024, 1, 15)),
-            file_system_modified:    test_utils::eastern_midnight(2024, 1, 16),
-            file_system_created:     test_utils::eastern_midnight(2024, 1, 16),
-            expected_modified_issue: Some(DateValidationIssue::FileSystemMismatch),
-            expected_created_issue:  Some(DateValidationIssue::FileSystemMismatch),
+            name:        "filesystem mismatch",
+            modified:    Some(eastern_date_wikilink(2024, 1, 15)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 16),
+                created:  test_utils::eastern_midnight(2024, 1, 16),
+            },
+            issues:      ValidationIssues {
+                modified: Some(DateValidationIssue::FileSystemMismatch),
+                created:  Some(DateValidationIssue::FileSystemMismatch),
+            },
         },
         DateValidationTestCase {
-            name:                    "invalid date format",
+            name:        "invalid date format",
             // malformed-on-purpose — do not derive from production constants
-            modified:                Some("[[2024-13-45]]".to_string()),
-            created:                 Some("[[2024-13-45]]".to_string()),
-            file_system_modified:    Utc::now(),
-            file_system_created:     Utc::now(),
-            expected_modified_issue: Some(DateValidationIssue::InvalidDateFormat),
-            expected_created_issue:  Some(DateValidationIssue::InvalidDateFormat),
+            modified:    Some("[[2024-13-45]]".to_string()),
+            created:     Some("[[2024-13-45]]".to_string()),
+            file_system: FileSystemDates {
+                modified: Utc::now(),
+                created:  Utc::now(),
+            },
+            issues:      ValidationIssues {
+                modified: Some(DateValidationIssue::InvalidDateFormat),
+                created:  Some(DateValidationIssue::InvalidDateFormat),
+            },
         },
         DateValidationTestCase {
-            name:                    "missing dates",
-            modified:                None,
-            created:                 None,
-            file_system_modified:    Utc::now(),
-            file_system_created:     Utc::now(),
-            expected_modified_issue: Some(DateValidationIssue::Missing),
-            expected_created_issue:  Some(DateValidationIssue::Missing),
+            name:        "missing dates",
+            modified:    None,
+            created:     None,
+            file_system: FileSystemDates {
+                modified: Utc::now(),
+                created:  Utc::now(),
+            },
+            issues:      ValidationIssues {
+                modified: Some(DateValidationIssue::Missing),
+                created:  Some(DateValidationIssue::Missing),
+            },
         },
     ];
 
@@ -105,17 +144,11 @@ fn test_process_frontmatter_date_validation() {
 }
 
 struct DateFixTestCase {
-    name:                 &'static str,
-    // Initial state
-    modified:             Option<String>,
-    created:              Option<String>,
-    file_system_modified: DateTime<Utc>,
-    file_system_created:  DateTime<Utc>,
-
-    // Expected outcomes
-    should_persist:    bool,
-    expected_modified: Option<String>, // The expected frontmatter value after processing
-    expected_created:  Option<String>, // The expected frontmatter value after processing
+    name:        &'static str,
+    modified:    Option<String>,
+    created:     Option<String>,
+    file_system: FileSystemDates,
+    expected:    DateFixExpectations,
 }
 
 #[test]
@@ -130,77 +163,99 @@ struct DateFixTestCase {
 fn test_process_date_validations() {
     let test_cases = vec![
         DateFixTestCase {
-            name:                 "missing dates should be updated",
-            modified:             None,
-            created:              None,
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)),
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)),
-            should_persist:       true,
+            name:        "missing dates should be updated",
+            modified:    None,
+            created:     None,
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::Persists,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)),
+                created:  Some(eastern_date_wikilink(2024, 1, 15)),
+            },
         },
         DateFixTestCase {
-            name:                 "filesystem mismatch should update modified date",
-            modified:             Some(eastern_date_wikilink(2024, 1, 14)),
-            created:              Some(eastern_date_wikilink(2024, 1, 15)),
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)),
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)),
-            should_persist:       true,
+            name:        "filesystem mismatch should update modified date",
+            modified:    Some(eastern_date_wikilink(2024, 1, 14)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::Persists,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)),
+                created:  Some(eastern_date_wikilink(2024, 1, 15)),
+            },
         },
         DateFixTestCase {
-            name:                 "valid dates should not change",
-            modified:             Some(eastern_date_wikilink(2024, 1, 15)),
-            created:              Some(eastern_date_wikilink(2024, 1, 15)),
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)),
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)),
-            should_persist:       false,
+            name:        "valid dates should not change",
+            modified:    Some(eastern_date_wikilink(2024, 1, 15)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::DoesNotPersist,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)),
+                created:  Some(eastern_date_wikilink(2024, 1, 15)),
+            },
         },
         DateFixTestCase {
-            name:                 "filesystem mismatch should update both dates",
-            modified:             Some(eastern_date_wikilink(2024, 1, 14)), /* original frontmatter
-                                                                             * dates */
-            created:              Some(eastern_date_wikilink(2024, 1, 13)), /* that don't
-                                                                             * match
-                                                                             * filesystem */
+            name:        "filesystem mismatch should update both dates",
+            modified:    Some(eastern_date_wikilink(2024, 1, 14)), /* original frontmatter
+                                                                    * dates */
+            created:     Some(eastern_date_wikilink(2024, 1, 13)), /* that don't
+                                                                    * match
+                                                                    * filesystem */
             // Using 05:00 UTC (midnight Eastern) ensures dates like "[[2024-01-15]]" match
             // the filesystem dates when viewed in Eastern timezone
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)),
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)),
-            should_persist:       true,
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::Persists,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)),
+                created:  Some(eastern_date_wikilink(2024, 1, 15)),
+            },
         },
         DateFixTestCase {
-            name:                 "invalid format should change", /* changed from "invalid
-                                                                   * format should not
-                                                                   * change" */
+            name:        "invalid format should change", /* changed from "invalid
+                                                          * format should not
+                                                          * change" */
             // malformed-on-purpose — do not derive from production constants
-            modified:             Some("[[2024-13-45]]".to_string()),
-            created:              Some("[[2024-13-45]]".to_string()),
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)), // changed
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)), // changed
-            should_persist:       true,                                     /* changed from
-                                                                             * false */
+            modified:    Some("[[2024-13-45]]".to_string()),
+            created:     Some("[[2024-13-45]]".to_string()),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::Persists,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)), // changed
+                created:  Some(eastern_date_wikilink(2024, 1, 15)), // changed
+            }, /* changed from false */
         },
         DateFixTestCase {
-            name:                 "invalid wikilink should change", /* changed from "invalid
-                                                                     * wikilink should not
-                                                                     * change" */
+            name:        "invalid wikilink should change", /* changed from "invalid
+                                                            * wikilink should not
+                                                            * change" */
             // malformed-on-purpose — do not derive from production constants
-            modified:             Some("2024-01-15".to_string()),
-            created:              Some("2024-01-15".to_string()),
-            file_system_modified: test_utils::eastern_midnight(2024, 1, 15),
-            file_system_created:  test_utils::eastern_midnight(2024, 1, 15),
-            expected_modified:    Some(eastern_date_wikilink(2024, 1, 15)), // changed
-            expected_created:     Some(eastern_date_wikilink(2024, 1, 15)), // changed
-            should_persist:       true,                                     /* changed from
-                                                                             * false */
+            modified:    Some("2024-01-15".to_string()),
+            created:     Some("2024-01-15".to_string()),
+            file_system: FileSystemDates {
+                modified: test_utils::eastern_midnight(2024, 1, 15),
+                created:  test_utils::eastern_midnight(2024, 1, 15),
+            },
+            expected:    DateFixExpectations {
+                persist:  PersistExpectation::Persists,
+                modified: Some(eastern_date_wikilink(2024, 1, 15)), // changed
+                created:  Some(eastern_date_wikilink(2024, 1, 15)), // changed
+            }, /* changed from false */
         },
     ];
 
@@ -214,10 +269,10 @@ fn test_process_date_validations() {
         // Get date validations
         let created_validation = DateValidation {
             frontmatter:          case.created.clone(), // Add clone here
-            file_system:          case.file_system_created,
+            file_system:          case.file_system.created,
             issue:                date_validation::get_date_validation_issue(
                 case.created.as_deref(),
-                &case.file_system_created,
+                &case.file_system.created,
                 DEFAULT_TIMEZONE,
             ),
             operational_timezone: DEFAULT_TIMEZONE.to_string(),
@@ -225,10 +280,10 @@ fn test_process_date_validations() {
 
         let modified_validation = DateValidation {
             frontmatter:          case.modified.clone(), // Add clone here
-            file_system:          case.file_system_modified,
+            file_system:          case.file_system.modified,
             issue:                date_validation::get_date_validation_issue(
                 case.modified.as_deref(),
-                &case.file_system_modified,
+                &case.file_system.modified,
                 DEFAULT_TIMEZONE,
             ),
             operational_timezone: DEFAULT_TIMEZONE.to_string(),
@@ -248,7 +303,7 @@ fn test_process_date_validations() {
             frontmatter
                 .as_ref()
                 .and_then(|frontmatter| frontmatter.date_modified().map(String::from)),
-            case.expected_modified,
+            case.expected.modified,
             &format!("{} - modified date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -257,14 +312,14 @@ fn test_process_date_validations() {
             frontmatter
                 .as_ref()
                 .and_then(|frontmatter| frontmatter.date_created().map(String::from)),
-            case.expected_created,
+            case.expected.created,
             &format!("{} - created date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         test_utils::assert_test_case(
             frontmatter.as_ref().is_some_and(FrontMatter::needs_persist),
-            case.should_persist,
+            case.expected.persist.needs_persist(),
             &format!("{} - needs persist flag", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -272,10 +327,9 @@ fn test_process_date_validations() {
 }
 
 struct DateCreatedFixTestCase {
-    name:                 &'static str,
-    date_created_fix:     Option<String>,
-    expect_persist:       bool,
-    expected_parsed_date: Option<DateTime<Utc>>,
+    name:             &'static str,
+    date_created_fix: Option<String>,
+    expected:         DateCreatedFixExpectations,
 }
 
 #[test]
@@ -286,43 +340,55 @@ struct DateCreatedFixTestCase {
 fn test_date_created_fix_integration() {
     let test_cases = vec![
         DateCreatedFixTestCase {
-            name:                 "missing date_created_fix",
-            date_created_fix:     None,
-            expect_persist:       false,
-            expected_parsed_date: None,
+            name:             "missing date_created_fix",
+            date_created_fix: None,
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::DoesNotPersist,
+                parsed_date: None,
+            },
         },
         DateCreatedFixTestCase {
-            name:                 "valid date without wikilink",
+            name:             "valid date without wikilink",
             // bare date (no wikilink) on purpose — tests the non-wikilink input path
-            date_created_fix:     Some("2024-01-15".to_string()),
-            expect_persist:       true,
-            expected_parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            date_created_fix: Some("2024-01-15".to_string()),
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::Persists,
+                parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            },
         },
         DateCreatedFixTestCase {
-            name:                 "valid date with wikilink",
-            date_created_fix:     Some(eastern_date_wikilink(2024, 1, 15)),
-            expect_persist:       true,
-            expected_parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            name:             "valid date with wikilink",
+            date_created_fix: Some(eastern_date_wikilink(2024, 1, 15)),
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::Persists,
+                parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            },
         },
         DateCreatedFixTestCase {
-            name:                 "invalid date format",
+            name:             "invalid date format",
             // malformed-on-purpose — do not derive from production constants
-            date_created_fix:     Some("2024-13-45".to_string()),
-            expect_persist:       false,
-            expected_parsed_date: None,
+            date_created_fix: Some("2024-13-45".to_string()),
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::DoesNotPersist,
+                parsed_date: None,
+            },
         },
         DateCreatedFixTestCase {
-            name:                 "invalid date with wikilink",
+            name:             "invalid date with wikilink",
             // malformed-on-purpose — do not derive from production constants
-            date_created_fix:     Some("[[2024-13-45]]".to_string()),
-            expect_persist:       false,
-            expected_parsed_date: None,
+            date_created_fix: Some("[[2024-13-45]]".to_string()),
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::DoesNotPersist,
+                parsed_date: None,
+            },
         },
         DateCreatedFixTestCase {
-            name:                 "malformed wikilink",
-            date_created_fix:     Some("[2024-01-15]".to_string()),
-            expect_persist:       false,
-            expected_parsed_date: None,
+            name:             "malformed wikilink",
+            date_created_fix: Some("[2024-01-15]".to_string()),
+            expected:         DateCreatedFixExpectations {
+                persist:     PersistExpectation::DoesNotPersist,
+                parsed_date: None,
+            },
         },
     ];
 
@@ -356,7 +422,7 @@ fn test_date_created_fix_integration() {
 
         test_utils::assert_test_case(
             markdown_file.frontmatter.unwrap().needs_persist(),
-            case.expect_persist,
+            case.expected.persist.needs_persist(),
             &format!("{} - expect persist", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -366,7 +432,7 @@ fn test_date_created_fix_integration() {
                 .date_created_fix
                 .fix_date
                 .map(|dt| dt.date_naive()),
-            case.expected_parsed_date.map(|dt| dt.date_naive()),
+            case.expected.parsed_date.map(|dt| dt.date_naive()),
             &format!("{} - parsed date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -381,37 +447,49 @@ fn test_date_created_fix_integration() {
 fn test_timezone_date_validation() {
     let test_cases = vec![
         DateValidationTestCase {
-            name:                    "late night eastern time should match UTC next day",
-            modified:                Some(eastern_date_wikilink(2024, 1, 15)),
-            created:                 Some(eastern_date_wikilink(2024, 1, 15)),
+            name:        "late night eastern time should match UTC next day",
+            modified:    Some(eastern_date_wikilink(2024, 1, 15)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
             // This represents 11:30 PM EST on Jan 15th (4:30 AM UTC Jan 16th)
-            file_system_modified:    Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
-            file_system_created:     Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
+            file_system: FileSystemDates {
+                modified: Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
+                created:  Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
+            },
             // These should match because in EST it's still Jan 15th at 11:30 PM
-            expected_modified_issue: None,
-            expected_created_issue:  None,
+            issues:      ValidationIssues {
+                modified: None,
+                created:  None,
+            },
         },
         DateValidationTestCase {
-            name:                    "early morning eastern time should match UTC previous day",
-            modified:                Some(eastern_date_wikilink(2024, 1, 16)),
-            created:                 Some(eastern_date_wikilink(2024, 1, 16)),
+            name:        "early morning eastern time should match UTC previous day",
+            modified:    Some(eastern_date_wikilink(2024, 1, 16)),
+            created:     Some(eastern_date_wikilink(2024, 1, 16)),
             // This represents 2:30 AM EST Jan 15th (7:30 AM UTC Jan 15th)
-            file_system_modified:    Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
-            file_system_created:     Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
+            file_system: FileSystemDates {
+                modified: Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
+                created:  Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
+            },
             // These should fail because in EST it's Jan 15th but frontmatter says Jan 16th
-            expected_modified_issue: Some(DateValidationIssue::FileSystemMismatch),
-            expected_created_issue:  Some(DateValidationIssue::FileSystemMismatch),
+            issues:      ValidationIssues {
+                modified: Some(DateValidationIssue::FileSystemMismatch),
+                created:  Some(DateValidationIssue::FileSystemMismatch),
+            },
         },
         DateValidationTestCase {
-            name:                    "eastern midnight boundary case",
-            modified:                Some(eastern_date_wikilink(2024, 1, 15)),
-            created:                 Some(eastern_date_wikilink(2024, 1, 15)),
+            name:        "eastern midnight boundary case",
+            modified:    Some(eastern_date_wikilink(2024, 1, 15)),
+            created:     Some(eastern_date_wikilink(2024, 1, 15)),
             // This represents exactly midnight EST Jan 15th (5 AM UTC Jan 15th)
-            file_system_modified:    Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
-            file_system_created:     Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
+            file_system: FileSystemDates {
+                modified: Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
+                created:  Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
+            },
             // Should match because it's exactly the start of Jan 15th in EST
-            expected_modified_issue: None,
-            expected_created_issue:  None,
+            issues:      ValidationIssues {
+                modified: None,
+                created:  None,
+            },
         },
     ];
 
@@ -423,7 +501,7 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
         let temp_dir = TempDir::new().unwrap();
         let file_path = TestFileBuilder::new()
             .with_frontmatter_dates(case.created.clone(), case.modified.clone())
-            .with_fs_dates(case.file_system_created, case.file_system_modified)
+            .with_fs_dates(case.file_system.created, case.file_system.modified)
             .create(&temp_dir, "test.md");
 
         let frontmatter = create_frontmatter(case.modified.as_deref(), case.created.as_deref());
@@ -433,14 +511,14 @@ fn run_date_validation_test_cases(test_cases: Vec<DateValidationTestCase>, timez
 
         test_utils::assert_test_case(
             created_validation.issue,
-            case.expected_created_issue,
+            case.issues.created,
             &format!("{} - created date validation", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
 
         test_utils::assert_test_case(
             modified_validation.issue,
-            case.expected_modified_issue,
+            case.issues.modified,
             &format!("{} - modified date validation", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );

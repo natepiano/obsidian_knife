@@ -1,5 +1,6 @@
 mod assertions;
 mod dates;
+mod expectations;
 mod markdown_file_fixtures;
 mod test_file_builder;
 mod validated_config_fixtures;
@@ -10,6 +11,8 @@ pub use dates::eastern_midnight;
 pub use dates::frontmatter_date_wikilink;
 pub use dates::get_test_markdown_file;
 pub use dates::parse_datetime;
+pub use expectations::AliasExpectation;
+pub use expectations::PersistExpectation;
 pub use markdown_file_fixtures::build_aho_corasick;
 pub use markdown_file_fixtures::create_markdown_test_file;
 pub use markdown_file_fixtures::create_test_environment;
