@@ -1,4 +1,6 @@
 use std::error::Error;
+use std::slice::Iter;
+use std::slice::IterMut;
 
 use aho_corasick::AhoCorasick;
 use derive_more::Deref;
@@ -32,14 +34,14 @@ impl FromIterator<MarkdownFile> for MarkdownFiles {
 
 impl<'a> IntoIterator for &'a MarkdownFiles {
     type Item = &'a MarkdownFile;
-    type IntoIter = std::slice::Iter<'a, MarkdownFile>;
+    type IntoIter = Iter<'a, MarkdownFile>;
 
     fn into_iter(self) -> Self::IntoIter { self.markdown.iter() }
 }
 
 impl<'a> IntoIterator for &'a mut MarkdownFiles {
     type Item = &'a mut MarkdownFile;
-    type IntoIter = std::slice::IterMut<'a, MarkdownFile>;
+    type IntoIter = IterMut<'a, MarkdownFile>;
 
     fn into_iter(self) -> Self::IntoIter { self.markdown.iter_mut() }
 }

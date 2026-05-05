@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 
@@ -101,7 +102,7 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     fn title(&self) -> Option<String> { Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash)) }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        let unique_references: std::collections::HashSet<_> =
+        let unique_references: HashSet<_> =
             items.iter().flat_map(|image| &image.references).collect();
 
         DescriptionBuilder::new()

@@ -2,6 +2,7 @@ use chrono::DateTime;
 use chrono::NaiveDate;
 use chrono::TimeZone;
 use chrono::Utc;
+use chrono_tz::Tz;
 use tempfile::TempDir;
 
 use super::DateCreatedFixValidation;
@@ -550,7 +551,7 @@ fn test_late_night_date_created_fix() {
     let markdown_file = test_utils::get_test_markdown_file(file_path);
 
     // Verify the parsed date shows as Jan 16 when viewed in Eastern
-    let timezone: chrono_tz::Tz = DEFAULT_TIMEZONE.parse().unwrap();
+    let timezone: Tz = DEFAULT_TIMEZONE.parse().unwrap();
     let parsed_date_local = markdown_file
         .date_created_fix
         .fix_date

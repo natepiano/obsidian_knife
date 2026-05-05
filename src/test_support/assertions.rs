@@ -1,3 +1,4 @@
+use std::panic::AssertUnwindSafe;
 /// Asserts that two `Result` values (an actual result and an expected result) match,
 /// with support for custom comparison logic for `Ok` values and detailed error reporting.
 ///
@@ -74,7 +75,7 @@ where
     T: std::fmt::Debug,
     E: std::fmt::Debug,
 {
-    let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+    let result = std::panic::catch_unwind(AssertUnwindSafe(|| {
         compare_fn(&actual, &expected);
     }));
 

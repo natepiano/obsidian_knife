@@ -2,11 +2,14 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
 use std::io;
+use std::io::ErrorKind;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::DateTime;
+use chrono::Local;
 use chrono::Utc;
 use filetime::FileTime;
 use rayon::iter::IntoParallelIterator;
@@ -27,9 +30,9 @@ use crate::validated_config::ValidatedConfig;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
-        if e.kind() == io::ErrorKind::NotFound {
+        if e.kind() == ErrorKind::NotFound {
             Box::new(io::Error::new(
-                io::ErrorKind::NotFound,
+                ErrorKind::NotFound,
                 format!("{ERROR_NOT_FOUND}{}", path.display()),
             ))
         } else {
@@ -56,7 +59,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
     let mut components = path.components();
-    if let Some(std::path::Component::Normal(first)) = components.next()
+    if let Some(Component::Normal(first)) = components.next()
         && first == "~"
         && let Some(home) = std::env::var_os("HOME")
     {
@@ -173,7 +176,7 @@ pub fn set_file_dates(
         // `SetFile -d` parses the date string in the system's local timezone, so format
         // the UTC instant in system-local time to round-trip the correct UTC instant
         // regardless of where this machine is physically located.
-        let local_time: DateTime<chrono::Local> = created_date.into();
+        let local_time: DateTime<Local> = created_date.into();
         let formatted_date = local_time.format(SET_FILE_CREATED_DATE_FORMAT).to_string();
 
         let output = std::process::Command::new(SET_FILE_EXECUTABLE)
@@ -270,6 +273,7 @@ mod set_file_dates_tests {
 
     use chrono::TimeZone;
     use chrono::Utc;
+    use chrono_tz::Tz;
     use tempfile::tempdir;
 
     use super::*;
@@ -277,7 +281,7 @@ mod set_file_dates_tests {
     #[test]
     fn test_set_file_dates_round_trips_utc() {
         let operational_timezone = crate::constants::DEFAULT_TIMEZONE;
-        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap();
+        let timezone: Tz = operational_timezone.parse().unwrap();
 
         // Define creation and modification dates in UTC
         let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();

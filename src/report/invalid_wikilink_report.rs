@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -79,11 +80,7 @@ impl ReportDefinition for InvalidWikilinksTable {
     fn title(&self) -> Option<String> { Some(INVALID_WIKILINKS.to_string()) }
 
     fn description(&self, items: &[Self::Item]) -> String {
-        let unique_files = items
-            .iter()
-            .map(|(p, _)| p)
-            .collect::<std::collections::HashSet<_>>()
-            .len();
+        let unique_files = items.iter().map(|(p, _)| p).collect::<HashSet<_>>().len();
 
         DescriptionBuilder::new()
             .text(FOUND)

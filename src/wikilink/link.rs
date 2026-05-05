@@ -1,6 +1,8 @@
 use std::cmp::Ordering;
 use std::cmp::PartialEq;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use serde::Deserialize;
 use serde::Serialize;
@@ -69,8 +71,8 @@ impl Ord for Wikilink {
     }
 }
 
-impl fmt::Display for Wikilink {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for Wikilink {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "{}{}{}",
@@ -100,8 +102,8 @@ pub enum InvalidWikilinkReason {
     UnmatchedSingleInWikilink,    // ] without [ or [ without ]
 }
 
-impl fmt::Display for InvalidWikilinkReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for InvalidWikilinkReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::DoubleAlias => write!(f, "contains multiple alias separators"),
             Self::EmailAddress => write!(f, "ignore email addresses for back population"),
@@ -127,8 +129,8 @@ pub struct InvalidWikilink {
     pub line_number: usize,          // The line number where the invalid wikilink appears
 }
 
-impl fmt::Display for InvalidWikilink {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for InvalidWikilink {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
             "Invalid wikilink at line {}, position {}-{}: '{}' {}",

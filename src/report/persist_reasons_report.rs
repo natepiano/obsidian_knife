@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
@@ -143,7 +144,7 @@ impl ObsidianRepository {
                 .to_string_lossy()
                 .to_lowercase()
                 .cmp(&b.full_path.to_string_lossy().to_lowercase());
-            if file_cmp == std::cmp::Ordering::Equal {
+            if file_cmp == Ordering::Equal {
                 a.reason.to_string().cmp(&b.reason.to_string())
             } else {
                 file_cmp

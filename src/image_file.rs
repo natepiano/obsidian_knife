@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::fs;
 use std::path::PathBuf;
 
@@ -31,8 +33,8 @@ impl From<String> for ImageHash {
     fn from(hash: String) -> Self { Self(hash) }
 }
 
-impl fmt::Display for ImageHash {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
+impl Display for ImageHash {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result { write!(f, "{}", self.0) }
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]

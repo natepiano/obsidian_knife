@@ -26,6 +26,8 @@ mod wikilink;
 mod yaml_frontmatter;
 
 use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
 use std::path::PathBuf;
 
 use crate::config::Config;
@@ -58,8 +60,8 @@ enum MainError {
     Usage(String),
 }
 
-impl std::fmt::Display for MainError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for MainError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Usage(msg) => write!(f, "{msg}"),
         }

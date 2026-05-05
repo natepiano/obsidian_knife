@@ -1,4 +1,6 @@
 use std::error::Error;
+use std::fmt::Display;
+use std::fmt::Formatter;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
@@ -87,8 +89,8 @@ impl PartialEq for YamlFrontMatterError {
     }
 }
 
-impl std::fmt::Display for YamlFrontMatterError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Display for YamlFrontMatterError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Empty => write!(
                 f,

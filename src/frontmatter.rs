@@ -1,5 +1,6 @@
 use chrono::DateTime;
 use chrono::Utc;
+use chrono_tz::Tz;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
@@ -61,7 +62,7 @@ impl FrontMatter {
     // in this case we still need to update the modify date so make sure we set it if it's
     // not already set
     pub(crate) fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
-        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&timezone);
         self.raw_created = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);
@@ -83,7 +84,7 @@ impl FrontMatter {
 
     // We use this when `date_modified` is missing.
     pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
-        let timezone: chrono_tz::Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&timezone);
         self.raw_modified = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);

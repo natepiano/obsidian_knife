@@ -1,11 +1,14 @@
 use std::fmt;
-use std::io;
+use std::fmt::Display;
+use std::fmt::Formatter;
+use std::io::Error;
 use std::path::Path;
 
 use chrono::DateTime;
 use chrono::NaiveDate;
 use chrono::TimeZone;
 use chrono::Utc;
+use chrono_tz::Tz;
 
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FORMAT_DATE;
@@ -24,8 +27,8 @@ pub enum PersistReason {
     ImageReferencesModified,
 }
 
-impl fmt::Display for PersistReason {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for PersistReason {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Self::DateCreatedUpdated { .. } => write!(f, "date_created updated"),
             Self::DateModifiedUpdated { .. } => write!(f, "date_modified updated"),
@@ -45,8 +48,8 @@ pub enum DateValidationIssue {
     FileSystemMismatch,
 }
 
-impl fmt::Display for DateValidationIssue {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+impl Display for DateValidationIssue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let description = match self {
             Self::Missing => "missing",
             Self::InvalidDateFormat => "invalid date format",
@@ -68,7 +71,7 @@ pub struct DateValidation {
 impl DateValidation {
     pub fn operational_file_system_date(&self) -> DateTime<Utc> {
         self.operational_timezone
-            .parse::<chrono_tz::Tz>()
+            .parse::<Tz>()
             .map_or(self.file_system, |timezone| {
                 let local_file_system_date = self.file_system.with_timezone(&timezone);
                 let naive_file_system_date = local_file_system_date.naive_local();
@@ -101,7 +104,7 @@ impl DateCreatedFixValidation {
             };
 
             let naive_date = NaiveDate::parse_from_str(date.trim(), FORMAT_DATE).ok()?;
-            let timezone: chrono_tz::Tz =
+            let timezone: Tz =
                 operational_timezone.parse().unwrap_or(chrono_tz::UTC);
             let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0)?;
 
@@ -133,7 +136,7 @@ pub(super) fn get_date_validations(
     frontmatter: Option<&FrontMatter>,
     path: &Path,
     operational_timezone: &str,
-) -> Result<(DateValidation, DateValidation), io::Error> {
+) -> Result<(DateValidation, DateValidation), Error> {
     let metadata = std::fs::metadata(path)?;
 
     let dates = [
@@ -195,7 +198,7 @@ pub(super) fn get_date_validation_issue(
     };
 
     // Parse timezone string into a Tz
-    let Ok(timezone) = operational_timezone.parse::<chrono_tz::Tz>() else {
+    let Ok(timezone) = operational_timezone.parse::<Tz>() else {
         return Some(DateValidationIssue::InvalidDateFormat);
     };
 

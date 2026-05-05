@@ -1,3 +1,4 @@
+use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::path::Path;
@@ -222,7 +223,7 @@ impl ObsidianRepository {
         );
 
         // Sort by line number and reverse position
-        matches.sort_by_key(|m| (m.line_number(), std::cmp::Reverse(m.position())));
+        matches.sort_by_key(|m| (m.line_number(), Reverse(m.position())));
 
         matches
     }
@@ -237,7 +238,7 @@ fn apply_line_replacements(
 
     // Sort matches in descending order by `position`
     let mut sorted_matches = line_matches.to_vec();
-    sorted_matches.sort_by_key(|m| std::cmp::Reverse(m.position()));
+    sorted_matches.sort_by_key(|m| Reverse(m.position()));
 
     let has_image_replacement = sorted_matches
         .iter()
