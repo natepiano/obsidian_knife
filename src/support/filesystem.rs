@@ -9,6 +9,7 @@ use std::path::PathBuf;
 use std::sync::Mutex;
 
 use chrono::DateTime;
+#[cfg(target_os = "macos")]
 use chrono::Local;
 use chrono::Utc;
 use filetime::FileTime;
