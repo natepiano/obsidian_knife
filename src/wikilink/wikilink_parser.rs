@@ -4,12 +4,21 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::constants::EMPTY_WIKILINK;
+use super::constants::ESCAPED_PIPE;
+use super::constants::EXCLAMATION_MARK;
+use super::constants::MARKDOWN_CLICKABLE_IMAGE_PREFIX;
+use super::constants::WIKILINK_FINDER_PATTERN;
 use super::link::InvalidWikilink;
 use super::link::InvalidWikilinkReason;
 use super::link::Wikilink;
+use crate::constants::BACKSLASH;
+use crate::constants::CLOSING_BRACKET;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OPENING_BRACKET;
 use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 use crate::markdown_file::InlineCodeExcluder;
 use crate::support;
 use crate::support::EMAIL_REGEX;
@@ -72,13 +81,13 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         }
 
         // Handle escaped characters
-        if ch == '\\' {
+        if ch == BACKSLASH {
             chars.next(); // Skip next character
             continue;
         }
 
         // Handle unmatched closing brackets when not in a wikilink
-        if ch == ']' && is_next_char(&mut chars, ']') {
+        if ch == CLOSING_BRACKET && is_next_char(&mut chars, CLOSING_BRACKET) {
             let content = line[last_position..(start_idx + CLOSING_WIKILINK.len())].to_string();
             extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                 content,
@@ -91,12 +100,12 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         }
 
         // Handle regular closing bracket - could close a markdown link
-        if ch == ']' {
+        if ch == CLOSING_BRACKET {
             markdown_opening = None;
         }
 
-        if ch == '[' {
-            if is_next_char(&mut chars, '[') {
+        if ch == OPENING_BRACKET {
+            if is_next_char(&mut chars, OPENING_BRACKET) {
                 // If we had an unclosed markdown link before this wikilink, add it as invalid
                 if let Some(start_pos) = markdown_opening {
                     let content_slice = line[start_pos..start_idx].trim();
@@ -109,7 +118,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 }
 
                 // Check if this is an image reference
-                let is_image = start_idx > 0 && is_previous_char(line, start_idx, '!');
+                let is_image = start_idx > 0 && is_previous_char(line, start_idx, EXCLAMATION_MARK);
 
                 // Still parse the wikilink normally
                 if let Some(wikilink_result) = parse_wikilink(&mut chars) {
@@ -133,7 +142,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 if let Some(start_pos) = markdown_opening {
                     let between = &line[start_pos..start_idx];
                     // `[!` between brackets is a `[![` markdown clickable image, not invalid
-                    if between != "[!" {
+                    if between != MARKDOWN_CLICKABLE_IMAGE_PREFIX {
                         let content_slice = between.trim();
                         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
                             content: content_slice.to_string(),
@@ -283,7 +292,7 @@ impl WikilinkState {
                 let trimmed = content.trim().to_string();
                 if trimmed.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
-                        content: "[[]]".to_string(),
+                        content: EMPTY_WIKILINK.to_string(),
                         reason:  InvalidWikilinkReason::EmptyWikilink,
                         span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
@@ -304,7 +313,9 @@ impl WikilinkState {
                 let trimmed_display = content.trim().to_string();
                 if trimmed_target.is_empty() || trimmed_display.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
-                        content: format!("[[{target}|{content}]]"),
+                        content: format!(
+                            "{OPENING_WIKILINK}{target}{PIPE}{content}{CLOSING_WIKILINK}"
+                        ),
                         reason:  InvalidWikilinkReason::EmptyWikilink,
                         span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
@@ -321,8 +332,10 @@ impl WikilinkState {
                 start_pos,
             } => {
                 let formatted = match reason {
-                    InvalidWikilinkReason::UnmatchedOpening => format!("[[{content}"),
-                    _ => format!("[[{content}]]"),
+                    InvalidWikilinkReason::UnmatchedOpening => {
+                        format!("{OPENING_WIKILINK}{content}")
+                    },
+                    _ => format!("{OPENING_WIKILINK}{content}{CLOSING_WIKILINK}"),
                 };
                 WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                     content: formatted,
@@ -353,17 +366,18 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
         }
 
         match c {
-            '\\' => {
+            BACKSLASH => {
                 // Handle escaped characters
                 if let Some((_, next_c)) = chars.next() {
-                    if next_c == '|' {
+                    if next_c == PIPE {
                         // Treat escaped pipe same as regular pipe
                         match state {
                             WikilinkState::Target { .. } => state.transition_to_display(pos),
                             WikilinkState::Display { .. } => {
                                 state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
-                                state.push_char('\\');
-                                state.push_char('|');
+                                for ch in ESCAPED_PIPE.chars() {
+                                    state.push_char(ch);
+                                }
                             },
                             WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
                         }
@@ -372,7 +386,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                     }
                 }
             },
-            '|' => match state {
+            PIPE => match state {
                 WikilinkState::Target { .. } => state.transition_to_display(pos),
                 WikilinkState::Display { .. } => {
                     state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
@@ -380,18 +394,18 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                 },
                 WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
             },
-            ']' => {
-                if is_next_char(chars, ']') {
+            CLOSING_BRACKET => {
+                if is_next_char(chars, CLOSING_BRACKET) {
                     return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
                 }
                 state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                 state.push_char(c);
             },
-            '[' => {
-                if is_next_char(chars, '[') {
+            OPENING_BRACKET => {
+                if is_next_char(chars, OPENING_BRACKET) {
                     state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
                     state.push_char(c); // push first '['
-                    state.push_char('['); // push second '['
+                    state.push_char(OPENING_BRACKET); // push second '['
                 } else {
                     state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
                     state.push_char(c);
@@ -427,7 +441,7 @@ fn is_previous_char(content: &str, index: usize, expected: char) -> bool {
 
 pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
     static WIKILINK_FINDER: LazyLock<Regex> =
-        LazyLock::new(|| support::compile_regex(r"\[\[.*?\]\]"));
+        LazyLock::new(|| support::compile_regex(WIKILINK_FINDER_PATTERN));
 
     for mat in WIKILINK_FINDER.find_iter(line) {
         let content_start = mat.start() + OPENING_WIKILINK.len();

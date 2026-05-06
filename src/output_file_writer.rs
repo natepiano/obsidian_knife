@@ -13,6 +13,8 @@ use crate::constants::MARKDOWN_TABLE_ROW_TEMPLATE;
 use crate::constants::MARKDOWN_TABLE_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
 use crate::constants::OUTPUT_MARKDOWN_FILE;
+use crate::constants::YAML_CLOSING_DELIMITER;
+use crate::constants::YAML_OPENING_DELIMITER;
 
 pub(crate) struct OutputFileWriter {
     file: Mutex<File>,
@@ -99,9 +101,9 @@ impl OutputFileWriter {
 
     pub(crate) fn write_properties(&self, properties: &str) -> io::Result<()> {
         let mut file = self.lock_file()?;
-        writeln!(file, "---")?;
+        write!(file, "{YAML_OPENING_DELIMITER}")?;
         writeln!(file, "{properties}")?;
-        writeln!(file, "---")?;
+        write!(file, "{YAML_CLOSING_DELIMITER}")?;
         file.flush()
     }
 

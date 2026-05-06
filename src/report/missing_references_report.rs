@@ -1,6 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
+use super::constants::MISSING_REFERENCES_REPORT_CONFIG_REQUIRED;
 use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -46,9 +47,8 @@ impl ReportDefinition for MissingReferencesTable {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> anyhow::Result<Vec<Vec<String>>> {
-        let validated_config = config.ok_or_else(|| {
-            anyhow::anyhow!("ValidatedConfig required for missing-references report")
-        })?;
+        let validated_config =
+            config.ok_or_else(|| anyhow::anyhow!(MISSING_REFERENCES_REPORT_CONFIG_REQUIRED))?;
 
         let mut rows: Vec<Vec<String>> = items
             .iter()

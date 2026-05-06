@@ -6,9 +6,11 @@ use chrono::Utc;
 
 use super::constants::HIGHLIGHT_CLOSE_TAG;
 use super::constants::HIGHLIGHT_OPEN_TAG;
+use super::constants::INVALID_UTF8_BOUNDARY_DETECTED;
 use crate::constants::BACK_POPULATE;
 use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
 use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FORMAT_TIME_STAMP;
 use crate::constants::IMAGES;
 use crate::constants::IN_CHANGESET;
@@ -16,10 +18,15 @@ use crate::constants::LEVEL1;
 use crate::constants::MODE_APPLY_CHANGES;
 use crate::constants::MODE_APPLY_CHANGES_OFF;
 use crate::constants::OF;
+use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 use crate::constants::YAML_APPLY_CHANGES;
+use crate::constants::YAML_FALSE;
 use crate::constants::YAML_FILE_LIMIT;
+use crate::constants::YAML_NONE;
 use crate::constants::YAML_TIMESTAMP_LOCAL;
 use crate::constants::YAML_TIMESTAMP_UTC;
+use crate::constants::YAML_TRUE;
 use crate::description_builder::DescriptionBuilder;
 use crate::description_builder::Phrase;
 use crate::image_file::ImageFileState;
@@ -167,12 +174,12 @@ impl ObsidianRepository {
 
         let limit_string = validated_config
             .file_limit()
-            .map_or_else(|| String::from("None"), |value| value.to_string());
+            .map_or_else(|| String::from(YAML_NONE), |value| value.to_string());
 
         let change_mode = validated_config.change_mode();
         let apply_changes = match change_mode {
-            ChangeMode::Apply => "true",
-            ChangeMode::DryRun => "false",
+            ChangeMode::Apply => YAML_TRUE,
+            ChangeMode::DryRun => YAML_FALSE,
         };
 
         let properties = DescriptionBuilder::new()
@@ -243,7 +250,7 @@ pub(super) fn format_wikilink(path: &Path, obsidian_path: &Path) -> String {
     let display_name = path.file_stem().unwrap_or_default().to_string_lossy();
 
     let path_display = relative_path.display();
-    format!("[[{path_display}\\|{display_name}]]")
+    format!("{OPENING_WIKILINK}{path_display}\\{PIPE}{display_name}{CLOSING_WIKILINK}")
 }
 
 pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
@@ -257,7 +264,7 @@ pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: u
         let end = start + match_length;
 
         if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-            eprintln!("Invalid UTF-8 boundary detected at position {start} or {end}");
+            eprintln!("{INVALID_UTF8_BOUNDARY_DETECTED} {start} or {end}");
             return text.to_string();
         }
 

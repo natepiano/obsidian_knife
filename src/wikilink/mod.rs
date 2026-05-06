@@ -10,6 +10,7 @@ mod markdown_link_tests;
 )]
 mod wikilink_creation_tests;
 
+mod constants;
 mod link;
 mod wikilink_parser;
 

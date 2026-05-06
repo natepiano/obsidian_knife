@@ -5,7 +5,9 @@ use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FORMAT_DATE;
+use crate::constants::OPENING_WIKILINK;
 use crate::support;
 use crate::yaml_frontmatter_struct;
 
@@ -66,7 +68,9 @@ impl FrontMatter {
         let local_date = date.with_timezone(&timezone);
         self.raw_created = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);
-        self.created = Some(format!("[[{formatted_date}]]"));
+        self.created = Some(format!(
+            "{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"
+        ));
 
         if self.raw_modified.is_none() {
             self.set_date_modified_now(operational_timezone);
@@ -88,7 +92,9 @@ impl FrontMatter {
         let local_date = date.with_timezone(&timezone);
         self.raw_modified = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);
-        self.modified = Some(format!("[[{formatted_date}]]"));
+        self.modified = Some(format!(
+            "{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"
+        ));
         self.persist_state = PersistState::Modified;
     }
 

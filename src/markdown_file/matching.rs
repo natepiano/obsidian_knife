@@ -1,13 +1,23 @@
+use super::constants::APOSTROPHE;
+use super::constants::RIGHT_SINGLE_QUOTATION_MARK;
+use super::constants::T_LOWER;
+use super::constants::T_UPPER;
+use super::constants::UNDERSCORE;
+use crate::constants::PIPE;
+
 pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     // Helper to check if a char is a word character (\w in regex)
-    fn is_word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == '_' }
+    fn is_word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == UNDERSCORE }
 
     // Helper to check if string matches a contraction pattern ending in apostrophe t or T
     fn is_t_contraction(chars: &str) -> bool {
         let mut chars = chars.chars();
         matches!(
             (chars.next(), chars.next()),
-            (Some('\'' | '\u{2019}'), Some('t' | 'T'))
+            (
+                Some(APOSTROPHE | RIGHT_SINGLE_QUOTATION_MARK),
+                Some(T_LOWER | T_UPPER)
+            )
         )
     }
 
@@ -37,8 +47,8 @@ pub(super) fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize
 
 pub(super) fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
     let trimmed = line.trim();
-    trimmed.starts_with('|')
-        && trimmed.ends_with('|')
-        && trimmed.matches('|').count() > 2
+    trimmed.starts_with(PIPE)
+        && trimmed.ends_with(PIPE)
+        && trimmed.matches(PIPE).count() > 2
         && trimmed.contains(matched_text)
 }

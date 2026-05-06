@@ -1,6 +1,8 @@
 use std::error::Error;
 use std::path::Path;
 
+use super::constants::INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED;
+use super::constants::INCOMPATIBLE_IMAGES_REPORT_INVARIANT;
 use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -58,15 +60,14 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> anyhow::Result<Vec<Vec<String>>> {
-        let validated_config = config.ok_or_else(|| {
-            anyhow::anyhow!("ValidatedConfig required for incompatible-images report")
-        })?;
+        let validated_config =
+            config.ok_or_else(|| anyhow::anyhow!(INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED))?;
 
         let mut rows = Vec::new();
         for image in items {
             let ImageFileState::Incompatible { reason } = &image.state else {
                 // items are pre-filtered to incompatible images; skip if invariant is violated
-                debug_assert!(false, "Only incompatible images should be in this report");
+                debug_assert!(false, "{INCOMPATIBLE_IMAGES_REPORT_INVARIANT}");
                 continue;
             };
 

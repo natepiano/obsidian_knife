@@ -75,11 +75,14 @@ pub(crate) const MARKDOWN_TABLE_SEPARATOR: &str = "---";
 pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";
 
 // matching
+pub(crate) const BACKSLASH: char = '\\';
+pub(crate) const CLOSING_BRACKET: char = ']';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
 pub(crate) const FORWARD_SLASH: char = '/';
 pub(crate) const OPENING_BRACKET: char = '[';
 pub(crate) const OPENING_PAREN: char = '(';
 pub(crate) const OPENING_WIKILINK: &str = "[[";
+pub(crate) const PIPE: char = '|';
 
 // processing
 #[cfg(debug_assertions)]
@@ -89,6 +92,8 @@ pub(crate) const ERROR_OCCURRED: &str = "error occurred";
 pub(crate) const ERROR_SOURCE: &str = "error source:";
 pub(crate) const ERROR_TYPE: &str = "error type:";
 pub(crate) const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
+pub(crate) const MARKDOWN_FILE_COLLECTION_LOCK_POISONED: &str =
+    "markdown file collection lock poisoned";
 pub(crate) const MILLISECONDS: &str = "ms";
 pub(crate) const MODE_APPLY_CHANGES: &str = "apply changes is on - changes will be applied";
 pub(crate) const MODE_APPLY_CHANGES_OFF: &str = "apply changes is off - no changes will be applied";
@@ -159,8 +164,22 @@ pub(crate) const WILL_BE_BACK_POPULATED: &str = "will be back populated";
 pub(crate) const WILL_DELETE: &str = "will delete";
 pub(crate) const WILL_REPLACE_WITH: &str = "will replace with";
 pub(crate) const YAML_APPLY_CHANGES: &str = "apply_changes: ";
+pub(crate) const YAML_FALSE: &str = "false";
 pub(crate) const YAML_FILE_LIMIT: &str = "file_limit: ";
+pub(crate) const YAML_NONE: &str = "None";
 pub(crate) const YAML_TIMESTAMP_LOCAL: &str = "local_time: ";
 pub(crate) const YAML_TIMESTAMP_UTC: &str = "utc_time: ";
+pub(crate) const YAML_TRUE: &str = "true";
 pub(crate) const YOU_HAVE_TO_FIX_THESE_YOURSELF: &str = "you have to fix these yourself";
 pub(crate) const ZERO_BYTE: &str = "zero-byte";
+
+// yaml frontmatter
+pub(crate) const YAML_EXPECTED_MAPPING: &str = "Expected a mapping";
+pub(crate) const YAML_FRONTMATTER_EMPTY: &str =
+    "yaml frontmatter delimiters are present but there is no yaml";
+pub(crate) const YAML_FRONTMATTER_INVALID_PREFIX: &str = "invalid YAML frontmatter";
+pub(crate) const YAML_FRONTMATTER_MISSING: &str = "file must start with YAML frontmatter (---)";
+pub(crate) const YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER: &str =
+    "missing closing frontmatter delimiter (---)";
+pub(crate) const YAML_FRONTMATTER_PARSE_PREFIX: &str = "error parsing YAML frontmatter";
+pub(crate) const YAML_FRONTMATTER_SERIALIZE_PREFIX: &str = "error serializing YAML frontmatter";

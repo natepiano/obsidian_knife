@@ -7,6 +7,13 @@ use anyhow::Context as _;
 use anyhow::bail;
 
 use super::ObsidianRepository;
+use super::constants::INVALID_UTF8_BOUNDARY_PREFIX;
+use super::constants::NESTED_PATTERN_WARNING;
+use super::constants::TRIPLE_CLOSING_BRACKETS;
+use super::constants::TRIPLE_OPENING_BRACKETS;
+use super::constants::UNCLASSIFIED_MATCH_WARNING;
+use super::constants::WIKILINKS_AUTOMATON_NOT_INITIALIZED;
+use super::constants::WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
@@ -85,7 +92,7 @@ impl ObsidianRepository {
                 } else {
                     // Handle unclassified matches.
                     println!(
-                        "[WARNING] Found unclassified matches for '{found_text_lower}' in file '{}'",
+                        "{UNCLASSIFIED_MATCH_WARNING} '{found_text_lower}' in file '{}'",
                         markdown_file.path.display()
                     );
                     markdown_file.matches.unambiguous.extend(text_matches);
@@ -98,9 +105,9 @@ impl ObsidianRepository {
         &mut self,
         config: &ValidatedConfig,
     ) -> anyhow::Result<()> {
-        let automaton = self.wikilinks_automaton.as_ref().context(
-            "wikilinks_automaton was not initialized — ObsidianRepository::new must run first",
-        )?;
+        let automaton = self.wikilinks_automaton.as_ref().context(format!(
+            "{WIKILINKS_AUTOMATON_NOT_INITIALIZED} — {WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL}"
+        ))?;
 
         // Turn `wikilinks_sorted` into references.
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
@@ -252,7 +259,8 @@ fn apply_line_replacements(
         // Check for UTF-8 boundary issues
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             bail!(
-                "invalid UTF-8 boundary in {}, line {}: match {start}..{end} in {updated_line:?}, found {:?}",
+                "{INVALID_UTF8_BOUNDARY_PREFIX}{}, line {}: match {start}..{end} in \
+                 {updated_line:?}, found {:?}",
                 file_path.display(),
                 match_info.line_number(),
                 match_info.matched_text(),
@@ -263,10 +271,11 @@ fn apply_line_replacements(
         updated_line.replace_range(start..end, &match_info.get_replacement());
 
         // Validation check after each replacement
-        if updated_line.contains("[[[") || updated_line.contains("]]]") {
+        if updated_line.contains(TRIPLE_OPENING_BRACKETS)
+            || updated_line.contains(TRIPLE_CLOSING_BRACKETS)
+        {
             eprintln!(
-                "\nWarning: Potential nested pattern detected after replacement in file '{}', line {}.\n\
-                Current line:\n{updated_line}\n",
+                "\n{NESTED_PATTERN_WARNING} '{}', line {}.\nCurrent line:\n{updated_line}\n",
                 file_path.display(),
                 match_info.line_number(),
             );

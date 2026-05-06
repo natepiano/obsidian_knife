@@ -3,10 +3,13 @@ use std::error::Error;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DELETED;
 use crate::constants::IMAGE_FILE;
 use crate::constants::LEVEL2;
 use crate::constants::NOT_REFERENCED;
+use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 use crate::constants::THUMBNAIL;
 use crate::constants::THUMBNAIL_WIDTH;
 use crate::constants::UNREFERENCED_IMAGES;
@@ -47,9 +50,13 @@ impl ReportDefinition for UnreferencedImagesReport {
             .iter()
             .map(|image| {
                 let file_name = image.path.file_name().unwrap_or_default().to_string_lossy();
-                let sample =
-                    support::escape_pipe(format!("![[{file_name}|{THUMBNAIL_WIDTH}]]").as_str());
-                let file_link = format!("[[{file_name}]]");
+                let sample = support::escape_pipe(
+                    format!(
+                        "!{OPENING_WIKILINK}{file_name}{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}"
+                    )
+                    .as_str(),
+                );
+                let file_link = format!("{OPENING_WIKILINK}{file_name}{CLOSING_WIKILINK}");
                 let action = if config
                     .is_some_and(|config| matches!(config.change_mode(), ChangeMode::Apply))
                 {

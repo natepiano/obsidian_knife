@@ -2,6 +2,19 @@
 pub(super) const HIGHLIGHT_CLOSE_TAG: &str = "</span>";
 pub(super) const HIGHLIGHT_OPEN_TAG: &str = "<span style=\"color: red;\">";
 
+// messages
+pub(super) const DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED: &str =
+    "ValidatedConfig required for duplicate-images report";
+pub(super) const FILES_TO_BE_UPDATED: &str = "files to be updated";
+pub(super) const INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED: &str =
+    "ValidatedConfig required for incompatible-images report";
+pub(super) const INCOMPATIBLE_IMAGES_REPORT_INVARIANT: &str =
+    "Only incompatible images should be in this report";
+pub(super) const INVALID_UTF8_BOUNDARY_DETECTED: &str =
+    "Invalid UTF-8 boundary detected at position";
+pub(super) const MISSING_REFERENCES_REPORT_CONFIG_REQUIRED: &str =
+    "ValidatedConfig required for missing-references report";
+
 // table headers
 pub(super) const TABLE_HEADER_ERROR_MESSAGE: &str = "error message";
 pub(super) const TABLE_HEADER_FILE_NAME: &str = "file name";

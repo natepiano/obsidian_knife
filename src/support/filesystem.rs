@@ -17,16 +17,23 @@ use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
 #[cfg(target_os = "macos")]
+use super::constants::FAILED_TO_SET_CREATION_DATE_WITH_SETFILE;
+use super::constants::HOME_ENV_VAR;
+use super::constants::IMAGE_FILE_COLLECTION_LOCK_POISONED;
+#[cfg(target_os = "macos")]
 use super::constants::SET_FILE_CREATED_DATE_FLAG;
 #[cfg(target_os = "macos")]
 use super::constants::SET_FILE_CREATED_DATE_FORMAT;
 #[cfg(target_os = "macos")]
 use super::constants::SET_FILE_EXECUTABLE;
+use super::constants::TILDE;
+use super::constants::TILDE_SLASH;
 use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
 use crate::constants::IMAGE_EXTENSIONS;
 use crate::constants::MARKDOWN_EXTENSION;
+use crate::constants::MARKDOWN_FILE_COLLECTION_LOCK_POISONED;
 use crate::validated_config::ValidatedConfig;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -52,8 +59,8 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str()
-        && let Some(home) = std::env::var_os("HOME")
-        && let Some(stripped) = path_str.strip_prefix("~/")
+        && let Some(home) = std::env::var_os(HOME_ENV_VAR)
+        && let Some(stripped) = path_str.strip_prefix(TILDE_SLASH)
     {
         return PathBuf::from(home).join(stripped);
     }
@@ -61,8 +68,8 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
     let mut components = path.components();
     if let Some(Component::Normal(first)) = components.next()
-        && first == "~"
-        && let Some(home) = std::env::var_os("HOME")
+        && first == TILDE
+        && let Some(home) = std::env::var_os(HOME_ENV_VAR)
     {
         let mut expanded_path = PathBuf::from(home);
         expanded_path.extend(components);
@@ -120,14 +127,14 @@ pub fn collect_repository_files(
                         markdown_files
                             .lock()
                             .map_err(|error| {
-                                format!("markdown file collection lock poisoned: {error}")
+                                format!("{MARKDOWN_FILE_COLLECTION_LOCK_POISONED}: {error}")
                             })?
                             .push(path.clone());
                     } else if IMAGE_EXTENSIONS.contains(&ext.as_str()) {
                         image_files
                             .lock()
                             .map_err(|error| {
-                                format!("image file collection lock poisoned: {error}")
+                                format!("{IMAGE_FILE_COLLECTION_LOCK_POISONED}: {error}")
                             })?
                             .push(path.clone());
                     }
@@ -158,10 +165,10 @@ pub fn collect_repository_files(
     Ok(RepositoryFiles {
         markdown: markdown_files
             .into_inner()
-            .map_err(|error| format!("markdown file collection lock poisoned: {error}"))?,
+            .map_err(|error| format!("{MARKDOWN_FILE_COLLECTION_LOCK_POISONED}: {error}"))?,
         images:   image_files
             .into_inner()
-            .map_err(|error| format!("image file collection lock poisoned: {error}"))?,
+            .map_err(|error| format!("{IMAGE_FILE_COLLECTION_LOCK_POISONED}: {error}"))?,
     })
 }
 
@@ -188,7 +195,7 @@ pub fn set_file_dates(
 
         if !output.status.success() {
             let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("Failed to set creation date with SetFile: {stderr}").into());
+            return Err(format!("{FAILED_TO_SET_CREATION_DATE_WITH_SETFILE}: {stderr}").into());
         }
     }
 

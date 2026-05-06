@@ -3,10 +3,12 @@ use std::collections::HashSet;
 use std::error::Error;
 use std::path::Path;
 
+use super::constants::DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED;
 use super::orchestration;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::COLON;
 use crate::constants::DELETED;
 use crate::constants::DUPLICATE;
@@ -21,6 +23,8 @@ use crate::constants::LEVEL3;
 use crate::constants::LINE;
 use crate::constants::NO_CHANGE;
 use crate::constants::NOT_REFERENCED;
+use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 use crate::constants::POSITION;
 use crate::constants::REFERENCE_CHANGE;
 use crate::constants::REFERENCED_BY;
@@ -83,9 +87,8 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
     ) -> anyhow::Result<Vec<Vec<String>>> {
-        let validated_config = config.ok_or_else(|| {
-            anyhow::anyhow!("ValidatedConfig required for duplicate-images report")
-        })?;
+        let validated_config =
+            config.ok_or_else(|| anyhow::anyhow!(DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED))?;
         let keeper = items
             .iter()
             .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
@@ -126,8 +129,9 @@ impl DuplicateImagesTable<'_> {
         keeper: Option<&ImageFile>,
     ) -> Vec<Vec<String>> {
         let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
-        let thumbnail = format!("![[{filename}\\|{THUMBNAIL_WIDTH}]]");
-        let image_link = format!("[[{filename}]]");
+        let thumbnail =
+            format!("!{OPENING_WIKILINK}{filename}\\{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}");
+        let image_link = format!("{OPENING_WIKILINK}{filename}{CLOSING_WIKILINK}");
         let (image_type, action, reference_update) =
             Self::classify_image(image, validated_config, keeper);
 
@@ -195,7 +199,9 @@ impl DuplicateImagesTable<'_> {
                             .file_name()
                             .unwrap_or_default()
                             .to_string_lossy();
-                        support::escape_brackets(&format!("![[{keeper_name}]]"))
+                        support::escape_brackets(&format!(
+                            "!{OPENING_WIKILINK}{keeper_name}{CLOSING_WIKILINK}"
+                        ))
                     },
                 );
 

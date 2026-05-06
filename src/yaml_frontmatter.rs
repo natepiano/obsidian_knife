@@ -9,6 +9,13 @@ use serde_yaml::Value;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_CLOSING_DELIMITER_EOF;
 use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+use crate::constants::YAML_EXPECTED_MAPPING;
+use crate::constants::YAML_FRONTMATTER_EMPTY;
+use crate::constants::YAML_FRONTMATTER_INVALID_PREFIX;
+use crate::constants::YAML_FRONTMATTER_MISSING;
+use crate::constants::YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER;
+use crate::constants::YAML_FRONTMATTER_PARSE_PREFIX;
+use crate::constants::YAML_FRONTMATTER_SERIALIZE_PREFIX;
 use crate::constants::YAML_OPENING_DELIMITER;
 /// this macro allows us to persist any extra fields not specifically implemented in
 /// a struct you want to deserialize into the yaml frontmatter of a markdown file
@@ -92,14 +99,11 @@ impl PartialEq for YamlFrontMatterError {
 impl Display for YamlFrontMatterError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Empty => write!(
-                f,
-                "yaml frontmatter delimiters are present but there is no yaml"
-            ),
-            Self::Missing => write!(f, "file must start with YAML frontmatter (---)"),
-            Self::Invalid(msg) => write!(f, "invalid YAML frontmatter: {msg}"),
-            Self::Parse(msg) => write!(f, "error parsing YAML frontmatter: {msg}"),
-            Self::Serialize(msg) => write!(f, "error serializing YAML frontmatter: {msg}"),
+            Self::Empty => f.write_str(YAML_FRONTMATTER_EMPTY),
+            Self::Missing => f.write_str(YAML_FRONTMATTER_MISSING),
+            Self::Invalid(msg) => write!(f, "{YAML_FRONTMATTER_INVALID_PREFIX}: {msg}"),
+            Self::Parse(msg) => write!(f, "{YAML_FRONTMATTER_PARSE_PREFIX}: {msg}"),
+            Self::Serialize(msg) => write!(f, "{YAML_FRONTMATTER_SERIALIZE_PREFIX}: {msg}"),
         }
     }
 }
@@ -155,7 +159,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
             Err(YamlFrontMatterError::Serialize(
-                "Expected a mapping".to_string(),
+                YAML_EXPECTED_MAPPING.to_string(),
             ))
         }
     }
@@ -201,7 +205,7 @@ pub(crate) fn find_yaml_section(
     } else {
         // No closing delimiter found
         Err(YamlFrontMatterError::Invalid(
-            "missing closing frontmatter delimiter (---)".to_string(),
+            YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER.to_string(),
         ))
     }
 }

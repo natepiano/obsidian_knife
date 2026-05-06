@@ -3,17 +3,22 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+use super::constants::FILES_TO_BE_UPDATED;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::AFTER;
 use crate::constants::BEFORE;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FILE;
 use crate::constants::FORMAT_DATE;
+use crate::constants::FORWARD_SLASH;
 use crate::constants::INFO;
 use crate::constants::LEVEL1;
 use crate::constants::LEVEL2;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OPENING_WIKILINK;
 use crate::constants::PATH;
+use crate::constants::PIPE;
 use crate::constants::REASON;
 use crate::constants::REPORT_CHUNK_SIZE;
 use crate::constants::UPDATE;
@@ -151,7 +156,7 @@ impl ObsidianRepository {
             }
         });
 
-        writer.writeln(LEVEL1, "files to be updated")?;
+        writer.writeln(LEVEL1, FILES_TO_BE_UPDATED)?;
         writer.writeln("", "")?;
 
         for chunk in persist_data.chunks(REPORT_CHUNK_SIZE) {
@@ -186,12 +191,15 @@ impl ObsidianRepository {
             .strip_prefix(config.obsidian_path())
             .unwrap_or(&file.path)
             .parent()
-            .map_or_else(|| "/".to_string(), |p| p.to_string_lossy().to_string());
+            .map_or_else(
+                || FORWARD_SLASH.to_string(),
+                |p| p.to_string_lossy().to_string(),
+            );
 
         let wikilink = if relative_path == file_name {
-            format!("[[{file_name}]]")
+            format!("{OPENING_WIKILINK}{file_name}{CLOSING_WIKILINK}")
         } else {
-            format!("[[{relative_path}|{file_name}]]")
+            format!("{OPENING_WIKILINK}{relative_path}{PIPE}{file_name}{CLOSING_WIKILINK}")
         };
 
         let back_populate_count = file.matches.unambiguous.len();
@@ -213,10 +221,13 @@ impl ObsidianRepository {
                 .fix_date
                 .map(|d| {
                     let formatted = d.format(FORMAT_DATE);
-                    format!("[[{formatted}]]")
+                    format!("{OPENING_WIKILINK}{formatted}{CLOSING_WIKILINK}")
                 })
                 .unwrap_or_default();
-            (format!("[[{formatted_date}]]"), fix_date_formatted)
+            (
+                format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
+                fix_date_formatted,
+            )
         });
 
         file.persist_reasons
@@ -241,7 +252,7 @@ impl ObsidianRepository {
             .format(FORMAT_DATE);
         (
             validation.frontmatter.clone().unwrap_or_default(),
-            format!("[[{formatted_date}]]"),
+            format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
         )
     }
 }

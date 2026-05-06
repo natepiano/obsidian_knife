@@ -11,6 +11,11 @@ use aho_corasick::MatchKind;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
+use super::constants::ANALYZE_TIMER_LABEL;
+use super::constants::ERROR_PROCESSING_FILE;
+use super::constants::MARKDOWN_FILE_COLLECTION_SHARED_REFERENCES;
+use super::constants::PRESCAN_ANALYZE_TIMER_LABEL;
+use crate::constants::MARKDOWN_FILE_COLLECTION_LOCK_POISONED;
 use crate::image_file::ImageFiles;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_files::MarkdownFiles;
@@ -29,7 +34,7 @@ pub struct ObsidianRepository {
 
 impl ObsidianRepository {
     pub fn new(validated_config: &ValidatedConfig) -> Result<Self, Box<dyn Error + Send + Sync>> {
-        let _timer = Timer::new("prescan+analyze");
+        let _timer = Timer::new(PRESCAN_ANALYZE_TIMER_LABEL);
         let ignore_folders = validated_config.ignore_folders().unwrap_or(&[]);
 
         let repository_files = support::collect_repository_files(validated_config, ignore_folders)?;
@@ -73,13 +78,13 @@ impl ObsidianRepository {
                     markdown_files
                         .lock()
                         .map_err(|error| {
-                            format!("markdown file collection lock poisoned: {error}")
+                            format!("{MARKDOWN_FILE_COLLECTION_LOCK_POISONED}: {error}")
                         })?
                         .push(markdown_file);
                     Ok(())
                 },
                 Err(e) => {
-                    eprintln!("Error processing file {}: {e}", file_path.display());
+                    eprintln!("{ERROR_PROCESSING_FILE} {}: {e}", file_path.display());
                     Err(e)
                 },
             }
@@ -87,10 +92,10 @@ impl ObsidianRepository {
 
         // Extract data from `Arc<Mutex<...>>`
         let markdown_files_mutex = Arc::try_unwrap(markdown_files)
-            .map_err(|_| "markdown file collection still had shared references".to_string())?;
+            .map_err(|_| MARKDOWN_FILE_COLLECTION_SHARED_REFERENCES.to_string())?;
         let mut markdown_files = markdown_files_mutex
             .into_inner()
-            .map_err(|error| format!("markdown file collection lock poisoned: {error}"))?;
+            .map_err(|error| format!("{MARKDOWN_FILE_COLLECTION_LOCK_POISONED}: {error}"))?;
 
         markdown_files.file_limit = file_limit;
 
@@ -108,7 +113,7 @@ impl ObsidianRepository {
     }
 
     fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> anyhow::Result<()> {
-        let _timer = Timer::new("analyze");
+        let _timer = Timer::new(ANALYZE_TIMER_LABEL);
         self.find_all_back_populate_matches(validated_config)?;
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();

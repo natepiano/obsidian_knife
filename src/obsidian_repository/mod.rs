@@ -48,6 +48,7 @@ mod scan_tests;
 mod update_modified_tests;
 
 mod back_populate;
+mod constants;
 mod image_processing;
 mod repository;
 

@@ -7,7 +7,22 @@ use std::fmt::Formatter;
 use serde::Deserialize;
 use serde::Serialize;
 
+use super::constants::INVALID_WIKILINK_DOUBLE_ALIAS;
+use super::constants::INVALID_WIKILINK_EMAIL_ADDRESS;
+use super::constants::INVALID_WIKILINK_EMPTY;
+use super::constants::INVALID_WIKILINK_NESTED_OPENING;
+use super::constants::INVALID_WIKILINK_PREFIX;
+use super::constants::INVALID_WIKILINK_RAW_HTTP_LINK;
+use super::constants::INVALID_WIKILINK_TAG;
+use super::constants::INVALID_WIKILINK_UNCLOSED_INLINE_CODE;
+use super::constants::INVALID_WIKILINK_UNMATCHED_CLOSING;
+use super::constants::INVALID_WIKILINK_UNMATCHED_MARKDOWN_LINK_OPENING;
+use super::constants::INVALID_WIKILINK_UNMATCHED_OPENING;
+use super::constants::INVALID_WIKILINK_UNMATCHED_SINGLE;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 
 /// Trait to convert strings to wikilink format
 pub trait ToWikilink {
@@ -26,13 +41,18 @@ pub trait ToWikilink {
         if target_without_md == display_text {
             target_without_md.to_wikilink()
         } else {
-            format!("[[{target_without_md}|{display_text}]]")
+            format!("{OPENING_WIKILINK}{target_without_md}{PIPE}{display_text}{CLOSING_WIKILINK}")
         }
     }
 }
 
 impl ToWikilink for str {
-    fn to_wikilink(&self) -> String { format!("[[{}]]", strip_md_extension(self)) }
+    fn to_wikilink(&self) -> String {
+        format!(
+            "{OPENING_WIKILINK}{}{CLOSING_WIKILINK}",
+            strip_md_extension(self)
+        )
+    }
 }
 
 impl ToWikilink for String {
@@ -105,17 +125,19 @@ pub enum InvalidWikilinkReason {
 impl Display for InvalidWikilinkReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
-            Self::DoubleAlias => write!(f, "contains multiple alias separators"),
-            Self::EmailAddress => write!(f, "ignore email addresses for back population"),
-            Self::EmptyWikilink => write!(f, "contains empty wikilink"),
-            Self::NestedOpening => write!(f, "contains a nested opening"),
-            Self::RawHttpLink => write!(f, "ignore raw web links"),
-            Self::Tag => write!(f, "ignore tags for back population"),
-            Self::UnclosedInlineCode => write!(f, "contains unclosed inline code"),
-            Self::UnmatchedClosing => write!(f, "contains unmatched closing brackets ']]'"),
-            Self::UnmatchedMarkdownLinkOpening => write!(f, "'[' without following match"),
-            Self::UnmatchedOpening => write!(f, "contains unmatched opening brackets '[['"),
-            Self::UnmatchedSingleInWikilink => write!(f, "contains unmatched bracket '[' or ']'"),
+            Self::DoubleAlias => f.write_str(INVALID_WIKILINK_DOUBLE_ALIAS),
+            Self::EmailAddress => f.write_str(INVALID_WIKILINK_EMAIL_ADDRESS),
+            Self::EmptyWikilink => f.write_str(INVALID_WIKILINK_EMPTY),
+            Self::NestedOpening => f.write_str(INVALID_WIKILINK_NESTED_OPENING),
+            Self::RawHttpLink => f.write_str(INVALID_WIKILINK_RAW_HTTP_LINK),
+            Self::Tag => f.write_str(INVALID_WIKILINK_TAG),
+            Self::UnclosedInlineCode => f.write_str(INVALID_WIKILINK_UNCLOSED_INLINE_CODE),
+            Self::UnmatchedClosing => f.write_str(INVALID_WIKILINK_UNMATCHED_CLOSING),
+            Self::UnmatchedMarkdownLinkOpening => {
+                f.write_str(INVALID_WIKILINK_UNMATCHED_MARKDOWN_LINK_OPENING)
+            },
+            Self::UnmatchedOpening => f.write_str(INVALID_WIKILINK_UNMATCHED_OPENING),
+            Self::UnmatchedSingleInWikilink => f.write_str(INVALID_WIKILINK_UNMATCHED_SINGLE),
         }
     }
 }
@@ -133,7 +155,7 @@ impl Display for InvalidWikilink {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "Invalid wikilink at line {}, position {}-{}: '{}' {}",
+            "{INVALID_WIKILINK_PREFIX} {}, position {}-{}: '{}' {}",
             self.line_number, self.span.0, self.span.1, self.content, self.reason
         )
     }
