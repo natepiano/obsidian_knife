@@ -93,17 +93,11 @@ impl Ord for Wikilink {
 
 impl Display for Wikilink {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}{}",
-            self.target,
-            if self.is_alias() { "|" } else { "" },
-            if self.is_alias() {
-                &self.display_text
-            } else {
-                ""
-            }
-        )
+        if self.is_alias() {
+            write!(f, "{}{PIPE}{}", self.target, self.display_text)
+        } else {
+            f.write_str(&self.target)
+        }
     }
 }
 

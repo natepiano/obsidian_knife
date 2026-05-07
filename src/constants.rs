@@ -58,6 +58,7 @@ pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 
 // markdown link syntax
+pub(crate) const IMAGE_EMBED_MARKER: char = '!';
 pub(crate) const IMAGE_LINK_PREFIX: &str = "![";
 pub(crate) const MARKDOWN_LINK_SEPARATOR: &str = "](";
 
@@ -70,6 +71,7 @@ pub(crate) const LEVEL3: &str = "###";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_CENTER: &str = ":---:";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_LEFT: &str = ":---";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_RIGHT: &str = "---:";
+pub(crate) const MARKDOWN_TABLE_CELL_SEPARATOR: &str = " | ";
 pub(crate) const MARKDOWN_TABLE_ROW_TEMPLATE: &str = "| {} |";
 pub(crate) const MARKDOWN_TABLE_SEPARATOR: &str = "---";
 pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";
@@ -77,7 +79,9 @@ pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";
 // matching
 pub(crate) const BACKSLASH: char = '\\';
 pub(crate) const CLOSING_BRACKET: char = ']';
+pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
+pub(crate) const ESCAPED_PIPE: &str = r"\|";
 pub(crate) const FORWARD_SLASH: char = '/';
 pub(crate) const OPENING_BRACKET: char = '[';
 pub(crate) const OPENING_PAREN: char = '(';

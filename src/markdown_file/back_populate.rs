@@ -8,6 +8,8 @@ use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use super::text_excluder::CodeBlockExcluder;
 use super::text_excluder::InlineCodeExcluder;
+use crate::constants::ESCAPED_PIPE;
+use crate::constants::PIPE;
 use crate::obsidian_repository;
 use crate::support::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
@@ -126,7 +128,7 @@ impl MarkdownFile {
                     MatchContext::Plaintext
                 };
                 if match_context == MatchContext::MarkdownTable {
-                    replacement = replacement.replace('|', r"\|");
+                    replacement = replacement.replace(PIPE, ESCAPED_PIPE);
                 }
 
                 let relative_path =

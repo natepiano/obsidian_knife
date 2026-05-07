@@ -2,6 +2,10 @@
 pub(super) const FENCED_CODE_DELIMITER: &str = "```";
 pub(super) const INLINE_CODE_DELIMITER: char = '`';
 
+// image links
+pub(super) const HTTP_URL_PREFIX: &str = "http://";
+pub(super) const HTTPS_URL_PREFIX: &str = "https://";
+
 // matching
 pub(super) const APOSTROPHE: char = '\'';
 pub(super) const RIGHT_SINGLE_QUOTATION_MARK: char = '\u{2019}';

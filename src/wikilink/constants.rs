@@ -18,7 +18,5 @@ pub(super) const INVALID_WIKILINK_UNMATCHED_SINGLE: &str = "contains unmatched b
 
 // syntax
 pub(super) const EMPTY_WIKILINK: &str = "[[]]";
-pub(super) const ESCAPED_PIPE: &str = r"\|";
-pub(super) const EXCLAMATION_MARK: char = '!';
 pub(super) const MARKDOWN_CLICKABLE_IMAGE_PREFIX: &str = "[!";
 pub(super) const WIKILINK_FINDER_PATTERN: &str = r"\[\[.*?\]\]";

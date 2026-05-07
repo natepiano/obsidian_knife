@@ -9,6 +9,7 @@ use std::sync::MutexGuard;
 use crate::constants::MARKDOWN_TABLE_ALIGNMENT_CENTER;
 use crate::constants::MARKDOWN_TABLE_ALIGNMENT_LEFT;
 use crate::constants::MARKDOWN_TABLE_ALIGNMENT_RIGHT;
+use crate::constants::MARKDOWN_TABLE_CELL_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_ROW_TEMPLATE;
 use crate::constants::MARKDOWN_TABLE_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
@@ -65,7 +66,7 @@ impl OutputFileWriter {
                         .iter()
                         .map(|_| MARKDOWN_TABLE_SEPARATOR)
                         .collect::<Vec<_>>()
-                        .join(" | "),
+                        .join(MARKDOWN_TABLE_CELL_SEPARATOR),
                 )
             },
             |aligns| {
@@ -77,18 +78,26 @@ impl OutputFileWriter {
                         ColumnAlignment::Right => MARKDOWN_TABLE_ALIGNMENT_RIGHT.to_string(),
                     })
                     .collect();
-                Self::markdown_table_row(&sep.join(" | "))
+                Self::markdown_table_row(&sep.join(MARKDOWN_TABLE_CELL_SEPARATOR))
             },
         );
 
         let mut file = self.lock_file()?;
 
         // markdown tables always have to have a blank line before them
-        writeln!(file, "\n{}", Self::markdown_table_row(&headers.join(" | ")))?;
+        writeln!(
+            file,
+            "\n{}",
+            Self::markdown_table_row(&headers.join(MARKDOWN_TABLE_CELL_SEPARATOR))
+        )?;
         writeln!(file, "{separator}")?;
 
         for row in rows {
-            writeln!(file, "{}", Self::markdown_table_row(&row.join(" | ")))?;
+            writeln!(
+                file,
+                "{}",
+                Self::markdown_table_row(&row.join(MARKDOWN_TABLE_CELL_SEPARATOR))
+            )?;
         }
 
         // there has to be a blank line after a table or it won't render

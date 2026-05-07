@@ -5,8 +5,6 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use super::constants::EMPTY_WIKILINK;
-use super::constants::ESCAPED_PIPE;
-use super::constants::EXCLAMATION_MARK;
 use super::constants::MARKDOWN_CLICKABLE_IMAGE_PREFIX;
 use super::constants::WIKILINK_FINDER_PATTERN;
 use super::link::InvalidWikilink;
@@ -15,6 +13,8 @@ use super::link::Wikilink;
 use crate::constants::BACKSLASH;
 use crate::constants::CLOSING_BRACKET;
 use crate::constants::CLOSING_WIKILINK;
+use crate::constants::ESCAPED_PIPE;
+use crate::constants::IMAGE_EMBED_MARKER;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::OPENING_WIKILINK;
@@ -118,7 +118,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 }
 
                 // Check if this is an image reference
-                let is_image = start_idx > 0 && is_previous_char(line, start_idx, EXCLAMATION_MARK);
+                let is_image =
+                    start_idx > 0 && is_previous_char(line, start_idx, IMAGE_EMBED_MARKER);
 
                 // Still parse the wikilink normally
                 if let Some(wikilink_result) = parse_wikilink(&mut chars) {
@@ -358,7 +359,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
 
     while let Some((pos, c)) = chars.next() {
         if matches!(state, WikilinkState::Invalid { .. }) {
-            if c == ']' && is_next_char(chars, ']') {
+            if c == CLOSING_BRACKET && is_next_char(chars, CLOSING_BRACKET) {
                 return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
             }
             state.push_char(c);
