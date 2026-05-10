@@ -15,7 +15,7 @@ use crate::test_support::TestFileBuilder;
 struct FileLimitTestCase {
     name:               &'static str,
     file_count:         usize,
-    process_limit:      Option<usize>,
+    limit:              Option<usize>,
     expected_processed: usize,
 }
 
@@ -55,25 +55,25 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
         FileLimitTestCase {
             name:               "no limit processes all files",
             file_count:         3,
-            process_limit:      None,
+            limit:              None,
             expected_processed: 3,
         },
         FileLimitTestCase {
             name:               "limit of 1 processes single file",
             file_count:         3,
-            process_limit:      Some(1),
+            limit:              Some(1),
             expected_processed: 1,
         },
         FileLimitTestCase {
             name:               "limit of 2 processes two files",
             file_count:         3,
-            process_limit:      Some(2),
+            limit:              Some(2),
             expected_processed: 2,
         },
         FileLimitTestCase {
             name:               "limit larger than file count processes all files",
             file_count:         2,
-            process_limit:      Some(5),
+            limit:              Some(5),
             expected_processed: 2,
         },
     ];
@@ -82,7 +82,7 @@ fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
 
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
-        builder.file_limit(case.process_limit);
+        builder.file_limit(case.limit);
         let validated_config = builder.build()?;
 
         // Create test files

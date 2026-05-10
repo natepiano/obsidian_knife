@@ -53,7 +53,7 @@ fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
         },
         InvalidWikilink {
             content:     "[[]]".to_string(),
-            reason:      InvalidWikilinkReason::EmptyWikilink,
+            reason:      InvalidWikilinkReason::Empty,
             span:        (27, 31),
             line:        "[[test|one|two]] some text [[]]".to_string(),
             line_number: 1,

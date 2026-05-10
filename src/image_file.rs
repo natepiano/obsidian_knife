@@ -45,8 +45,8 @@ pub(crate) enum DeletionStatus {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum DuplicateRole {
-    NotDuplicate,
+pub(crate) enum ImageRole {
+    Unique,
     Duplicate,
     Original,
 }
@@ -145,7 +145,7 @@ impl ImageFile {
         path: PathBuf,
         hash: ImageHash,
         references: Vec<PathBuf>,
-        duplicate_role: DuplicateRole,
+        image_role: ImageRole,
     ) -> std::io::Result<Self> {
         let metadata = fs::metadata(&path)?;
         let size = metadata.len();
@@ -164,10 +164,10 @@ impl ImageFile {
                 reason: IncompatibilityReason::ZeroByte,
             }
         } else {
-            match duplicate_role {
-                DuplicateRole::Original => ImageFileState::DuplicateKeeper { hash: hash.clone() },
-                DuplicateRole::Duplicate => ImageFileState::Duplicate { hash: hash.clone() },
-                DuplicateRole::NotDuplicate => {
+            match image_role {
+                ImageRole::Original => ImageFileState::DuplicateKeeper { hash: hash.clone() },
+                ImageRole::Duplicate => ImageFileState::Duplicate { hash: hash.clone() },
+                ImageRole::Unique => {
                     if references.is_empty() {
                         ImageFileState::Unreferenced
                     } else {
@@ -245,7 +245,7 @@ mod tests {
                 vec!["note1.md", "note2.md"],
                 ImageFileType::Jpeg,
                 ImageFileState::Valid,
-                DuplicateRole::NotDuplicate,
+                ImageRole::Unique,
             ),
             (
                 "image2.png",
@@ -254,7 +254,7 @@ mod tests {
                 vec![],
                 ImageFileType::Png,
                 ImageFileState::Unreferenced,
-                DuplicateRole::NotDuplicate,
+                ImageRole::Unique,
             ),
             (
                 "image3.tiff",
@@ -265,7 +265,7 @@ mod tests {
                 ImageFileState::Incompatible {
                     reason: IncompatibilityReason::TiffFormat,
                 },
-                DuplicateRole::NotDuplicate,
+                ImageRole::Unique,
             ),
             (
                 "image4.jpg",
@@ -276,7 +276,7 @@ mod tests {
                 ImageFileState::Incompatible {
                     reason: IncompatibilityReason::ZeroByte,
                 },
-                DuplicateRole::NotDuplicate,
+                ImageRole::Unique,
             ),
             (
                 "image5",
@@ -285,11 +285,11 @@ mod tests {
                 vec!["note5.md"],
                 ImageFileType::Other("unknown".to_string()),
                 ImageFileState::Valid,
-                DuplicateRole::NotDuplicate,
+                ImageRole::Unique,
             ),
         ];
 
-        for (filename, hash, content, references, expected_type, expected_state, duplicate_role) in
+        for (filename, hash, content, references, expected_type, expected_state, image_role) in
             test_cases
         {
             let path = TestFileBuilder::new()
@@ -301,8 +301,7 @@ mod tests {
             let image_hash = ImageHash::from(hash);
 
             let image_file =
-                ImageFile::new(path.clone(), image_hash.clone(), references, duplicate_role)
-                    .unwrap();
+                ImageFile::new(path.clone(), image_hash.clone(), references, image_role).unwrap();
 
             assert_eq!(image_file.path, path);
             assert_eq!(image_file.hash, image_hash);
@@ -323,7 +322,7 @@ mod tests {
             tiff_path,
             ImageHash::from("hash1"),
             vec![],
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
         assert!(matches!(
@@ -340,7 +339,7 @@ mod tests {
             zero_byte_path,
             ImageHash::from("hash2"),
             vec![PathBuf::from("note.md")],
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
         assert!(matches!(
@@ -362,7 +361,7 @@ mod tests {
             path.clone(),
             ImageHash::from("hash1"),
             vec![],
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
         assert_eq!(unreferenced.state, ImageFileState::Unreferenced);
@@ -371,7 +370,7 @@ mod tests {
             path,
             ImageHash::from("hash2"),
             vec![PathBuf::from("note.md")],
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
         assert_eq!(referenced.state, ImageFileState::Valid);
@@ -391,7 +390,7 @@ mod tests {
             original_path,
             ImageHash::from("testhash"),
             references.clone(),
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
 
@@ -406,7 +405,7 @@ mod tests {
             different_path,
             ImageHash::from("differenthash"),
             references,
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
         assert_ne!(
@@ -429,7 +428,7 @@ mod tests {
             path.clone(),
             ImageHash::from("testhash"),
             references,
-            DuplicateRole::NotDuplicate,
+            ImageRole::Unique,
         )
         .unwrap();
 

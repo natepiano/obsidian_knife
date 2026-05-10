@@ -51,14 +51,14 @@ fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + S
         markdown_file
             .persist_reasons
             .contains(&PersistReason::DateCreatedUpdated {
-                reason: DateValidationIssue::InvalidDateFormat,
+                reason: DateValidationIssue::InvalidFormat,
             })
     );
     assert!(
         markdown_file
             .persist_reasons
             .contains(&PersistReason::DateModifiedUpdated {
-                reason: DateValidationIssue::InvalidDateFormat,
+                reason: DateValidationIssue::InvalidFormat,
             })
     );
 

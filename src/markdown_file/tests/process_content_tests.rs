@@ -1,9 +1,9 @@
 use tempfile::TempDir;
 
 use super::ImageLink;
-use super::ImageLinkRendering;
 use super::ImageLinkTarget;
 use super::ImageLinkType;
+use super::ImageRendering;
 use super::MarkdownFile;
 use crate::support::IMAGE_REGEX;
 use crate::test_support::AliasExpectation;
@@ -55,13 +55,13 @@ fn test_process_content_with_aliases() {
         &extracted.valid,
         "test file",
         Some("Alias One"),
-        AliasExpectation::Alias,
+        AliasExpectation::Aliased,
     );
     assert_contains_wikilink(
         &extracted.valid,
         "test file",
         Some("Alias Two"),
-        AliasExpectation::Alias,
+        AliasExpectation::Aliased,
     );
     assert_contains_wikilink(
         &extracted.valid,
@@ -73,7 +73,7 @@ fn test_process_content_with_aliases() {
         &extracted.valid,
         "Target",
         Some("Display Text"),
-        AliasExpectation::Alias,
+        AliasExpectation::Aliased,
     );
 
     // Verify no invalid wikilinks in this case
@@ -168,14 +168,14 @@ fn test_process_content_with_empty() {
     assert_eq!(first_empty.line_number, 1);
     assert_eq!(first_empty.line, "Test [[]] here");
     assert_eq!(first_empty.content, "[[]]");
-    assert_eq!(first_empty.reason, InvalidWikilinkReason::EmptyWikilink);
+    assert_eq!(first_empty.reason, InvalidWikilinkReason::Empty);
 
     // Verify second empty wikilink
     let second_empty = &extracted.invalid[1];
     assert_eq!(second_empty.line_number, 2);
     assert_eq!(second_empty.line, "And [[|]] there");
     assert_eq!(second_empty.content, "[[|]]");
-    assert_eq!(second_empty.reason, InvalidWikilinkReason::EmptyWikilink);
+    assert_eq!(second_empty.reason, InvalidWikilinkReason::Empty);
 
     // Verify no image links
     assert!(image_links.is_empty(), "Should not have image links");
@@ -234,39 +234,39 @@ fn test_image_link_types() {
         ImageLinkTestCase::new(
             "![[image.png]]",
             "image.png",
-            ImageLinkType::Wiki(ImageLinkRendering::Embedded),
+            ImageLinkType::Wiki(ImageRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[[image.jpg]]",
             "image.jpg",
-            ImageLinkType::Wiki(ImageLinkRendering::LinkOnly),
+            ImageLinkType::Wiki(ImageRendering::Linked),
         ),
         ImageLinkTestCase::new(
             "![[image.png|alt text]]",
             "image.png",
-            ImageLinkType::Wiki(ImageLinkRendering::Embedded),
+            ImageLinkType::Wiki(ImageRendering::Embedded),
         ),
         // Markdown Internal Links
         ImageLinkTestCase::new(
             "![alt](image.png)",
             "image.png",
-            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageLinkRendering::Embedded),
+            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](image.jpg)",
             "image.jpg",
-            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly),
+            ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageRendering::Linked),
         ),
         // Markdown External Links
         ImageLinkTestCase::new(
             "![alt](https://example.com/image.png)",
             "https://example.com/image.png",
-            ImageLinkType::Markdown(ImageLinkTarget::External, ImageLinkRendering::Embedded),
+            ImageLinkType::Markdown(ImageLinkTarget::External, ImageRendering::Embedded),
         ),
         ImageLinkTestCase::new(
             "[alt](https://example.com/image.jpg)",
             "https://example.com/image.jpg",
-            ImageLinkType::Markdown(ImageLinkTarget::External, ImageLinkRendering::LinkOnly),
+            ImageLinkType::Markdown(ImageLinkTarget::External, ImageRendering::Linked),
         ),
     ];
 

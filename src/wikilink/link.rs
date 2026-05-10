@@ -104,7 +104,7 @@ impl Display for Wikilink {
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum InvalidWikilinkReason {
     DoubleAlias,                  // e.g. [[A|B|C]]
-    EmptyWikilink,                // [[]] or [[|]]
+    Empty,                        // [[]] or [[|]]
     EmailAddress,                 // bob@rock.com
     NestedOpening,                // [[blah [[blah]]
     RawHttpLink,                  // http://somelink.com/
@@ -113,7 +113,7 @@ pub enum InvalidWikilinkReason {
     UnmatchedClosing,             // ]] without matching [[
     UnmatchedMarkdownLinkOpening, // [ without following ]
     UnmatchedOpening,             // [[ without closing ]]
-    UnmatchedSingleInWikilink,    // ] without [ or [ without ]
+    UnmatchedSingle,              // ] without [ or [ without ]
 }
 
 impl Display for InvalidWikilinkReason {
@@ -121,7 +121,7 @@ impl Display for InvalidWikilinkReason {
         match self {
             Self::DoubleAlias => f.write_str(INVALID_WIKILINK_DOUBLE_ALIAS),
             Self::EmailAddress => f.write_str(INVALID_WIKILINK_EMAIL_ADDRESS),
-            Self::EmptyWikilink => f.write_str(INVALID_WIKILINK_EMPTY),
+            Self::Empty => f.write_str(INVALID_WIKILINK_EMPTY),
             Self::NestedOpening => f.write_str(INVALID_WIKILINK_NESTED_OPENING),
             Self::RawHttpLink => f.write_str(INVALID_WIKILINK_RAW_HTTP_LINK),
             Self::Tag => f.write_str(INVALID_WIKILINK_TAG),
@@ -131,7 +131,7 @@ impl Display for InvalidWikilinkReason {
                 f.write_str(INVALID_WIKILINK_UNMATCHED_MARKDOWN_LINK_OPENING)
             },
             Self::UnmatchedOpening => f.write_str(INVALID_WIKILINK_UNMATCHED_OPENING),
-            Self::UnmatchedSingleInWikilink => f.write_str(INVALID_WIKILINK_UNMATCHED_SINGLE),
+            Self::UnmatchedSingle => f.write_str(INVALID_WIKILINK_UNMATCHED_SINGLE),
         }
     }
 }

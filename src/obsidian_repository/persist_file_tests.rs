@@ -208,7 +208,7 @@ fn create_test_cases() -> Vec<PersistenceTestCase> {
                         modified: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
                     },
                 },
-                persist: PersistExpectation::DoesNotPersist,
+                persist: PersistExpectation::Unchanged,
             },
         },
         PersistenceTestCase {

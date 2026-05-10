@@ -20,9 +20,9 @@ use crate::image_file::ImageHash;
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum CacheFileStatus {
-    ReadFromCache,
-    CreatedNewCache,
-    CacheCorrupted,
+    Read,
+    Created,
+    Corrupted,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -40,8 +40,8 @@ pub(crate) struct CachedImageInfo {
 
 #[derive(Debug)]
 pub(crate) struct Sha256Cache {
-    cache:               HashMap<PathBuf, CachedImageInfo>,
-    cache_file_path:     PathBuf,
+    entries:             HashMap<PathBuf, CachedImageInfo>,
+    file_path:           PathBuf,
     reads:               usize,
     pub(super) added:    usize,
     pub(super) modified: usize,
@@ -49,26 +49,26 @@ pub(crate) struct Sha256Cache {
 }
 
 impl Sha256Cache {
-    pub(crate) fn load_or_create(cache_file_path: PathBuf) -> (Self, CacheFileStatus) {
-        let (cache, status) = if cache_file_path.exists() {
-            File::open(&cache_file_path).map_or_else(
-                |_| (HashMap::new(), CacheFileStatus::CreatedNewCache),
+    pub(crate) fn load_or_create(file_path: PathBuf) -> (Self, CacheFileStatus) {
+        let (entries, status) = if file_path.exists() {
+            File::open(&file_path).map_or_else(
+                |_| (HashMap::new(), CacheFileStatus::Created),
                 |file| {
                     let reader = BufReader::new(file);
                     serde_json::from_reader(reader).map_or_else(
-                        |_| (HashMap::new(), CacheFileStatus::CacheCorrupted),
-                        |parsed_cache| (parsed_cache, CacheFileStatus::ReadFromCache),
+                        |_| (HashMap::new(), CacheFileStatus::Corrupted),
+                        |parsed_cache| (parsed_cache, CacheFileStatus::Read),
                     )
                 },
             )
         } else {
-            (HashMap::new(), CacheFileStatus::CreatedNewCache)
+            (HashMap::new(), CacheFileStatus::Created)
         };
 
         (
             Self {
-                cache,
-                cache_file_path,
+                entries,
+                file_path,
                 reads: 0,
                 added: 0,
                 modified: 0,
@@ -85,7 +85,7 @@ impl Sha256Cache {
         let metadata = fs::metadata(path)?;
         let time_stamp = metadata.modified()?;
 
-        if let Some(cached_info) = self.cache.get(path)
+        if let Some(cached_info) = self.entries.get(path)
             && cached_info.time_stamp == time_stamp
         {
             self.reads += 1;
@@ -93,7 +93,7 @@ impl Sha256Cache {
         }
 
         let new_hash = ImageHash::from(Self::hash_file(path)?);
-        let status = if self.cache.contains_key(path) {
+        let status = if self.entries.contains_key(path) {
             self.modified += 1;
             CacheEntryStatus::Modified
         } else {
@@ -101,7 +101,7 @@ impl Sha256Cache {
             CacheEntryStatus::Added
         };
 
-        self.cache.insert(
+        self.entries.insert(
             path.to_path_buf(),
             CachedImageInfo {
                 hash: new_hash.clone(),
@@ -113,17 +113,17 @@ impl Sha256Cache {
     }
 
     pub(crate) fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
-        // Create vector of paths that exist in cache but not in `valid_paths`
+        // Create vector of paths that exist in entries but not in `valid_paths`
         let to_remove: Vec<_> = self
-            .cache
-            .keys() // Iterate over all paths in cache
+            .entries
+            .keys() // Iterate over all paths in entries
             .filter(|path| !valid_paths.contains(path.as_path())) // Keep only paths NOT in valid_paths
             .cloned() // Clone the `PathBuf`s we want to remove
             .collect(); // Collect into Vec
 
         self.deleted = to_remove.len();
         for path in to_remove {
-            self.cache.remove(&path);
+            self.entries.remove(&path);
         }
     }
 
@@ -132,11 +132,11 @@ impl Sha256Cache {
     }
 
     pub(crate) fn save(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(parent) = self.cache_file_path.parent() {
+        if let Some(parent) = self.file_path.parent() {
             fs::create_dir_all(parent)?;
         }
-        let file = File::create(&self.cache_file_path)?;
-        serde_json::to_writer(file, &self.cache)?;
+        let file = File::create(&self.file_path)?;
+        serde_json::to_writer(file, &self.entries)?;
         Ok(())
     }
 

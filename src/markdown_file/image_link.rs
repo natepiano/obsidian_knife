@@ -32,15 +32,15 @@ pub enum ImageLinkTarget {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ImageLinkRendering {
-    LinkOnly,
+pub enum ImageRendering {
+    Linked,
     Embedded,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkType {
-    Wiki(ImageLinkRendering),
-    Markdown(ImageLinkTarget, ImageLinkRendering),
+    Wiki(ImageRendering),
+    Markdown(ImageLinkTarget, ImageRendering),
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
@@ -115,17 +115,17 @@ impl ReplaceableContent for ImageLink {
 
                 match &self.link_type {
                     ImageLinkType::Wiki(rendering) => match rendering {
-                        ImageLinkRendering::Embedded => self.size_parameter.as_ref().map_or_else(
+                        ImageRendering::Embedded => self.size_parameter.as_ref().map_or_else(
                             || format!("![[{new_relative}]]"),
                             |size| format!("![[{new_relative}|{size}]]"),
                         ),
-                        ImageLinkRendering::LinkOnly => format!("[[{new_relative}]]"),
+                        ImageRendering::Linked => format!("[[{new_relative}]]"),
                     },
                     ImageLinkType::Markdown(target, rendering) => match (target, rendering) {
-                        (ImageLinkTarget::Internal, ImageLinkRendering::Embedded) => {
+                        (ImageLinkTarget::Internal, ImageRendering::Embedded) => {
                             format!("![{}]({new_relative})", self.alt_text)
                         },
-                        (ImageLinkTarget::Internal, ImageLinkRendering::LinkOnly) => {
+                        (ImageLinkTarget::Internal, ImageRendering::Linked) => {
                             format!("[{}]({new_relative})", self.alt_text)
                         },
                         (ImageLinkTarget::External, _) => self.matched_text.clone(),
@@ -148,9 +148,9 @@ impl ImageLink {
             .ends_with(CLOSING_WIKILINK)
         {
             let rendering = if raw_link.starts_with(IMAGE_EMBED_MARKER) {
-                ImageLinkRendering::Embedded
+                ImageRendering::Embedded
             } else {
-                ImageLinkRendering::LinkOnly
+                ImageRendering::Linked
             };
 
             let filename = raw_link
@@ -177,9 +177,9 @@ impl ImageLink {
             )
         } else if raw_link.ends_with(CLOSING_PAREN) {
             let rendering = if raw_link.starts_with(IMAGE_EMBED_MARKER) {
-                ImageLinkRendering::Embedded
+                ImageRendering::Embedded
             } else {
-                ImageLinkRendering::LinkOnly
+                ImageRendering::Linked
             };
 
             let alt_text = raw_link

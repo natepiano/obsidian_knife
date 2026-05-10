@@ -294,7 +294,7 @@ impl WikilinkState {
                 if trimmed.is_empty() {
                     WikilinkParseResult::Invalid(ParsedInvalidWikilink {
                         content: EMPTY_WIKILINK.to_string(),
-                        reason:  InvalidWikilinkReason::EmptyWikilink,
+                        reason:  InvalidWikilinkReason::Empty,
                         span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
                 } else {
@@ -317,7 +317,7 @@ impl WikilinkState {
                         content: format!(
                             "{OPENING_WIKILINK}{target}{PIPE}{content}{CLOSING_WIKILINK}"
                         ),
-                        reason:  InvalidWikilinkReason::EmptyWikilink,
+                        reason:  InvalidWikilinkReason::Empty,
                         span:    (start_pos.saturating_sub(OPENING_WIKILINK.len()), end_pos),
                     })
                 } else {
@@ -399,7 +399,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                 if is_next_char(chars, CLOSING_BRACKET) {
                     return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
                 }
-                state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
                 state.push_char(c);
             },
             OPENING_BRACKET => {
@@ -408,7 +408,7 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                     state.push_char(c); // push first '['
                     state.push_char(OPENING_BRACKET); // push second '['
                 } else {
-                    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingleInWikilink);
+                    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
                     state.push_char(c);
                 }
             },

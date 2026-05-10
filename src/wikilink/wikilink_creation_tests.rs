@@ -107,11 +107,11 @@ fn to_aliased_wikilink_variants() {
 #[test]
 fn test_empty_wikilink_variants() {
     let test_cases = vec![
-        ("[[]]", InvalidWikilinkReason::EmptyWikilink),
-        ("[[|]]", InvalidWikilinkReason::EmptyWikilink),
-        ("[[display|]]", InvalidWikilinkReason::EmptyWikilink),
-        ("[[|alias]]", InvalidWikilinkReason::EmptyWikilink),
-        ("[[display\\|]]", InvalidWikilinkReason::EmptyWikilink),
+        ("[[]]", InvalidWikilinkReason::Empty),
+        ("[[|]]", InvalidWikilinkReason::Empty),
+        ("[[display|]]", InvalidWikilinkReason::Empty),
+        ("[[|alias]]", InvalidWikilinkReason::Empty),
+        ("[[display\\|]]", InvalidWikilinkReason::Empty),
     ];
 
     for (input, expected_reason) in test_cases {
@@ -142,21 +142,21 @@ fn test_parse_wikilink_basic_and_aliased() {
             "[[target|display]]",
             "target",
             "display",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
         (
             "[[  target  |  display  ]]",
             "target",
             "display",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
-        ("[[测试|test]]", "测试", "test", AliasExpectation::Alias),
-        ("[[test|测试]]", "test", "测试", AliasExpectation::Alias),
+        ("[[测试|test]]", "测试", "test", AliasExpectation::Aliased),
+        ("[[test|测试]]", "test", "测试", AliasExpectation::Aliased),
         (
             "[[a/b/c|display]]",
             "a/b/c",
             "display",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
     ];
 
@@ -220,7 +220,7 @@ fn test_parse_wikilink_escaped_chars() {
             "[[target|display\\]text]]",
             "target",
             "display]text",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
         // Multiple escaped characters
         (
@@ -240,7 +240,7 @@ fn test_parse_wikilink_escaped_chars() {
             "[[target\\[x\\]|display\\[y\\]]]",
             "target[x]",
             "display[y]",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
     ];
 
@@ -253,31 +253,21 @@ fn test_parse_wikilink_escaped_chars() {
 fn test_parse_wikilink_unmatched_brackets() {
     let test_cases = vec![
         // Basic unmatched brackets
-        (
-            "[[text]text]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
-        ),
-        (
-            "[[text[text]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
-        ),
+        ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingle),
+        ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingle),
         // Mixed escape scenarios - only flag when a bracket is actually unmatched
-        (
-            "[[text[\\]text]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
-        ), // first [ is unmatched, second is escaped
-        (
-            "[[text\\[]text]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
-        ), // ] is unmatched, [ is escaped
+        ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingle), /* first [ is unmatched,
+                                                                       * second is escaped */
+        ("[[text\\[]text]]", InvalidWikilinkReason::UnmatchedSingle), /* ] is unmatched, [ is
+                                                                       * escaped */
         // Complex cases with aliases
         (
             "[[target[x|display]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            InvalidWikilinkReason::UnmatchedSingle,
         ),
         (
             "[[target|display]x]]",
-            InvalidWikilinkReason::UnmatchedSingleInWikilink,
+            InvalidWikilinkReason::UnmatchedSingle,
         ),
     ];
 
@@ -311,13 +301,13 @@ fn test_parse_wikilink_special_chars() {
             "[[file (1)|version 1]]",
             "file (1)",
             "version 1",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
         (
             "[[target|(text)]]",
             "target",
             "(text)",
-            AliasExpectation::Alias,
+            AliasExpectation::Aliased,
         ),
     ];
 

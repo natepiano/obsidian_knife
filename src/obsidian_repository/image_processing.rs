@@ -7,11 +7,11 @@ use super::ObsidianRepository;
 use crate::constants::CACHE_FILE;
 use crate::constants::CACHE_FOLDER;
 use crate::image_file::DeletionStatus;
-use crate::image_file::DuplicateRole;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::ImageFiles;
 use crate::image_file::ImageHash;
+use crate::image_file::ImageRole;
 use crate::markdown_file::ImageLinkState;
 use crate::sha256_cache::Sha256Cache;
 use crate::validated_config::ValidatedConfig;
@@ -75,19 +75,19 @@ impl ObsidianRepository {
             for (idx, (path, references)) in group.into_iter().enumerate() {
                 let path_references: Vec<PathBuf> =
                     references.into_iter().map(PathBuf::from).collect();
-                let duplicate_role = if !is_duplicate_group {
-                    DuplicateRole::NotDuplicate
+                let image_role = if !is_duplicate_group {
+                    ImageRole::Unique
                 } else if keeper_selection == KeeperSelection::FirstSortedImage && idx == 0 {
-                    DuplicateRole::Original
+                    ImageRole::Original
                 } else {
-                    DuplicateRole::Duplicate
+                    ImageRole::Duplicate
                 };
 
                 images.push(ImageFile::new(
                     path,
                     hash.clone(),
                     path_references,
-                    duplicate_role,
+                    image_role,
                 )?);
             }
         }
@@ -148,7 +148,7 @@ impl ObsidianRepository {
         validated_config: &ValidatedConfig,
         image_files: &[PathBuf],
     ) -> Sha256Cache {
-        let cache_file_path = validated_config
+        let file_path = validated_config
             .obsidian_path()
             .join(CACHE_FOLDER)
             .join(CACHE_FILE);
@@ -157,7 +157,7 @@ impl ObsidianRepository {
             .map(std::path::PathBuf::as_path)
             .collect();
 
-        let mut cache = Sha256Cache::load_or_create(cache_file_path).0;
+        let mut cache = Sha256Cache::load_or_create(file_path).0;
         cache.mark_deletions(&valid_paths);
         cache
     }

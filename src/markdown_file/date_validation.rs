@@ -43,7 +43,7 @@ impl Display for PersistReason {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum DateValidationIssue {
     Missing,
-    InvalidDateFormat,
+    InvalidFormat,
     InvalidWikilink,
     FileSystemMismatch,
 }
@@ -52,7 +52,7 @@ impl Display for DateValidationIssue {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         let description = match self {
             Self::Missing => "missing",
-            Self::InvalidDateFormat => "invalid date format",
+            Self::InvalidFormat => "invalid date format",
             Self::InvalidWikilink => "invalid wikilink",
             Self::FileSystemMismatch => "doesn't match file system",
         };
@@ -83,8 +83,8 @@ impl DateValidation {
 #[derive(Debug, Default, Clone)]
 pub struct DateCreatedFixValidation {
     #[cfg(test)]
-    pub date_string: Option<String>,
-    pub fix_date:    Option<DateTime<Utc>>,
+    pub raw:   Option<String>,
+    pub fixed: Option<DateTime<Utc>>,
 }
 
 impl DateCreatedFixValidation {
@@ -96,7 +96,7 @@ impl DateCreatedFixValidation {
         let fix_str =
             frontmatter.and_then(|frontmatter| frontmatter.date_created_fix().map(String::from));
 
-        let parsed_date = fix_str.as_ref().and_then(|date_str| {
+        let parsed = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
                 extract_date(date_str)
             } else {
@@ -126,8 +126,8 @@ impl DateCreatedFixValidation {
 
         Self {
             #[cfg(test)]
-            date_string:              fix_str,
-            fix_date:                 parsed_date,
+            raw:              fix_str,
+            fixed:            parsed,
         }
     }
 }
@@ -189,17 +189,17 @@ pub(super) fn get_date_validation_issue(
 
     // Validate the extracted date format
     if !is_valid_date(extracted_date) {
-        return Some(DateValidationIssue::InvalidDateFormat);
+        return Some(DateValidationIssue::InvalidFormat);
     }
 
     // Parse the frontmatter date string into a `NaiveDate`
     let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), FORMAT_DATE) else {
-        return Some(DateValidationIssue::InvalidDateFormat);
+        return Some(DateValidationIssue::InvalidFormat);
     };
 
     // Parse timezone string into a Tz
     let Ok(timezone) = operational_timezone.parse::<Tz>() else {
-        return Some(DateValidationIssue::InvalidDateFormat);
+        return Some(DateValidationIssue::InvalidFormat);
     };
 
     // Convert UTC `file_system_date` to the specified timezone
@@ -251,10 +251,10 @@ pub(super) fn process_date_validations(
     if let Some(frontmatter) = frontmatter {
         let mut created_date_update = CreatedDateUpdate::IfInvalid;
 
-        if let Some(fix_date) = date_created_fix_validation.fix_date {
+        if let Some(fixed) = date_created_fix_validation.fixed {
             created_date_update = CreatedDateUpdate::Skip;
 
-            frontmatter.set_date_created(fix_date, operational_timezone);
+            frontmatter.set_date_created(fixed, operational_timezone);
             frontmatter.remove_date_created_fix();
             reasons.push(PersistReason::DateCreatedFixApplied);
         }

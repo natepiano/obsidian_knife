@@ -160,7 +160,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
 }
 
 struct TargetLinesTable {
-    target: String,
+    target_text: String,
 }
 
 #[derive(Clone)]
@@ -223,7 +223,7 @@ impl ReportDefinition for TargetLinesTable {
         Some(
             DescriptionBuilder::new()
                 .text("references to")
-                .text(&self.target.to_wikilink())
+                .text(&self.target_text.to_wikilink())
                 .build(),
         )
     }
@@ -309,7 +309,7 @@ impl ObsidianRepository {
             for target in &sorted_targets {
                 let lines = self.collect_target_lines(target);
                 let target_table = TargetLinesTable {
-                    target: target.clone(),
+                    target_text: target.clone(),
                 };
                 let report = ReportWriter::new(lines);
                 report.write(&target_table, writer)?;

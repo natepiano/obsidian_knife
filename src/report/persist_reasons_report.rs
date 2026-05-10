@@ -216,9 +216,9 @@ impl ObsidianRepository {
                 .created_validation
                 .operational_file_system_date()
                 .format(FORMAT_DATE);
-            let fix_date_formatted = file
+            let fixed_formatted = file
                 .date_created_fix
-                .fix_date
+                .fixed
                 .map(|d| {
                     let formatted = d.format(FORMAT_DATE);
                     format!("{OPENING_WIKILINK}{formatted}{CLOSING_WIKILINK}")
@@ -226,7 +226,7 @@ impl ObsidianRepository {
                 .unwrap_or_default();
             (
                 format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
-                fix_date_formatted,
+                fixed_formatted,
             )
         });
 

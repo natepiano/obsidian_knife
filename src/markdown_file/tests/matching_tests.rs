@@ -168,7 +168,7 @@ fn test_markdown_file_with_invalid_wikilinks() {
         .wikilinks
         .invalid
         .iter()
-        .find(|w| w.reason == InvalidWikilinkReason::EmptyWikilink)
+        .find(|w| w.reason == InvalidWikilinkReason::Empty)
         .expect("Should have an empty wikilink");
     assert_eq!(empty.content, "[[]]");
 }

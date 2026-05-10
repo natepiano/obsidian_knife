@@ -25,6 +25,6 @@ pub(super) use super::PersistReason;
 pub(super) use super::date_validation;
 pub(super) use super::date_validation::DateCreatedFixValidation;
 pub(super) use super::date_validation::DateValidationIssue;
-pub(super) use super::image_link::ImageLinkRendering;
 pub(super) use super::image_link::ImageLinkTarget;
 pub(super) use super::image_link::ImageLinkType;
+pub(super) use super::image_link::ImageRendering;

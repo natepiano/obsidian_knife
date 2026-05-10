@@ -53,8 +53,8 @@ struct DateFixExpectations {
 }
 
 struct DateCreatedFixExpectations {
-    persist:     PersistExpectation,
-    parsed_date: Option<DateTime<Utc>>,
+    persist: PersistExpectation,
+    parsed:  Option<DateTime<Utc>>,
 }
 
 struct DateValidationTestCase {
@@ -122,8 +122,8 @@ fn test_process_frontmatter_date_validation() {
                 created:  Utc::now(),
             },
             issues:      ValidationIssues {
-                modified: Some(DateValidationIssue::InvalidDateFormat),
-                created:  Some(DateValidationIssue::InvalidDateFormat),
+                modified: Some(DateValidationIssue::InvalidFormat),
+                created:  Some(DateValidationIssue::InvalidFormat),
             },
         },
         DateValidationTestCase {
@@ -200,7 +200,7 @@ fn test_process_date_validations() {
                 created:  test_utils::eastern_midnight(2024, 1, 15),
             },
             expected:    DateFixExpectations {
-                persist:  PersistExpectation::DoesNotPersist,
+                persist:  PersistExpectation::Unchanged,
                 modified: Some(eastern_date_wikilink(2024, 1, 15)),
                 created:  Some(eastern_date_wikilink(2024, 1, 15)),
             },
@@ -328,9 +328,9 @@ fn test_process_date_validations() {
 }
 
 struct DateCreatedFixTestCase {
-    name:             &'static str,
-    date_created_fix: Option<String>,
-    expected:         DateCreatedFixExpectations,
+    name:      &'static str,
+    fix_input: Option<String>,
+    expected:  DateCreatedFixExpectations,
 }
 
 #[test]
@@ -341,54 +341,54 @@ struct DateCreatedFixTestCase {
 fn test_date_created_fix_integration() {
     let test_cases = vec![
         DateCreatedFixTestCase {
-            name:             "missing date_created_fix",
-            date_created_fix: None,
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::DoesNotPersist,
-                parsed_date: None,
+            name:      "missing date_created_fix",
+            fix_input: None,
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Unchanged,
+                parsed:  None,
             },
         },
         DateCreatedFixTestCase {
-            name:             "valid date without wikilink",
+            name:      "valid date without wikilink",
             // bare date (no wikilink) on purpose — tests the non-wikilink input path
-            date_created_fix: Some("2024-01-15".to_string()),
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::Persists,
-                parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            fix_input: Some("2024-01-15".to_string()),
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Persists,
+                parsed:  Some(test_utils::eastern_midnight(2024, 1, 15)),
             },
         },
         DateCreatedFixTestCase {
-            name:             "valid date with wikilink",
-            date_created_fix: Some(eastern_date_wikilink(2024, 1, 15)),
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::Persists,
-                parsed_date: Some(test_utils::eastern_midnight(2024, 1, 15)),
+            name:      "valid date with wikilink",
+            fix_input: Some(eastern_date_wikilink(2024, 1, 15)),
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Persists,
+                parsed:  Some(test_utils::eastern_midnight(2024, 1, 15)),
             },
         },
         DateCreatedFixTestCase {
-            name:             "invalid date format",
+            name:      "invalid date format",
             // malformed-on-purpose — do not derive from production constants
-            date_created_fix: Some("2024-13-45".to_string()),
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::DoesNotPersist,
-                parsed_date: None,
+            fix_input: Some("2024-13-45".to_string()),
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Unchanged,
+                parsed:  None,
             },
         },
         DateCreatedFixTestCase {
-            name:             "invalid date with wikilink",
+            name:      "invalid date with wikilink",
             // malformed-on-purpose — do not derive from production constants
-            date_created_fix: Some("[[2024-13-45]]".to_string()),
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::DoesNotPersist,
-                parsed_date: None,
+            fix_input: Some("[[2024-13-45]]".to_string()),
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Unchanged,
+                parsed:  None,
             },
         },
         DateCreatedFixTestCase {
-            name:             "malformed wikilink",
-            date_created_fix: Some("[2024-01-15]".to_string()),
-            expected:         DateCreatedFixExpectations {
-                persist:     PersistExpectation::DoesNotPersist,
-                parsed_date: None,
+            name:      "malformed wikilink",
+            fix_input: Some("[2024-01-15]".to_string()),
+            expected:  DateCreatedFixExpectations {
+                persist: PersistExpectation::Unchanged,
+                parsed:  None,
             },
         },
     ];
@@ -407,7 +407,7 @@ fn test_date_created_fix_integration() {
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
             .with_fs_dates(test_date, test_date)
-            .with_date_created_fix(case.date_created_fix.clone())
+            .with_date_created_fix(case.fix_input.clone())
             .create(&temp_dir, "test1.md");
 
         // Create `MarkdownFile` from the test file
@@ -415,8 +415,8 @@ fn test_date_created_fix_integration() {
 
         // Verify the `DateCreatedFixValidation` state
         test_utils::assert_test_case(
-            markdown_file.date_created_fix.date_string,
-            case.date_created_fix,
+            markdown_file.date_created_fix.raw,
+            case.fix_input,
             &format!("{} - date string", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -431,9 +431,9 @@ fn test_date_created_fix_integration() {
         test_utils::assert_test_case(
             markdown_file
                 .date_created_fix
-                .fix_date
+                .fixed
                 .map(|dt| dt.date_naive()),
-            case.expected.parsed_date.map(|dt| dt.date_naive()),
+            case.expected.parsed.map(|dt| dt.date_naive()),
             &format!("{} - parsed date", case.name),
             |actual, expected| assert_eq!(actual, expected),
         );
@@ -552,14 +552,14 @@ fn test_late_night_date_created_fix() {
 
     // Verify the parsed date shows as Jan 16 when viewed in Eastern
     let timezone: Tz = DEFAULT_TIMEZONE.parse().unwrap();
-    let parsed_date_local = markdown_file
+    let fixed_local = markdown_file
         .date_created_fix
-        .fix_date
+        .fixed
         .unwrap()
         .with_timezone(&timezone);
 
     assert_eq!(
-        parsed_date_local.date_naive(),
+        fixed_local.date_naive(),
         NaiveDate::from_ymd_opt(2024, 1, 16).unwrap(),
         "Date created fix should show as Jan 16 in Eastern time"
     );

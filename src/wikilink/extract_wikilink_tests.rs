@@ -98,7 +98,7 @@ fn test_various_extractions() {
             valid:       vec![],
             invalid:     vec![(
                 "[[test]text]]",
-                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+                InvalidWikilinkReason::UnmatchedSingle,
                 (10, 23),
             )],
         },
@@ -108,7 +108,7 @@ fn test_various_extractions() {
             valid:       vec![],
             invalid:     vec![(
                 "[[test[text]]",
-                InvalidWikilinkReason::UnmatchedSingleInWikilink,
+                InvalidWikilinkReason::UnmatchedSingle,
                 (10, 23),
             )],
         },
@@ -125,7 +125,7 @@ fn test_various_extractions() {
         WikilinkTestCase {
             description: "Aliased wikilink",
             input:       "Text with [[target|alias]] here",
-            valid:       vec![("target", "alias", AliasExpectation::Alias)],
+            valid:       vec![("target", "alias", AliasExpectation::Aliased)],
             invalid:     vec![],
         },
     ];
