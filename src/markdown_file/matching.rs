@@ -1,4 +1,5 @@
 use super::constants::APOSTROPHE;
+use super::constants::MAX_OBSIDIAN_LINK_PIPE_COUNT;
 use super::constants::RIGHT_SINGLE_QUOTATION_MARK;
 use super::constants::T_LOWER;
 use super::constants::T_UPPER;
@@ -49,6 +50,6 @@ pub(super) fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
     let trimmed = line.trim();
     trimmed.starts_with(PIPE)
         && trimmed.ends_with(PIPE)
-        && trimmed.matches(PIPE).count() > 2
+        && trimmed.matches(PIPE).count() > MAX_OBSIDIAN_LINK_PIPE_COUNT
         && trimmed.contains(matched_text)
 }

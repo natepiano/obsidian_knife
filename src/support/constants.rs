@@ -18,7 +18,7 @@ pub(super) const IMAGE_FILE_COLLECTION_LOCK_POISONED: &str = "image file collect
 pub(super) const INVALID_REGEX_PATTERN: &str = "invalid regex pattern";
 
 // paths
-pub(super) const HOME_ENV_VAR: &str = "HOME";
+pub(super) const HOME_ENVIRONMENT_VARIABLE: &str = "HOME";
 pub(super) const TILDE: &str = "~";
 pub(super) const TILDE_SLASH: &str = "~/";
 

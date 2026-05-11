@@ -26,6 +26,7 @@ pub(crate) const NOON_HOUR: u32 = 12;
 
 // files and extensions
 pub(crate) const DS_STORE: &str = ".DS_Store";
+pub(crate) const EMPTY_FILE_SIZE_BYTES: u64 = 0;
 pub(crate) const GIF_EXTENSION: &str = "gif";
 pub(crate) const IMAGE_EXTENSIONS: [&str; 8] = [
     GIF_EXTENSION,

@@ -7,6 +7,7 @@ use derive_more::IntoIterator;
 
 use super::constants::HTTP_URL_PREFIX;
 use super::constants::HTTPS_URL_PREFIX;
+use super::constants::IMAGE_LINK_SIZE_PARAMETER_INDEX;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use crate::constants::CLOSING_PAREN;
@@ -166,7 +167,7 @@ impl ImageLink {
 
             let size_parameter = raw_link
                 .split(PIPE)
-                .nth(1)
+                .nth(IMAGE_LINK_SIZE_PARAMETER_INDEX)
                 .map(|s| s.trim_end_matches(CLOSING_WIKILINK).to_string());
 
             (

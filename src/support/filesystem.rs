@@ -18,7 +18,7 @@ use rayon::iter::ParallelIterator;
 
 #[cfg(target_os = "macos")]
 use super::constants::FAILED_TO_SET_CREATION_DATE_WITH_SETFILE;
-use super::constants::HOME_ENV_VAR;
+use super::constants::HOME_ENVIRONMENT_VARIABLE;
 use super::constants::IMAGE_FILE_COLLECTION_LOCK_POISONED;
 #[cfg(target_os = "macos")]
 use super::constants::SET_FILE_CREATED_DATE_FLAG;
@@ -59,7 +59,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str()
-        && let Some(home) = std::env::var_os(HOME_ENV_VAR)
+        && let Some(home) = std::env::var_os(HOME_ENVIRONMENT_VARIABLE)
         && let Some(stripped) = path_str.strip_prefix(TILDE_SLASH)
     {
         return PathBuf::from(home).join(stripped);
@@ -69,7 +69,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut components = path.components();
     if let Some(Component::Normal(first)) = components.next()
         && first == TILDE
-        && let Some(home) = std::env::var_os(HOME_ENV_VAR)
+        && let Some(home) = std::env::var_os(HOME_ENVIRONMENT_VARIABLE)
     {
         let mut expanded_path = PathBuf::from(home);
         expanded_path.extend(components);

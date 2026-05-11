@@ -4,6 +4,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use super::ObsidianRepository;
+use super::constants::MIN_DUPLICATE_GROUP_SIZE;
 use crate::constants::CACHE_FILE;
 use crate::constants::CACHE_FOLDER;
 use crate::image_file::DeletionStatus;
@@ -61,7 +62,7 @@ impl ObsidianRepository {
         let mut images = Vec::new();
 
         for (hash, mut group) in hash_groups {
-            let is_duplicate_group = group.len() > 1;
+            let is_duplicate_group = group.len() >= MIN_DUPLICATE_GROUP_SIZE;
             let mut keeper_selection = KeeperSelection::None;
 
             if is_duplicate_group {

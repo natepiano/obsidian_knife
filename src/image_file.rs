@@ -12,6 +12,7 @@ use derive_more::IntoIterator;
 use serde::Deserialize;
 use serde::Serialize;
 
+use crate::constants::EMPTY_FILE_SIZE_BYTES;
 use crate::constants::GIF_EXTENSION;
 use crate::constants::JPEG_EXTENSION;
 use crate::constants::JPG_EXTENSION;
@@ -159,7 +160,7 @@ impl ImageFile {
             ImageFileState::Incompatible {
                 reason: IncompatibilityReason::TiffFormat,
             }
-        } else if size == 0 {
+        } else if size == EMPTY_FILE_SIZE_BYTES {
             ImageFileState::Incompatible {
                 reason: IncompatibilityReason::ZeroByte,
             }

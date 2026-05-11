@@ -5,9 +5,11 @@ pub(super) const INLINE_CODE_DELIMITER: char = '`';
 // image links
 pub(super) const HTTP_URL_PREFIX: &str = "http://";
 pub(super) const HTTPS_URL_PREFIX: &str = "https://";
+pub(super) const IMAGE_LINK_SIZE_PARAMETER_INDEX: usize = 1;
 
 // matching
 pub(super) const APOSTROPHE: char = '\'';
+pub(super) const MAX_OBSIDIAN_LINK_PIPE_COUNT: usize = 2;
 pub(super) const RIGHT_SINGLE_QUOTATION_MARK: char = '\u{2019}';
 pub(super) const T_LOWER: char = 't';
 pub(super) const T_UPPER: char = 'T';

@@ -8,6 +8,7 @@ use anyhow::bail;
 
 use super::ObsidianRepository;
 use super::constants::INVALID_UTF8_BOUNDARY_PREFIX;
+use super::constants::MIN_AMBIGUOUS_TARGETS;
 use super::constants::NESTED_PATTERN_WARNING;
 use super::constants::TRIPLE_CLOSING_BRACKETS;
 use super::constants::TRIPLE_OPENING_BRACKETS;
@@ -81,7 +82,7 @@ impl ObsidianRepository {
             // Process each group of matches.
             for (found_text_lower, text_matches) in matches_by_text {
                 if let Some(targets) = display_text_map.get(&found_text_lower) {
-                    if targets.len() > 1 {
+                    if targets.len() >= MIN_AMBIGUOUS_TARGETS {
                         // This is an ambiguous match.
                         // Add it to the file's ambiguous collection.
                         markdown_file.matches.ambiguous.extend(text_matches.clone());
