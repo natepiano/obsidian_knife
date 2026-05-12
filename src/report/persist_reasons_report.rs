@@ -37,15 +37,15 @@ pub(super) struct PersistReasonsTable;
 
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
-    back_populate_count: usize,
-    date_created_fix:    Option<(String, String)>,
-    created_validation:  Option<(String, String)>, // (before, after)
-    modified_validation: Option<(String, String)>,
-    full_path:           PathBuf, //for sorting
-    image_refs_count:    usize,
-    parent_path:         String,
-    reason:              PersistReason,
-    wikilink:            String,
+    back_populate_count:   usize,
+    date_created_fix:      Option<(String, String)>,
+    created_validation:    Option<(String, String)>, // (before, after)
+    modified_validation:   Option<(String, String)>,
+    full_path:             PathBuf, //for sorting
+    image_reference_count: usize,
+    parent_path:           String,
+    reason:                PersistReason,
+    wikilink:              String,
 }
 
 impl ReportDefinition for PersistReasonsTable {
@@ -93,7 +93,7 @@ impl ReportDefinition for PersistReasonsTable {
                     PersistReason::ImageReferencesModified => (
                         String::new(),
                         String::new(),
-                        format!("{} instances", item.image_refs_count),
+                        format!("{} instances", item.image_reference_count),
                     ),
                     PersistReason::FrontmatterCreated => {
                         (String::new(), String::new(), String::new())
@@ -203,7 +203,7 @@ impl ObsidianRepository {
         };
 
         let back_populate_count = file.matches.unambiguous.len();
-        let image_refs_count = file
+        let image_reference_count = file
             .persist_reasons
             .iter()
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
@@ -237,7 +237,7 @@ impl ObsidianRepository {
                 wikilink: support::escape_pipe(&wikilink),
                 reason: reason.clone(),
                 back_populate_count,
-                image_refs_count,
+                image_reference_count,
                 parent_path: parent_path.clone(),
                 created_validation: created_validation.clone(),
                 modified_validation: modified_validation.clone(),

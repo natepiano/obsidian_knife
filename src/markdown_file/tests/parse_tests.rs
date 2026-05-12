@@ -5,6 +5,7 @@ use std::path::PathBuf;
 use tempfile::TempDir;
 
 use super::MarkdownFile;
+use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
 use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
 use crate::constants::YAML_OPENING_DELIMITER;
 use crate::test_support as test_utils;
@@ -49,6 +50,10 @@ fn create_test_file(content: &str, temp_dir: &Path) -> PathBuf {
     file_path
 }
 
+fn expected_frontmatter_line_count(yaml_line_count: usize) -> usize {
+    yaml_line_count + FRONTMATTER_DELIMITER_LINE_COUNT
+}
+
 #[test]
 fn test_frontmatter_line_counting() {
     let temp_dir = TempDir::new().unwrap();
@@ -56,19 +61,19 @@ fn test_frontmatter_line_counting() {
     let test_cases = vec![
         (
             format!("{YAML_OPENING_DELIMITER}title: test{YAML_CLOSING_DELIMITER_NEWLINE}Content"),
-            3, // 1 line of YAML + 2 delimiters = 3
+            expected_frontmatter_line_count(1), // 1 line of YAML plus delimiter lines
         ),
         (
             format!(
                 "{YAML_OPENING_DELIMITER}title: test\ntags: [a,b]{YAML_CLOSING_DELIMITER_NEWLINE}Content"
             ),
-            4, // 2 lines of YAML + 2 delimiters = 4
+            expected_frontmatter_line_count(2), // 2 lines of YAML plus delimiter lines
         ),
         (
             format!(
                 "{YAML_OPENING_DELIMITER}title: test\ntags:\n  - a\n  - b{YAML_CLOSING_DELIMITER_NEWLINE}Content"
             ),
-            6, // 4 lines of YAML + 2 delimiters = 6
+            expected_frontmatter_line_count(4), // 4 lines of YAML plus delimiter lines
         ),
     ];
 
