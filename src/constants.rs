@@ -137,6 +137,7 @@ pub(crate) const IN: &str = "in";
 pub(crate) const IN_CHANGESET: &str = "in changeset";
 pub(crate) const INCOMPATIBLE_IMAGES: &str = "incompatible images";
 pub(crate) const INFO: &str = "info";
+pub(crate) const INSTANCES: &str = "instances";
 pub(crate) const INVALID: &str = "invalid";
 pub(crate) const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub(crate) const KEEPER: &str = "keeper";

@@ -15,6 +15,7 @@ use crate::constants::DUPLICATE;
 use crate::constants::DUPLICATE_IMAGES;
 use crate::constants::FILE;
 use crate::constants::FOUND;
+use crate::constants::IMAGE_EMBED_MARKER;
 use crate::constants::IMAGE_FILE;
 use crate::constants::IMAGE_FILE_HASH;
 use crate::constants::KEEPER;
@@ -129,8 +130,9 @@ impl DuplicateImagesTable<'_> {
         keeper: Option<&ImageFile>,
     ) -> Vec<Vec<String>> {
         let filename = image.path.file_name().unwrap_or_default().to_string_lossy();
-        let thumbnail =
-            format!("!{OPENING_WIKILINK}{filename}\\{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}");
+        let thumbnail = format!(
+            "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{filename}\\{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}"
+        );
         let image_link = format!("{OPENING_WIKILINK}{filename}{CLOSING_WIKILINK}");
         let (image_type, action, reference_update) =
             Self::classify_image(image, validated_config, keeper);
@@ -200,7 +202,7 @@ impl DuplicateImagesTable<'_> {
                             .unwrap_or_default()
                             .to_string_lossy();
                         support::escape_brackets(&format!(
-                            "!{OPENING_WIKILINK}{keeper_name}{CLOSING_WIKILINK}"
+                            "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{keeper_name}{CLOSING_WIKILINK}"
                         ))
                     },
                 );

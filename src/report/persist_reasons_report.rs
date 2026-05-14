@@ -13,6 +13,7 @@ use crate::constants::FILE;
 use crate::constants::FORMAT_DATE;
 use crate::constants::FORWARD_SLASH;
 use crate::constants::INFO;
+use crate::constants::INSTANCES;
 use crate::constants::LEVEL1;
 use crate::constants::LEVEL2;
 use crate::constants::MARKDOWN_SUFFIX;
@@ -88,12 +89,12 @@ impl ReportDefinition for PersistReasonsTable {
                     PersistReason::BackPopulated => (
                         String::new(),
                         String::new(),
-                        format!("{} instances", item.back_populate_count),
+                        format!("{} {INSTANCES}", item.back_populate_count),
                     ),
                     PersistReason::ImageReferencesModified => (
                         String::new(),
                         String::new(),
-                        format!("{} instances", item.image_reference_count),
+                        format!("{} {INSTANCES}", item.image_reference_count),
                     ),
                     PersistReason::FrontmatterCreated => {
                         (String::new(), String::new(), String::new())

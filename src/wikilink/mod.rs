@@ -1,15 +1,3 @@
-#[cfg(test)]
-mod extract_wikilink_tests;
-#[cfg(test)]
-mod markdown_link_tests;
-#[cfg(test)]
-#[allow(
-    clippy::expect_used,
-    clippy::panic,
-    reason = "tests should panic on unexpected values"
-)]
-mod wikilink_creation_tests;
-
 mod constants;
 mod link;
 mod wikilink_parser;

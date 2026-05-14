@@ -5,6 +5,7 @@ use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DELETED;
+use crate::constants::IMAGE_EMBED_MARKER;
 use crate::constants::IMAGE_FILE;
 use crate::constants::LEVEL2;
 use crate::constants::NOT_REFERENCED;
@@ -52,7 +53,7 @@ impl ReportDefinition for UnreferencedImagesReport {
                 let file_name = image.path.file_name().unwrap_or_default().to_string_lossy();
                 let sample = support::escape_pipe(
                     format!(
-                        "!{OPENING_WIKILINK}{file_name}{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}"
+                        "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{file_name}{PIPE}{THUMBNAIL_WIDTH}{CLOSING_WIKILINK}"
                     )
                     .as_str(),
                 );
