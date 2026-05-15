@@ -20,8 +20,8 @@ use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::MatchType;
 use crate::markdown_file::ReplaceableContent;
+use crate::support::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
-use crate::vec_enum_filter::VecEnumFilter;
 use crate::wikilink::Wikilink;
 
 #[derive(Debug, Default)]

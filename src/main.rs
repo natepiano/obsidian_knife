@@ -21,7 +21,6 @@ mod sha256_cache;
 mod support;
 mod timer;
 mod validated_config;
-mod vec_enum_filter;
 mod wikilink;
 mod yaml_frontmatter;
 

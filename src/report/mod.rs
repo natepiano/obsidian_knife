@@ -1,14 +1,14 @@
-mod add_frontmatter_report;
-mod ambiguous_matches_report;
-mod back_populate_report;
+mod add_frontmatter;
+mod ambiguous_matches;
+mod back_populate;
 mod constants;
-mod duplicate_images_report;
-mod frontmatter_issues_report;
-mod incompatible_image_report;
-mod invalid_wikilink_report;
-mod missing_references_report;
+mod duplicate_images;
+mod frontmatter_issues;
+mod incompatible_image;
+mod invalid_wikilink;
+mod missing_references;
 mod orchestration;
-mod persist_reasons_report;
-mod unreferenced_images_report;
+mod persist_reasons;
+mod unreferenced_images;
 
 mod report_writer;

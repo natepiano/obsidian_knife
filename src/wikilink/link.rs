@@ -166,8 +166,8 @@ mod tests {
     use crate::support::MARKDOWN_REGEX;
     use crate::test_support::AliasExpectation;
     use crate::wikilink::ToWikilink;
-    use crate::wikilink::wikilink_parser;
-    use crate::wikilink::wikilink_parser::WikilinkParseResult;
+    use crate::wikilink::parser;
+    use crate::wikilink::parser::WikilinkParseResult;
 
     #[test]
     fn test_markdown_regex_matches() {
@@ -220,7 +220,7 @@ mod tests {
             // Extract the substring after `[[` and include the closing `]]`
             let inner = &input[2..];
             let mut chars = inner.char_indices().peekable();
-            wikilink_parser::parse_wikilink(&mut chars)
+            parser::parse_wikilink(&mut chars)
         } else {
             // Invalid format if it doesn't start and end with brackets
             None

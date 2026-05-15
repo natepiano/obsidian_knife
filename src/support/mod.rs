@@ -2,6 +2,7 @@ mod constants;
 mod escaping;
 mod filesystem;
 mod patterns;
+mod vec_enum_filter;
 
 pub use escaping::escape_brackets;
 pub use escaping::escape_pipe;
@@ -16,3 +17,5 @@ pub use patterns::RAW_HTTP_REGEX;
 pub use patterns::TAG_REGEX;
 pub use patterns::build_case_insensitive_word_finder;
 pub(crate) use patterns::compile_regex;
+pub(crate) use vec_enum_filter::EnumFilter;
+pub(crate) use vec_enum_filter::VecEnumFilter;

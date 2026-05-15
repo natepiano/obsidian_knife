@@ -22,7 +22,7 @@ use crate::constants::OPENING_PAREN;
 use crate::constants::OPENING_WIKILINK;
 use crate::constants::PIPE;
 use crate::image_file::IncompatibilityReason;
-use crate::vec_enum_filter::EnumFilter;
+use crate::support::EnumFilter;
 use crate::wikilink::InvalidWikilink;
 use crate::wikilink::Wikilink;
 

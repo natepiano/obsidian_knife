@@ -21,7 +21,7 @@ use crate::constants::TIF_EXTENSION;
 use crate::constants::TIFF_EXTENSION;
 use crate::constants::UNKNOWN;
 use crate::constants::WEBP_EXTENSION;
-use crate::vec_enum_filter::EnumFilter;
+use crate::support::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
 pub(crate) struct ImageHash(pub String);

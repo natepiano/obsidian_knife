@@ -15,8 +15,8 @@ use crate::image_file::ImageHash;
 use crate::image_file::ImageRole;
 use crate::markdown_file::ImageLinkState;
 use crate::sha256_cache::Sha256Cache;
+use crate::support::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
-use crate::vec_enum_filter::VecEnumFilter;
 
 impl ObsidianRepository {
     pub(super) fn initialize_image_files(
@@ -304,10 +304,10 @@ mod tests {
     use crate::markdown_file::PersistReason;
     use crate::markdown_files::MarkdownFiles;
     use crate::obsidian_repository::ObsidianRepository;
+    use crate::support::VecEnumFilter;
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
-    use crate::vec_enum_filter::VecEnumFilter;
     use crate::yaml_frontmatter::YamlFrontMatter;
 
     impl MarkdownFiles {

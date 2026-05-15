@@ -204,7 +204,7 @@ impl MarkdownFile {
         self.ensure_frontmatter(operational_timezone);
 
         // Remove any `DateModifiedUpdated` reasons since we'll be setting the date to now.
-        // This way we won't show extraneous results in `persist_reasons_report`.
+        // This way we won't show extraneous results in the persist-reasons report.
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 

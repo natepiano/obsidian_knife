@@ -23,9 +23,9 @@ use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
 use crate::support;
+use crate::support::VecEnumFilter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
-use crate::vec_enum_filter::VecEnumFilter;
 
 pub(super) struct UnreferencedImagesReport;
 
