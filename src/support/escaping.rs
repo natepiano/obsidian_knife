@@ -1,7 +1,7 @@
-use super::constants::ESCAPED_BRACKET_CLOSE;
-use super::constants::ESCAPED_BRACKET_OPEN;
 use crate::constants::BACKSLASH;
 use crate::constants::CLOSING_BRACKET;
+use crate::constants::ESCAPED_BRACKET_CLOSE;
+use crate::constants::ESCAPED_BRACKET_OPEN;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::PIPE;
 

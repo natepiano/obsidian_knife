@@ -16,24 +16,24 @@ use filetime::FileTime;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
-#[cfg(target_os = "macos")]
-use super::constants::FAILED_TO_SET_CREATION_DATE_WITH_SETFILE;
-use super::constants::HOME_ENVIRONMENT_VARIABLE;
-use super::constants::IMAGE_FILE_COLLECTION_LOCK_POISONED;
-#[cfg(target_os = "macos")]
-use super::constants::SET_FILE_CREATED_DATE_FLAG;
-#[cfg(target_os = "macos")]
-use super::constants::SET_FILE_CREATED_DATE_FORMAT;
-#[cfg(target_os = "macos")]
-use super::constants::SET_FILE_EXECUTABLE;
-use super::constants::TILDE;
-use super::constants::TILDE_SLASH;
 use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
+#[cfg(target_os = "macos")]
+use crate::constants::FAILED_TO_SET_CREATION_DATE_WITH_SETFILE;
+use crate::constants::HOME_ENVIRONMENT_VARIABLE;
 use crate::constants::IMAGE_EXTENSIONS;
+use crate::constants::IMAGE_FILE_COLLECTION_LOCK_POISONED;
 use crate::constants::MARKDOWN_EXTENSION;
 use crate::constants::MARKDOWN_FILE_COLLECTION_LOCK_POISONED;
+#[cfg(target_os = "macos")]
+use crate::constants::SET_FILE_CREATED_DATE_FLAG;
+#[cfg(target_os = "macos")]
+use crate::constants::SET_FILE_CREATED_DATE_FORMAT;
+#[cfg(target_os = "macos")]
+use crate::constants::SET_FILE_EXECUTABLE;
+use crate::constants::TILDE;
+use crate::constants::TILDE_SLASH;
 use crate::validated_config::ValidatedConfig;
 
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {

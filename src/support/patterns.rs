@@ -3,16 +3,16 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
-use super::constants::CASE_INSENSITIVE_WORD_PATTERN_PREFIX;
-use super::constants::CASE_INSENSITIVE_WORD_PATTERN_SUFFIX;
-use super::constants::EMAIL_PATTERN;
-use super::constants::IMAGE_EXTENSIONS_SEPARATOR;
-use super::constants::INVALID_REGEX_PATTERN;
-use super::constants::MARKDOWN_LINK_PATTERN;
-use super::constants::RAW_HTTP_PATTERN;
-use super::constants::TAG_PATTERN;
+use crate::constants::CASE_INSENSITIVE_WORD_PATTERN_PREFIX;
+use crate::constants::CASE_INSENSITIVE_WORD_PATTERN_SUFFIX;
+use crate::constants::EMAIL_PATTERN;
 use crate::constants::IMAGE_EXTENSIONS;
+use crate::constants::IMAGE_EXTENSIONS_SEPARATOR;
 use crate::constants::INVALID_REGEX_EXIT_CODE;
+use crate::constants::INVALID_REGEX_PATTERN;
+use crate::constants::MARKDOWN_LINK_PATTERN;
+use crate::constants::RAW_HTTP_PATTERN;
+use crate::constants::TAG_PATTERN;
 
 pub(crate) fn compile_regex(pattern: &str) -> Regex {
     match Regex::new(pattern) {

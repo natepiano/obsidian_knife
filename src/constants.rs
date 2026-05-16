@@ -58,6 +58,17 @@ pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
 
+// macos file dates
+#[cfg(target_os = "macos")]
+pub(crate) const FAILED_TO_SET_CREATION_DATE_WITH_SETFILE: &str =
+    "Failed to set creation date with SetFile";
+#[cfg(target_os = "macos")]
+pub(crate) const SET_FILE_CREATED_DATE_FLAG: &str = "-d";
+#[cfg(target_os = "macos")]
+pub(crate) const SET_FILE_CREATED_DATE_FORMAT: &str = "%m/%d/%Y %H:%M:%S";
+#[cfg(target_os = "macos")]
+pub(crate) const SET_FILE_EXECUTABLE: &str = "SetFile";
+
 // markdown link syntax
 pub(crate) const IMAGE_EMBED_MARKER: char = '!';
 pub(crate) const IMAGE_LINK_PREFIX: &str = "![";
@@ -82,12 +93,19 @@ pub(crate) const BACKSLASH: char = '\\';
 pub(crate) const CLOSING_BRACKET: char = ']';
 pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
+pub(crate) const ESCAPED_BRACKET_CLOSE: &str = r"\]";
+pub(crate) const ESCAPED_BRACKET_OPEN: &str = r"\[";
 pub(crate) const ESCAPED_PIPE: &str = r"\|";
 pub(crate) const FORWARD_SLASH: char = '/';
 pub(crate) const OPENING_BRACKET: char = '[';
 pub(crate) const OPENING_PAREN: char = '(';
 pub(crate) const OPENING_WIKILINK: &str = "[[";
 pub(crate) const PIPE: char = '|';
+
+// paths
+pub(crate) const HOME_ENVIRONMENT_VARIABLE: &str = "HOME";
+pub(crate) const TILDE: &str = "~";
+pub(crate) const TILDE_SLASH: &str = "~/";
 
 // processing
 #[cfg(debug_assertions)]
@@ -97,16 +115,34 @@ pub(crate) const ERROR_OCCURRED: &str = "error occurred";
 pub(crate) const ERROR_SOURCE: &str = "error source:";
 pub(crate) const ERROR_TYPE: &str = "error type:";
 pub(crate) const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
+pub(crate) const FRONTMATTER_MISSING_AFTER_ENSURE: &str =
+    "frontmatter missing after ensure_frontmatter for";
+pub(crate) const IMAGE_FILE_COLLECTION_LOCK_POISONED: &str = "image file collection lock poisoned";
+pub(crate) const INVALID_REGEX_PATTERN: &str = "invalid regex pattern";
 pub(crate) const MARKDOWN_FILE_COLLECTION_LOCK_POISONED: &str =
     "markdown file collection lock poisoned";
 pub(crate) const MILLISECONDS: &str = "ms";
 pub(crate) const MODE_APPLY_CHANGES: &str = "apply changes is on - changes will be applied";
 pub(crate) const MODE_APPLY_CHANGES_OFF: &str = "apply changes is off - no changes will be applied";
 pub(crate) const OBSIDIAN_KNIFE: &str = "obsidian knife - aka \"ok\"";
+pub(crate) const OUTPUT_FILE_LOCK_POISONED: &str = "output file lock poisoned";
+pub(crate) const PERSIST_REQUIRES_FRONTMATTER: &str =
+    "frontmatter is required to persist a markdown file";
+pub(crate) const PERSIST_REQUIRES_RAW_DATE_MODIFIED: &str =
+    "raw_date_modified must be set for persist";
 #[cfg(not(debug_assertions))]
 pub(crate) const RELEASE: &str = "release";
 pub(crate) const TOTAL_TIME: &str = "total time";
 pub(crate) const USAGE: &str = "usage: obsidian_knife <obsidian_folder/config_file.md>";
+
+// regex
+pub(crate) const CASE_INSENSITIVE_WORD_PATTERN_PREFIX: &str = r"(?i)\b";
+pub(crate) const CASE_INSENSITIVE_WORD_PATTERN_SUFFIX: &str = r"\b";
+pub(crate) const EMAIL_PATTERN: &str = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}";
+pub(crate) const IMAGE_EXTENSIONS_SEPARATOR: &str = "|";
+pub(crate) const MARKDOWN_LINK_PATTERN: &str = r"\[.*?\]\(.*?\)";
+pub(crate) const RAW_HTTP_PATTERN: &str = r"https?://[^\s]+";
+pub(crate) const TAG_PATTERN: &str = r"(?:^|\s)(#[a-zA-Z0-9_-]+)";
 
 // report image handling
 pub(crate) const REPORT_CHUNK_SIZE: usize = 500;

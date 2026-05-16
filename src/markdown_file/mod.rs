@@ -31,6 +31,9 @@ use self::image_link::ImageLinks;
 use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
 use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
+use crate::constants::FRONTMATTER_MISSING_AFTER_ENSURE;
+use crate::constants::PERSIST_REQUIRES_FRONTMATTER;
+use crate::constants::PERSIST_REQUIRES_RAW_DATE_MODIFIED;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
 use crate::frontmatter::FrontMatter;
@@ -175,11 +178,11 @@ impl MarkdownFile {
         fs::write(&self.path, self.to_full_content())?;
 
         let Some(frontmatter) = self.frontmatter.as_ref() else {
-            return Err("frontmatter is required to persist a markdown file".into());
+            return Err(PERSIST_REQUIRES_FRONTMATTER.into());
         };
         let modified_date = frontmatter
             .raw_modified
-            .ok_or_else(|| "raw_date_modified must be set for persist".to_string())?;
+            .ok_or_else(|| PERSIST_REQUIRES_RAW_DATE_MODIFIED.to_string())?;
         let created_date = frontmatter.raw_created;
 
         support::set_file_dates(&self.path, created_date, modified_date)?;
@@ -209,10 +212,7 @@ impl MarkdownFile {
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
         let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
-            anyhow::anyhow!(
-                "frontmatter missing after ensure_frontmatter for {}",
-                self.path.display()
-            )
+            anyhow::anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display())
         })?;
         frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
@@ -226,10 +226,7 @@ impl MarkdownFile {
         self.ensure_frontmatter(operational_timezone);
 
         let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
-            anyhow::anyhow!(
-                "frontmatter missing after ensure_frontmatter for {}",
-                self.path.display()
-            )
+            anyhow::anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display())
         })?;
         frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons
@@ -356,6 +353,7 @@ mod tests {
     use super::image_link::ImageRendering;
     use crate::constants::DEFAULT_TIMEZONE;
     use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
+    use crate::constants::PERSIST_REQUIRES_RAW_DATE_MODIFIED;
     use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
     use crate::constants::YAML_OPENING_DELIMITER;
     use crate::markdown_files::MarkdownFiles;
@@ -736,7 +734,7 @@ mod tests {
         if let Err(err) = result {
             assert_eq!(
                 err.to_string(),
-                "raw_date_modified must be set for persist",
+                PERSIST_REQUIRES_RAW_DATE_MODIFIED,
                 "Unexpected error message"
             );
         }

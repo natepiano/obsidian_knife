@@ -13,6 +13,7 @@ use crate::constants::MARKDOWN_TABLE_CELL_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_ROW_TEMPLATE;
 use crate::constants::MARKDOWN_TABLE_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
+use crate::constants::OUTPUT_FILE_LOCK_POISONED;
 use crate::constants::OUTPUT_MARKDOWN_FILE;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
@@ -36,7 +37,7 @@ impl OutputFileWriter {
     fn lock_file(&self) -> io::Result<MutexGuard<'_, File>> {
         self.file
             .lock()
-            .map_err(|error| io::Error::other(format!("output file lock poisoned: {error}")))
+            .map_err(|error| io::Error::other(format!("{OUTPUT_FILE_LOCK_POISONED}: {error}")))
     }
 
     pub(crate) fn new(obsidian_path: &Path) -> io::Result<Self> {
