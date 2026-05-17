@@ -262,17 +262,17 @@ impl ObsidianRepository {
         for image_file in &mut self.image_files.images {
             match &image_file.state {
                 ImageFileState::Unreferenced => {
-                    image_file.deletion = DeletionStatus::Delete;
+                    image_file.deletion_status = DeletionStatus::Delete;
                 },
                 ImageFileState::Incompatible { .. } => {
                     if image_file.references.is_empty() || can_delete(&files_to_persist, image_file)
                     {
-                        image_file.deletion = DeletionStatus::Delete;
+                        image_file.deletion_status = DeletionStatus::Delete;
                     }
                 },
                 ImageFileState::Duplicate { .. } => {
                     if can_delete(&files_to_persist, image_file) {
-                        image_file.deletion = DeletionStatus::Delete;
+                        image_file.deletion_status = DeletionStatus::Delete;
                     }
                 },
                 ImageFileState::DuplicateKeeper { .. } | ImageFileState::Valid => (),
@@ -770,7 +770,7 @@ mod tests {
             obsidian_repository
                 .image_files
                 .iter()
-                .filter(|f| f.deletion == DeletionStatus::Delete)
+                .filter(|f| f.deletion_status == DeletionStatus::Delete)
                 .count(),
             3,
             "Expected all files to be marked for deletion"

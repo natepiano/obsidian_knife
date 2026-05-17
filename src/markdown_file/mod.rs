@@ -50,7 +50,7 @@ use crate::yaml_frontmatter::YamlFrontMatterError;
 #[derive(Debug, Clone)]
 pub(crate) struct MarkdownFile {
     pub(crate) content:                      String,
-    pub(crate) date_created_fix:             DateCreatedFixValidation,
+    pub(crate) date_created_fix_validation:  DateCreatedFixValidation,
     pub(crate) created_validation:           DateValidation,
     pub(crate) modified_validation:          DateValidation,
     pub(crate) do_not_back_populate_regexes: Option<Vec<Regex>>,
@@ -102,7 +102,7 @@ impl MarkdownFile {
             operational_timezone,
         )?;
 
-        let date_created_fix = DateCreatedFixValidation::from_frontmatter(
+        let date_created_fix_validation = DateCreatedFixValidation::from_frontmatter(
             frontmatter.as_ref(),
             created_validation.file_system,
             operational_timezone,
@@ -112,7 +112,7 @@ impl MarkdownFile {
             &mut frontmatter,
             &created_validation,
             &modified_validation,
-            &date_created_fix,
+            &date_created_fix_validation,
             operational_timezone,
         );
 
@@ -122,7 +122,7 @@ impl MarkdownFile {
 
         let mut markdown_file = Self {
             content,
-            date_created_fix,
+            date_created_fix_validation,
             do_not_back_populate_regexes,
             created_validation,
             modified_validation,

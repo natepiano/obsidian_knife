@@ -704,7 +704,7 @@ mod tests {
 
             // Verify the `DateCreatedFixValidation` state
             test_utils::assert_test_case(
-                markdown_file.date_created_fix.raw,
+                markdown_file.date_created_fix_validation.raw,
                 case.fix_input,
                 &format!("{} - date string", case.name),
                 |actual, expected| assert_eq!(actual, expected),
@@ -719,7 +719,7 @@ mod tests {
 
             test_utils::assert_test_case(
                 markdown_file
-                    .date_created_fix
+                    .date_created_fix_validation
                     .fixed
                     .map(|dt| dt.date_naive()),
                 case.expected.parsed.map(|dt| dt.date_naive()),
@@ -842,7 +842,7 @@ mod tests {
         // Verify the parsed date shows as Jan 16 when viewed in Eastern
         let timezone: Tz = DEFAULT_TIMEZONE.parse().unwrap();
         let fixed_local = markdown_file
-            .date_created_fix
+            .date_created_fix_validation
             .fixed
             .unwrap()
             .with_timezone(&timezone);

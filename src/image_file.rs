@@ -117,7 +117,7 @@ impl ImageFiles {
     pub(crate) fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.images
             .iter()
-            .filter(|file| file.deletion == DeletionStatus::Delete)
+            .filter(|file| file.deletion_status == DeletionStatus::Delete)
             .try_for_each(|file| fs::remove_file(&file.path))?;
 
         Ok(())
@@ -126,13 +126,13 @@ impl ImageFiles {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct ImageFile {
-    pub deletion:   DeletionStatus,
-    pub kind:       ImageFileType,
-    pub hash:       ImageHash,
-    pub state:      ImageFileState,
-    pub path:       PathBuf,
-    pub references: Vec<PathBuf>,
-    pub size:       u64,
+    pub deletion_status: DeletionStatus,
+    pub kind:            ImageFileType,
+    pub hash:            ImageHash,
+    pub state:           ImageFileState,
+    pub path:            PathBuf,
+    pub references:      Vec<PathBuf>,
+    pub size:            u64,
 }
 
 impl EnumFilter for ImageFile {
@@ -179,7 +179,7 @@ impl ImageFile {
         };
 
         Ok(Self {
-            deletion: DeletionStatus::Keep,
+            deletion_status: DeletionStatus::Keep,
             kind,
             hash,
             state: initial_state,

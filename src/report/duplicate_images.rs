@@ -283,7 +283,7 @@ impl ObsidianRepository {
             // Check if this group has any deletable duplicates
             if images.iter().any(|image| {
                 matches!(image.state, ImageFileState::Duplicate { .. })
-                    && image.deletion == DeletionStatus::Delete
+                    && image.deletion_status == DeletionStatus::Delete
             }) {
                 if header_state == HeaderState::Pending {
                     writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;

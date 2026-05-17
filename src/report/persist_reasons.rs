@@ -218,7 +218,7 @@ impl ObsidianRepository {
                 .operational_file_system_date()
                 .format(FORMAT_DATE);
             let fixed_formatted = file
-                .date_created_fix
+                .date_created_fix_validation
                 .fixed
                 .map(|d| {
                     let formatted = d.format(FORMAT_DATE);

@@ -10,6 +10,7 @@ use super::constants::HTTPS_URL_PREFIX;
 use super::constants::IMAGE_LINK_SIZE_PARAMETER_INDEX;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
+use crate::constants::BACKSLASH;
 use crate::constants::CLOSING_PAREN;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_MEDIA_PATH;
@@ -162,7 +163,7 @@ impl ImageLink {
                 .next()
                 .unwrap_or("")
                 .trim()
-                .trim_matches('\\')
+                .trim_matches(BACKSLASH)
                 .to_lowercase();
 
             let size_parameter = raw_link
