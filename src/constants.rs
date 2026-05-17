@@ -93,14 +93,17 @@ pub(crate) const BACKSLASH: char = '\\';
 pub(crate) const CLOSING_BRACKET: char = ']';
 pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
+pub(crate) const DOUBLE_QUOTE: char = '"';
 pub(crate) const ESCAPED_BRACKET_CLOSE: &str = r"\]";
 pub(crate) const ESCAPED_BRACKET_OPEN: &str = r"\[";
 pub(crate) const ESCAPED_PIPE: &str = r"\|";
 pub(crate) const FORWARD_SLASH: char = '/';
+pub(crate) const NEWLINE: char = '\n';
 pub(crate) const OPENING_BRACKET: char = '[';
 pub(crate) const OPENING_PAREN: char = '(';
 pub(crate) const OPENING_WIKILINK: &str = "[[";
 pub(crate) const PIPE: char = '|';
+pub(crate) const SPACE: char = ' ';
 
 // paths
 pub(crate) const HOME_ENVIRONMENT_VARIABLE: &str = "HOME";

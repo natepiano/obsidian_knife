@@ -15,6 +15,7 @@ use crate::constants::MARKDOWN_TABLE_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
 use crate::constants::OUTPUT_FILE_LOCK_POISONED;
 use crate::constants::OUTPUT_MARKDOWN_FILE;
+use crate::constants::SPACE;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
 
@@ -120,7 +121,7 @@ impl OutputFileWriter {
     pub(crate) fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
         let prefix = if markdown_prefix.is_empty() {
             String::new()
-        } else if markdown_prefix.ends_with(' ') {
+        } else if markdown_prefix.ends_with(SPACE) {
             markdown_prefix.to_string()
         } else {
             format!("{markdown_prefix} ")

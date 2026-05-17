@@ -15,6 +15,7 @@ use super::constants::TRIPLE_OPENING_BRACKETS;
 use super::constants::UNCLASSIFIED_MATCH_WARNING;
 use super::constants::WIKILINKS_AUTOMATON_NOT_INITIALIZED;
 use super::constants::WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL;
+use crate::constants::NEWLINE;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
@@ -154,7 +155,7 @@ impl ObsidianRepository {
 
                 if content_line_number != current_content_line {
                     updated_content.push_str(line);
-                    updated_content.push('\n');
+                    updated_content.push(NEWLINE);
                     continue;
                 }
 
@@ -167,7 +168,7 @@ impl ObsidianRepository {
 
                 if line_matches.is_empty() {
                     updated_content.push_str(line);
-                    updated_content.push('\n');
+                    updated_content.push(NEWLINE);
                 } else {
                     let updated_line =
                         apply_line_replacements(line, &line_matches, &markdown_file.path)?;
@@ -179,7 +180,7 @@ impl ObsidianRepository {
 
                     if !updated_line.is_empty() {
                         updated_content.push_str(&updated_line);
-                        updated_content.push('\n');
+                        updated_content.push(NEWLINE);
                     }
                 }
                 content_line_number += 1;

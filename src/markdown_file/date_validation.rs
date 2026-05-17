@@ -11,6 +11,7 @@ use chrono::Utc;
 use chrono_tz::Tz;
 
 use crate::constants::CLOSING_WIKILINK;
+use crate::constants::DOUBLE_QUOTE;
 use crate::constants::FORMAT_DATE;
 use crate::constants::NOON_HOUR;
 use crate::constants::OPENING_WIKILINK;
@@ -100,7 +101,7 @@ impl DateCreatedFixValidation {
             let date = if wikilink::is_wikilink(Some(date_str)) {
                 extract_date(date_str)
             } else {
-                date_str.trim().trim_matches('"')
+                date_str.trim().trim_matches(DOUBLE_QUOTE)
             };
 
             let naive_date = NaiveDate::parse_from_str(date.trim(), FORMAT_DATE).ok()?;

@@ -285,10 +285,11 @@ mod set_file_dates_tests {
     use tempfile::tempdir;
 
     use super::*;
+    use crate::constants::DEFAULT_TIMEZONE;
 
     #[test]
     fn test_set_file_dates_round_trips_utc() {
-        let operational_timezone = crate::constants::DEFAULT_TIMEZONE;
+        let operational_timezone = DEFAULT_TIMEZONE;
         let timezone: Tz = operational_timezone.parse().unwrap();
 
         // Define creation and modification dates in UTC
