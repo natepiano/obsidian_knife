@@ -240,7 +240,7 @@ mod tests {
             validated_config.operational_timezone(),
         )
         .unwrap();
-        test_file.matches.unambiguous = vec![BackPopulateMatch {
+        test_file.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test1.md".to_string(),
             line_number:   1,
             line_text:     "Ed wrote this".to_string(),
@@ -256,7 +256,7 @@ mod tests {
             validated_config.operational_timezone(),
         )
         .unwrap();
-        test_file2.matches.unambiguous = vec![BackPopulateMatch {
+        test_file2.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test2.md".to_string(),
             line_number:   1,
             line_text:     "Unique wrote this".to_string(),
@@ -284,11 +284,11 @@ mod tests {
             "Ed match should be removed from unambiguous"
         );
         assert_eq!(
-            test_file.matches.ambiguous.len(),
+            test_file.back_populate_matches.ambiguous.len(),
             1,
             "Ed match should be moved to ambiguous"
         );
-        let ambiguous_match = &test_file.matches.ambiguous[0];
+        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
         assert_eq!(ambiguous_match.found_text, "Ed");
         assert_eq!(ambiguous_match.line_text, "Ed wrote this");
 
@@ -299,11 +299,14 @@ mod tests {
             .find(|f| f.path.ends_with("test2.md"))
             .expect("Should find test2.md");
         assert_eq!(
-            test_file2.matches.unambiguous.len(),
+            test_file2.back_populate_matches.unambiguous.len(),
             1,
             "Should have one unambiguous match"
         );
-        assert_eq!(test_file2.matches.unambiguous[0].found_text, "Unique");
+        assert_eq!(
+            test_file2.back_populate_matches.unambiguous[0].found_text,
+            "Unique"
+        );
         assert!(
             !test_file2.has_ambiguous_matches(),
             "Should have no ambiguous matches"
@@ -348,12 +351,12 @@ mod tests {
             "All matches should be moved from unambiguous"
         );
         assert_eq!(
-            test_file.matches.ambiguous.len(),
+            test_file.back_populate_matches.ambiguous.len(),
             1,
             "Should have one match in ambiguous"
         );
 
-        let ambiguous_match = &test_file.matches.ambiguous[0];
+        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
         assert_eq!(ambiguous_match.found_text, "Amazon");
         assert_eq!(ambiguous_match.line_text, "Amazon is huge");
     }
@@ -408,14 +411,14 @@ Amazon is ambiguous",
 
         // Verify final state of unambiguous matches
         assert_eq!(
-            test_file.matches.unambiguous.len(),
+            test_file.back_populate_matches.unambiguous.len(),
             2,
             "Both AWS case variations should remain as unambiguous"
         );
 
         // Verify the remaining matches are both AWS-related
         let aws_match_count = test_file
-            .matches
+            .back_populate_matches
             .unambiguous
             .iter()
             .filter(|m| m.found_text.to_lowercase() == "aws")
@@ -427,12 +430,12 @@ Amazon is ambiguous",
 
         // Verify Amazon was moved to ambiguous
         assert_eq!(
-            test_file.matches.ambiguous.len(),
+            test_file.back_populate_matches.ambiguous.len(),
             1,
             "Should have one ambiguous match"
         );
         assert_eq!(
-            test_file.matches.ambiguous[0].found_text, "Amazon",
+            test_file.back_populate_matches.ambiguous[0].found_text, "Amazon",
             "Amazon should be in ambiguous matches"
         );
     }
@@ -495,7 +498,7 @@ Nate was here and so was Nate"
 
         // Verify Karen matches remain unambiguous
         let karen_match_count = other_file
-            .matches
+            .back_populate_matches
             .unambiguous
             .iter()
             .filter(|m| m.found_text.to_lowercase() == "karen")
@@ -507,7 +510,7 @@ Nate was here and so was Nate"
 
         // Verify Nate matches were moved to ambiguous
         let nate_ambiguous_matches: Vec<_> = other_file
-            .matches
+            .back_populate_matches
             .ambiguous
             .iter()
             .filter(|m| m.found_text == "Nate")

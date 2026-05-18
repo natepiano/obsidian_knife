@@ -77,7 +77,7 @@ impl MarkdownFiles {
 
     pub(crate) fn unambiguous_matches(&self) -> Vec<BackPopulateMatch> {
         self.iter()
-            .flat_map(|file| file.matches.unambiguous.clone())
+            .flat_map(|file| file.back_populate_matches.unambiguous.clone())
             .collect()
     }
 

@@ -203,7 +203,7 @@ impl ObsidianRepository {
             format!("{OPENING_WIKILINK}{relative_path}{PIPE}{file_name}{CLOSING_WIKILINK}")
         };
 
-        let back_populate_count = file.matches.unambiguous.len();
+        let back_populate_count = file.back_populate_matches.unambiguous.len();
         let image_reference_count = file
             .persist_reasons
             .iter()

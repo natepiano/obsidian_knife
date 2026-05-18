@@ -85,7 +85,7 @@ impl MarkdownFile {
             );
 
             // Store matches instead of accumulating for return
-            self.matches.unambiguous.extend(matches);
+            self.back_populate_matches.unambiguous.extend(matches);
         }
     }
 
@@ -287,7 +287,7 @@ mod tests {
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
-            .map(|file| file.matches.unambiguous.len())
+            .map(|file| file.back_populate_matches.unambiguous.len())
             .sum();
 
         // Verify we got exactly one match
@@ -301,7 +301,7 @@ mod tests {
             .expect("Should have a file with matches");
 
         // Verify the match uses the alias form
-        let first_match = &file_with_matches.matches.unambiguous[0];
+        let first_match = &file_with_matches.back_populate_matches.unambiguous[0];
         assert_eq!(first_match.found_text, "tomatoes");
         assert_eq!(
             first_match.replacement, "[[tomato|tomatoes]]",
@@ -343,7 +343,7 @@ mod tests {
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
-            .map(|file| file.matches.unambiguous.len())
+            .map(|file| file.back_populate_matches.unambiguous.len())
             .sum();
 
         assert_eq!(
@@ -369,7 +369,7 @@ mod tests {
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
-            .map(|file| file.matches.unambiguous.len())
+            .map(|file| file.back_populate_matches.unambiguous.len())
             .sum();
 
         assert_eq!(total_matches, 1, "Should find match on other pages");
@@ -407,7 +407,7 @@ mod tests {
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
-            .map(|file| file.matches.unambiguous.len())
+            .map(|file| file.back_populate_matches.unambiguous.len())
             .sum();
 
         assert_eq!(
@@ -430,7 +430,7 @@ mod tests {
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
-            .map(|file| file.matches.unambiguous.len())
+            .map(|file| file.back_populate_matches.unambiguous.len())
             .sum();
 
         assert_eq!(total_matches, 1, "Should find match on other pages");
@@ -708,7 +708,7 @@ mod tests {
 
         // Verify we found both case variations initially
         assert_eq!(
-            test_file.matches.unambiguous.len(),
+            test_file.back_populate_matches.unambiguous.len(),
             2,
             "Should have matches for both case variations"
         );
@@ -725,7 +725,7 @@ mod tests {
 
         // All matches should remain in the markdown file as unambiguous
         assert_eq!(
-            test_file.matches.unambiguous.len(),
+            test_file.back_populate_matches.unambiguous.len(),
             2,
             "Both matches should be considered unambiguous"
         );

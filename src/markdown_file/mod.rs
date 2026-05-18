@@ -59,7 +59,7 @@ pub(crate) struct MarkdownFile {
     pub(crate) frontmatter_line_count:       usize,
     pub(crate) image_links:                  ImageLinks,
     pub(crate) wikilinks:                    Wikilinks,
-    pub(crate) matches:                      BackPopulateMatches,
+    pub(crate) back_populate_matches:        BackPopulateMatches,
     pub(crate) path:                         PathBuf,
     pub(crate) persist_reasons:              Vec<PersistReason>,
 }
@@ -131,7 +131,7 @@ impl MarkdownFile {
             frontmatter_line_count,
             wikilinks: Wikilinks::default(),
             image_links: ImageLinks::default(),
-            matches: BackPopulateMatches::default(),
+            back_populate_matches: BackPopulateMatches::default(),
             path,
             persist_reasons,
         };
@@ -319,10 +319,12 @@ impl MarkdownFile {
         self.frontmatter_line_count + line_idx + 1
     }
 
-    pub(crate) const fn has_ambiguous_matches(&self) -> bool { !self.matches.ambiguous.is_empty() }
+    pub(crate) const fn has_ambiguous_matches(&self) -> bool {
+        !self.back_populate_matches.ambiguous.is_empty()
+    }
 
     pub(crate) const fn has_unambiguous_matches(&self) -> bool {
-        !self.matches.unambiguous.is_empty()
+        !self.back_populate_matches.unambiguous.is_empty()
     }
 }
 
@@ -1164,7 +1166,7 @@ mod tests {
                     MarkdownFile::new(file.clone(), validated_config.operational_timezone())
                         .unwrap();
                 markdown_file.content = content.to_string();
-                markdown_file.matches.unambiguous = matches.clone();
+                markdown_file.back_populate_matches.unambiguous = matches.clone();
                 markdown_file
             };
 

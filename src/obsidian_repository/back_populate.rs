@@ -71,7 +71,7 @@ impl ObsidianRepository {
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
             // Drain matches from the file into a temporary map.
-            let file_matches = std::mem::take(&mut markdown_file.matches.unambiguous);
+            let file_matches = std::mem::take(&mut markdown_file.back_populate_matches.unambiguous);
             for match_info in file_matches {
                 let lower_found_text = match_info.found_text.to_lowercase();
                 matches_by_text
@@ -86,10 +86,16 @@ impl ObsidianRepository {
                     if targets.len() >= MIN_AMBIGUOUS_TARGETS {
                         // This is an ambiguous match.
                         // Add it to the file's ambiguous collection.
-                        markdown_file.matches.ambiguous.extend(text_matches.clone());
+                        markdown_file
+                            .back_populate_matches
+                            .ambiguous
+                            .extend(text_matches.clone());
                     } else {
                         // Unambiguous matches go back into the `markdown_file`.
-                        markdown_file.matches.unambiguous.extend(text_matches);
+                        markdown_file
+                            .back_populate_matches
+                            .unambiguous
+                            .extend(text_matches);
                     }
                 } else {
                     // Handle unclassified matches.
@@ -97,7 +103,10 @@ impl ObsidianRepository {
                         "{UNCLASSIFIED_MATCH_WARNING} '{found_text_lower}' in file '{}'",
                         markdown_file.path.display()
                     );
-                    markdown_file.matches.unambiguous.extend(text_matches);
+                    markdown_file
+                        .back_populate_matches
+                        .unambiguous
+                        .extend(text_matches);
                 }
             }
         }
@@ -207,7 +216,7 @@ impl ObsidianRepository {
         // Add `BackPopulateMatch` values.
         matches.extend(
             markdown_file
-                .matches
+                .back_populate_matches
                 .unambiguous
                 .iter()
                 .cloned()

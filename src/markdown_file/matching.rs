@@ -94,7 +94,7 @@ mod tests {
             .unwrap();
 
         // Get all matches from the first (and only) file
-        let matches = &obsidian_repository.markdown_files[0].matches;
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
 
         // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
         assert_eq!(
@@ -140,7 +140,7 @@ mod tests {
             .unwrap();
 
         // Get matches from the first (and only) file
-        let matches = &obsidian_repository.markdown_files[0].matches;
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
 
         assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
         assert_eq!(

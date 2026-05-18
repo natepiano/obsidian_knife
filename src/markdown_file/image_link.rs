@@ -118,17 +118,33 @@ impl ReplaceableContent for ImageLink {
                 match &self.link_type {
                     ImageLinkType::Wiki(rendering) => match rendering {
                         ImageRendering::Embedded => self.size_parameter.as_ref().map_or_else(
-                            || format!("![[{new_relative}]]"),
-                            |size| format!("![[{new_relative}|{size}]]"),
+                            || {
+                                format!(
+                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{new_relative}{CLOSING_WIKILINK}"
+                                )
+                            },
+                            |size| {
+                                format!(
+                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{new_relative}{PIPE}{size}{CLOSING_WIKILINK}"
+                                )
+                            },
                         ),
-                        ImageRendering::Linked => format!("[[{new_relative}]]"),
+                        ImageRendering::Linked => {
+                            format!("{OPENING_WIKILINK}{new_relative}{CLOSING_WIKILINK}")
+                        },
                     },
                     ImageLinkType::Markdown(target, rendering) => match (target, rendering) {
                         (ImageLinkTarget::Internal, ImageRendering::Embedded) => {
-                            format!("![{}]({new_relative})", self.alt_text)
+                            format!(
+                                "{IMAGE_LINK_PREFIX}{}{MARKDOWN_LINK_SEPARATOR}{new_relative}{CLOSING_PAREN}",
+                                self.alt_text
+                            )
                         },
                         (ImageLinkTarget::Internal, ImageRendering::Linked) => {
-                            format!("[{}]({new_relative})", self.alt_text)
+                            format!(
+                                "{OPENING_BRACKET}{}{MARKDOWN_LINK_SEPARATOR}{new_relative}{CLOSING_PAREN}",
+                                self.alt_text
+                            )
                         },
                         (ImageLinkTarget::External, _) => self.matched_text.clone(),
                     },

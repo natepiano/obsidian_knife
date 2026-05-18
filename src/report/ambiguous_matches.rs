@@ -21,6 +21,7 @@ use crate::constants::LEVEL3;
 use crate::constants::MATCHES;
 use crate::constants::MATCHES_AMBIGUOUS;
 use crate::constants::OCCURRENCES;
+use crate::constants::OPENING_WIKILINK;
 use crate::constants::TEXT;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
@@ -256,7 +257,7 @@ impl ObsidianRepository {
         for markdown_file in &self.markdown_files
         /* .files_to_persist() */
         {
-            for match_info in &markdown_file.matches.ambiguous {
+            for match_info in &markdown_file.back_populate_matches.ambiguous {
                 let key = match_info.found_text.to_lowercase();
                 matches_by_text
                     .entry(key)
@@ -337,7 +338,7 @@ impl ObsidianRepository {
                     .enumerate()
                     .filter(|(_, line)| {
                         let line_lower = line.to_lowercase();
-                        line_lower.contains(&format!("[[{target_lower}"))
+                        line_lower.contains(&format!("{OPENING_WIKILINK}{target_lower}"))
                     })
                     .map(move |(idx, line)| TargetLine {
                         file_path: file.path.clone(),
