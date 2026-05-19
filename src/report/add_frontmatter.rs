@@ -64,8 +64,8 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(self.collect_add_frontmatter_files());
-        report.write(&AddFrontmatterTable, writer)
+        let report_writer = ReportWriter::new(self.collect_add_frontmatter_files());
+        report_writer.write(&AddFrontmatterTable, writer)
     }
 
     fn collect_add_frontmatter_files(&self) -> Vec<PathBuf> {

@@ -1,13 +1,15 @@
 use crate::constants::BACKSLASH;
+use crate::constants::BACKSLASH_PARITY_DIVISOR;
 use crate::constants::CLOSING_BRACKET;
 use crate::constants::ESCAPED_BRACKET_CLOSE;
 use crate::constants::ESCAPED_BRACKET_OPEN;
+use crate::constants::ESCAPED_PIPE_CAPACITY_MULTIPLIER;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::PIPE;
 
 // Helper function to escape pipes in Markdown strings
 pub fn escape_pipe(text: &str) -> String {
-    let mut escaped = String::with_capacity(text.len() * 2);
+    let mut escaped = String::with_capacity(text.len() * ESCAPED_PIPE_CAPACITY_MULTIPLIER);
     let chars: Vec<char> = text.chars().collect();
 
     let mut i = 0;
@@ -23,7 +25,7 @@ pub fn escape_pipe(text: &str) -> String {
             }
 
             // If even number of backslashes, '|' is not escaped
-            if backslash_count % 2 == 0 {
+            if backslash_count % BACKSLASH_PARITY_DIVISOR == 0 {
                 escaped.push(BACKSLASH);
             }
             escaped.push(PIPE);

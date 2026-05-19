@@ -95,9 +95,9 @@ impl ObsidianRepository {
             .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
 
         if !unreferenced_images.is_empty() {
-            let report =
+            let report_writer =
                 ReportWriter::new(unreferenced_images.to_owned()).with_validated_config(config);
-            report.write(&UnreferencedImagesReport, writer)?;
+            report_writer.write(&UnreferencedImagesReport, writer)?;
         }
 
         Ok(())

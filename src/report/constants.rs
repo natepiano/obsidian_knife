@@ -1,5 +1,6 @@
 // highlighting
 pub(super) const HIGHLIGHT_CLOSE_TAG: &str = "</span>";
+pub(super) const HIGHLIGHT_EXTRA_TAG_CAPACITY_MULTIPLIER: usize = 2;
 pub(super) const HIGHLIGHT_OPEN_TAG: &str = "<span style=\"color: red;\">";
 
 // messages

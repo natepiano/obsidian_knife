@@ -235,7 +235,7 @@ impl MarkdownFile {
     }
 
     fn process_wikilinks(&self) -> ExtractedWikilinks {
-        let mut result = ExtractedWikilinks::default();
+        let mut extracted_wikilinks = ExtractedWikilinks::default();
 
         let aliases = self
             .frontmatter
@@ -249,7 +249,7 @@ impl MarkdownFile {
             .unwrap_or_default();
 
         let filename_wikilink = wikilink::create_filename_wikilink(filename);
-        result.valid.push(filename_wikilink.clone());
+        extracted_wikilinks.valid.push(filename_wikilink.clone());
 
         if let Some(alias_list) = aliases {
             for alias in alias_list {
@@ -257,20 +257,20 @@ impl MarkdownFile {
                     display_text: alias.clone(),
                     target:       filename_wikilink.target.clone(),
                 };
-                result.valid.push(wikilink);
+                extracted_wikilinks.valid.push(wikilink);
             }
         }
 
-        let mut state = CodeBlockExcluder::new();
+        let mut code_block_excluder = CodeBlockExcluder::new();
 
         for (line_idx, line) in self.content.lines().enumerate() {
-            state.update(line);
-            if state.is_in_code_block() {
+            code_block_excluder.update(line);
+            if code_block_excluder.is_in_code_block() {
                 continue;
             }
 
             let extracted = wikilink::extract_wikilinks(line);
-            result.valid.extend(extracted.valid);
+            extracted_wikilinks.valid.extend(extracted.valid);
 
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
                 .invalid
@@ -282,10 +282,10 @@ impl MarkdownFile {
                     )
                 })
                 .collect();
-            result.invalid.extend(invalid_with_lines);
+            extracted_wikilinks.invalid.extend(invalid_with_lines);
         }
 
-        result
+        extracted_wikilinks
     }
 
     fn process_image_links(&self) -> Vec<ImageLink> {

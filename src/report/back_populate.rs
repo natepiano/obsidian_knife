@@ -176,14 +176,14 @@ impl ObsidianRepository {
                 .map(|m| m.relative_path.clone())
                 .collect();
 
-            let table = BackPopulateTable {
+            let back_populate_table = BackPopulateTable {
                 display_text: display_text.clone(),
                 total_occurrences,
                 file_count: file_paths.len(),
             };
 
-            let report = ReportWriter::new(group_matches.clone());
-            report.write(&table, writer)?;
+            let report_writer = ReportWriter::new(group_matches.clone());
+            report_writer.write(&back_populate_table, writer)?;
         }
 
         Ok(())

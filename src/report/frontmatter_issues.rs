@@ -72,8 +72,8 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(self.collect_frontmatter_issues());
-        report.write(&FrontmatterIssuesTable, writer)
+        let report_writer = ReportWriter::new(self.collect_frontmatter_issues());
+        report_writer.write(&FrontmatterIssuesTable, writer)
     }
 
     fn collect_frontmatter_issues(&self) -> Vec<(PathBuf, String)> {

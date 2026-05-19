@@ -290,14 +290,14 @@ impl ObsidianRepository {
                     header_state = HeaderState::Written;
                 }
 
-                let report = ReportWriter::new(images.clone()).with_validated_config(config);
+                let report_writer = ReportWriter::new(images.clone()).with_validated_config(config);
 
-                let table = DuplicateImagesTable {
+                let duplicate_images_table = DuplicateImagesTable {
                     hash,
                     markdown_files: &self.markdown_files,
                 };
 
-                report.write(&table, writer)?;
+                report_writer.write(&duplicate_images_table, writer)?;
                 writer.writeln("", "")?; // Add spacing between tables
             }
         }

@@ -176,7 +176,7 @@ impl ObsidianRepository {
 
         if !incompatible_images.is_empty() {
             // Create the report instance first
-            let report = IncompatibleImagesReport {
+            let incompatible_images_report = IncompatibleImagesReport {
                 markdown_files: &self.markdown_files.files_to_persist(),
             };
 
@@ -194,7 +194,7 @@ impl ObsidianRepository {
             if would_have_rows {
                 let report_writer =
                     ReportWriter::new(incompatible_images.to_owned()).with_validated_config(config);
-                report_writer.write(&report, writer)?;
+                report_writer.write(&incompatible_images_report, writer)?;
             }
         }
         Ok(())

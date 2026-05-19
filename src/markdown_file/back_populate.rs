@@ -179,12 +179,12 @@ impl MarkdownFile {
         }
 
         // Add inline code spans as exclusion zones
-        let mut inline_code = InlineCodeExcluder::new();
+        let mut inline_code_excluder = InlineCodeExcluder::new();
         let mut span_start = None;
         for (byte_offset, ch) in line.char_indices() {
-            let was_inside = inline_code.is_in_code_block();
-            inline_code.update(ch);
-            let is_inside = inline_code.is_in_code_block();
+            let was_inside = inline_code_excluder.is_in_code_block();
+            inline_code_excluder.update(ch);
+            let is_inside = inline_code_excluder.is_in_code_block();
 
             if !was_inside && is_inside {
                 span_start = Some(byte_offset);

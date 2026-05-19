@@ -10,6 +10,7 @@ use crate::constants::MARKDOWN_TABLE_ALIGNMENT_CENTER;
 use crate::constants::MARKDOWN_TABLE_ALIGNMENT_LEFT;
 use crate::constants::MARKDOWN_TABLE_ALIGNMENT_RIGHT;
 use crate::constants::MARKDOWN_TABLE_CELL_SEPARATOR;
+use crate::constants::MARKDOWN_TABLE_PLACEHOLDER;
 use crate::constants::MARKDOWN_TABLE_ROW_TEMPLATE;
 use crate::constants::MARKDOWN_TABLE_SEPARATOR;
 use crate::constants::MARKDOWN_TABLE_TRAILING_SEPARATOR;
@@ -32,7 +33,7 @@ pub(crate) enum ColumnAlignment {
 
 impl OutputFileWriter {
     fn markdown_table_row(cells: &str) -> String {
-        MARKDOWN_TABLE_ROW_TEMPLATE.replacen("{}", cells, 1)
+        MARKDOWN_TABLE_ROW_TEMPLATE.replacen(MARKDOWN_TABLE_PLACEHOLDER, cells, 1)
     }
 
     fn lock_file(&self) -> io::Result<MutexGuard<'_, File>> {

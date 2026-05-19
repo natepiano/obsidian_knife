@@ -5,6 +5,7 @@ use chrono::Local;
 use chrono::Utc;
 
 use super::constants::HIGHLIGHT_CLOSE_TAG;
+use super::constants::HIGHLIGHT_EXTRA_TAG_CAPACITY_MULTIPLIER;
 use super::constants::HIGHLIGHT_OPEN_TAG;
 use super::constants::INVALID_UTF8_BOUNDARY_DETECTED;
 use crate::constants::BACK_POPULATE;
@@ -254,7 +255,8 @@ pub(super) fn format_wikilink(path: &Path, obsidian_path: &Path) -> String {
 }
 
 pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
-    let mut result = String::with_capacity(text.len() * 2);
+    let mut result =
+        String::with_capacity(text.len() * HIGHLIGHT_EXTRA_TAG_CAPACITY_MULTIPLIER);
     let mut last_end = 0;
 
     let mut sorted_positions = positions.to_vec();

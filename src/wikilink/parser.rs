@@ -64,7 +64,7 @@ pub fn create_filename_wikilink(filename: &str) -> Wikilink {
 
 pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut extracted_wikilinks = ParsedExtractedWikilinks::default();
-    let mut inline_code = InlineCodeExcluder::new();
+    let mut inline_code_excluder = InlineCodeExcluder::new();
 
     parse_special_patterns(line, &mut extracted_wikilinks);
 
@@ -74,9 +74,9 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
 
     while let Some((start_idx, ch)) = chars.next() {
         // Update inline code tracker and skip if in code block
-        inline_code.update(ch);
+        inline_code_excluder.update(ch);
 
-        if inline_code.is_in_code_block() {
+        if inline_code_excluder.is_in_code_block() {
             continue;
         }
 
@@ -169,7 +169,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
 
     // If we ended inside an inline code block, it's unclosed
     // technically this is allowed in obsidian but it's messy so let's report it
-    if inline_code.is_inside() {
+    if inline_code_excluder.is_inside() {
         // Add an invalid wikilink for the unclosed code block
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: line[last_position..].to_string(),
@@ -352,17 +352,17 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
     let initial_pos = chars.peek()?.0;
     let start_pos = initial_pos.saturating_sub(OPENING_WIKILINK.len());
 
-    let mut state = WikilinkState::Target {
+    let mut wikilink_state = WikilinkState::Target {
         content: String::new(),
         start_pos,
     };
 
     while let Some((pos, c)) = chars.next() {
-        if matches!(state, WikilinkState::Invalid { .. }) {
+        if matches!(wikilink_state, WikilinkState::Invalid { .. }) {
             if c == CLOSING_BRACKET && is_next_char(chars, CLOSING_BRACKET) {
-                return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
+                return Some(wikilink_state.to_wikilink(pos + CLOSING_WIKILINK.len()));
             }
-            state.push_char(c);
+            wikilink_state.push_char(c);
             continue;
         }
 
@@ -372,53 +372,56 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
                 if let Some((_, next_c)) = chars.next() {
                     if next_c == PIPE {
                         // Treat escaped pipe same as regular pipe
-                        match state {
-                            WikilinkState::Target { .. } => state.transition_to_display(pos),
+                        match wikilink_state {
+                            WikilinkState::Target { .. } => {
+                                wikilink_state.transition_to_display(pos);
+                            },
                             WikilinkState::Display { .. } => {
-                                state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
+                                wikilink_state
+                                    .transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
                                 for ch in ESCAPED_PIPE.chars() {
-                                    state.push_char(ch);
+                                    wikilink_state.push_char(ch);
                                 }
                             },
                             WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
                         }
                     } else {
-                        state.push_char(next_c);
+                        wikilink_state.push_char(next_c);
                     }
                 }
             },
-            PIPE => match state {
-                WikilinkState::Target { .. } => state.transition_to_display(pos),
+            PIPE => match wikilink_state {
+                WikilinkState::Target { .. } => wikilink_state.transition_to_display(pos),
                 WikilinkState::Display { .. } => {
-                    state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
-                    state.push_char(c);
+                    wikilink_state.transition_to_invalid(InvalidWikilinkReason::DoubleAlias);
+                    wikilink_state.push_char(c);
                 },
                 WikilinkState::Invalid { .. } => {}, // already invalid, nothing to do
             },
             CLOSING_BRACKET => {
                 if is_next_char(chars, CLOSING_BRACKET) {
-                    return Some(state.to_wikilink(pos + CLOSING_WIKILINK.len()));
+                    return Some(wikilink_state.to_wikilink(pos + CLOSING_WIKILINK.len()));
                 }
-                state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
-                state.push_char(c);
+                wikilink_state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
+                wikilink_state.push_char(c);
             },
             OPENING_BRACKET => {
                 if is_next_char(chars, OPENING_BRACKET) {
-                    state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
-                    state.push_char(c); // push first '['
-                    state.push_char(OPENING_BRACKET); // push second '['
+                    wikilink_state.transition_to_invalid(InvalidWikilinkReason::NestedOpening);
+                    wikilink_state.push_char(c); // push first '['
+                    wikilink_state.push_char(OPENING_BRACKET); // push second '['
                 } else {
-                    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
-                    state.push_char(c);
+                    wikilink_state.transition_to_invalid(InvalidWikilinkReason::UnmatchedSingle);
+                    wikilink_state.push_char(c);
                 }
             },
-            _ => state.push_char(c),
+            _ => wikilink_state.push_char(c),
         }
     }
 
-    state.transition_to_invalid(InvalidWikilinkReason::UnmatchedOpening);
-    let content_len = state.formatted_content().len();
-    Some(state.to_wikilink(start_pos + content_len + CLOSING_WIKILINK.len()))
+    wikilink_state.transition_to_invalid(InvalidWikilinkReason::UnmatchedOpening);
+    let content_len = wikilink_state.formatted_content().len();
+    Some(wikilink_state.to_wikilink(start_pos + content_len + CLOSING_WIKILINK.len()))
 }
 
 /// Helper function to check if the next character matches the expected one

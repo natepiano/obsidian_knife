@@ -161,9 +161,9 @@ impl ObsidianRepository {
         writer.writeln("", "")?;
 
         for chunk in persist_data.chunks(REPORT_CHUNK_SIZE) {
-            let table = PersistReasonsTable;
-            let report = ReportWriter::new(chunk.to_vec());
-            report.write(&table, writer)?;
+            let persist_reasons_table = PersistReasonsTable;
+            let report_writer = ReportWriter::new(chunk.to_vec());
+            report_writer.write(&persist_reasons_table, writer)?;
         }
 
         Ok(())

@@ -121,7 +121,7 @@ impl ObsidianRepository {
             })
             .collect();
 
-        let report = ReportWriter::new(missing_refs).with_validated_config(config);
-        report.write(&MissingReferencesTable, writer)
+        let report_writer = ReportWriter::new(missing_refs).with_validated_config(config);
+        report_writer.write(&MissingReferencesTable, writer)
     }
 }

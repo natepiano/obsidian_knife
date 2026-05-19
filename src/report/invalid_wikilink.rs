@@ -102,8 +102,8 @@ impl ObsidianRepository {
         &self,
         writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let report = ReportWriter::new(self.collect_invalid_wikilinks());
-        report.write(&InvalidWikilinksTable, writer)
+        let report_writer = ReportWriter::new(self.collect_invalid_wikilinks());
+        report_writer.write(&InvalidWikilinksTable, writer)
     }
 
     fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {

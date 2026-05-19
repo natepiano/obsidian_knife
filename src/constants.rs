@@ -1,6 +1,7 @@
 // cache
 pub(crate) const CACHE_FILE: &str = "obsidian_knife_cache.json";
 pub(crate) const CACHE_FOLDER: &str = ".ok";
+pub(crate) const HEX_DIGITS_PER_BYTE: usize = 2;
 pub(crate) const SHA256_BUFFER_SIZE: usize = 1024;
 
 // cli invocation
@@ -84,12 +85,14 @@ pub(crate) const MARKDOWN_TABLE_ALIGNMENT_CENTER: &str = ":---:";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_LEFT: &str = ":---";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_RIGHT: &str = "---:";
 pub(crate) const MARKDOWN_TABLE_CELL_SEPARATOR: &str = " | ";
+pub(crate) const MARKDOWN_TABLE_PLACEHOLDER: &str = "{}";
 pub(crate) const MARKDOWN_TABLE_ROW_TEMPLATE: &str = "| {} |";
 pub(crate) const MARKDOWN_TABLE_SEPARATOR: &str = "---";
 pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";
 
 // matching
 pub(crate) const BACKSLASH: char = '\\';
+pub(crate) const BACKSLASH_PARITY_DIVISOR: usize = 2;
 pub(crate) const CLOSING_BRACKET: char = ']';
 pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
@@ -97,6 +100,7 @@ pub(crate) const DOUBLE_QUOTE: char = '"';
 pub(crate) const ESCAPED_BRACKET_CLOSE: &str = r"\]";
 pub(crate) const ESCAPED_BRACKET_OPEN: &str = r"\[";
 pub(crate) const ESCAPED_PIPE: &str = r"\|";
+pub(crate) const ESCAPED_PIPE_CAPACITY_MULTIPLIER: usize = 2;
 pub(crate) const FORWARD_SLASH: char = '/';
 pub(crate) const NEWLINE: char = '\n';
 pub(crate) const OPENING_BRACKET: char = '[';

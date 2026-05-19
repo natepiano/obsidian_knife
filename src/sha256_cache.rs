@@ -15,6 +15,7 @@ use serde::Serialize;
 use sha2::Digest;
 use sha2::Sha256;
 
+use crate::constants::HEX_DIGITS_PER_BYTE;
 use crate::constants::SHA256_BUFFER_SIZE;
 use crate::image_file::ImageHash;
 
@@ -154,7 +155,7 @@ impl Sha256Cache {
         }
 
         let hash = hasher.finalize();
-        let mut hex = String::with_capacity(hash.len() * 2);
+        let mut hex = String::with_capacity(hash.len() * HEX_DIGITS_PER_BYTE);
         for byte in hash {
             let _ = write!(hex, "{byte:02x}");
         }

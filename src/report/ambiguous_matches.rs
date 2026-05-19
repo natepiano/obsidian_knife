@@ -297,23 +297,23 @@ impl ObsidianRepository {
             let mut sorted_targets: Vec<String> = targets.iter().cloned().collect();
             sorted_targets.sort();
 
-            let table = AmbiguousMatchesTable {
+            let ambiguous_matches_table = AmbiguousMatchesTable {
                 display_text: display_text.clone(),
                 targets,
                 sorted_targets: sorted_targets.clone(),
             };
 
-            let report = ReportWriter::new(matches.clone());
-            report.write(&table, writer)?;
+            let report_writer = ReportWriter::new(matches.clone());
+            report_writer.write(&ambiguous_matches_table, writer)?;
 
             // Write per-target line tables
             for target in &sorted_targets {
                 let lines = self.collect_target_lines(target);
-                let target_table = TargetLinesTable {
+                let target_lines_table = TargetLinesTable {
                     target_text: target.clone(),
                 };
-                let report = ReportWriter::new(lines);
-                report.write(&target_table, writer)?;
+                let report_writer = ReportWriter::new(lines);
+                report_writer.write(&target_lines_table, writer)?;
             }
         }
 
