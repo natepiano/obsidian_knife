@@ -93,6 +93,33 @@ pub struct ImageLink {
     pub link_type:      ImageLinkType,
 }
 
+struct ParsedImageLink {
+    filename:       String,
+    link_type:      ImageLinkType,
+    alt_text:       String,
+    size_parameter: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RawImageLinkSyntax {
+    Wiki,
+    Markdown,
+    Invalid,
+}
+
+impl From<&str> for RawImageLinkSyntax {
+    fn from(raw_link: &str) -> Self {
+        match (
+            raw_link.ends_with(CLOSING_WIKILINK),
+            raw_link.ends_with(CLOSING_PAREN),
+        ) {
+            (true, _) => Self::Wiki,
+            (false, true) => Self::Markdown,
+            (false, false) => Self::Invalid,
+        }
+    }
+}
+
 impl EnumFilter for ImageLink {
     type EnumType = ImageLinkState;
 
@@ -162,92 +189,98 @@ impl ImageLink {
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Result<Self, String> {
         let relative_path = extract_relative_path(&raw_link);
 
-        let (filename, link_type, alt_text, size_parameter) = if raw_link
-            .ends_with(CLOSING_WIKILINK)
-        {
-            let rendering = if raw_link.starts_with(IMAGE_EMBED_MARKER) {
-                ImageRendering::Embedded
-            } else {
-                ImageRendering::Linked
-            };
-
-            let filename = raw_link
-                .trim_start_matches(IMAGE_EMBED_MARKER)
-                .trim_start_matches(OPENING_WIKILINK)
-                .trim_end_matches(CLOSING_WIKILINK)
-                .split(PIPE)
-                .next()
-                .unwrap_or("")
-                .trim()
-                .trim_matches(BACKSLASH)
-                .to_lowercase();
-
-            let size_parameter = raw_link
-                .split(PIPE)
-                .nth(IMAGE_LINK_SIZE_PARAMETER_INDEX)
-                .map(|s| s.trim_end_matches(CLOSING_WIKILINK).to_string());
-
-            (
-                filename,
-                ImageLinkType::Wiki(rendering),
-                String::new(),
-                size_parameter,
-            )
-        } else if raw_link.ends_with(CLOSING_PAREN) {
-            let rendering = if raw_link.starts_with(IMAGE_EMBED_MARKER) {
-                ImageRendering::Embedded
-            } else {
-                ImageRendering::Linked
-            };
-
-            let alt_text = raw_link
-                .find(MARKDOWN_LINK_SEPARATOR)
-                .map(|alt_end| raw_link[IMAGE_LINK_PREFIX.len()..alt_end].to_string())
-                .unwrap_or_default();
-
-            let url_start = raw_link
-                .find(MARKDOWN_LINK_SEPARATOR)
-                .map_or(0, |index| index + MARKDOWN_LINK_SEPARATOR.len());
-            let url = &raw_link[url_start..raw_link.len() - 1];
-
-            let target = if url.starts_with(HTTP_URL_PREFIX) || url.starts_with(HTTPS_URL_PREFIX) {
-                ImageLinkTarget::External
-            } else {
-                ImageLinkTarget::Internal
-            };
-
-            let filename = if target == ImageLinkTarget::Internal {
-                url.rsplit(FORWARD_SLASH)
-                    .next()
-                    .unwrap_or("")
-                    .to_lowercase()
-            } else {
-                url.to_lowercase()
-            };
-
-            (
-                filename,
-                ImageLinkType::Markdown(target, rendering),
-                alt_text,
-                None,
-            )
-        } else {
-            return Err(format!(
-                "invalid image link format passed to ImageLink::new: {raw_link}"
-            ));
+        let parsed_link = match RawImageLinkSyntax::from(raw_link.as_str()) {
+            RawImageLinkSyntax::Wiki => parse_wiki_image_link(&raw_link),
+            RawImageLinkSyntax::Markdown => parse_markdown_image_link(&raw_link),
+            RawImageLinkSyntax::Invalid => {
+                return Err(format!(
+                    "invalid image link format passed to ImageLink::new: {raw_link}"
+                ));
+            },
         };
 
         Ok(Self {
             matched_text: raw_link,
             position,
             line_number,
-            filename,
+            filename: parsed_link.filename,
             relative_path,
-            alt_text,
-            size_parameter,
+            alt_text: parsed_link.alt_text,
+            size_parameter: parsed_link.size_parameter,
             state: ImageLinkState::default(),
-            link_type,
+            link_type: parsed_link.link_type,
         })
+    }
+}
+
+fn image_rendering(raw_link: &str) -> ImageRendering {
+    if raw_link.starts_with(IMAGE_EMBED_MARKER) {
+        ImageRendering::Embedded
+    } else {
+        ImageRendering::Linked
+    }
+}
+
+fn parse_wiki_image_link(raw_link: &str) -> ParsedImageLink {
+    let rendering = image_rendering(raw_link);
+
+    let filename = raw_link
+        .trim_start_matches(IMAGE_EMBED_MARKER)
+        .trim_start_matches(OPENING_WIKILINK)
+        .trim_end_matches(CLOSING_WIKILINK)
+        .split(PIPE)
+        .next()
+        .unwrap_or("")
+        .trim()
+        .trim_matches(BACKSLASH)
+        .to_lowercase();
+
+    let size_parameter = raw_link
+        .split(PIPE)
+        .nth(IMAGE_LINK_SIZE_PARAMETER_INDEX)
+        .map(|s| s.trim_end_matches(CLOSING_WIKILINK).to_string());
+
+    ParsedImageLink {
+        filename,
+        link_type: ImageLinkType::Wiki(rendering),
+        alt_text: String::new(),
+        size_parameter,
+    }
+}
+
+fn parse_markdown_image_link(raw_link: &str) -> ParsedImageLink {
+    let rendering = image_rendering(raw_link);
+
+    let alt_text = raw_link
+        .find(MARKDOWN_LINK_SEPARATOR)
+        .map(|alt_end| raw_link[IMAGE_LINK_PREFIX.len()..alt_end].to_string())
+        .unwrap_or_default();
+
+    let url_start = raw_link
+        .find(MARKDOWN_LINK_SEPARATOR)
+        .map_or(0, |index| index + MARKDOWN_LINK_SEPARATOR.len());
+    let url = &raw_link[url_start..raw_link.len() - 1];
+
+    let target = if url.starts_with(HTTP_URL_PREFIX) || url.starts_with(HTTPS_URL_PREFIX) {
+        ImageLinkTarget::External
+    } else {
+        ImageLinkTarget::Internal
+    };
+
+    let filename = match target {
+        ImageLinkTarget::Internal => url
+            .rsplit(FORWARD_SLASH)
+            .next()
+            .unwrap_or("")
+            .to_lowercase(),
+        ImageLinkTarget::External => url.to_lowercase(),
+    };
+
+    ParsedImageLink {
+        filename,
+        link_type: ImageLinkType::Markdown(target, rendering),
+        alt_text,
+        size_parameter: None,
     }
 }
 

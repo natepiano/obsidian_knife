@@ -4,6 +4,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::Path;
 
+use anyhow::Result as AnyhowResult;
+
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
 use super::orchestration;
@@ -68,7 +70,7 @@ impl ReportDefinition for BackPopulateTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         let consolidated = consolidate_matches(items);
         let mut table_rows = Vec::new();
 

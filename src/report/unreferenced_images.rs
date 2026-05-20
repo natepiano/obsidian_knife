@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use anyhow::Result as AnyhowResult;
+
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ACTION;
@@ -46,7 +48,7 @@ impl ReportDefinition for UnreferencedImagesReport {
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         Ok(items
             .iter()
             .map(|image| {

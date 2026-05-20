@@ -1,6 +1,7 @@
 use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
+use std::fs;
 use std::io::Error;
 use std::path::Path;
 
@@ -138,7 +139,7 @@ pub(super) fn get_date_validations(
     path: &Path,
     operational_timezone: &str,
 ) -> Result<(DateValidation, DateValidation), Error> {
-    let metadata = std::fs::metadata(path)?;
+    let metadata = fs::metadata(path)?;
 
     let dates = [
         (

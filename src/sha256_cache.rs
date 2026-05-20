@@ -12,6 +12,8 @@ use std::time::SystemTime;
 
 use serde::Deserialize;
 use serde::Serialize;
+use serde_json::from_reader;
+use serde_json::to_writer;
 use sha2::Digest;
 use sha2::Sha256;
 
@@ -56,7 +58,7 @@ impl Sha256Cache {
                 |_| (HashMap::new(), CacheFileStatus::Created),
                 |file| {
                     let reader = BufReader::new(file);
-                    serde_json::from_reader(reader).map_or_else(
+                    from_reader(reader).map_or_else(
                         |_| (HashMap::new(), CacheFileStatus::Corrupted),
                         |parsed_cache| (parsed_cache, CacheFileStatus::Read),
                     )
@@ -137,7 +139,7 @@ impl Sha256Cache {
             fs::create_dir_all(parent)?;
         }
         let file = File::create(&self.file_path)?;
-        serde_json::to_writer(file, &self.entries)?;
+        to_writer(file, &self.entries)?;
         Ok(())
     }
 

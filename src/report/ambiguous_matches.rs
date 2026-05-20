@@ -7,6 +7,8 @@ use std::fmt::Write;
 use std::path::Path;
 use std::path::PathBuf;
 
+use anyhow::Result as AnyhowResult;
+
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
 use super::orchestration;
@@ -60,7 +62,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         // Group matches by file path and line number for consolidation
         let mut line_map: HashMap<(String, usize), (String, Vec<usize>)> = HashMap::new();
 
@@ -188,7 +190,7 @@ impl ReportDefinition for TargetLinesTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         let mut rows: Vec<Vec<String>> = items
             .iter()
             .map(|item| {

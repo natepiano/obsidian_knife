@@ -12,6 +12,8 @@ use std::fs;
 use std::path::PathBuf;
 
 use aho_corasick::AhoCorasick;
+use anyhow::Result as AnyhowResult;
+use anyhow::anyhow;
 pub use back_populate::BackPopulateMatch;
 pub use back_populate::MatchContext;
 pub use date_validation::DateValidation;
@@ -203,7 +205,7 @@ impl MarkdownFile {
     pub(crate) fn mark_as_back_populated(
         &mut self,
         operational_timezone: &str,
-    ) -> anyhow::Result<()> {
+    ) -> AnyhowResult<()> {
         self.ensure_frontmatter(operational_timezone);
 
         // Remove any `DateModifiedUpdated` reasons since we'll be setting the date to now.
@@ -211,9 +213,10 @@ impl MarkdownFile {
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
-        let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
-            anyhow::anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display())
-        })?;
+        let frontmatter = self
+            .frontmatter
+            .as_mut()
+            .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
         frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
         Ok(())
@@ -222,12 +225,13 @@ impl MarkdownFile {
     pub(crate) fn mark_image_reference_as_updated(
         &mut self,
         operational_timezone: &str,
-    ) -> anyhow::Result<()> {
+    ) -> AnyhowResult<()> {
         self.ensure_frontmatter(operational_timezone);
 
-        let frontmatter = self.frontmatter.as_mut().ok_or_else(|| {
-            anyhow::anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display())
-        })?;
+        let frontmatter = self
+            .frontmatter
+            .as_mut()
+            .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
         frontmatter.set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);

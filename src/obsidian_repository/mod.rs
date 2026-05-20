@@ -12,6 +12,7 @@ use std::sync::Mutex;
 use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
+use anyhow::Result as AnyhowResult;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
@@ -114,7 +115,7 @@ impl ObsidianRepository {
         sort_and_build_wikilinks_automaton(all_wikilinks)
     }
 
-    fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> anyhow::Result<()> {
+    fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> AnyhowResult<()> {
         let _timer = Timer::new(ANALYZE_TIMER_LABEL);
         self.find_all_back_populate_matches(validated_config)?;
         self.identify_ambiguous_matches();
@@ -162,22 +163,27 @@ pub(crate) fn format_relative_path(path: &Path, base_path: &Path) -> String {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::cmp::Ordering;
     use std::collections::HashMap;
     use std::error::Error;
     use std::ffi::OsStr;
     use std::fs;
+    use std::fs::read_to_string;
     use std::path::Path;
     use std::path::PathBuf;
     use std::str::FromStr;
+    use std::time::Duration;
     use std::time::SystemTime;
 
     use chrono::DateTime;
+    use chrono::Duration as ChronoDuration;
     use chrono::NaiveDate;
     use chrono::TimeZone;
     use chrono::Utc;
     use filetime::FileTime;
     use rayon::prelude::*;
     use serde_json::Value;
+    use serde_json::from_str;
     use tempfile::TempDir;
 
     use super::ObsidianRepository;
@@ -544,8 +550,8 @@ Nate was here and so was Nate"
         let _: Vec<MarkdownFile> = (0..count)
             .map(|i| {
                 let created =
-                    base_date + chrono::Duration::days(i64::try_from(i).expect("test index"));
-                let modified = created + chrono::Duration::hours(1);
+                    base_date + ChronoDuration::days(i64::try_from(i).expect("test index"));
+                let modified = created + ChronoDuration::hours(1);
 
                 // Convert to UTC for the filesystem dates
                 let created_utc = created.with_timezone(&Utc);
@@ -622,7 +628,7 @@ Nate was here and so was Nate"
                 .iter()
                 .take(case.expected_processed)
                 .filter(|file| {
-                    std::fs::read_to_string(&file.path).is_ok_and(|content| {
+                    read_to_string(&file.path).is_ok_and(|content| {
                         let file_index = file
                             .path
                             .file_stem()
@@ -883,17 +889,13 @@ date_modified: 2024-01-01
         // Convert to UTC for comparison
         let file_system_created_date = DateTime::<Utc>::from(
             SystemTime::UNIX_EPOCH
-                + std::time::Duration::from_secs(
-                    file_system_created_time.unix_seconds().cast_unsigned(),
-                ),
+                + Duration::from_secs(file_system_created_time.unix_seconds().cast_unsigned()),
         )
         .date_naive();
 
         let file_system_modified_date = DateTime::<Utc>::from(
             SystemTime::UNIX_EPOCH
-                + std::time::Duration::from_secs(
-                    file_system_modified_time.unix_seconds().cast_unsigned(),
-                ),
+                + Duration::from_secs(file_system_modified_time.unix_seconds().cast_unsigned()),
         )
         .date_naive();
 
@@ -1146,7 +1148,7 @@ date_modified: 2024-01-01
                 .cmp(&sorted[i].display_text.len());
             assert_ne!(
                 comparison,
-                std::cmp::Ordering::Less,
+                Ordering::Less,
                 "Sorting violates length ordering at index {i}"
             );
         }
@@ -1176,14 +1178,14 @@ date_modified: 2024-01-01
             let _ = ObsidianRepository::new(&validated_config).unwrap();
 
             // Delete the image file
-            std::fs::remove_file(temp_dir.path().join("test.png")).unwrap();
+            fs::remove_file(temp_dir.path().join("test.png")).unwrap();
 
             // Second scan - should detect the deleted image
             let _ = ObsidianRepository::new(&validated_config).unwrap();
 
             // Verify cache was cleaned up
-            let cache_content = std::fs::read_to_string(&cache_path).unwrap();
-            let cache: Value = serde_json::from_str(&cache_content).unwrap();
+            let cache_content = read_to_string(&cache_path).unwrap();
+            let cache: Value = from_str(&cache_content).unwrap();
             let cache = cache
                 .as_object()
                 .expect("cache file should deserialize to a JSON object");

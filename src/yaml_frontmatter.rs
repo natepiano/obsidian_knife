@@ -4,7 +4,11 @@ use std::fmt::Formatter;
 
 use serde::Serialize;
 use serde::de::DeserializeOwned;
+use serde_yaml::Mapping;
 use serde_yaml::Value;
+use serde_yaml::from_str;
+use serde_yaml::to_string;
+use serde_yaml::to_value;
 
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_CLOSING_DELIMITER_EOF;
@@ -44,7 +48,7 @@ macro_rules! yaml_frontmatter_struct {
                 $field_vis $field_name: $field_ty,
             )*
             #[serde(flatten)]
-            other_fields: std::collections::HashMap<String, serde_yaml::Value>,
+            other_fields: HashMap<String, Value>,
         }
 
         impl $name {
@@ -53,7 +57,7 @@ macro_rules! yaml_frontmatter_struct {
                     $(
                         $field_name: Default::default(),
                     )*
-                    other_fields: std::collections::HashMap::new(),
+                    other_fields: HashMap::new(),
                 }
             }
         }
@@ -114,19 +118,18 @@ impl Error for YamlFrontMatterError {}
 pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
     /// Creates an instance from a YAML string
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
-        serde_yaml::from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
+        from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
     }
 
     /// serialize the instance to a YAML string
     /// sorts all properties alphabetically, plus any contained lists are also sorted
     fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
         // First serialize to Value to manipulate the structure
-        let value = serde_yaml::to_value(self)
-            .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
+        let value = to_value(self).map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
 
         if let Value::Mapping(map) = value {
             // Create a sorted mapping
-            let mut sorted_map = serde_yaml::Mapping::new();
+            let mut sorted_map = Mapping::new();
 
             // Collect all keys and sort them
             let mut keys: Vec<String> = map
@@ -155,7 +158,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
             }
 
             // Serialize the sorted mapping
-            serde_yaml::to_string(&Value::Mapping(sorted_map))
+            to_string(&Value::Mapping(sorted_map))
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
             Err(YamlFrontMatterError::Serialize(

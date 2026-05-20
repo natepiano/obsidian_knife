@@ -1,5 +1,7 @@
 use std::error::Error;
 
+use anyhow::Result as AnyhowResult;
+
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
@@ -28,7 +30,7 @@ pub(super) trait ReportDefinition<C = ()> {
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>>;
+    ) -> AnyhowResult<Vec<Vec<String>>>;
 
     /// Optional table title
     fn title(&self) -> Option<String> { None }

@@ -1,3 +1,4 @@
+use std::env::var_os;
 use std::error::Error;
 use std::ffi::OsStr;
 use std::fs;
@@ -6,6 +7,8 @@ use std::io::ErrorKind;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
+#[cfg(target_os = "macos")]
+use std::process::Command;
 use std::sync::Mutex;
 
 use chrono::DateTime;
@@ -13,6 +16,9 @@ use chrono::DateTime;
 use chrono::Local;
 use chrono::Utc;
 use filetime::FileTime;
+use filetime::set_file_mtime;
+#[cfg(not(target_os = "macos"))]
+use filetime::set_file_times;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
@@ -59,7 +65,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
 
     // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str()
-        && let Some(home) = std::env::var_os(HOME_ENVIRONMENT_VARIABLE)
+        && let Some(home) = var_os(HOME_ENVIRONMENT_VARIABLE)
         && let Some(stripped) = path_str.strip_prefix(TILDE_SLASH)
     {
         return PathBuf::from(home).join(stripped);
@@ -69,7 +75,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     let mut components = path.components();
     if let Some(Component::Normal(first)) = components.next()
         && first == TILDE
-        && let Some(home) = std::env::var_os(HOME_ENVIRONMENT_VARIABLE)
+        && let Some(home) = var_os(HOME_ENVIRONMENT_VARIABLE)
     {
         let mut expanded_path = PathBuf::from(home);
         expanded_path.extend(components);
@@ -178,7 +184,7 @@ pub fn set_file_dates(
     created: Option<DateTime<Utc>>,
     modified: DateTime<Utc>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
+    set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
 
     if let Some(created_date) = created {
         // `SetFile -d` parses the date string in the system's local timezone, so format
@@ -187,7 +193,7 @@ pub fn set_file_dates(
         let local_time: DateTime<Local> = created_date.into();
         let formatted_date = local_time.format(SET_FILE_CREATED_DATE_FORMAT).to_string();
 
-        let output = std::process::Command::new(SET_FILE_EXECUTABLE)
+        let output = Command::new(SET_FILE_EXECUTABLE)
             .arg(SET_FILE_CREATED_DATE_FLAG)
             .arg(&formatted_date)
             .arg(path)
@@ -209,13 +215,13 @@ pub fn set_file_dates(
     modified: DateTime<Utc>,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     if let Some(created_date) = created {
-        filetime::set_file_times(
+        set_file_times(
             path,
             FileTime::from_system_time(created_date.into()),
             FileTime::from_system_time(modified.into()),
         )?;
     } else {
-        filetime::set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
+        set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
     }
     Ok(())
 }
@@ -230,7 +236,7 @@ mod expand_tilde_tests {
     #[test]
     fn test_expand_tilde() {
         // Only run this test if HOME is set
-        if let Some(home) = std::env::var_os("HOME") {
+        if let Some(home) = var_os("HOME") {
             let input = "~/Documents/brain";
             let expected = PathBuf::from(home).join("Documents/brain");
             let expanded = expand_tilde(input);
@@ -256,7 +262,7 @@ mod expand_tilde_tests {
         let expanded = expand_tilde(path);
 
         // Since HOME is unlikely to contain invalid bytes, the tilde should be expanded
-        if let Some(home) = std::env::var_os("HOME") {
+        if let Some(home) = var_os("HOME") {
             let mut expected = PathBuf::from(home);
             expected.push(OsStr::from_bytes(b"invalid-\xFF-path"));
             assert_eq!(expanded, expected);

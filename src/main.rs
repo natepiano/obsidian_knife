@@ -24,6 +24,8 @@ mod validated_config;
 mod wikilink;
 mod yaml_frontmatter;
 
+use std::any::type_name_of_val;
+use std::env::args;
 use std::error::Error;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -120,7 +122,7 @@ fn reset_change_mode(
 fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
     eprintln!("{ERROR_OCCURRED}");
     eprintln!("{ERROR_TYPE}");
-    let error_type_name = std::any::type_name_of_val(&*e);
+    let error_type_name = type_name_of_val(&*e);
     eprintln!("{error_type_name}");
     eprintln!("{ERROR_DETAILS} {e}");
 
@@ -132,7 +134,7 @@ fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + S
 
 // Get config file name with better error handling
 fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
-    let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = args().collect();
 
     if args.len() != EXPECTED_ARG_COUNT {
         return Err(Box::new(MainError::Usage(USAGE.into())));

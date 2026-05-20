@@ -2,6 +2,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+use anyhow::Result as AnyhowResult;
+
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
 use crate::constants::ADD_FRONTMATTER;
@@ -30,7 +32,7 @@ impl ReportDefinition for AddFrontmatterTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         Ok(items
             .iter()
             .map(|file_path| {

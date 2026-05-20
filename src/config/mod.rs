@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 
@@ -5,6 +6,7 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 use serde::Serializer;
+use serde_yaml::Value;
 
 use crate::constants::DEFAULT_OUTPUT_FOLDER;
 use crate::constants::DEFAULT_TIMEZONE;
@@ -139,6 +141,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use serde_yaml::from_str;
     use tempfile::TempDir;
 
     use super::Config;
@@ -309,7 +312,7 @@ obsidian_path: ~/Documents/brain
 output_folder: custom_output
 apply_changes: false";
 
-        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        let config: Config = from_str(yaml).unwrap();
         assert_eq!(config.output_folder, Some("custom_output".to_string()));
     }
 
@@ -319,7 +322,7 @@ apply_changes: false";
 obsidian_path: ~/Documents/brain
 apply_changes: false";
 
-        let config: Config = serde_yaml::from_str(yaml).unwrap();
+        let config: Config = from_str(yaml).unwrap();
         assert_eq!(config.output_folder, None);
     }
 

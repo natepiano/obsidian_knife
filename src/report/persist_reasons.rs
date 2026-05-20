@@ -3,6 +3,8 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+use anyhow::Result as AnyhowResult;
+
 use super::constants::FILES_TO_BE_UPDATED;
 use super::report_writer::ReportDefinition;
 use super::report_writer::ReportWriter;
@@ -69,7 +71,7 @@ impl ReportDefinition for PersistReasonsTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         Ok(items
             .iter()
             .map(|item| {

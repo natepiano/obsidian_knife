@@ -31,6 +31,33 @@ pub(crate) enum ColumnAlignment {
     Right,
 }
 
+#[derive(Clone, Copy)]
+enum MarkdownPrefix<'a> {
+    Empty,
+    AlreadySpaced(&'a str),
+    NeedsSpace(&'a str),
+}
+
+impl<'a> From<&'a str> for MarkdownPrefix<'a> {
+    fn from(markdown_prefix: &'a str) -> Self {
+        match (markdown_prefix.is_empty(), markdown_prefix.ends_with(SPACE)) {
+            (true, _) => Self::Empty,
+            (false, true) => Self::AlreadySpaced(markdown_prefix),
+            (false, false) => Self::NeedsSpace(markdown_prefix),
+        }
+    }
+}
+
+impl MarkdownPrefix<'_> {
+    fn into_string(self) -> String {
+        match self {
+            Self::Empty => String::new(),
+            Self::AlreadySpaced(markdown_prefix) => markdown_prefix.to_string(),
+            Self::NeedsSpace(markdown_prefix) => format!("{markdown_prefix} "),
+        }
+    }
+}
+
 impl OutputFileWriter {
     fn markdown_table_row(cells: &str) -> String {
         MARKDOWN_TABLE_ROW_TEMPLATE.replacen(MARKDOWN_TABLE_PLACEHOLDER, cells, 1)
@@ -120,13 +147,7 @@ impl OutputFileWriter {
     }
 
     pub(crate) fn writeln(&self, markdown_prefix: &str, message: &str) -> io::Result<()> {
-        let prefix = if markdown_prefix.is_empty() {
-            String::new()
-        } else if markdown_prefix.ends_with(SPACE) {
-            markdown_prefix.to_string()
-        } else {
-            format!("{markdown_prefix} ")
-        };
+        let prefix = MarkdownPrefix::from(markdown_prefix).into_string();
 
         let file_message = format!("{prefix}{message}\n");
         let mut file = self.lock_file()?;

@@ -3,6 +3,7 @@ use std::error::Error;
 use std::ffi::OsStr;
 use std::path::PathBuf;
 
+use anyhow::Result as AnyhowResult;
 use itertools::Itertools;
 
 use super::constants::TABLE_HEADER_FILE_NAME;
@@ -58,7 +59,7 @@ impl ReportDefinition for InvalidWikilinksTable {
         &self,
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         Ok(items
             .iter()
             .map(|(file_path, invalid_wikilink)| {

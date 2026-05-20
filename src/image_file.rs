@@ -4,6 +4,7 @@ use std::fmt;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fs;
+use std::io;
 use std::path::PathBuf;
 
 use derive_more::Deref;
@@ -97,6 +98,79 @@ pub(crate) enum IncompatibilityReason {
     ZeroByte,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ReferencePresence {
+    Present,
+    Empty,
+}
+
+impl ReferencePresence {
+    const fn from_references(references: &[PathBuf]) -> Self {
+        if references.is_empty() {
+            Self::Empty
+        } else {
+            Self::Present
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum InitialImageState {
+    Tiff,
+    EmptyFile,
+    Role {
+        image_role: ImageRole,
+        references: ReferencePresence,
+    },
+}
+
+impl InitialImageState {
+    const fn from_parts(
+        kind: &ImageFileType,
+        size: u64,
+        references: &[PathBuf],
+        image_role: ImageRole,
+    ) -> Self {
+        match kind {
+            ImageFileType::Tiff => Self::Tiff,
+            _ => match size {
+                EMPTY_FILE_SIZE_BYTES => Self::EmptyFile,
+                _ => Self::Role {
+                    image_role,
+                    references: ReferencePresence::from_references(references),
+                },
+            },
+        }
+    }
+
+    fn into_image_file_state(self, hash: &ImageHash) -> ImageFileState {
+        match self {
+            Self::Tiff => ImageFileState::Incompatible {
+                reason: IncompatibilityReason::TiffFormat,
+            },
+            Self::EmptyFile => ImageFileState::Incompatible {
+                reason: IncompatibilityReason::ZeroByte,
+            },
+            Self::Role {
+                image_role: ImageRole::Original,
+                ..
+            } => ImageFileState::DuplicateKeeper { hash: hash.clone() },
+            Self::Role {
+                image_role: ImageRole::Duplicate,
+                ..
+            } => ImageFileState::Duplicate { hash: hash.clone() },
+            Self::Role {
+                image_role: ImageRole::Unique,
+                references: ReferencePresence::Empty,
+            } => ImageFileState::Unreferenced,
+            Self::Role {
+                image_role: ImageRole::Unique,
+                references: ReferencePresence::Present,
+            } => ImageFileState::Valid,
+        }
+    }
+}
+
 #[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
 pub(crate) struct ImageFiles {
     #[deref]
@@ -147,7 +221,7 @@ impl ImageFile {
         hash: ImageHash,
         references: Vec<PathBuf>,
         image_role: ImageRole,
-    ) -> std::io::Result<Self> {
+    ) -> io::Result<Self> {
         let metadata = fs::metadata(&path)?;
         let size = metadata.len();
 
@@ -156,27 +230,8 @@ impl ImageFile {
             ImageFileType::from,
         );
 
-        let initial_state = if matches!(kind, ImageFileType::Tiff) {
-            ImageFileState::Incompatible {
-                reason: IncompatibilityReason::TiffFormat,
-            }
-        } else if size == EMPTY_FILE_SIZE_BYTES {
-            ImageFileState::Incompatible {
-                reason: IncompatibilityReason::ZeroByte,
-            }
-        } else {
-            match image_role {
-                ImageRole::Original => ImageFileState::DuplicateKeeper { hash: hash.clone() },
-                ImageRole::Duplicate => ImageFileState::Duplicate { hash: hash.clone() },
-                ImageRole::Unique => {
-                    if references.is_empty() {
-                        ImageFileState::Unreferenced
-                    } else {
-                        ImageFileState::Valid
-                    }
-                },
-            }
-        };
+        let initial_state = InitialImageState::from_parts(&kind, size, &references, image_role)
+            .into_image_file_state(&hash);
 
         Ok(Self {
             deletion_status: DeletionStatus::Keep,

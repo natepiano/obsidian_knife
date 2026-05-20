@@ -18,6 +18,56 @@ use crate::sha256_cache::Sha256Cache;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum KeeperSelection {
+    None,
+    FirstSortedImage,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum DuplicateGroupRole {
+    Unique,
+    Duplicate { keeper_selection: KeeperSelection },
+}
+
+impl From<&[(PathBuf, Vec<String>)]> for DuplicateGroupRole {
+    fn from(group: &[(PathBuf, Vec<String>)]) -> Self {
+        if group.len() < MIN_DUPLICATE_GROUP_SIZE {
+            Self::Unique
+        } else {
+            Self::Duplicate {
+                keeper_selection: group.into(),
+            }
+        }
+    }
+}
+
+impl DuplicateGroupRole {
+    const fn image_role(self, index: usize) -> ImageRole {
+        match self {
+            Self::Unique => ImageRole::Unique,
+            Self::Duplicate {
+                keeper_selection: KeeperSelection::FirstSortedImage,
+            } if index == 0 => ImageRole::Original,
+            Self::Duplicate { .. } => ImageRole::Duplicate,
+        }
+    }
+}
+
+impl From<&[(PathBuf, Vec<String>)]> for KeeperSelection {
+    fn from(group: &[(PathBuf, Vec<String>)]) -> Self {
+        if group.iter().any(|(_, refs)| !refs.is_empty()) {
+            Self::FirstSortedImage
+        } else {
+            Self::None
+        }
+    }
+}
+
+impl KeeperSelection {
+    const fn should_sort(self) -> bool { matches!(self, Self::FirstSortedImage) }
+}
+
 impl ObsidianRepository {
     pub(super) fn initialize_image_files(
         &self,
@@ -53,36 +103,22 @@ impl ObsidianRepository {
     fn generate_image_files(
         hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
     ) -> Result<Vec<ImageFile>, Box<dyn Error + Send + Sync>> {
-        #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-        enum KeeperSelection {
-            None,
-            FirstSortedImage,
-        }
-
         let mut images = Vec::new();
 
         for (hash, mut group) in hash_groups {
-            let is_duplicate_group = group.len() >= MIN_DUPLICATE_GROUP_SIZE;
-            let mut keeper_selection = KeeperSelection::None;
+            let duplicate_group_role = DuplicateGroupRole::from(group.as_slice());
 
-            if is_duplicate_group {
-                let any_referenced = group.iter().any(|(_, refs)| !refs.is_empty());
-                if any_referenced {
-                    keeper_selection = KeeperSelection::FirstSortedImage;
-                    group.sort_by(|a, b| a.0.cmp(&b.0));
-                }
+            if matches!(
+                duplicate_group_role,
+                DuplicateGroupRole::Duplicate { keeper_selection } if keeper_selection.should_sort()
+            ) {
+                group.sort_by(|a, b| a.0.cmp(&b.0));
             }
 
             for (idx, (path, references)) in group.into_iter().enumerate() {
                 let path_references: Vec<PathBuf> =
                     references.into_iter().map(PathBuf::from).collect();
-                let image_role = if !is_duplicate_group {
-                    ImageRole::Unique
-                } else if keeper_selection == KeeperSelection::FirstSortedImage && idx == 0 {
-                    ImageRole::Original
-                } else {
-                    ImageRole::Duplicate
-                };
+                let image_role = duplicate_group_role.image_role(idx);
 
                 images.push(ImageFile::new(
                     path,
@@ -153,10 +189,7 @@ impl ObsidianRepository {
             .obsidian_path()
             .join(CACHE_FOLDER)
             .join(CACHE_FILE);
-        let valid_paths: HashSet<_> = image_files
-            .iter()
-            .map(std::path::PathBuf::as_path)
-            .collect();
+        let valid_paths: HashSet<_> = image_files.iter().map(PathBuf::as_path).collect();
 
         let mut cache = Sha256Cache::load_or_create(file_path).0;
         cache.mark_deletions(&valid_paths);

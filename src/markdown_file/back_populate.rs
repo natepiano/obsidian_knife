@@ -241,6 +241,8 @@ impl MarkdownFile {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::slice;
+
     use tempfile::TempDir;
 
     use crate::constants::DEFAULT_TIMEZONE;
@@ -747,7 +749,7 @@ mod tests {
 
             // Create a custom wikilink and build AC automaton directly
             let wikilink = case.wikilink;
-            let automaton = test_support::build_aho_corasick(std::slice::from_ref(&wikilink));
+            let automaton = test_support::build_aho_corasick(slice::from_ref(&wikilink));
 
             let markdown_file =
                 MarkdownFile::new(file_path.clone(), validated_config.operational_timezone())

@@ -247,6 +247,7 @@ mod tests {
     use std::fs;
     use std::path::PathBuf;
 
+    use serde_yaml::from_str;
     use tempfile::TempDir;
 
     use super::ValidatedConfigBuilder;
@@ -347,7 +348,7 @@ mod tests {
             temp_dir.path().display()
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let result = config.validate();
         assert!(result.is_ok());
         assert_eq!(
@@ -363,7 +364,7 @@ mod tests {
             temp_dir.path().display()
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let result = config.validate();
         assert!(result.is_err());
         assert!(
@@ -385,7 +386,7 @@ mod tests {
             temp_dir.path().display()
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let result = config.validate();
         assert!(result.is_ok());
         assert_eq!(result.unwrap().operational_timezone(), DEFAULT_TIMEZONE);
@@ -402,7 +403,7 @@ mod tests {
             temp_dir.path().display()
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let validated = config.validate().unwrap();
 
         let expected_output = temp_dir.path().join(DEFAULT_OUTPUT_FOLDER);
@@ -428,7 +429,7 @@ mod tests {
             OBSIDIAN_FOLDER
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let validated = config.validate().unwrap();
 
         let ignore_folders = validated.ignore_folders().unwrap();
@@ -450,7 +451,7 @@ mod tests {
             temp_dir.path().display()
         );
 
-        let config: Config = serde_yaml::from_str(&yaml).unwrap();
+        let config: Config = from_str(&yaml).unwrap();
         let result = config.validate();
         assert!(result.is_err());
 

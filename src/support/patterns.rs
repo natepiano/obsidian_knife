@@ -1,7 +1,9 @@
+use std::process::exit;
 use std::sync::Arc;
 use std::sync::LazyLock;
 
 use regex::Regex;
+use regex::escape;
 
 use crate::constants::CASE_INSENSITIVE_WORD_PATTERN_PREFIX;
 use crate::constants::CASE_INSENSITIVE_WORD_PATTERN_SUFFIX;
@@ -19,7 +21,7 @@ pub(crate) fn compile_regex(pattern: &str) -> Regex {
         Ok(regex) => regex,
         Err(error) => {
             eprintln!("{INVALID_REGEX_PATTERN} {pattern:?}: {error}");
-            std::process::exit(INVALID_REGEX_EXIT_CODE);
+            exit(INVALID_REGEX_EXIT_CODE);
         },
     }
 }
@@ -47,7 +49,7 @@ pub fn build_case_insensitive_word_finder(patterns: &[String]) -> Vec<Regex> {
     patterns
         .iter()
         .map(|pattern| {
-            let escaped_pattern = regex::escape(pattern);
+            let escaped_pattern = escape(pattern);
             let finder_pattern = format!(
                 "{CASE_INSENSITIVE_WORD_PATTERN_PREFIX}{escaped_pattern}{CASE_INSENSITIVE_WORD_PATTERN_SUFFIX}"
             );

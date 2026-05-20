@@ -1,6 +1,9 @@
 use std::error::Error;
 use std::path::Path;
 
+use anyhow::Result as AnyhowResult;
+use anyhow::anyhow;
+
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED;
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_INVARIANT;
 use super::orchestration;
@@ -59,9 +62,9 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         &self,
         items: &[Self::Item],
         config: Option<&ValidatedConfig>,
-    ) -> anyhow::Result<Vec<Vec<String>>> {
+    ) -> AnyhowResult<Vec<Vec<String>>> {
         let validated_config =
-            config.ok_or_else(|| anyhow::anyhow!(INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED))?;
+            config.ok_or_else(|| anyhow!(INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED))?;
 
         let mut rows = Vec::new();
         for image in items {

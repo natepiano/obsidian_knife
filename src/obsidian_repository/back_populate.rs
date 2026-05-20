@@ -1,9 +1,12 @@
 use std::cmp::Reverse;
 use std::collections::HashMap;
 use std::collections::HashSet;
+use std::convert::AsRef;
+use std::mem::take;
 use std::path::Path;
 
 use anyhow::Context as _;
+use anyhow::Result as AnyhowResult;
 use anyhow::bail;
 
 use super::ObsidianRepository;
@@ -71,7 +74,7 @@ impl ObsidianRepository {
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
             // Drain matches from the file into a temporary map.
-            let file_matches = std::mem::take(&mut markdown_file.back_populate_matches.unambiguous);
+            let file_matches = take(&mut markdown_file.back_populate_matches.unambiguous);
             for match_info in file_matches {
                 let lower_found_text = match_info.found_text.to_lowercase();
                 matches_by_text
@@ -112,10 +115,7 @@ impl ObsidianRepository {
         }
     }
 
-    pub fn find_all_back_populate_matches(
-        &mut self,
-        config: &ValidatedConfig,
-    ) -> anyhow::Result<()> {
+    pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) -> AnyhowResult<()> {
         let automaton = self.wikilinks_automaton.as_ref().context(format!(
             "{WIKILINKS_AUTOMATON_NOT_INITIALIZED} — {WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL}"
         ))?;
@@ -131,7 +131,7 @@ impl ObsidianRepository {
         Ok(())
     }
 
-    pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) -> anyhow::Result<()> {
+    pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) -> AnyhowResult<()> {
         for markdown_file in &mut self.markdown_files {
             let has_replaceable_image_links = markdown_file.image_links.iter().any(|link| {
                 matches!(
@@ -172,7 +172,7 @@ impl ObsidianRepository {
                 let line_matches: Vec<&dyn ReplaceableContent> = sorted_replaceable_matches
                     .iter()
                     .filter(|m| m.line_number() == absolute_line_number)
-                    .map(std::convert::AsRef::as_ref) // Dereference Box to &dyn ReplaceableContent
+                    .map(AsRef::as_ref) // Dereference Box to &dyn ReplaceableContent
                     .collect();
 
                 if line_matches.is_empty() {
@@ -251,7 +251,7 @@ fn apply_line_replacements(
     line: &str,
     line_matches: &[&dyn ReplaceableContent],
     file_path: &Path,
-) -> anyhow::Result<String> {
+) -> AnyhowResult<String> {
     let mut updated_line = line.to_string();
 
     // Sort matches in descending order by `position`
