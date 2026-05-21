@@ -86,6 +86,7 @@ pub(crate) const MARKDOWN_TABLE_ALIGNMENT_LEFT: &str = ":---";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_RIGHT: &str = "---:";
 pub(crate) const MARKDOWN_TABLE_CELL_SEPARATOR: &str = " | ";
 pub(crate) const MARKDOWN_TABLE_PLACEHOLDER: &str = "{}";
+pub(crate) const MARKDOWN_TABLE_ROW_PLACEHOLDER_REPLACEMENT_LIMIT: usize = 1;
 pub(crate) const MARKDOWN_TABLE_ROW_TEMPLATE: &str = "| {} |";
 pub(crate) const MARKDOWN_TABLE_SEPARATOR: &str = "---";
 pub(crate) const MARKDOWN_TABLE_TRAILING_SEPARATOR: &str = "\n---";

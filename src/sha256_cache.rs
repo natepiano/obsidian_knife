@@ -37,7 +37,8 @@ pub(crate) enum CacheEntryStatus {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct CachedImageInfo {
-    pub hash:       ImageHash,
+    #[serde(rename = "hash")]
+    pub image_hash: ImageHash,
     pub time_stamp: SystemTime,
 }
 
@@ -92,10 +93,10 @@ impl Sha256Cache {
             && cached_info.time_stamp == time_stamp
         {
             self.reads += 1;
-            return Ok((cached_info.hash.clone(), CacheEntryStatus::Read));
+            return Ok((cached_info.image_hash.clone(), CacheEntryStatus::Read));
         }
 
-        let new_hash = ImageHash::from(Self::hash_file(path)?);
+        let new_image_hash = ImageHash::from(Self::hash_file(path)?);
         let status = if self.entries.contains_key(path) {
             self.modified += 1;
             CacheEntryStatus::Modified
@@ -107,12 +108,12 @@ impl Sha256Cache {
         self.entries.insert(
             path.to_path_buf(),
             CachedImageInfo {
-                hash: new_hash.clone(),
+                image_hash: new_image_hash.clone(),
                 time_stamp,
             },
         );
 
-        Ok((new_hash, status))
+        Ok((new_image_hash, status))
     }
 
     pub(crate) fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {

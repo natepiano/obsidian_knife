@@ -53,7 +53,7 @@ use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct DuplicateImagesTable<'a> {
-    hash:           ImageHash,
+    image_hash:     ImageHash,
     markdown_files: &'a MarkdownFiles,
 }
 
@@ -106,7 +106,9 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
         Ok(rows)
     }
 
-    fn title(&self) -> Option<String> { Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.hash)) }
+    fn title(&self) -> Option<String> {
+        Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.image_hash))
+    }
 
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_references: HashSet<_> =
@@ -296,7 +298,7 @@ impl ObsidianRepository {
                 let report_writer = ReportWriter::new(images.clone()).with_validated_config(config);
 
                 let duplicate_images_table = DuplicateImagesTable {
-                    hash,
+                    image_hash:     hash,
                     markdown_files: &self.markdown_files,
                 };
 
