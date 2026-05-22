@@ -1,5 +1,3 @@
-mod constants;
-
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -9,10 +7,10 @@ use derive_builder::UninitializedFieldError;
 use regex::Regex;
 use thiserror::Error;
 
-use self::constants::MIN_FILE_LIMIT;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::constants::MIN_FILE_LIMIT;
 use crate::constants::OBSIDIAN_FOLDER;
 use crate::constants::OPENING_WIKILINK;
 use crate::support;

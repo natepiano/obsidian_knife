@@ -4,7 +4,6 @@ mod image_processing;
 
 use std::collections::HashSet;
 use std::error::Error;
-use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -112,7 +111,24 @@ impl ObsidianRepository {
             .iter()
             .flat_map(|markdown_file| markdown_file.wikilinks.valid.clone())
             .collect();
-        sort_and_build_wikilinks_automaton(all_wikilinks)
+        Self::sort_and_build_wikilinks_automaton(all_wikilinks)
+    }
+
+    fn sort_and_build_wikilinks_automaton(
+        all_wikilinks: HashSet<Wikilink>,
+    ) -> Result<(Vec<Wikilink>, AhoCorasick), Box<dyn Error + Send + Sync>> {
+        let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
+        wikilinks.sort_unstable();
+
+        let mut patterns = Vec::with_capacity(wikilinks.len());
+        patterns.extend(wikilinks.iter().map(|w| w.display_text.as_str()));
+
+        let automaton = AhoCorasickBuilder::new()
+            .ascii_case_insensitive(true)
+            .match_kind(MatchKind::LeftmostLongest)
+            .build(&patterns)?;
+
+        Ok((wikilinks, automaton))
     }
 
     fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> AnyhowResult<()> {
@@ -129,30 +145,6 @@ impl ObsidianRepository {
         self.image_files.delete_marked()?;
         self.markdown_files.files_to_persist().persist_all()
     }
-}
-
-fn sort_and_build_wikilinks_automaton(
-    all_wikilinks: HashSet<Wikilink>,
-) -> Result<(Vec<Wikilink>, AhoCorasick), Box<dyn Error + Send + Sync>> {
-    let mut wikilinks: Vec<_> = all_wikilinks.into_iter().collect();
-    wikilinks.sort_unstable();
-
-    let mut patterns = Vec::with_capacity(wikilinks.len());
-    patterns.extend(wikilinks.iter().map(|w| w.display_text.as_str()));
-
-    let automaton = AhoCorasickBuilder::new()
-        .ascii_case_insensitive(true)
-        .match_kind(MatchKind::LeftmostLongest)
-        .build(&patterns)?;
-
-    Ok((wikilinks, automaton))
-}
-
-pub(crate) fn format_relative_path(path: &Path, base_path: &Path) -> String {
-    path.strip_prefix(base_path)
-        .unwrap_or(path)
-        .to_string_lossy()
-        .into_owned()
 }
 
 #[cfg(test)]

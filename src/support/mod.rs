@@ -7,6 +7,7 @@ pub use escaping::escape_brackets;
 pub use escaping::escape_pipe;
 pub use filesystem::collect_repository_files;
 pub use filesystem::expand_tilde;
+pub(crate) use filesystem::format_relative_path;
 pub use filesystem::read_contents_from_file;
 pub use filesystem::set_file_dates;
 pub use patterns::EMAIL_REGEX;

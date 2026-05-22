@@ -86,6 +86,13 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     path.to_path_buf()
 }
 
+pub(crate) fn format_relative_path(path: &Path, base_path: &Path) -> String {
+    path.strip_prefix(base_path)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .into_owned()
+}
+
 pub struct RepositoryFiles {
     pub images:   Vec<PathBuf>,
     pub markdown: Vec<PathBuf>,

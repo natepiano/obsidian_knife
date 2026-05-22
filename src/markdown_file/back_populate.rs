@@ -10,7 +10,7 @@ use super::text_excluder::CodeBlockExcluder;
 use super::text_excluder::InlineCodeExcluder;
 use crate::constants::ESCAPED_PIPE;
 use crate::constants::PIPE;
-use crate::obsidian_repository;
+use crate::support;
 use crate::support::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink;
@@ -132,7 +132,7 @@ impl MarkdownFile {
                 }
 
                 let relative_path =
-                    obsidian_repository::format_relative_path(&self.path, config.obsidian_path());
+                    support::format_relative_path(&self.path, config.obsidian_path());
 
                 matches.push(BackPopulateMatch {
                     found_text: matched_text.to_string(),
@@ -249,8 +249,8 @@ mod tests {
     use crate::markdown_file::BackPopulateMatch;
     use crate::markdown_file::MarkdownFile;
     use crate::markdown_file::MatchContext;
-    use crate::obsidian_repository;
     use crate::obsidian_repository::ObsidianRepository;
+    use crate::support;
     use crate::test_support;
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
@@ -445,14 +445,11 @@ mod tests {
             .expect("Should have a file with matches");
 
         assert_eq!(
-            obsidian_repository::format_relative_path(
+            support::format_relative_path(
                 &file_with_matches.path,
                 validated_config.obsidian_path(),
             ),
-            obsidian_repository::format_relative_path(
-                &other_file_path,
-                validated_config.obsidian_path(),
-            ),
+            support::format_relative_path(&other_file_path, validated_config.obsidian_path(),),
             "Match should be in 'Other.md'"
         );
     }

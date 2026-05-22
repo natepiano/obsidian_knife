@@ -19,6 +19,7 @@ pub(crate) const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub(crate) const DEFAULT_TIMEZONE: &str = "America/New_York";
 pub(crate) const ERROR_NOT_FOUND: &str = "file not found: ";
 pub(crate) const ERROR_READING: &str = "error reading config file ";
+pub(crate) const MIN_FILE_LIMIT: usize = 1;
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // date handling

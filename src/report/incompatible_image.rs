@@ -30,10 +30,10 @@ use crate::image_file::ImageFileState;
 use crate::image_file::IncompatibilityReason;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_files::MarkdownFiles;
-use crate::obsidian_repository;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::support;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
 
@@ -74,10 +74,8 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                 continue;
             };
 
-            let relative_path = obsidian_repository::format_relative_path(
-                &image.path,
-                validated_config.obsidian_path(),
-            );
+            let relative_path =
+                support::format_relative_path(&image.path, validated_config.obsidian_path());
             let image_file_link = format!(
                 "[{}]({})",
                 image.path.file_name().unwrap_or_default().to_string_lossy(),
