@@ -36,12 +36,14 @@ pub trait ToWikilink {
     where
         Self: AsRef<str>,
     {
-        let target_without_md = strip_md_extension(self.as_ref());
+        let target_without_markdown = strip_markdown_extension(self.as_ref());
 
-        if target_without_md == display_text {
-            target_without_md.to_wikilink()
+        if target_without_markdown == display_text {
+            target_without_markdown.to_wikilink()
         } else {
-            format!("{OPENING_WIKILINK}{target_without_md}{PIPE}{display_text}{CLOSING_WIKILINK}")
+            format!(
+                "{OPENING_WIKILINK}{target_without_markdown}{PIPE}{display_text}{CLOSING_WIKILINK}"
+            )
         }
     }
 }
@@ -50,7 +52,7 @@ impl ToWikilink for str {
     fn to_wikilink(&self) -> String {
         format!(
             "{OPENING_WIKILINK}{}{CLOSING_WIKILINK}",
-            strip_md_extension(self)
+            strip_markdown_extension(self)
         )
     }
 }
@@ -60,7 +62,9 @@ impl ToWikilink for String {
 }
 
 /// Helper function to strip .md extension if present
-fn strip_md_extension(text: &str) -> &str { text.strip_suffix(MARKDOWN_SUFFIX).unwrap_or(text) }
+fn strip_markdown_extension(text: &str) -> &str {
+    text.strip_suffix(MARKDOWN_SUFFIX).unwrap_or(text)
+}
 
 #[derive(Debug, Clone, Hash, Eq, PartialEq, Serialize, Deserialize)]
 pub struct Wikilink {

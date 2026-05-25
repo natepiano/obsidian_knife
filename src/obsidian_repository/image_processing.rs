@@ -191,9 +191,9 @@ impl ObsidianRepository {
             .join(CACHE_FILE);
         let valid_paths: HashSet<_> = image_files.iter().map(PathBuf::as_path).collect();
 
-        let mut cache = Sha256Cache::load_or_create(file_path).0;
-        cache.mark_deletions(&valid_paths);
-        cache
+        let mut sha256_cache = Sha256Cache::load_or_create(file_path).0;
+        sha256_cache.mark_deletions(&valid_paths);
+        sha256_cache
     }
 
     pub(super) fn identify_image_reference_replacements(&mut self) {

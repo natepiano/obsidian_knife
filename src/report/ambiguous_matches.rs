@@ -248,9 +248,9 @@ impl ReportDefinition for TargetLinesTable {
 impl ObsidianRepository {
     pub(super) fn write_ambiguous_matches_report(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        writer.writeln(LEVEL1, MATCHES_AMBIGUOUS)?;
+        output_file_writer.writeln(LEVEL1, MATCHES_AMBIGUOUS)?;
 
         // Create a map to group ambiguous matches by their display text (case-insensitive)
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
@@ -306,7 +306,7 @@ impl ObsidianRepository {
             };
 
             let report_writer = ReportWriter::new(matches.clone());
-            report_writer.write(&ambiguous_matches_table, writer)?;
+            report_writer.write(&ambiguous_matches_table, output_file_writer)?;
 
             // Write per-target line tables
             for target in &sorted_targets {
@@ -315,7 +315,7 @@ impl ObsidianRepository {
                     target_text: target.clone(),
                 };
                 let report_writer = ReportWriter::new(lines);
-                report_writer.write(&target_lines_table, writer)?;
+                report_writer.write(&target_lines_table, output_file_writer)?;
             }
         }
 

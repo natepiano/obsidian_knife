@@ -130,17 +130,17 @@ impl ReportDefinition for BackPopulateTable {
 impl ObsidianRepository {
     pub(super) fn write_back_populate_report(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let matches = self.markdown_files.files_to_persist().unambiguous_matches();
 
-        writer.writeln(LEVEL2, MATCHES)?;
+        output_file_writer.writeln(LEVEL2, MATCHES)?;
         let header_message = DescriptionBuilder::new()
             .text(BACK_POPULATE)
             .number(self.wikilinks_sorted.len())
             .text(WIKILINKS)
             .build();
-        writer.writeln("", &header_message)?;
+        output_file_writer.writeln("", &header_message)?;
 
         let unique_files: HashSet<String> =
             matches.iter().map(|m| m.relative_path.clone()).collect();
@@ -152,7 +152,7 @@ impl ObsidianRepository {
             .text(WILL_BE_BACK_POPULATED)
             .build();
 
-        writer.writeln("", &header_message)?;
+        output_file_writer.writeln("", &header_message)?;
 
         // Group matches by display text (case-insensitive)
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
@@ -185,7 +185,7 @@ impl ObsidianRepository {
             };
 
             let report_writer = ReportWriter::new(group_matches.clone());
-            report_writer.write(&back_populate_table, writer)?;
+            report_writer.write(&back_populate_table, output_file_writer)?;
         }
 
         Ok(())

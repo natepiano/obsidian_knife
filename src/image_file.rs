@@ -230,14 +230,15 @@ impl ImageFile {
             ImageFileType::from,
         );
 
-        let initial_state = InitialImageState::from_parts(&kind, size, &references, image_role)
-            .into_image_file_state(&hash);
+        let initial_image_file_state =
+            InitialImageState::from_parts(&kind, size, &references, image_role)
+                .into_image_file_state(&hash);
 
         Ok(Self {
             deletion_status: DeletionStatus::Keep,
             kind,
             hash,
-            state: initial_state,
+            state: initial_image_file_state,
             path,
             references,
             size,

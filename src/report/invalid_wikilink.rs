@@ -101,10 +101,10 @@ impl ReportDefinition for InvalidWikilinksTable {
 impl ObsidianRepository {
     pub(super) fn write_invalid_wikilinks_report(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let report_writer = ReportWriter::new(self.collect_invalid_wikilinks());
-        report_writer.write(&InvalidWikilinksTable, writer)
+        report_writer.write(&InvalidWikilinksTable, output_file_writer)
     }
 
     fn collect_invalid_wikilinks(&self) -> Vec<(PathBuf, InvalidWikilink)> {

@@ -90,7 +90,7 @@ impl ObsidianRepository {
     pub(super) fn write_unreferenced_images_report(
         &self,
         config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let unreferenced_images = self
             .image_files
@@ -99,7 +99,7 @@ impl ObsidianRepository {
         if !unreferenced_images.is_empty() {
             let report_writer =
                 ReportWriter::new(unreferenced_images.to_owned()).with_validated_config(config);
-            report_writer.write(&UnreferencedImagesReport, writer)?;
+            report_writer.write(&UnreferencedImagesReport, output_file_writer)?;
         }
 
         Ok(())

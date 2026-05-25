@@ -72,10 +72,10 @@ impl ReportDefinition for FrontmatterIssuesTable {
 impl ObsidianRepository {
     pub(super) fn write_frontmatter_issues_report(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let report_writer = ReportWriter::new(self.collect_frontmatter_issues());
-        report_writer.write(&FrontmatterIssuesTable, writer)
+        report_writer.write(&FrontmatterIssuesTable, output_file_writer)
     }
 
     fn collect_frontmatter_issues(&self) -> Vec<(PathBuf, String)> {

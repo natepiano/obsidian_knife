@@ -61,7 +61,7 @@ impl MarkdownFile {
         automaton: &AhoCorasick,
     ) {
         let content = self.content.clone();
-        let mut code_block_tracker = CodeBlockExcluder::new();
+        let mut code_block_excluder = CodeBlockExcluder::new();
 
         for (line_idx, line) in content.lines().enumerate() {
             // Skip empty/whitespace lines early
@@ -70,8 +70,8 @@ impl MarkdownFile {
             }
 
             // Update state and skip if needed
-            code_block_tracker.update(line);
-            if code_block_tracker.is_in_code_block() {
+            code_block_excluder.update(line);
+            if code_block_excluder.is_in_code_block() {
                 continue;
             }
 

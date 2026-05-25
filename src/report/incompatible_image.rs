@@ -169,7 +169,7 @@ impl ObsidianRepository {
     pub(super) fn write_incompatible_image_report(
         &self,
         config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let incompatible_images = self
             .image_files
@@ -195,7 +195,7 @@ impl ObsidianRepository {
             if would_have_rows {
                 let report_writer =
                     ReportWriter::new(incompatible_images.to_owned()).with_validated_config(config);
-                report_writer.write(&incompatible_images_report, writer)?;
+                report_writer.write(&incompatible_images_report, output_file_writer)?;
             }
         }
         Ok(())

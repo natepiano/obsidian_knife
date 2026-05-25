@@ -69,11 +69,11 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         }
     }
 
-    /// Write the table using the provided builder and writer
+    /// Write the table using the provided builder and output file writer
     pub(super) fn write<B: ReportDefinition<Item = T>>(
         &self,
         report: &B,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         if self.items.is_empty() {
             return Ok(());
@@ -81,13 +81,13 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
 
         // Write title if present
         if let Some(title) = report.title() {
-            writer.writeln(report.level(), &title)?;
+            output_file_writer.writeln(report.level(), &title)?;
         }
 
         // Write description if present
         let description = &report.description(&self.items);
         if !description.is_empty() {
-            writer.writeln("", &report.description(&self.items))?;
+            output_file_writer.writeln("", &report.description(&self.items))?;
         }
 
         // Skip empty tables unless overridden
@@ -100,7 +100,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         let alignments = report.alignments();
         let rows = report.build_rows(&self.items, self.validated_config)?;
 
-        writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
+        output_file_writer.write_markdown_table(&headers, &rows, Some(&alignments))?;
 
         Ok(())
     }

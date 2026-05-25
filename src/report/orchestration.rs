@@ -54,26 +54,26 @@ impl ObsidianRepository {
         &self,
         validated_config: &ValidatedConfig,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        let writer = OutputFileWriter::new(validated_config.output_folder())?;
+        let output_file_writer = OutputFileWriter::new(validated_config.output_folder())?;
 
-        self.write_execution_start(validated_config, &writer)?;
-        self.write_frontmatter_issues_report(&writer)?;
+        self.write_execution_start(validated_config, &output_file_writer)?;
+        self.write_frontmatter_issues_report(&output_file_writer)?;
 
-        self.write_image_reports(validated_config, &writer)?;
-        self.write_ambiguous_matches_reports(&writer)?;
-        self.write_back_populate_reports(validated_config, &writer)?;
+        self.write_image_reports(validated_config, &output_file_writer)?;
+        self.write_ambiguous_matches_reports(&output_file_writer)?;
+        self.write_back_populate_reports(validated_config, &output_file_writer)?;
 
         // This report is slightly duplicative because image reference updates and back-populate
         // updates already have dedicated reports. It still captures date changes clearly, so it
         // remains useful as an audit trail.
-        self.write_persist_reasons_report(validated_config, &writer)?;
+        self.write_persist_reasons_report(validated_config, &output_file_writer)?;
 
         Ok(())
     }
 
     fn write_ambiguous_matches_reports(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let has_ambiguous_matches = self
             .markdown_files
@@ -81,7 +81,7 @@ impl ObsidianRepository {
             .any(MarkdownFile::has_ambiguous_matches);
 
         if has_ambiguous_matches {
-            self.write_ambiguous_matches_report(writer)?;
+            self.write_ambiguous_matches_report(output_file_writer)?;
         }
 
         Ok(())
@@ -90,7 +90,7 @@ impl ObsidianRepository {
     fn write_back_populate_reports(
         &self,
         validated_config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let has_back_populate_entries = self
             .markdown_files
@@ -116,18 +116,18 @@ impl ObsidianRepository {
         });
 
         if has_back_populate_entries || has_invalid_wikilinks || has_frontmatter_created {
-            write_back_populate_report_header(validated_config, writer)?;
+            write_back_populate_report_header(validated_config, output_file_writer)?;
 
             if has_frontmatter_created {
-                self.write_add_frontmatter_report(writer)?;
+                self.write_add_frontmatter_report(output_file_writer)?;
             }
 
             if has_invalid_wikilinks {
-                self.write_invalid_wikilinks_report(writer)?;
+                self.write_invalid_wikilinks_report(output_file_writer)?;
             }
 
             if has_back_populate_entries {
-                self.write_back_populate_report(writer)?;
+                self.write_back_populate_report(output_file_writer)?;
             }
         }
 
@@ -137,7 +137,7 @@ impl ObsidianRepository {
     fn write_image_reports(
         &self,
         validated_config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let has_report_entries = self.image_files.images.iter().any(|image| {
             matches!(
@@ -154,12 +154,12 @@ impl ObsidianRepository {
         });
 
         if has_report_entries {
-            writer.writeln(LEVEL1, IMAGES)?;
+            output_file_writer.writeln(LEVEL1, IMAGES)?;
 
-            self.write_missing_references_report(validated_config, writer)?;
-            self.write_incompatible_image_report(validated_config, writer)?;
-            self.write_unreferenced_images_report(validated_config, writer)?;
-            self.write_duplicate_images_report(validated_config, writer)?;
+            self.write_missing_references_report(validated_config, output_file_writer)?;
+            self.write_incompatible_image_report(validated_config, output_file_writer)?;
+            self.write_unreferenced_images_report(validated_config, output_file_writer)?;
+            self.write_duplicate_images_report(validated_config, output_file_writer)?;
         }
 
         Ok(())
@@ -168,7 +168,7 @@ impl ObsidianRepository {
     fn write_execution_start(
         &self,
         validated_config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let timestamp_utc = Utc::now().format(FORMAT_TIME_STAMP);
         let timestamp_local = Local::now().format(FORMAT_TIME_STAMP);
@@ -194,7 +194,7 @@ impl ObsidianRepository {
             .text_with_newline(&limit_string)
             .build();
 
-        writer.write_properties(&properties)?;
+        output_file_writer.write_properties(&properties)?;
 
         let total_files_to_persist = self.markdown_files.total_files_to_persist();
         let files_to_persist = self.markdown_files.files_to_persist().len();
@@ -216,11 +216,11 @@ impl ObsidianRepository {
             },
         );
 
-        writer.writeln("", message.as_str())?;
+        output_file_writer.writeln("", message.as_str())?;
 
         match change_mode {
-            ChangeMode::Apply => writer.writeln("", MODE_APPLY_CHANGES)?,
-            ChangeMode::DryRun => writer.writeln("", MODE_APPLY_CHANGES_OFF)?,
+            ChangeMode::Apply => output_file_writer.writeln("", MODE_APPLY_CHANGES)?,
+            ChangeMode::DryRun => output_file_writer.writeln("", MODE_APPLY_CHANGES_OFF)?,
         }
 
         Ok(())
@@ -229,12 +229,12 @@ impl ObsidianRepository {
 
 fn write_back_populate_report_header(
     validated_config: &ValidatedConfig,
-    writer: &OutputFileWriter,
+    output_file_writer: &OutputFileWriter,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    writer.writeln(LEVEL1, BACK_POPULATE)?;
+    output_file_writer.writeln(LEVEL1, BACK_POPULATE)?;
 
     if let Some(filter) = validated_config.back_populate_file_filter() {
-        writer.writeln(
+        output_file_writer.writeln(
             "",
             &format!(
                 "{BACK_POPULATE_FILE_FILTER_PREFIX} {}\n{BACK_POPULATE_FILE_FILTER_SUFFIX}\n",

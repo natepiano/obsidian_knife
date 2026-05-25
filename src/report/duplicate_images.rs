@@ -249,7 +249,7 @@ impl ObsidianRepository {
     pub(super) fn write_duplicate_images_report(
         &self,
         config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
         enum HeaderState {
@@ -291,7 +291,7 @@ impl ObsidianRepository {
                     && image.deletion_status == DeletionStatus::Delete
             }) {
                 if header_state == HeaderState::Pending {
-                    writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
+                    output_file_writer.writeln(LEVEL2, DUPLICATE_IMAGES)?;
                     header_state = HeaderState::Written;
                 }
 
@@ -302,8 +302,8 @@ impl ObsidianRepository {
                     markdown_files: &self.markdown_files,
                 };
 
-                report_writer.write(&duplicate_images_table, writer)?;
-                writer.writeln("", "")?; // Add spacing between tables
+                report_writer.write(&duplicate_images_table, output_file_writer)?;
+                output_file_writer.writeln("", "")?; // Add spacing between tables
             }
         }
 

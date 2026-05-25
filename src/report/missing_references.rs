@@ -105,7 +105,7 @@ impl ObsidianRepository {
     pub(super) fn write_missing_references_report(
         &self,
         config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let missing_refs: Vec<(PathBuf, String, usize, usize)> = self
             .markdown_files
@@ -125,6 +125,6 @@ impl ObsidianRepository {
             .collect();
 
         let report_writer = ReportWriter::new(missing_refs).with_validated_config(config);
-        report_writer.write(&MissingReferencesTable, writer)
+        report_writer.write(&MissingReferencesTable, output_file_writer)
     }
 }

@@ -132,7 +132,7 @@ impl ObsidianRepository {
     pub(super) fn write_persist_reasons_report(
         &self,
         config: &ValidatedConfig,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut persist_data: Vec<PersistReasonData> = self
             .markdown_files
@@ -159,13 +159,13 @@ impl ObsidianRepository {
             }
         });
 
-        writer.writeln(LEVEL1, FILES_TO_BE_UPDATED)?;
-        writer.writeln("", "")?;
+        output_file_writer.writeln(LEVEL1, FILES_TO_BE_UPDATED)?;
+        output_file_writer.writeln("", "")?;
 
         for chunk in persist_data.chunks(REPORT_CHUNK_SIZE) {
             let persist_reasons_table = PersistReasonsTable;
             let report_writer = ReportWriter::new(chunk.to_vec());
-            report_writer.write(&persist_reasons_table, writer)?;
+            report_writer.write(&persist_reasons_table, output_file_writer)?;
         }
 
         Ok(())

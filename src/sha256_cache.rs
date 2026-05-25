@@ -58,8 +58,8 @@ impl Sha256Cache {
             File::open(&file_path).map_or_else(
                 |_| (HashMap::new(), CacheFileStatus::Created),
                 |file| {
-                    let reader = BufReader::new(file);
-                    from_reader(reader).map_or_else(
+                    let buf_reader = BufReader::new(file);
+                    from_reader(buf_reader).map_or_else(
                         |_| (HashMap::new(), CacheFileStatus::Corrupted),
                         |parsed_cache| (parsed_cache, CacheFileStatus::Read),
                     )
@@ -146,7 +146,7 @@ impl Sha256Cache {
 
     fn hash_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
         let mut file = File::open(path)?;
-        let mut hasher = Sha256::new();
+        let mut sha256_hasher = Sha256::new();
         let mut buffer = [0; SHA256_BUFFER_SIZE];
 
         loop {
@@ -154,10 +154,10 @@ impl Sha256Cache {
             if bytes_read == 0 {
                 break;
             }
-            hasher.update(&buffer[..bytes_read]);
+            sha256_hasher.update(&buffer[..bytes_read]);
         }
 
-        let hash = hasher.finalize();
+        let hash = sha256_hasher.finalize();
         let mut hex = String::with_capacity(hash.len() * HEX_DIGITS_PER_BYTE);
         for byte in hash {
             let _ = write!(hex, "{byte:02x}");

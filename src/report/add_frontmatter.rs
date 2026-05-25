@@ -64,10 +64,10 @@ impl ReportDefinition for AddFrontmatterTable {
 impl ObsidianRepository {
     pub(super) fn write_add_frontmatter_report(
         &self,
-        writer: &OutputFileWriter,
+        output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let report_writer = ReportWriter::new(self.collect_add_frontmatter_files());
-        report_writer.write(&AddFrontmatterTable, writer)
+        report_writer.write(&AddFrontmatterTable, output_file_writer)
     }
 
     fn collect_add_frontmatter_files(&self) -> Vec<PathBuf> {

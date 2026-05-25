@@ -377,21 +377,21 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
 
         // Test 1: File with frontmatter and content
-        let file_with_fm = TestFileBuilder::new()
+        let file_with_frontmatter = TestFileBuilder::new()
             .with_title("Test".to_string())
             .with_content("This is the actual content")
             .create(&temp_dir, "with_fm.md");
 
-        let mfi = test_utils::get_test_markdown_file(file_with_fm);
-        assert_eq!(mfi.content.trim(), "This is the actual content");
+        let markdown_file = test_utils::get_test_markdown_file(file_with_frontmatter);
+        assert_eq!(markdown_file.content.trim(), "This is the actual content");
 
         // Test 2: File with no frontmatter
-        let file_no_fm = TestFileBuilder::new()
+        let file_no_frontmatter = TestFileBuilder::new()
             .with_content("Pure content\nNo frontmatter")
             .create(&temp_dir, "no_fm.md");
 
-        let mfi = test_utils::get_test_markdown_file(file_no_fm);
-        assert_eq!(mfi.content.trim(), "Pure content\nNo frontmatter");
+        let markdown_file = test_utils::get_test_markdown_file(file_no_frontmatter);
+        assert_eq!(markdown_file.content.trim(), "Pure content\nNo frontmatter");
 
         // Test 3: File with --- separators in content
         let delimiter = YAML_OPENING_DELIMITER.trim_end();
@@ -401,8 +401,8 @@ mod tests {
             .with_content(content.clone())
             .create(&temp_dir, "with_separators.md");
 
-        let mfi = test_utils::get_test_markdown_file(file_with_separators);
-        assert_eq!(mfi.content.trim(), content);
+        let markdown_file = test_utils::get_test_markdown_file(file_with_separators);
+        assert_eq!(markdown_file.content.trim(), content);
     }
 
     fn create_test_file(content: &str, temp_dir: &Path) -> PathBuf {
