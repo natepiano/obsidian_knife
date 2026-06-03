@@ -24,8 +24,6 @@ use crate::constants::OPENING_WIKILINK;
 use crate::constants::PIPE;
 use crate::image_file::IncompatibilityReason;
 use crate::support::EnumFilter;
-use crate::wikilink::InvalidWikilink;
-use crate::wikilink::Wikilink;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ImageLinkTarget {
@@ -43,12 +41,6 @@ pub enum ImageRendering {
 pub enum ImageLinkType {
     Wiki(ImageRendering),
     Markdown(ImageLinkTarget, ImageRendering),
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Wikilinks {
-    pub valid:   Vec<Wikilink>,
-    pub invalid: Vec<InvalidWikilink>,
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]

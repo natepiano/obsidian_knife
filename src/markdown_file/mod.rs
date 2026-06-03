@@ -30,7 +30,6 @@ use self::date_validation::DateCreatedFixValidation;
 use self::image_link::ImageLinkTarget;
 use self::image_link::ImageLinkType;
 use self::image_link::ImageLinks;
-use self::image_link::Wikilinks;
 use self::text_excluder::CodeBlockExcluder;
 use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
 use crate::constants::FRONTMATTER_MISSING_AFTER_ENSURE;
@@ -66,10 +65,10 @@ pub(crate) struct MarkdownFile {
     pub(crate) persist_reasons:              Vec<PersistReason>,
 }
 
-#[derive(Debug, Default)]
-struct ExtractedWikilinks {
-    valid:   Vec<Wikilink>,
-    invalid: Vec<InvalidWikilink>,
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub(crate) struct Wikilinks {
+    pub(crate) valid:   Vec<Wikilink>,
+    pub(crate) invalid: Vec<InvalidWikilink>,
 }
 
 impl MarkdownFile {
@@ -138,13 +137,9 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        let extracted_wikilinks = markdown_file.process_wikilinks();
-        let image_links = markdown_file.process_image_links();
-
         // Store results directly in `self`.
-        markdown_file.wikilinks.invalid = extracted_wikilinks.invalid;
-        markdown_file.wikilinks.valid = extracted_wikilinks.valid;
-        markdown_file.image_links.links = image_links;
+        markdown_file.wikilinks = markdown_file.process_wikilinks();
+        markdown_file.image_links.links = markdown_file.process_image_links();
 
         Ok(markdown_file)
     }
@@ -238,8 +233,8 @@ impl MarkdownFile {
         Ok(())
     }
 
-    fn process_wikilinks(&self) -> ExtractedWikilinks {
-        let mut extracted_wikilinks = ExtractedWikilinks::default();
+    fn process_wikilinks(&self) -> Wikilinks {
+        let mut wikilinks = Wikilinks::default();
 
         let aliases = self
             .frontmatter
@@ -253,7 +248,7 @@ impl MarkdownFile {
             .unwrap_or_default();
 
         let filename_wikilink = wikilink::create_filename_wikilink(filename);
-        extracted_wikilinks.valid.push(filename_wikilink.clone());
+        wikilinks.valid.push(filename_wikilink.clone());
 
         if let Some(alias_list) = aliases {
             for alias in alias_list {
@@ -261,7 +256,7 @@ impl MarkdownFile {
                     display_text: alias.clone(),
                     target:       filename_wikilink.target.clone(),
                 };
-                extracted_wikilinks.valid.push(wikilink);
+                wikilinks.valid.push(wikilink);
             }
         }
 
@@ -274,7 +269,7 @@ impl MarkdownFile {
             }
 
             let extracted = wikilink::extract_wikilinks(line);
-            extracted_wikilinks.valid.extend(extracted.valid);
+            wikilinks.valid.extend(extracted.valid);
 
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
                 .invalid
@@ -286,10 +281,10 @@ impl MarkdownFile {
                     )
                 })
                 .collect();
-            extracted_wikilinks.invalid.extend(invalid_with_lines);
+            wikilinks.invalid.extend(invalid_with_lines);
         }
 
-        extracted_wikilinks
+        wikilinks
     }
 
     fn process_image_links(&self) -> Vec<ImageLink> {

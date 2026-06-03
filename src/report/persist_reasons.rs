@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use anyhow::Result as AnyhowResult;
 
 use super::constants::FILES_TO_BE_UPDATED;
-use super::report_writer::ReportDefinition;
-use super::report_writer::ReportWriter;
+use super::writer::ReportDefinition;
+use super::writer::ReportWriter;
 use crate::constants::AFTER;
 use crate::constants::BEFORE;
 use crate::constants::CLOSING_WIKILINK;

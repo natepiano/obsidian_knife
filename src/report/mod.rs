@@ -11,4 +11,4 @@ mod orchestration;
 mod persist_reasons;
 mod unreferenced_images;
 
-mod report_writer;
+mod writer;

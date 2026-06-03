@@ -6,8 +6,8 @@ use anyhow::anyhow;
 
 use super::constants::MISSING_REFERENCES_REPORT_CONFIG_REQUIRED;
 use super::orchestration;
-use super::report_writer::ReportDefinition;
-use super::report_writer::ReportWriter;
+use super::writer::ReportDefinition;
+use super::writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::FILE;
 use crate::constants::LEVEL2;

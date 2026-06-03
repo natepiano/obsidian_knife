@@ -2,8 +2,8 @@ use std::error::Error;
 
 use anyhow::Result as AnyhowResult;
 
-use super::report_writer::ReportDefinition;
-use super::report_writer::ReportWriter;
+use super::writer::ReportDefinition;
+use super::writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DELETED;

@@ -6,8 +6,8 @@ use anyhow::Result as AnyhowResult;
 
 use super::constants::TABLE_HEADER_ERROR_MESSAGE;
 use super::constants::TABLE_HEADER_FILE_NAME;
-use super::report_writer::ReportDefinition;
-use super::report_writer::ReportWriter;
+use super::writer::ReportDefinition;
+use super::writer::ReportWriter;
 use crate::constants::FOUND;
 use crate::constants::FRONTMATTER;
 use crate::constants::FRONTMATTER_ISSUES;

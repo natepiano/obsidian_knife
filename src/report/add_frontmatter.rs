@@ -4,8 +4,8 @@ use std::path::PathBuf;
 
 use anyhow::Result as AnyhowResult;
 
-use super::report_writer::ReportDefinition;
-use super::report_writer::ReportWriter;
+use super::writer::ReportDefinition;
+use super::writer::ReportWriter;
 use crate::constants::ADD_FRONTMATTER;
 use crate::constants::FILE;
 use crate::constants::FRONTMATTER;
