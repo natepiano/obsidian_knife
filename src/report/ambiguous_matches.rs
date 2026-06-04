@@ -24,6 +24,7 @@ use crate::constants::MATCHES;
 use crate::constants::MATCHES_AMBIGUOUS;
 use crate::constants::OCCURRENCES;
 use crate::constants::OPENING_WIKILINK;
+use crate::constants::REFERENCES_TO;
 use crate::constants::TEXT;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
@@ -225,7 +226,7 @@ impl ReportDefinition for TargetLinesTable {
     fn title(&self) -> Option<String> {
         Some(
             DescriptionBuilder::new()
-                .text("references to")
+                .text(REFERENCES_TO)
                 .text(&self.target_text.to_wikilink())
                 .build(),
         )

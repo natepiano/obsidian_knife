@@ -13,6 +13,7 @@ use crate::constants::ACTION;
 use crate::constants::FILE;
 use crate::constants::FOUND;
 use crate::constants::IMAGE_FILE;
+use crate::constants::INCOMPATIBLE;
 use crate::constants::INCOMPATIBLE_IMAGES;
 use crate::constants::LEVEL2;
 use crate::constants::LINE;
@@ -150,7 +151,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
         DescriptionBuilder::new()
             .text(FOUND)
             .number(items.len())
-            .text("incompatible")
+            .text(INCOMPATIBLE)
             .pluralize(Phrase::Image(items.len()))
             .text("(")
             .number(tiff_count)

@@ -119,8 +119,8 @@ enum InitialImageState {
     Tiff,
     EmptyFile,
     Role {
-        image_role: ImageRole,
-        references: ReferencePresence,
+        image_role:         ImageRole,
+        reference_presence: ReferencePresence,
     },
 }
 
@@ -137,7 +137,7 @@ impl InitialImageState {
                 EMPTY_FILE_SIZE_BYTES => Self::EmptyFile,
                 _ => Self::Role {
                     image_role,
-                    references: ReferencePresence::from_references(references),
+                    reference_presence: ReferencePresence::from_references(references),
                 },
             },
         }
@@ -161,11 +161,11 @@ impl InitialImageState {
             } => ImageFileState::Duplicate { hash: hash.clone() },
             Self::Role {
                 image_role: ImageRole::Unique,
-                references: ReferencePresence::Empty,
+                reference_presence: ReferencePresence::Empty,
             } => ImageFileState::Unreferenced,
             Self::Role {
                 image_role: ImageRole::Unique,
-                references: ReferencePresence::Present,
+                reference_presence: ReferencePresence::Present,
             } => ImageFileState::Valid,
         }
     }

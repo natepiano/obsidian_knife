@@ -7,6 +7,7 @@ use anyhow::Result as AnyhowResult;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ADD_FRONTMATTER;
+use crate::constants::CREATED;
 use crate::constants::FILE;
 use crate::constants::FRONTMATTER;
 use crate::constants::LEVEL2;
@@ -51,7 +52,7 @@ impl ReportDefinition for AddFrontmatterTable {
 
     fn description(&self, items: &[Self::Item]) -> String {
         DescriptionBuilder::new()
-            .text("created")
+            .text(CREATED)
             .text(FRONTMATTER)
             .text("for")
             .pluralize_with_count(Phrase::File(items.len()))
