@@ -105,7 +105,7 @@ impl OutputFileWriter {
                 )
             },
             |aligns| {
-                let sep: Vec<String> = aligns
+                let alignment_separators: Vec<String> = aligns
                     .iter()
                     .map(|&alignment| match alignment {
                         ColumnAlignment::Left => MARKDOWN_TABLE_ALIGNMENT_LEFT.to_string(),
@@ -113,7 +113,7 @@ impl OutputFileWriter {
                         ColumnAlignment::Right => MARKDOWN_TABLE_ALIGNMENT_RIGHT.to_string(),
                     })
                     .collect();
-                Self::markdown_table_row(&sep.join(MARKDOWN_TABLE_CELL_SEPARATOR))
+                Self::markdown_table_row(&alignment_separators.join(MARKDOWN_TABLE_CELL_SEPARATOR))
             },
         );
 

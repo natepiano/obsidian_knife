@@ -105,9 +105,9 @@ impl Display for YamlFrontMatterError {
         match self {
             Self::Empty => f.write_str(YAML_FRONTMATTER_EMPTY),
             Self::Missing => f.write_str(YAML_FRONTMATTER_MISSING),
-            Self::Invalid(msg) => write!(f, "{YAML_FRONTMATTER_INVALID_PREFIX}: {msg}"),
-            Self::Parse(msg) => write!(f, "{YAML_FRONTMATTER_PARSE_PREFIX}: {msg}"),
-            Self::Serialize(msg) => write!(f, "{YAML_FRONTMATTER_SERIALIZE_PREFIX}: {msg}"),
+            Self::Invalid(message) => write!(f, "{YAML_FRONTMATTER_INVALID_PREFIX}: {message}"),
+            Self::Parse(message) => write!(f, "{YAML_FRONTMATTER_PARSE_PREFIX}: {message}"),
+            Self::Serialize(message) => write!(f, "{YAML_FRONTMATTER_SERIALIZE_PREFIX}: {message}"),
         }
     }
 }

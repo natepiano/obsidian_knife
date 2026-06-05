@@ -64,7 +64,7 @@ enum MainError {
 impl Display for MainError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Usage(msg) => write!(f, "{msg}"),
+            Self::Usage(message) => write!(f, "{message}"),
         }
     }
 }

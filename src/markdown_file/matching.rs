@@ -5,6 +5,7 @@ use super::constants::T_LOWER;
 use super::constants::T_UPPER;
 use super::constants::UNDERSCORE;
 use crate::constants::PIPE;
+use crate::constants::SPACE;
 
 pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
     // Helper to check if a char is a word character (\w in regex)
@@ -32,7 +33,7 @@ pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> 
     // Check end boundary
     // No need to check for possessives as they should be valid candidates for replacement
     let end_is_boundary = ends_at == line.len()
-        || (!is_word_char(after_chars.chars().next().unwrap_or(' '))
+        || (!is_word_char(after_chars.chars().next().unwrap_or(SPACE))
             && !is_t_contraction(after_chars));
 
     start_is_boundary && end_is_boundary
