@@ -2,6 +2,7 @@ use std::error::Error;
 
 use anyhow::Result as AnyhowResult;
 
+use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
@@ -24,7 +25,6 @@ use crate::image_file::ImageFileState;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
-use crate::support;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;

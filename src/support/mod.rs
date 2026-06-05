@@ -1,10 +1,7 @@
-mod escaping;
 mod filesystem;
 mod patterns;
 mod vec_enum_filter;
 
-pub use escaping::escape_brackets;
-pub use escaping::escape_pipe;
 pub use filesystem::collect_repository_files;
 pub use filesystem::expand_tilde;
 pub(crate) use filesystem::format_relative_path;

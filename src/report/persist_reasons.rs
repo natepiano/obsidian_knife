@@ -6,6 +6,7 @@ use std::path::PathBuf;
 use anyhow::Result as AnyhowResult;
 
 use super::constants::FILES_TO_BE_UPDATED;
+use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::AFTER;
@@ -33,7 +34,6 @@ use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
-use crate::support;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct PersistReasonsTable;

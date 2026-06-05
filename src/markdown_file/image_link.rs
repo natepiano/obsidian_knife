@@ -132,7 +132,7 @@ impl ReplaceableContent for ImageLink {
                     .file_name()
                     .and_then(OsStr::to_str)
                     .unwrap_or_default();
-                let new_relative = format!("{}/{new_name}", self.relative_path);
+                let new_relative = format!("{}{FORWARD_SLASH}{new_name}", self.relative_path);
 
                 match &self.link_type {
                     ImageLinkType::Wiki(rendering) => match rendering {

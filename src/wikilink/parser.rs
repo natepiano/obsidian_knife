@@ -249,7 +249,7 @@ impl WikilinkState {
             Self::Target { content, .. } | Self::Invalid { content, .. } => content.clone(),
             Self::Display {
                 target, content, ..
-            } => format!("{target}|{content}"),
+            } => format!("{target}{PIPE}{content}"),
         }
     }
 

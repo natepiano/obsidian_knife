@@ -6,6 +6,7 @@ use anyhow::anyhow;
 
 use super::constants::MISSING_REFERENCES_REPORT_CONFIG_REQUIRED;
 use super::orchestration;
+use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
@@ -23,7 +24,6 @@ use crate::markdown_file::ImageLinkState;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
-use crate::support;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;

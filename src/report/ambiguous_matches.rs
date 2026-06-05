@@ -12,6 +12,7 @@ use anyhow::Result as AnyhowResult;
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
 use super::orchestration;
+use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::COLON;
@@ -33,7 +34,6 @@ use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
-use crate::support;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
