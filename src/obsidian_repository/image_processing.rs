@@ -56,7 +56,7 @@ impl DuplicateGroupRole {
 
 impl From<&[(PathBuf, Vec<String>)]> for KeeperSelection {
     fn from(group: &[(PathBuf, Vec<String>)]) -> Self {
-        if group.iter().any(|(_, refs)| !refs.is_empty()) {
+        if group.iter().any(|(_, references)| !references.is_empty()) {
             Self::FirstSortedImage
         } else {
             Self::None
@@ -74,14 +74,14 @@ impl ObsidianRepository {
         image_files: &[PathBuf],
         validated_config: &ValidatedConfig,
     ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
-        let mut cache = Self::initialize_image_cache(validated_config, image_files);
+        let mut sha256_cache = Self::initialize_image_cache(validated_config, image_files);
 
         // Step 1: Create a map of `markdown_file_path` to their referenced `image_file_names`
         let markdown_references = self.get_markdown_file_image_reference_map();
 
         // Step 2: Build an image hash-based grouping for duplicate handling
         let hash_groups = Self::get_image_hash_to_markdown_references_map(
-            &mut cache,
+            &mut sha256_cache,
             image_files,
             &markdown_references,
         );
@@ -90,8 +90,8 @@ impl ObsidianRepository {
         let images = Self::generate_image_files(hash_groups)?;
 
         // Step 4: Save cache if needed
-        if cache.has_changes() {
-            cache.save()?;
+        if sha256_cache.has_changes() {
+            sha256_cache.save()?;
         }
 
         Ok(ImageFiles { images })
@@ -105,7 +105,7 @@ impl ObsidianRepository {
     ) -> Result<Vec<ImageFile>, Box<dyn Error + Send + Sync>> {
         let mut images = Vec::new();
 
-        for (hash, mut group) in hash_groups {
+        for (image_hash, mut group) in hash_groups {
             let duplicate_group_role = DuplicateGroupRole::from(group.as_slice());
 
             if matches!(
@@ -122,7 +122,7 @@ impl ObsidianRepository {
 
                 images.push(ImageFile::new(
                     path,
-                    hash.clone(),
+                    image_hash.clone(),
                     path_references,
                     image_role,
                 )?);
@@ -134,7 +134,7 @@ impl ObsidianRepository {
 
     // this map is keyed on image hash
     fn get_image_hash_to_markdown_references_map(
-        cache: &mut Sha256Cache,
+        sha256_cache: &mut Sha256Cache,
         image_files: &[PathBuf],
         markdown_references: &HashMap<String, HashSet<String>>,
     ) -> HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>> {
@@ -142,7 +142,7 @@ impl ObsidianRepository {
             .iter()
             .filter_map(|image_path| {
                 // Use `ok()?` to convert `Result` to `Option` and get `ImageHash`
-                let (hash, _) = cache.get_or_update(image_path).ok()?; // hash is `ImageHash`
+                let (image_hash, _) = sha256_cache.get_or_update(image_path).ok()?; // `ImageHash`
                 let image_name = image_path.file_name()?.to_str()?.to_lowercase();
 
                 let references = markdown_references
@@ -156,11 +156,11 @@ impl ObsidianRepository {
                     })
                     .collect::<Vec<_>>();
 
-                Some((hash, (image_path.clone(), references))) // Keyed by `ImageHash`
+                Some((image_hash, (image_path.clone(), references))) // Keyed by `ImageHash`
             })
-            .fold(HashMap::new(), |mut acc, (hash, entry)| {
-                acc.entry(hash).or_default().push(entry); // Use `ImageHash` as the key
-                acc
+            .fold(HashMap::new(), |mut accumulator, (image_hash, entry)| {
+                accumulator.entry(image_hash).or_default().push(entry); // Use `ImageHash` as the key
+                accumulator
             })
     }
 
@@ -258,9 +258,9 @@ impl ObsidianRepository {
                 .unwrap_or_default()
                 .to_str()
                 .unwrap_or_default();
-            if let ImageFileState::Duplicate { hash } = &duplicate.state
+            if let ImageFileState::Duplicate { image_hash } = &duplicate.state
                 && let Some(keeper) = keepers.iter().find(|k| {
-                    matches!(&k.state, ImageFileState::DuplicateKeeper { hash: keeper_hash } if keeper_hash == hash)
+                    matches!(&k.state, ImageFileState::DuplicateKeeper { image_hash: keeper_image_hash } if keeper_image_hash == image_hash)
                 })
             {
                 // Update `ImageLink` states in markdown files
@@ -760,10 +760,16 @@ mod tests {
         assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
 
         // Verify all duplicates share the same hash as the keeper
-        if let ImageFileState::DuplicateKeeper { hash: keeper_hash } = &keepers.images[0].state {
+        if let ImageFileState::DuplicateKeeper {
+            image_hash: keeper_image_hash,
+        } = &keepers.images[0].state
+        {
             for duplicate in duplicates.images {
-                if let ImageFileState::Duplicate { hash } = &duplicate.state {
-                    assert_eq!(hash, keeper_hash, "Duplicate hash should match keeper hash");
+                if let ImageFileState::Duplicate { image_hash } = &duplicate.state {
+                    assert_eq!(
+                        image_hash, keeper_image_hash,
+                        "Duplicate hash should match keeper hash"
+                    );
                 }
             }
         }

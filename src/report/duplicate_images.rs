@@ -268,8 +268,11 @@ impl ObsidianRepository {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
         for image in duplicates {
-            if let ImageFileState::Duplicate { hash } = &image.state {
-                grouped_by_hash.entry(hash.clone()).or_default().push(image);
+            if let ImageFileState::Duplicate { image_hash } = &image.state {
+                grouped_by_hash
+                    .entry(image_hash.clone())
+                    .or_default()
+                    .push(image);
             }
         }
 
@@ -278,13 +281,16 @@ impl ObsidianRepository {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
         for image in keepers {
-            if let ImageFileState::DuplicateKeeper { hash } = &image.state {
-                grouped_by_hash.entry(hash.clone()).or_default().push(image);
+            if let ImageFileState::DuplicateKeeper { image_hash } = &image.state {
+                grouped_by_hash
+                    .entry(image_hash.clone())
+                    .or_default()
+                    .push(image);
             }
         }
 
         // Write report for each group that has deletable duplicates
-        for (hash, images) in grouped_by_hash {
+        for (image_hash, images) in grouped_by_hash {
             // Check if this group has any deletable duplicates
             if images.iter().any(|image| {
                 matches!(image.state, ImageFileState::Duplicate { .. })
@@ -298,7 +304,7 @@ impl ObsidianRepository {
                 let report_writer = ReportWriter::new(images.clone()).with_validated_config(config);
 
                 let duplicate_images_table = DuplicateImagesTable {
-                    image_hash:     hash,
+                    image_hash,
                     markdown_files: &self.markdown_files,
                 };
 

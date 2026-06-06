@@ -85,10 +85,10 @@ pub(crate) enum ImageFileState {
     },
     Unreferenced,
     Duplicate {
-        hash: ImageHash,
+        image_hash: ImageHash,
     },
     DuplicateKeeper {
-        hash: ImageHash,
+        image_hash: ImageHash,
     },
 }
 
@@ -143,7 +143,7 @@ impl InitialImageState {
         }
     }
 
-    fn into_image_file_state(self, hash: &ImageHash) -> ImageFileState {
+    fn into_image_file_state(self, image_hash: &ImageHash) -> ImageFileState {
         match self {
             Self::Tiff => ImageFileState::Incompatible {
                 reason: IncompatibilityReason::TiffFormat,
@@ -154,11 +154,15 @@ impl InitialImageState {
             Self::Role {
                 image_role: ImageRole::Original,
                 ..
-            } => ImageFileState::DuplicateKeeper { hash: hash.clone() },
+            } => ImageFileState::DuplicateKeeper {
+                image_hash: image_hash.clone(),
+            },
             Self::Role {
                 image_role: ImageRole::Duplicate,
                 ..
-            } => ImageFileState::Duplicate { hash: hash.clone() },
+            } => ImageFileState::Duplicate {
+                image_hash: image_hash.clone(),
+            },
             Self::Role {
                 image_role: ImageRole::Unique,
                 reference_presence: ReferencePresence::Empty,
@@ -202,7 +206,7 @@ impl ImageFiles {
 pub(crate) struct ImageFile {
     pub deletion_status: DeletionStatus,
     pub kind:            ImageFileType,
-    pub hash:            ImageHash,
+    pub image_hash:      ImageHash,
     pub state:           ImageFileState,
     pub path:            PathBuf,
     pub references:      Vec<PathBuf>,
@@ -218,7 +222,7 @@ impl EnumFilter for ImageFile {
 impl ImageFile {
     pub(crate) fn new(
         path: PathBuf,
-        hash: ImageHash,
+        image_hash: ImageHash,
         references: Vec<PathBuf>,
         image_role: ImageRole,
     ) -> io::Result<Self> {
@@ -232,12 +236,12 @@ impl ImageFile {
 
         let initial_image_file_state =
             InitialImageState::from_parts(&kind, size, &references, image_role)
-                .into_image_file_state(&hash);
+                .into_image_file_state(&image_hash);
 
         Ok(Self {
             deletion_status: DeletionStatus::Keep,
             kind,
-            hash,
+            image_hash,
             state: initial_image_file_state,
             path,
             references,
@@ -361,7 +365,7 @@ mod tests {
                 ImageFile::new(path.clone(), image_hash.clone(), references, image_role).unwrap();
 
             assert_eq!(image_file.path, path);
-            assert_eq!(image_file.hash, image_hash);
+            assert_eq!(image_file.image_hash, image_hash);
             assert_eq!(image_file.size, fs::metadata(&path).unwrap().len());
             assert_eq!(image_file.kind, expected_type);
             assert_eq!(image_file.state, expected_state);
