@@ -21,13 +21,13 @@ use crate::constants::YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER;
 use crate::constants::YAML_FRONTMATTER_PARSE_PREFIX;
 use crate::constants::YAML_FRONTMATTER_SERIALIZE_PREFIX;
 use crate::constants::YAML_OPENING_DELIMITER;
-/// this macro allows us to persist any extra fields not specifically implemented in
-/// a struct you want to deserialize into the yaml frontmatter of a markdown file
+/// `yaml_frontmatter_struct!` adds `other_fields: HashMap<String, Value>` to
+/// generated frontmatter structs.
 ///
-/// that way if other fields are added, they're not lost
+/// Serde `flatten` preserves unknown YAML frontmatter keys in `other_fields`.
 ///
-/// this makes it so we don't have to remember to manually
-/// add the field definitions - which we really couldn't know in advance anyway
+/// Macro-generated struct fields model known YAML frontmatter keys, while
+/// `other_fields` stores unknown keys.
 #[macro_export]
 macro_rules! yaml_frontmatter_struct {
     (
@@ -121,27 +121,27 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
         from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
     }
 
-    /// serialize the instance to a YAML string
-    /// sorts all properties alphabetically, plus any contained lists are also sorted
+    /// Serializes `self` to a YAML string with sorted mapping keys and sorted
+    /// `Value::Sequence` string entries.
     fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
-        // First serialize to Value to manipulate the structure
+        // `to_value` exposes the frontmatter fields as a `Value::Mapping`.
         let value = to_value(self).map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
 
         if let Value::Mapping(map) = value {
-            // Create a sorted mapping
+            // `sorted_map` stores mapping entries in sorted key order.
             let mut sorted_map = Mapping::new();
 
-            // Collect all keys and sort them
+            // `keys` contains sorted string keys from the YAML mapping.
             let mut keys: Vec<String> = map
                 .keys()
                 .filter_map(|key| key.as_str().map(String::from))
                 .collect();
             keys.sort();
 
-            // Rebuild mapping in sorted order
+            // `sorted_map` receives `Value::Mapping` entries in `keys` order.
             for key in keys {
                 if let Some(value) = map.get(Value::String(key.clone())) {
-                    // Sort sequence/list values if present
+                    // `Value::Sequence` entries are sorted when every item is a string.
                     let sorted_value = match value {
                         Value::Sequence(seq) => {
                             let mut sorted_seq: Vec<String> = seq

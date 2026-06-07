@@ -76,20 +76,20 @@ impl ObsidianRepository {
     ) -> Result<ImageFiles, Box<dyn Error + Send + Sync>> {
         let mut sha256_cache = Self::initialize_image_cache(validated_config, image_files);
 
-        // Step 1: Create a map of `markdown_file_path` to their referenced `image_file_names`
+        // `markdown_references` maps each `MarkdownFile.path` to referenced image filenames.
         let markdown_references = self.get_markdown_file_image_reference_map();
 
-        // Step 2: Build an image hash-based grouping for duplicate handling
+        // `hash_groups` groups `image_files` by `ImageHash` and markdown references.
         let hash_groups = Self::get_image_hash_to_markdown_references_map(
             &mut sha256_cache,
             image_files,
             &markdown_references,
         );
 
-        // Step 3: Generate `ImageFiles` with duplicate and keeper logic
+        // `images` stores `ImageFile` states chosen from `DuplicateGroupRole`.
         let images = Self::generate_image_files(hash_groups)?;
 
-        // Step 4: Save cache if needed
+        // `Sha256Cache::save` persists entries when `Sha256Cache::has_changes` is true.
         if sha256_cache.has_changes() {
             sha256_cache.save()?;
         }
@@ -97,9 +97,8 @@ impl ObsidianRepository {
         Ok(ImageFiles { images })
     }
 
-    // if a group has multiple references, check if any are referenced
-    // the first referenced file is marked as a `DuplicateKeeper`
-    // remaining files are marked as `Duplicate`
+    // `DuplicateGroupRole` selects `ImageFileState::DuplicateKeeper` for the
+    // first referenced path and `ImageFileState::Duplicate` for the remaining paths.
     fn generate_image_files(
         hash_groups: HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>,
     ) -> Result<Vec<ImageFile>, Box<dyn Error + Send + Sync>> {
@@ -132,7 +131,7 @@ impl ObsidianRepository {
         Ok(images)
     }
 
-    // this map is keyed on image hash
+    // `HashMap<ImageHash, Vec<(PathBuf, Vec<String>)>>` is keyed by `ImageHash`.
     fn get_image_hash_to_markdown_references_map(
         sha256_cache: &mut Sha256Cache,
         image_files: &[PathBuf],
@@ -141,7 +140,7 @@ impl ObsidianRepository {
         image_files
             .iter()
             .filter_map(|image_path| {
-                // Use `ok()?` to convert `Result` to `Option` and get `ImageHash`
+                // `ok()?` converts `Sha256Cache::get_or_update` into an optional `ImageHash`.
                 let (image_hash, _) = sha256_cache.get_or_update(image_path).ok()?; // `ImageHash`
                 let image_name = image_path.file_name()?.to_str()?.to_lowercase();
 
@@ -197,7 +196,7 @@ impl ObsidianRepository {
     }
 
     pub(super) fn identify_image_reference_replacements(&mut self) {
-        // first handle missing references
+        // Missing filenames assign `ImageLinkState::Missing`.
         let image_filenames: HashSet<String> = self
             .image_files
             .iter()
@@ -213,14 +212,13 @@ impl ObsidianRepository {
             }
         }
 
-        // next handle incompatible image references
+        // `ImageFileState::Incompatible` entries assign `ImageLinkState::Incompatible`.
         let incompatible = self.image_files.filter_by_predicate(|image_file_state| {
             matches!(image_file_state, ImageFileState::Incompatible { .. })
         });
 
-        // match tiff/zero_byte image files to `image_links` that refer to them so we can mark the
-        // `image_link` as incompatible the `image_link` will then be collected as a
-        // `ReplaceableContent` match which happens in the next step
+        // `ImageFileState::Incompatible` matches set each `ImageLinkState::Incompatible`
+        // `reason`; later `ReplaceableContent` collection reads that state.
         for image_file in incompatible.images {
             if let ImageFileState::Incompatible { reason } = &image_file.state {
                 let image_file_name = image_file
@@ -242,7 +240,8 @@ impl ObsidianRepository {
                 }
             }
         }
-        // last handle duplicates
+        // `ImageFileState::Duplicate` and `ImageFileState::DuplicateKeeper` entries
+        // assign `ImageLinkState::Duplicate`.
         let duplicates = self
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
@@ -263,7 +262,7 @@ impl ObsidianRepository {
                     matches!(&k.state, ImageFileState::DuplicateKeeper { image_hash: keeper_image_hash } if keeper_image_hash == image_hash)
                 })
             {
-                // Update `ImageLink` states in markdown files
+                // Duplicate `ImageLink` entries store `ImageLinkState::Duplicate`.
                 for markdown_file in &mut self.markdown_files {
                     if let Some(image_link) = markdown_file
                         .image_links

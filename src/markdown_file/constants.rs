@@ -6,6 +6,8 @@ pub(super) const INLINE_CODE_DELIMITER: char = '`';
 pub(super) const HTTP_URL_PREFIX: &str = "http://";
 pub(super) const HTTPS_URL_PREFIX: &str = "https://";
 pub(super) const IMAGE_LINK_SIZE_PARAMETER_INDEX: usize = 1;
+pub(super) const INVALID_IMAGE_LINK_FORMAT_PREFIX: &str =
+    "invalid image link format passed to ImageLink::new: ";
 
 // matching
 pub(super) const APOSTROPHE: char = '\'';

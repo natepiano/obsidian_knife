@@ -90,10 +90,10 @@ impl DescriptionBuilder {
 
     pub(crate) fn no_space(mut self, text: &str) -> Self {
         if self.parts.is_empty() {
-            // If this is the first part, just push it normally
+            // Empty `DescriptionBuilder.parts` stores `text` as the first part.
             self.parts.push(text.to_string());
         } else if let Some(last) = self.parts.last_mut() {
-            // If we have previous parts, directly append to the last one
+            // Existing `DescriptionBuilder.parts` append `text` to the last part.
             last.push_str(text);
         }
         self

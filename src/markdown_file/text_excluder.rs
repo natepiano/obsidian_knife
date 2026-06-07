@@ -67,10 +67,9 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
-    /// One might notice that if we're at `BlockLocation::OnClosingDelimiter` and we
-    /// encounter a delimiter, we go back to inside - this is intentional for the case
-    /// where another code block is opened up right after the last one - it's possible in markdown
-    /// so we don't treat this as a "nested" case we treat it as an opening of a code block
+    /// `BlockLocation::ClosingDelimiterFound` returns to `BlockLocation::Inside`
+    /// when another `CodeBlockDelimiter` appears immediately after the closing delimiter,
+    /// because Markdown permits adjacent code blocks.
     fn update<T>(&mut self, content: T)
     where
         T: TryInto<CodeBlockDelimiter>,
@@ -91,10 +90,9 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         }
     }
 
-    // we want to be clear that the `ClosingDelimiterFound` should also be skipped
-    // if we didn't skip it then the closing `TripleBacktickDelimiter` ``` would be
-    // considered "outside" and it would then be prased by the
-    // character iterator and would treat this as an open/close/open of a code block
+    // `BlockLocation::ClosingDelimiterFound` must remain excluded; otherwise
+    // `TripleBacktickDelimiter` would move through `BlockLocation::Outside` and
+    // the character iterator would read an open/close/open code-block sequence.
     const fn is_in_code_block(&self) -> bool {
         matches!(
             self.location,

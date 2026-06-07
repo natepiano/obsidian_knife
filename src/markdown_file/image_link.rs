@@ -8,6 +8,7 @@ use derive_more::IntoIterator;
 use super::constants::HTTP_URL_PREFIX;
 use super::constants::HTTPS_URL_PREFIX;
 use super::constants::IMAGE_LINK_SIZE_PARAMETER_INDEX;
+use super::constants::INVALID_IMAGE_LINK_FORMAT_PREFIX;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use crate::constants::BACKSLASH;
@@ -185,9 +186,7 @@ impl ImageLink {
             RawImageLinkSyntax::Wiki => parse_wiki_image_link(&raw_link),
             RawImageLinkSyntax::Markdown => parse_markdown_image_link(&raw_link),
             RawImageLinkSyntax::Invalid => {
-                return Err(format!(
-                    "invalid image link format passed to ImageLink::new: {raw_link}"
-                ));
+                return Err(format!("{INVALID_IMAGE_LINK_FORMAT_PREFIX}{raw_link}"));
             },
         };
 

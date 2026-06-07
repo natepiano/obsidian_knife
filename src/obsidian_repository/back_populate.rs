@@ -45,7 +45,7 @@ impl ChangeSet {
 
 impl ObsidianRepository {
     pub fn identify_ambiguous_matches(&mut self) {
-        // Create `target` and `display_text` maps as before...
+        // `target_map` records the canonical `Wikilink.target` for each lowercase target.
         let mut target_map: HashMap<String, String> = HashMap::new();
         for wikilink in &self.wikilinks_sorted {
             let lower_target = wikilink.target.to_lowercase();
@@ -68,12 +68,13 @@ impl ObsidianRepository {
             }
         }
 
-        // Process each file's matches.
+        // `MarkdownFile.back_populate_matches.unambiguous` is split into ambiguous
+        // and still-unambiguous matches.
         for markdown_file in &mut self.markdown_files {
-            // Group matches by their lowercased `found_text` within this file.
+            // `matches_by_text` groups matches by lowercased `BackPopulateMatch.found_text`.
             let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
-            // Drain matches from the file into a temporary map.
+            // `file_matches` takes ownership of `markdown_file.back_populate_matches.unambiguous`.
             let file_matches = take(&mut markdown_file.back_populate_matches.unambiguous);
             for match_info in file_matches {
                 let lower_found_text = match_info.found_text.to_lowercase();
@@ -83,25 +84,27 @@ impl ObsidianRepository {
                     .push(match_info);
             }
 
-            // Process each group of matches.
+            // `matches_by_text` entries are classified through the `display_text_map` lookup.
             for (found_text_lower, text_matches) in matches_by_text {
                 if let Some(targets) = display_text_map.get(&found_text_lower) {
                     if targets.len() >= MIN_AMBIGUOUS_TARGETS {
-                        // This is an ambiguous match.
-                        // Add it to the file's ambiguous collection.
+                        // `BackPopulateMatch` values with multiple targets move into
+                        // `markdown_file.back_populate_matches.ambiguous`.
                         markdown_file
                             .back_populate_matches
                             .ambiguous
                             .extend(text_matches.clone());
                     } else {
-                        // Unambiguous matches go back into the `markdown_file`.
+                        // `text_matches` remains in
+                        // `markdown_file.back_populate_matches.unambiguous`.
                         markdown_file
                             .back_populate_matches
                             .unambiguous
                             .extend(text_matches);
                     }
                 } else {
-                    // Handle unclassified matches.
+                    // Missing `display_text_map` entries keep the `BackPopulateMatch`
+                    // values unambiguous and emit `UNCLASSIFIED_MATCH_WARNING`.
                     println!(
                         "{UNCLASSIFIED_MATCH_WARNING} '{found_text_lower}' in file '{}'",
                         markdown_file.path.display()
@@ -254,7 +257,7 @@ fn apply_line_replacements(
 ) -> AnyhowResult<String> {
     let mut updated_line = line.to_string();
 
-    // Sort matches in descending order by `position`
+    // `sorted_matches` orders `ReplaceableContent` by descending `position`.
     let mut sorted_matches = line_matches.to_vec();
     sorted_matches.sort_by_key(|m| Reverse(m.position()));
 
@@ -262,12 +265,12 @@ fn apply_line_replacements(
         .iter()
         .any(|m| m.match_type() == MatchType::ImageReference);
 
-    // Apply replacements in sorted (reverse) order
+    // `match_info` replacements use right-to-left order.
     for match_info in sorted_matches {
         let start = match_info.position();
         let end = start + match_info.matched_text().len();
 
-        // Check for UTF-8 boundary issues
+        // `updated_line.is_char_boundary` guards `replace_range` byte indexes.
         if !updated_line.is_char_boundary(start) || !updated_line.is_char_boundary(end) {
             bail!(
                 "{INVALID_UTF8_BOUNDARY_PREFIX}{}, line {}: match {start}..{end} in \
@@ -278,10 +281,10 @@ fn apply_line_replacements(
             );
         }
 
-        // Perform the replacement
+        // `updated_line.replace_range` writes the `ReplaceableContent` replacement.
         updated_line.replace_range(start..end, &match_info.get_replacement());
 
-        // Validation check after each replacement
+        // `TRIPLE_OPENING_BRACKETS` and `TRIPLE_CLOSING_BRACKETS` flag nested patterns.
         if updated_line.contains(TRIPLE_OPENING_BRACKETS)
             || updated_line.contains(TRIPLE_CLOSING_BRACKETS)
         {
@@ -293,7 +296,7 @@ fn apply_line_replacements(
         }
     }
 
-    // If we had any image replacements, clean up the line
+    // `ImageReference` replacements use `normalize_spaces` after trimming.
     Ok(if has_image_replacement {
         let trimmed = updated_line.trim();
         if trimmed.is_empty() {

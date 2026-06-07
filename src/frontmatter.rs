@@ -14,8 +14,8 @@ use crate::constants::OPENING_WIKILINK;
 use crate::support;
 use crate::yaml_frontmatter_struct;
 
-// when we set `date_created_fix` to `None` it won't serialize - cool
-// the macro adds support for serializing any fields not explicitly named
+// `created_fix` serializes only when `Option::is_some` returns true.
+// `yaml_frontmatter_struct!` preserves YAML keys without explicit `FrontMatter` fields.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) enum PersistState {
     #[default]
@@ -58,14 +58,13 @@ impl FrontMatter {
     pub(crate) fn date_created_fix(&self) -> Option<&str> { self.created_fix.as_deref() }
 
     pub(crate) fn remove_date_created_fix(&mut self) {
-        // setting it to None will cause it to skip serialization
+        // `created_fix = None` skips `created_fix` during serialization.
         self.created_fix = None;
     }
 
-    // the raw values are what we will update the actual filesystem with
-    // if we're changing the create date it's possible no change will be happening otherwise
-    // in this case we still need to update the modify date so make sure we set it if it's
-    // not already set
+    // `raw_created` and `raw_modified` provide filesystem timestamps.
+    // `set_date_created` may only change filesystem creation time, so
+    // `set_date_modified_now` records a fallback `raw_modified` value.
     pub(crate) fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&timezone);
@@ -89,7 +88,7 @@ impl FrontMatter {
         self.set_date_modified(Utc::now(), operational_timezone);
     }
 
-    // We use this when `date_modified` is missing.
+    // `set_date_modified` fills missing `date_modified` values.
     pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
         let local_date = date.with_timezone(&timezone);
@@ -104,18 +103,17 @@ impl FrontMatter {
     pub(crate) fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
 
     pub(crate) fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
-        // first get `do_not_back_populate` explicit value
+        // `do_not_back_populate` starts with the explicit frontmatter value.
         let mut do_not_populate = self.do_not_back_populate.clone().unwrap_or_default();
 
-        // if there are aliases, add them to that as we don't need text on the page to link to this
-        // same page
+        // `aliases` are equivalent no-populate targets for the same page.
         if let Some(aliases) = self.aliases() {
             do_not_populate.extend(aliases.iter().cloned());
         }
 
-        // if we have values then return them along with their regexes
+        // `do_not_populate` values become case-insensitive regexes.
         if do_not_populate.is_empty() {
-            // we got nothing from valid frontmatter
+            // Empty frontmatter values produce no regexes.
             None
         } else {
             Some(support::build_case_insensitive_word_finder(

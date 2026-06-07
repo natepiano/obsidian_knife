@@ -106,7 +106,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
 
         if ch == OPENING_BRACKET {
             if is_next_char(&mut chars, OPENING_BRACKET) {
-                // If we had an unclosed markdown link before this wikilink, add it as invalid
+                // `markdown_opening` becomes a `ParsedInvalidWikilink` before the wikilink.
                 if let Some(start_position) = markdown_opening {
                     let content_slice = line[start_position..start_idx].trim();
                     extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
@@ -117,7 +117,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     markdown_opening = None;
                 }
 
-                // Check if this is an image reference
+                // `IMAGE_EMBED_MARKER` sets the `is_image` flag.
                 let is_image =
                     start_idx > 0 && is_previous_char(line, start_idx, IMAGE_EMBED_MARKER);
 
@@ -125,7 +125,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 if let Some(wikilink_result) = parse_wikilink(&mut chars) {
                     match wikilink_result {
                         WikilinkParseResult::Valid(wikilink) => {
-                            // Only add non-image wikilinks to the result
+                            // Non-image wikilinks are stored in `extracted_wikilinks.valid`.
                             if !is_image {
                                 extracted_wikilinks.valid.push(wikilink);
                             }
@@ -139,7 +139,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                     }
                 }
             } else {
-                // Handle markdown link opening as before...
+                // `markdown_opening` records a possible markdown link opening bracket.
                 if let Some(start_position) = markdown_opening {
                     let between = &line[start_position..start_idx];
                     // `[!` between brackets is a `[![` markdown clickable image, not invalid
@@ -157,7 +157,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         }
     }
 
-    // Handle unclosed markdown link at end of line
+    // `markdown_opening` reports `InvalidWikilinkReason::UnmatchedMarkdownLinkOpening`.
     if let Some(start_position) = markdown_opening {
         let content_slice = line[start_position..].trim();
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
@@ -167,10 +167,8 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
         });
     }
 
-    // If we ended inside an inline code block, it's unclosed
-    // technically this is allowed in obsidian but it's messy so let's report it
+    // `InlineCodeExcluder::is_inside` reports `InvalidWikilinkReason::UnclosedInlineCode`.
     if inline_code_excluder.is_inside() {
-        // Add an invalid wikilink for the unclosed code block
         extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
             content: line[last_position..].to_string(),
             reason:  InvalidWikilinkReason::UnclosedInlineCode,
@@ -441,12 +439,12 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
     Some(wikilink_state.to_wikilink(start_position + content_len + CLOSING_WIKILINK.len()))
 }
 
-/// Helper function to check if the next character matches the expected one
+/// Returns whether `chars.peek()` matches `expected`.
 fn is_next_char(chars: &mut Peekable<CharIndices>, expected: char) -> bool {
     if let Some(&(_, next_ch)) = chars.peek()
         && next_ch == expected
     {
-        chars.next(); // Consume the expected character
+        chars.next(); // Consume `expected`.
         return true;
     }
     false
