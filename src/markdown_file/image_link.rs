@@ -45,7 +45,7 @@ pub enum ImageLinkType {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub struct ImageLinks {
+pub(crate) struct ImageLinks {
     #[deref]
     #[deref_mut]
     #[into_iterator]

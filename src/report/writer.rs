@@ -29,7 +29,7 @@ pub(super) trait ReportDefinition<C = ()> {
     fn build_rows(
         &self,
         items: &[Self::Item],
-        config: Option<&ValidatedConfig>,
+        validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>>;
 
     /// Optional table title
@@ -90,12 +90,11 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
             output_file_writer.writeln("", &report.description(&self.items))?;
         }
 
-        // Skip empty tables unless overridden
+        // Report::show_empty controls whether empty tables are written.
         if self.items.is_empty() {
             return Ok(());
         }
 
-        // Build and write the table
         let headers = report.headers();
         let alignments = report.alignments();
         let rows = report.build_rows(&self.items, self.validated_config)?;

@@ -89,10 +89,10 @@ impl ReportDefinition for DuplicateImagesTable<'_> {
     fn build_rows(
         &self,
         items: &[Self::Item],
-        config: Option<&ValidatedConfig>,
+        validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
         let validated_config =
-            config.ok_or_else(|| anyhow!(DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED))?;
+            validated_config.ok_or_else(|| anyhow!(DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED))?;
         let keeper = items
             .iter()
             .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
@@ -248,7 +248,7 @@ impl DuplicateImagesTable<'_> {
 impl ObsidianRepository {
     pub(super) fn write_duplicate_images_report(
         &self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -257,13 +257,12 @@ impl ObsidianRepository {
             Written,
         }
 
-        // Only write the header if we find at least one group with deletable duplicates
+        // HeaderState delays DUPLICATE_IMAGE_GROUPS until a deletable group exists.
         let mut header_state = HeaderState::Pending;
 
-        // Collect both duplicates and keepers by hash
+        // grouped_by_hash stores duplicate and keeper ImageFile values by ImageHash.
         let mut grouped_by_hash: HashMap<ImageHash, Vec<ImageFile>> = HashMap::new();
 
-        // Add duplicates
         let duplicates = self
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
@@ -276,7 +275,6 @@ impl ObsidianRepository {
             }
         }
 
-        // Add keepers to their respective groups
         let keepers = self
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
@@ -301,7 +299,8 @@ impl ObsidianRepository {
                     header_state = HeaderState::Written;
                 }
 
-                let report_writer = ReportWriter::new(images.clone()).with_validated_config(config);
+                let report_writer =
+                    ReportWriter::new(images.clone()).with_validated_config(validated_config);
 
                 let duplicate_images_table = DuplicateImagesTable {
                     image_hash,

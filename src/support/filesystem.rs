@@ -63,7 +63,6 @@ pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Se
 pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
 
-    // Handle paths that start with "~/"
     if let Some(path_str) = path.to_str()
         && let Some(home) = var_os(HOME_ENVIRONMENT_VARIABLE)
         && let Some(stripped) = path_str.strip_prefix(TILDE_SLASH)
@@ -71,7 +70,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
         return PathBuf::from(home).join(stripped);
     }
 
-    // Handle invalid UTF-8 paths (`OsStr` -> `PathBuf` without assuming valid UTF-8)
+    // Component::Normal preserves invalid UTF-8 by avoiding Path::to_str.
     let mut components = path.components();
     if let Some(Component::Normal(first)) = components.next()
         && first == TILDE

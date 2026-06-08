@@ -117,13 +117,13 @@ impl Sha256Cache {
     }
 
     pub(crate) fn mark_deletions(&mut self, valid_paths: &HashSet<&Path>) {
-        // Create vector of paths that exist in entries but not in `valid_paths`
+        // to_remove lists Sha256Cache entries absent from valid_paths.
         let to_remove: Vec<_> = self
             .entries
-            .keys() // Iterate over all paths in entries
-            .filter(|path| !valid_paths.contains(path.as_path())) // Keep only paths NOT in valid_paths
-            .cloned() // Clone the `PathBuf`s we want to remove
-            .collect(); // Collect into Vec
+            .keys()
+            .filter(|path| !valid_paths.contains(path.as_path()))
+            .cloned()
+            .collect();
 
         self.deleted = to_remove.len();
         for path in to_remove {

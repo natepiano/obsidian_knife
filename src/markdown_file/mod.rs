@@ -137,7 +137,7 @@ impl MarkdownFile {
             persist_reasons,
         };
 
-        // Store results directly in `self`.
+        // MarkdownFile keeps parsed Wikilinks and ImageLinks for later reports.
         markdown_file.wikilinks = markdown_file.process_wikilinks();
         markdown_file.image_links.links = markdown_file.process_image_links();
 
@@ -147,10 +147,14 @@ impl MarkdownFile {
     pub(crate) fn process_file_for_back_populate_replacements(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         automaton: &AhoCorasick,
     ) {
-        self.process_file_for_back_populate_replacements_inner(sorted_wikilinks, config, automaton);
+        self.process_file_for_back_populate_replacements_inner(
+            sorted_wikilinks,
+            validated_config,
+            automaton,
+        );
     }
 
     fn to_full_content(&self) -> String {

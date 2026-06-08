@@ -47,7 +47,7 @@ impl ReportDefinition for UnreferencedImagesReport {
     fn build_rows(
         &self,
         items: &[Self::Item],
-        config: Option<&ValidatedConfig>,
+        validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
         Ok(items
             .iter()
@@ -60,8 +60,9 @@ impl ReportDefinition for UnreferencedImagesReport {
                     .as_str(),
                 );
                 let file_link = format!("{OPENING_WIKILINK}{file_name}{CLOSING_WIKILINK}");
-                let action = if config
-                    .is_some_and(|config| matches!(config.change_mode(), ChangeMode::Apply))
+                let action = if validated_config.is_some_and(|validated_config| {
+                    matches!(validated_config.change_mode(), ChangeMode::Apply)
+                })
                 {
                     DELETED
                 } else {
@@ -89,7 +90,7 @@ impl ReportDefinition for UnreferencedImagesReport {
 impl ObsidianRepository {
     pub(super) fn write_unreferenced_images_report(
         &self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let unreferenced_images = self
@@ -97,8 +98,8 @@ impl ObsidianRepository {
             .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
 
         if !unreferenced_images.is_empty() {
-            let report_writer =
-                ReportWriter::new(unreferenced_images.to_owned()).with_validated_config(config);
+            let report_writer = ReportWriter::new(unreferenced_images.to_owned())
+                .with_validated_config(validated_config);
             report_writer.write(&UnreferencedImagesReport, output_file_writer)?;
         }
 

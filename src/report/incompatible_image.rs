@@ -62,10 +62,10 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
     fn build_rows(
         &self,
         items: &[Self::Item],
-        config: Option<&ValidatedConfig>,
+        validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
         let validated_config =
-            config.ok_or_else(|| anyhow!(INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED))?;
+            validated_config.ok_or_else(|| anyhow!(INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED))?;
 
         let mut rows = Vec::new();
         for image in items {
@@ -111,7 +111,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                             validated_config.obsidian_path(),
                         );
 
-                        // Find line number and position for this reference
+                        // ImageLink.line_number and ImageLink.position identify the reference.
                         let (line_number, position) = markdown_file.image_links.iter()
                             .find(|l| {
                                 matches!(l.state, ImageLinkState::Incompatible { reason: ref link_reason } if link_reason == reason)
@@ -148,18 +148,20 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
             matches!(&i.state, ImageFileState::Incompatible { reason } if matches!(reason, IncompatibilityReason::ZeroByte))
         }).count();
 
-        DescriptionBuilder::new()
-            .text(FOUND)
-            .number(items.len())
-            .text(INCOMPATIBLE)
-            .pluralize(Phrase::Image(items.len()))
-            .text("(")
+        let image_type_counts = DescriptionBuilder::new()
             .number(tiff_count)
             .text(TIFF)
             .text("and")
             .number(zero_byte_count)
             .text(ZERO_BYTE)
-            .text(")")
+            .build();
+
+        DescriptionBuilder::new()
+            .text(FOUND)
+            .number(items.len())
+            .text(INCOMPATIBLE)
+            .pluralize(Phrase::Image(items.len()))
+            .parenthetical_text(&image_type_counts)
             .build()
     }
 
@@ -169,7 +171,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
 impl ObsidianRepository {
     pub(super) fn write_incompatible_image_report(
         &self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let incompatible_images = self
@@ -177,7 +179,7 @@ impl ObsidianRepository {
             .filter_by_predicate(|state| matches!(state, ImageFileState::Incompatible { .. }));
 
         if !incompatible_images.is_empty() {
-            // Create the report instance first
+            // IncompatibleImagesReport borrows files_to_persist for reference lookup.
             let incompatible_images_report = IncompatibleImagesReport {
                 markdown_files: &self.markdown_files.files_to_persist(),
             };
@@ -194,8 +196,8 @@ impl ObsidianRepository {
             });
 
             if would_have_rows {
-                let report_writer =
-                    ReportWriter::new(incompatible_images.to_owned()).with_validated_config(config);
+                let report_writer = ReportWriter::new(incompatible_images.to_owned())
+                    .with_validated_config(validated_config);
                 report_writer.write(&incompatible_images_report, output_file_writer)?;
             }
         }

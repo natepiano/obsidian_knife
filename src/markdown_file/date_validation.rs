@@ -83,7 +83,7 @@ impl DateValidation {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct DateCreatedFixValidation {
+pub(crate) struct DateCreatedFixValidation {
     #[cfg(test)]
     pub raw:   Option<String>,
     pub fixed: Option<DateTime<Utc>>,

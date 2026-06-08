@@ -8,10 +8,10 @@ use crate::constants::PIPE;
 use crate::constants::SPACE;
 
 pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
-    // Helper to check if a char is a word character (\w in regex)
+    // Word characters match Rust alphanumerics plus UNDERSCORE.
     fn is_word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == UNDERSCORE }
 
-    // Helper to check if string matches a contraction pattern ending in apostrophe t or T
+    // T-contractions block a word boundary after apostrophe+t.
     fn is_t_contraction(chars: &str) -> bool {
         let mut chars = chars.chars();
         matches!(
@@ -23,15 +23,13 @@ pub(super) fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> 
         )
     }
 
-    // Get chars before and after safely
+    // before and after_chars provide the neighbor characters for boundary checks.
     let before = line[..starts_at].chars().last();
     let after_chars = &line[ends_at..];
 
-    // Check start boundary
     let start_is_boundary = starts_at == 0 || before.is_none_or(|ch| !is_word_char(ch));
 
-    // Check end boundary
-    // No need to check for possessives as they should be valid candidates for replacement
+    // Possessive suffixes remain valid replacement candidates.
     let end_is_boundary = ends_at == line.len()
         || (!is_word_char(after_chars.chars().next().unwrap_or(SPACE))
             && !is_t_contraction(after_chars));

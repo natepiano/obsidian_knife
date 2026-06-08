@@ -54,14 +54,14 @@ impl MarkdownFiles {
 
     pub(crate) fn process_files_for_back_populate_matches(
         &mut self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         sorted_wikilinks: &[&Wikilink],
         automaton: &AhoCorasick,
     ) {
         // this use of rayon generally makes it go about 100ms faster
         self.par_iter_mut().for_each(|markdown_file| {
             if !cfg!(test)
-                && let Some(filter) = config.back_populate_file_filter()
+                && let Some(filter) = validated_config.back_populate_file_filter()
                 && !markdown_file.path.ends_with(filter)
             {
                 return;
@@ -69,7 +69,7 @@ impl MarkdownFiles {
 
             markdown_file.process_file_for_back_populate_replacements(
                 sorted_wikilinks,
-                config,
+                validated_config,
                 automaton,
             );
         });

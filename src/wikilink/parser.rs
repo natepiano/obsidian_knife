@@ -73,20 +73,20 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
     let mut last_position: usize = 0;
 
     while let Some((start_idx, ch)) = chars.next() {
-        // Update inline code tracker and skip if in code block
+        // InlineCodeExcluder suppresses wikilink parsing inside inline code.
         inline_code_excluder.update(ch);
 
         if inline_code_excluder.is_in_code_block() {
             continue;
         }
 
-        // Handle escaped characters
+        // BACKSLASH consumes the next char before wikilink parsing.
         if ch == BACKSLASH {
-            chars.next(); // Skip next character
+            chars.next();
             continue;
         }
 
-        // Handle unmatched closing brackets when not in a wikilink
+        // InvalidWikilinkReason::UnmatchedClosing records stray closing brackets.
         if ch == CLOSING_BRACKET && is_next_char(&mut chars, CLOSING_BRACKET) {
             let content = line[last_position..(start_idx + CLOSING_WIKILINK.len())].to_string();
             extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
@@ -99,7 +99,7 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
             continue;
         }
 
-        // Handle regular closing bracket - could close a markdown link
+        // A single CLOSING_BRACKET clears markdown-link tracking.
         if ch == CLOSING_BRACKET {
             markdown_opening = None;
         }
@@ -192,7 +192,7 @@ impl ParsedInvalidWikilink {
 }
 
 fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
-    // Add email addresses as invalid wikilinks
+    // EMAIL_REGEX marks email addresses as InvalidWikilinkReason::EmailAddress.
     let reason = InvalidWikilinkReason::EmailAddress;
     let regex = &EMAIL_REGEX;
 
@@ -202,7 +202,7 @@ fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
     let regex = &RAW_HTTP_REGEX;
     add_special_patterns(line, result, reason, regex);
 
-    // Add tags as invalid wikilinks
+    // TAG_REGEX marks tags as InvalidWikilinkReason::Tag.
     let reason = InvalidWikilinkReason::Tag;
     let regex = &TAG_REGEX;
     add_special_patterns(line, result, reason, regex);
@@ -381,10 +381,10 @@ pub(super) fn parse_wikilink(chars: &mut Peekable<CharIndices>) -> Option<Wikili
 
         match c {
             BACKSLASH => {
-                // Handle escaped characters
+                // BACKSLASH consumes escaped wikilink chars before pipe handling.
                 if let Some((_, next_c)) = chars.next() {
                     if next_c == PIPE {
-                        // Treat escaped pipe same as regular pipe
+                        // Escaped PIPE remains a wikilink separator.
                         match wikilink_state {
                             WikilinkState::Target { .. } => {
                                 wikilink_state.transition_to_display(position);

@@ -118,16 +118,19 @@ impl ObsidianRepository {
         }
     }
 
-    pub fn find_all_back_populate_matches(&mut self, config: &ValidatedConfig) -> AnyhowResult<()> {
+    pub fn find_all_back_populate_matches(
+        &mut self,
+        validated_config: &ValidatedConfig,
+    ) -> AnyhowResult<()> {
         let automaton = self.wikilinks_automaton.as_ref().context(format!(
             "{WIKILINKS_AUTOMATON_NOT_INITIALIZED} — {WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL}"
         ))?;
 
-        // Turn `wikilinks_sorted` into references.
+        // AhoCorasick pattern indexes line up with `wikilinks_sorted` order.
         let sorted_wikilinks: Vec<&Wikilink> = self.wikilinks_sorted.iter().collect();
 
         self.markdown_files.process_files_for_back_populate_matches(
-            config,
+            validated_config,
             &sorted_wikilinks,
             automaton,
         );
@@ -159,7 +162,6 @@ impl ObsidianRepository {
             let mut content_line_number = 1;
             let mut change_set = ChangeSet::default();
 
-            // Process line by line
             for (zero_based_idx, line) in markdown_file.content.lines().enumerate() {
                 let current_content_line = zero_based_idx + 1;
                 let absolute_line_number =
@@ -171,11 +173,10 @@ impl ObsidianRepository {
                     continue;
                 }
 
-                // Collect matches for the current line
                 let line_matches: Vec<&dyn ReplaceableContent> = sorted_replaceable_matches
                     .iter()
                     .filter(|m| m.line_number() == absolute_line_number)
-                    .map(AsRef::as_ref) // Dereference Box to &dyn ReplaceableContent
+                    .map(AsRef::as_ref)
                     .collect();
 
                 if line_matches.is_empty() {
@@ -185,7 +186,7 @@ impl ObsidianRepository {
                     let updated_line =
                         apply_line_replacements(line, &line_matches, &markdown_file.path)?;
 
-                    // Track which types of changes occurred
+                    // ChangeSet records which MatchType values changed the MarkdownFile.
                     for line_match in &line_matches {
                         change_set.merge(line_match.match_type());
                     }
@@ -198,7 +199,6 @@ impl ObsidianRepository {
                 content_line_number += 1;
             }
 
-            // Update the content and mark file as modified
             markdown_file.content = updated_content.trim_end().to_string();
 
             if change_set.contains(&MatchType::BackPopulate) {
@@ -216,7 +216,6 @@ impl ObsidianRepository {
     ) -> Vec<Box<dyn ReplaceableContent>> {
         let mut matches = Vec::new();
 
-        // Add `BackPopulateMatch` values.
         matches.extend(
             markdown_file
                 .back_populate_matches
@@ -226,7 +225,6 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
-        // Add `ImageLinkState` values that need replacement.
         matches.extend(
             markdown_file
                 .image_links
@@ -243,7 +241,7 @@ impl ObsidianRepository {
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
         );
 
-        // Sort by line number and reverse position
+        // Reverse byte positions keep same-line replacements from shifting later spans.
         matches.sort_by_key(|m| (m.line_number(), Reverse(m.position())));
 
         matches

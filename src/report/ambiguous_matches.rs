@@ -67,7 +67,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         // Group matches by file path and line number for consolidation
         let mut line_map: HashMap<(String, usize), (String, Vec<usize>)> = HashMap::new();
 
-        // Group matches by file and line
+        // line_map groups BackPopulateMatch positions by relative path and line number.
         for match_info in items {
             let key = (match_info.relative_path.clone(), match_info.line_number);
 
@@ -77,7 +77,6 @@ impl ReportDefinition for AmbiguousMatchesTable {
             entry.1.push(match_info.position);
         }
 
-        // Convert to sorted rows
         let mut rows = Vec::new();
         for ((file_path, line_number), (line_text, positions)) in line_map {
             let file_path = Path::new(&file_path);
@@ -97,7 +96,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
             ]);
         }
 
-        // Sort rows by file name and line number
+        // Rows sort by wikilink target, then source line number.
         rows.sort_by(|a, b| {
             let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
             if file_cmp == Ordering::Equal {
@@ -136,7 +135,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
             );
         }
 
-        // Add original description
+        // DescriptionBuilder summarizes the source file count for this display text.
         let unique_files: HashSet<String> = items.iter().map(|m| m.relative_path.clone()).collect();
 
         let stats = DescriptionBuilder::new()
@@ -253,10 +252,9 @@ impl ObsidianRepository {
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         output_file_writer.writeln(LEVEL1, MATCHES_AMBIGUOUS)?;
 
-        // Create a map to group ambiguous matches by their display text (case-insensitive)
+        // matches_by_text groups BackPopulateMatch values by lowercase display text.
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
 
-        // First pass: collect all matches
         for markdown_file in &self.markdown_files
         /* .files_to_persist() */
         {
@@ -269,7 +267,7 @@ impl ObsidianRepository {
             }
         }
 
-        // Second pass: collect targets for each found text
+        // targets_by_text maps found text to candidate Wikilink targets.
         let mut targets_by_text: HashMap<String, HashSet<String>> = HashMap::new();
         for wikilink in &self.wikilinks_sorted {
             if let Some(matches) = matches_by_text.get(&wikilink.display_text.to_lowercase()) {
@@ -280,11 +278,11 @@ impl ObsidianRepository {
             }
         }
 
-        // Sort the keys for consistent output
+        // sorted_keys gives report sections deterministic order.
         let mut sorted_keys: Vec<_> = matches_by_text.keys().cloned().collect();
         sorted_keys.sort();
 
-        // Write a table for each group of matches
+        // AmbiguousMatchesTable renders one section per grouped display text.
         for key in sorted_keys {
             let Some(matches) = matches_by_text.get(&key) else {
                 continue;

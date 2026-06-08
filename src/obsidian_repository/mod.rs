@@ -717,12 +717,12 @@ date_modified: 2024-01-01
     #[test]
     fn test_new_handles_special_cases() -> Result<(), Box<dyn Error + Send + Sync>> {
         fn assert_incompatible_state(
-            files: &ImageFiles,
+            image_files: &ImageFiles,
             path: &Path,
             expected_reason: IncompatibilityReason,
             message: &str,
         ) {
-            if let Some(image) = find_image_file(files, path) {
+            if let Some(image) = find_image_file(image_files, path) {
                 assert_eq!(
                     image.state,
                     ImageFileState::Incompatible {
@@ -832,10 +832,10 @@ date_modified: 2024-01-01
     }
 
     fn verify_dates(
-        info: &MarkdownFile,
+        markdown_file: &MarkdownFile,
         case: &PersistenceTestCase,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(frontmatter) = &info.frontmatter {
+        if let Some(frontmatter) = &markdown_file.frontmatter {
             assert_eq!(
                 frontmatter.needs_persist(),
                 case.expected.persist.needs_persist(),
@@ -874,7 +874,7 @@ date_modified: 2024-01-01
         }
 
         // Verify filesystem dates
-        let metadata = fs::metadata(&info.path)?;
+        let metadata = fs::metadata(&markdown_file.path)?;
         let file_system_created_time = FileTime::from_creation_time(&metadata).unwrap();
         let file_system_modified_time = FileTime::from_last_modification_time(&metadata);
 
@@ -1025,8 +1025,9 @@ date_modified: 2024-01-01
     #[test]
     fn test_parallel_image_reference_collection() {
         // Common filter logic
-        fn has_common_image(info: &MarkdownFile) -> bool {
-            info.image_links
+        fn has_common_image(markdown_file: &MarkdownFile) -> bool {
+            markdown_file
+                .image_links
                 .iter()
                 .any(|link| link.filename == "common.jpg")
         }

@@ -131,7 +131,7 @@ impl ReportDefinition for PersistReasonsTable {
 impl ObsidianRepository {
     pub(super) fn write_persist_reasons_report(
         &self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let mut persist_data: Vec<PersistReasonData> = self
@@ -139,7 +139,7 @@ impl ObsidianRepository {
             .files_to_persist()
             .iter()
             .filter(|file| !file.persist_reasons.is_empty())
-            .flat_map(|file| Self::build_persist_data_for_file(file, config))
+            .flat_map(|file| Self::build_persist_data_for_file(file, validated_config))
             .collect();
 
         if persist_data.is_empty() {
@@ -172,27 +172,27 @@ impl ObsidianRepository {
     }
 
     fn build_persist_data_for_file(
-        file: &MarkdownFile,
-        config: &ValidatedConfig,
+        markdown_file: &MarkdownFile,
+        validated_config: &ValidatedConfig,
     ) -> Vec<PersistReasonData> {
-        let relative_path = file
+        let relative_path = markdown_file
             .path
-            .strip_prefix(config.obsidian_path())
-            .unwrap_or(&file.path)
+            .strip_prefix(validated_config.obsidian_path())
+            .unwrap_or(&markdown_file.path)
             .to_string_lossy()
             .trim_end_matches(MARKDOWN_SUFFIX)
             .to_string();
 
-        let file_name = file
+        let file_name = markdown_file
             .path
             .file_stem()
             .and_then(OsStr::to_str)
             .unwrap_or_default();
 
-        let parent_path = file
+        let parent_path = markdown_file
             .path
-            .strip_prefix(config.obsidian_path())
-            .unwrap_or(&file.path)
+            .strip_prefix(validated_config.obsidian_path())
+            .unwrap_or(&markdown_file.path)
             .parent()
             .map_or_else(
                 || FORWARD_SLASH.to_string(),
@@ -205,21 +205,25 @@ impl ObsidianRepository {
             format!("{OPENING_WIKILINK}{relative_path}{PIPE}{file_name}{CLOSING_WIKILINK}")
         };
 
-        let back_populate_count = file.back_populate_matches.unambiguous.len();
-        let image_reference_count = file
+        let back_populate_count = markdown_file.back_populate_matches.unambiguous.len();
+        let image_reference_count = markdown_file
             .persist_reasons
             .iter()
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
             .count();
 
-        let created_validation = Some(Self::format_date_validation(&file.created_validation));
-        let modified_validation = Some(Self::format_date_validation(&file.modified_validation));
+        let created_validation = Some(Self::format_date_validation(
+            &markdown_file.created_validation,
+        ));
+        let modified_validation = Some(Self::format_date_validation(
+            &markdown_file.modified_validation,
+        ));
         let date_created_fix = Some({
-            let formatted_date = file
+            let formatted_date = markdown_file
                 .created_validation
                 .operational_file_system_date()
                 .format(FORMAT_DATE);
-            let fixed_formatted = file
+            let fixed_formatted = markdown_file
                 .date_created_fix_validation
                 .fixed
                 .map(|d| {
@@ -233,10 +237,11 @@ impl ObsidianRepository {
             )
         });
 
-        file.persist_reasons
+        markdown_file
+            .persist_reasons
             .iter()
             .map(|reason| PersistReasonData {
-                full_path: file.path.clone(),
+                full_path: markdown_file.path.clone(),
                 wikilink: support::escape_pipe(&wikilink),
                 reason: reason.clone(),
                 back_populate_count,

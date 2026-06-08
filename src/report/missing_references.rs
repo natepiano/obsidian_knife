@@ -48,10 +48,10 @@ impl ReportDefinition for MissingReferencesTable {
     fn build_rows(
         &self,
         items: &[Self::Item],
-        config: Option<&ValidatedConfig>,
+        validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
         let validated_config =
-            config.ok_or_else(|| anyhow!(MISSING_REFERENCES_REPORT_CONFIG_REQUIRED))?;
+            validated_config.ok_or_else(|| anyhow!(MISSING_REFERENCES_REPORT_CONFIG_REQUIRED))?;
 
         let mut rows: Vec<Vec<String>> = items
             .iter()
@@ -82,7 +82,7 @@ impl ReportDefinition for MissingReferencesTable {
             )
             .collect();
 
-        // Sort rows by markdown link (first column)
+        // MissingReferencesTable rows sort by markdown-link column.
         rows.sort_by(|a, b| a[0].cmp(&b[0]));
         Ok(rows)
     }
@@ -104,7 +104,7 @@ impl ReportDefinition for MissingReferencesTable {
 impl ObsidianRepository {
     pub(super) fn write_missing_references_report(
         &self,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         output_file_writer: &OutputFileWriter,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
         let missing_refs: Vec<(PathBuf, String, usize, usize)> = self
@@ -124,7 +124,7 @@ impl ObsidianRepository {
             })
             .collect();
 
-        let report_writer = ReportWriter::new(missing_refs).with_validated_config(config);
+        let report_writer = ReportWriter::new(missing_refs).with_validated_config(validated_config);
         report_writer.write(&MissingReferencesTable, output_file_writer)
     }
 }

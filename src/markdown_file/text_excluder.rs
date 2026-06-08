@@ -48,7 +48,7 @@ impl BlockDelimiter for TripleBacktickDelimiter {
 }
 
 #[derive(Debug)]
-pub struct SingleBacktickDelimiter;
+struct SingleBacktickDelimiter;
 impl BlockDelimiter for SingleBacktickDelimiter {
     fn delimiter_type(&self) -> CodeBlockDelimiter { CodeBlockDelimiter::Backtick }
 }

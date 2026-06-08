@@ -164,11 +164,11 @@ impl ObsidianRepository {
                 .push(match_info.clone());
         }
 
-        // Sort keys for consistent output
+        // sorted_keys gives BackPopulateTable sections deterministic order.
         let mut sorted_keys: Vec<String> = matches_by_text.keys().cloned().collect();
         sorted_keys.sort();
 
-        // Create and write a table for each group
+        // BackPopulateTable writes one section per grouped display text.
         for key in sorted_keys {
             let group_matches = &matches_by_text[&key];
             let display_text = &group_matches[0].found_text;

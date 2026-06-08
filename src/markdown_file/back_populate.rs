@@ -48,7 +48,7 @@ impl ReplaceableContent for BackPopulateMatch {
 }
 
 #[derive(Clone, Debug, Default)]
-pub struct BackPopulateMatches {
+pub(crate) struct BackPopulateMatches {
     pub ambiguous:   Vec<BackPopulateMatch>,
     pub unambiguous: Vec<BackPopulateMatch>,
 }
@@ -57,34 +57,30 @@ impl MarkdownFile {
     pub(super) fn process_file_for_back_populate_replacements_inner(
         &mut self,
         sorted_wikilinks: &[&Wikilink],
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
         automaton: &AhoCorasick,
     ) {
         let content = self.content.clone();
         let mut code_block_excluder = CodeBlockExcluder::new();
 
         for (line_idx, line) in content.lines().enumerate() {
-            // Skip empty/whitespace lines early
             if line.trim().is_empty() {
                 continue;
             }
 
-            // Update state and skip if needed
             code_block_excluder.update(line);
             if code_block_excluder.is_in_code_block() {
                 continue;
             }
 
-            // Process the line and collect matches
             let matches = self.process_line_for_back_populate_replacements(
                 line,
                 line_idx,
                 automaton,
                 sorted_wikilinks,
-                config,
+                validated_config,
             );
 
-            // Store matches instead of accumulating for return
             self.back_populate_matches.unambiguous.extend(matches);
         }
     }
@@ -95,12 +91,11 @@ impl MarkdownFile {
         line_idx: usize,
         automaton: &AhoCorasick,
         sorted_wikilinks: &[&Wikilink],
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
     ) -> Vec<BackPopulateMatch> {
         let mut matches = Vec::new();
-        let exclusion_zones = self.collect_exclusion_zones(line, config);
+        let exclusion_zones = self.collect_exclusion_zones(line, validated_config);
 
-        // Collect all valid matches
         for match_result in automaton.find_iter(line) {
             let wikilink = sorted_wikilinks[match_result.pattern()];
             let starts_at = match_result.start();
@@ -132,7 +127,7 @@ impl MarkdownFile {
                 }
 
                 let relative_path =
-                    support::format_relative_path(&self.path, config.obsidian_path());
+                    support::format_relative_path(&self.path, validated_config.obsidian_path());
 
                 matches.push(BackPopulateMatch {
                     found_text: matched_text.to_string(),
@@ -152,24 +147,23 @@ impl MarkdownFile {
     pub(super) fn collect_exclusion_zones(
         &self,
         line: &str,
-        config: &ValidatedConfig,
+        validated_config: &ValidatedConfig,
     ) -> Vec<(usize, usize)> {
         let mut exclusion_zones = Vec::new();
 
-        // Add invalid wikilinks as exclusion zones
+        // InvalidWikilink spans block back-populate matches.
         for invalid_wikilink in &self.wikilinks.invalid {
-            // Only add exclusion zone if this invalid wikilink is on the current line
+            // InvalidWikilink.line stores the original line text, not a line number.
             if invalid_wikilink.line == line {
                 exclusion_zones.push(invalid_wikilink.span);
             }
         }
 
         let regex_sources = [
-            config.do_not_back_populate_regexes(),
+            validated_config.do_not_back_populate_regexes(),
             self.do_not_back_populate_regexes.as_deref(),
         ];
 
-        // Flatten the iterator to get a single iterator over regexes
         for do_not_back_populate_regexes in regex_sources.iter().flatten() {
             for regex in *do_not_back_populate_regexes {
                 for regex_match in regex.find_iter(line) {
@@ -178,7 +172,7 @@ impl MarkdownFile {
             }
         }
 
-        // Add inline code spans as exclusion zones
+        // InlineCodeExcluder spans block back-populate matches.
         let mut inline_code_excluder = InlineCodeExcluder::new();
         let mut span_start = None;
         for (byte_offset, ch) in line.char_indices() {
@@ -196,12 +190,12 @@ impl MarkdownFile {
             }
         }
 
-        // Add Markdown links as exclusion zones
+        // Markdown link spans block back-populate matches.
         for markdown_link_match in MARKDOWN_REGEX.find_iter(line) {
             exclusion_zones.push((markdown_link_match.start(), markdown_link_match.end()));
         }
 
-        // they need to be ordered!
+        // matching::range_overlaps expects spans ordered by start byte.
         exclusion_zones.sort_by_key(|&(start, _)| start);
         exclusion_zones
     }

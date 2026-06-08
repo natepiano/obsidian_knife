@@ -75,7 +75,7 @@ pub(crate) struct ValidatedConfig {
 
 impl ValidatedConfigBuilder {
     fn validate(&self) -> Result<(), ValidationError> {
-        // First check if we have a path at all
+        // MissingObsidianPath applies before path existence checks.
         let Some(path) = self.obsidian_path.as_ref() else {
             return Err(ValidationError::MissingObsidianPath);
         };
@@ -168,7 +168,7 @@ impl ValidatedConfigBuilder {
     }
 
     pub(crate) fn output_folder(&mut self, folder_path: PathBuf) -> &mut Self {
-        // Handle empty path case
+        // Empty relative output_folder keeps reports at the Obsidian root.
         if let Some(obsidian_path) = &self.obsidian_path
             && let Ok(relative) = folder_path.strip_prefix(obsidian_path)
             && relative.as_os_str().to_string_lossy().trim().is_empty()
@@ -207,7 +207,7 @@ impl ValidatedConfig {
 
     pub(crate) fn back_populate_file_filter(&self) -> Option<String> {
         self.back_populate_file_filter.as_ref().map(|filter| {
-            // If it's a wikilink, extract the inner text
+            // Wikilink filters use the inner target text before suffix handling.
             let filter_text =
                 if filter.starts_with(OPENING_WIKILINK) && filter.ends_with(CLOSING_WIKILINK) {
                     &filter[OPENING_WIKILINK.len()..filter.len() - CLOSING_WIKILINK.len()]
@@ -215,7 +215,7 @@ impl ValidatedConfig {
                     filter
                 };
 
-            // Add .md extension if not present
+            // back_populate_file_filter stores paths with MARKDOWN_SUFFIX.
             if filter_text.ends_with(MARKDOWN_SUFFIX) {
                 filter_text.to_string()
             } else {
