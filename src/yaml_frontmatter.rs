@@ -177,12 +177,12 @@ pub(crate) fn find_yaml_section(
 
     let after_start = &content[YAML_OPENING_DELIMITER.len()..];
 
-    // Check for immediate closing delimiter for an empty YAML section
+    // `YAML_CLOSING_DELIMITER` immediately after the opener is an empty YAML section.
     if after_start.starts_with(YAML_CLOSING_DELIMITER) {
         return Err(YamlFrontMatterError::Empty);
     }
 
-    // Check for a closing delimiter followed by either `\n` or end of file
+    // `YAML_CLOSING_DELIMITER_NEWLINE` and `YAML_CLOSING_DELIMITER_EOF` end YAML.
     if let Some(end_index) = after_start
         .find(YAML_CLOSING_DELIMITER_NEWLINE)
         .or_else(|| {

@@ -125,7 +125,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
     fn description(&self, items: &[Self::Item]) -> String {
         let mut result = String::new();
 
-        // Write out targets first
+        // `sorted_targets` form the target list before the source-line tables.
         for target in &self.sorted_targets {
             let _ = writeln!(
                 result,
@@ -307,7 +307,7 @@ impl ObsidianRepository {
             let report_writer = ReportWriter::new(matches.clone());
             report_writer.write(&ambiguous_matches_table, output_file_writer)?;
 
-            // Write per-target line tables
+            // `TargetLinesTable` renders source lines for each candidate target.
             for target in &sorted_targets {
                 let lines = self.collect_target_lines(target);
                 let target_lines_table = TargetLinesTable {

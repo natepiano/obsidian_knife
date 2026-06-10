@@ -184,7 +184,7 @@ impl ObsidianRepository {
                 markdown_files: &self.markdown_files.files_to_persist(),
             };
 
-            // Check if there would be any rows after filtering
+            // `would_have_rows` mirrors `IncompatibleImagesReport::build_rows` filtering.
             let would_have_rows = incompatible_images.iter().any(|image| {
                 image.references.is_empty()
                     || image.references.iter().any(|ref_path| {

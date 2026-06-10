@@ -287,9 +287,9 @@ impl ObsidianRepository {
             }
         }
 
-        // Write report for each group that has deletable duplicates
+        // `grouped_by_hash` sections render only when duplicates are deletable.
         for (image_hash, images) in grouped_by_hash {
-            // Check if this group has any deletable duplicates
+            // `DeletionStatus::Delete` determines whether the duplicate group appears.
             if images.iter().any(|image| {
                 matches!(image.state, ImageFileState::Duplicate { .. })
                     && image.deletion_status == DeletionStatus::Delete

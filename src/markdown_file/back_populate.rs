@@ -206,13 +206,13 @@ impl MarkdownFile {
         absolute_start: usize,
         matched_text: &str,
     ) -> bool {
-        // Check if this is the text's own page or matches any frontmatter aliases
+        // `matched_text` cannot target the current `MarkdownFile` stem.
         if let Some(stem) = self.path.file_stem().and_then(OsStr::to_str) {
             if stem.eq_ignore_ascii_case(matched_text) {
                 return false;
             }
 
-            // Check against frontmatter aliases
+            // `matched_text` cannot target the current frontmatter aliases.
             if let Some(frontmatter) = &self.frontmatter
                 && let Some(aliases) = frontmatter.aliases()
                 && aliases

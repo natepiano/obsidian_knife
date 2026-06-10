@@ -79,12 +79,12 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
             return Ok(());
         }
 
-        // Write title if present
+        // `Report::title` supplies the optional heading row.
         if let Some(title) = report.title() {
             output_file_writer.writeln(report.level(), &title)?;
         }
 
-        // Write description if present
+        // `Report::description` supplies the optional body text.
         let description = &report.description(&self.items);
         if !description.is_empty() {
             output_file_writer.writeln("", &report.description(&self.items))?;

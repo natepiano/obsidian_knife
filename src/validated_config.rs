@@ -80,7 +80,7 @@ impl ValidatedConfigBuilder {
             return Err(ValidationError::MissingObsidianPath);
         };
 
-        // Then check if the path exists
+        // `obsidian_path` must exist after `MissingObsidianPath` has passed.
         if !path.exists() {
             return Err(ValidationError::InvalidObsidianPath(
                 path.display().to_string(),

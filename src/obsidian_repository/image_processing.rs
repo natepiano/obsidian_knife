@@ -279,7 +279,7 @@ impl ObsidianRepository {
     }
 
     pub(super) fn mark_image_files_for_deletion(&mut self) {
-        // Check if all references are in files being persisted
+        // `can_delete` requires every image reference to belong to `files_to_persist`.
         fn can_delete(files_to_persist: &HashSet<&PathBuf>, image_file: &ImageFile) -> bool {
             image_file
                 .references
