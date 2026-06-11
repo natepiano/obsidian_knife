@@ -10,13 +10,13 @@ use crate::validated_config::ValidatedConfig;
 pub(super) trait ReportDefinition<C = ()> {
     /// The type of data being displayed in the table
     type Item;
-    /// Get the table headers
+    /// Returns the table header labels.
     fn headers(&self) -> Vec<&str>;
 
-    /// Get column alignments for the table
+    /// Returns the table `ColumnAlignment` values.
     fn alignments(&self) -> Vec<ColumnAlignment>;
 
-    /// Transform data items into table rows
+    /// Returns Markdown table rows for `Self::Item` values.
     ///
     /// simple reports can use `_: &()` for this generic parameter so they don't
     /// need to use it and the compiler won't complain
@@ -32,10 +32,10 @@ pub(super) trait ReportDefinition<C = ()> {
         validated_config: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>>;
 
-    /// Optional table title
+    /// Returns the optional table title.
     fn title(&self) -> Option<String> { None }
 
-    /// Optional table description/summary
+    /// Returns the optional table description.
     fn description(&self, items: &[Self::Item]) -> String;
 
     /// markdown level
@@ -69,7 +69,7 @@ impl<'a, T: Clone> ReportWriter<'a, T> {
         }
     }
 
-    /// Write the table using the provided builder and output file writer
+    /// Writes `report` rows through `OutputFileWriter`.
     pub(super) fn write<B: ReportDefinition<Item = T>>(
         &self,
         report: &B,

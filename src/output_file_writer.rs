@@ -119,7 +119,7 @@ impl OutputFileWriter {
 
         let mut file = self.lock_file()?;
 
-        // markdown tables always have to have a blank line before them
+        // Markdown tables require a blank line before the header row.
         writeln!(
             file,
             "\n{}",
@@ -135,7 +135,7 @@ impl OutputFileWriter {
             )?;
         }
 
-        // there has to be a blank line after a table or it won't render
+        // `MARKDOWN_TABLE_TRAILING_SEPARATOR` terminates the rendered table.
         writeln!(file, "{MARKDOWN_TABLE_TRAILING_SEPARATOR}")?;
 
         file.flush()?;

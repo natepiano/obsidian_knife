@@ -40,7 +40,7 @@ macro_rules! yaml_frontmatter_struct {
             $(,)?
         }
     ) => {
-        // Main struct with flattened `HashMap`
+        // `$name` stores explicit fields plus a flattened `HashMap`.
         $(#[$struct_meta])*
         $vis struct $name {
             $(
@@ -72,7 +72,7 @@ macro_rules! yaml_frontmatter_struct {
     };
 }
 
-/// Error types specific to YAML frontmatter handling
+/// Error variants returned by YAML frontmatter parsing and serialization.
 #[derive(Debug, Clone)]
 pub(crate) enum YamlFrontMatterError {
     /// there are two lines with --- at the start, but nothing is there
@@ -114,14 +114,14 @@ impl Display for YamlFrontMatterError {
 
 impl Error for YamlFrontMatterError {}
 
-/// Trait for types that can be serialized to and deserialized from YAML frontmatter
+/// `YamlFrontMatter` provides YAML frontmatter serialization and deserialization.
 pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
-    /// Creates an instance from a YAML string
+    /// Deserializes `Self` from a YAML string.
     fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
         from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
     }
 
-    /// Serializes `self` to a YAML string with sorted mapping keys and sorted
+    /// Returns `self` as a YAML string with sorted mapping keys and sorted
     /// `Value::Sequence` string entries.
     fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
         // `to_value` exposes the frontmatter fields as a `Value::Mapping`.
@@ -157,7 +157,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
                 }
             }
 
-            // Serialize the sorted mapping
+            // `sorted_map` preserves deterministic frontmatter key order.
             to_string(&Value::Mapping(sorted_map))
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
@@ -206,7 +206,7 @@ pub(crate) fn find_yaml_section(
         let after_yaml = &after_start[after_yaml_start..];
         Ok(Some((yaml_section, after_yaml)))
     } else {
-        // No closing delimiter found
+        // `YamlFrontMatterError::Invalid` reports a missing closing delimiter.
         Err(YamlFrontMatterError::Invalid(
             YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER.to_string(),
         ))

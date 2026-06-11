@@ -68,7 +68,7 @@ pub(crate) struct DescriptionBuilder {
 }
 
 impl DescriptionBuilder {
-    /// Creates a new `DescriptionBuilder` instance.
+    /// Initializes an empty `DescriptionBuilder`.
     pub(crate) const fn new() -> Self { Self { parts: Vec::new() } }
 
     pub(crate) fn text_with_newline(mut self, text: &str) -> Self {

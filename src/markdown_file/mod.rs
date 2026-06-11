@@ -207,8 +207,8 @@ impl MarkdownFile {
     ) -> AnyhowResult<()> {
         self.ensure_frontmatter(operational_timezone);
 
-        // Remove any `DateModifiedUpdated` reasons since we'll be setting the date to now.
-        // This way we won't show extraneous results in the persist-reasons report.
+        // `mark_as_back_populated` replaces stale `DateModifiedUpdated` reasons with the
+        // current `DateModifiedUpdated` state from `set_date_modified_now`.
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
@@ -626,7 +626,7 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-        // Update frontmatter directly
+        // `frontmatter` receives the new created date before `persist`.
         if let Some(frontmatter) = &mut markdown_file.frontmatter {
             let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
             frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
@@ -689,7 +689,7 @@ mod tests {
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
         if let Some(frontmatter) = &mut markdown_file.frontmatter {
-            // Update the frontmatter to match the intended created and modified dates
+            // `raw_created` and `raw_modified` set the persisted frontmatter dates.
             frontmatter.raw_created = Some(created_date);
             frontmatter.raw_modified = Some(modified_date);
             frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
@@ -918,7 +918,7 @@ mod tests {
         let extracted = markdown_file.process_wikilinks();
         let image_links = markdown_file.process_image_links();
 
-        // Check valid wikilinks
+        // `extracted.valid` contains non-image wikilinks.
         assert_contains_wikilink(&extracted.valid, "test", None, AliasExpectation::DirectLink);
         assert_contains_wikilink(
             &extracted.valid,
@@ -1013,11 +1013,11 @@ mod tests {
         let extracted = markdown_file.process_wikilinks();
         let image_links = markdown_file.process_image_links();
 
-        // Check wikilinks
+        // `extracted.valid` contains file-title and inline wikilinks.
         assert_contains_wikilink(&extracted.valid, "test", None, AliasExpectation::DirectLink);
         assert_contains_wikilink(&extracted.valid, "link", None, AliasExpectation::DirectLink);
 
-        // Check image links
+        // `image_links` contains embedded image wikilinks.
         assert_eq!(image_links.len(), 2, "Should have two image links");
 
         // Optionally, also test the filenames were extracted correctly
@@ -1180,7 +1180,7 @@ mod tests {
                 .apply_replaceable_matches(validated_config.operational_timezone())
                 .unwrap();
 
-            // Validate replacements
+            // `file.content` contains the back-populate replacements.
             if let Some(file) = obsidian_repository
                 .markdown_files
                 .iter()

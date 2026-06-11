@@ -279,7 +279,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get total matches across all files
+        // `total_matches` counts unambiguous matches across all files.
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
@@ -335,7 +335,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get total matches
+        // `total_matches` counts unambiguous matches in the single markdown file.
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
@@ -361,7 +361,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get total matches after adding other file
+        // `total_matches` includes the additional markdown file.
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
@@ -399,7 +399,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get total matches
+        // `total_matches` counts unambiguous matches in the single markdown file.
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
@@ -422,7 +422,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get total matches after adding other file
+        // `total_matches` includes the additional markdown file.
         let total_matches: usize = obsidian_repository
             .markdown_files
             .iter()
@@ -706,7 +706,7 @@ mod tests {
             "Should have matches for both case variations"
         );
 
-        // Get ambiguous matches
+        // `identify_ambiguous_matches` moves alias collisions into ambiguous matches.
         obsidian_repository.identify_ambiguous_matches();
 
         // Find our test file again after ambiguous matching

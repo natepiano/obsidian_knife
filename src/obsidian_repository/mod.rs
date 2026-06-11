@@ -442,8 +442,8 @@ Amazon is ambiguous",
     // It ensures that the `identify_ambiguous_matches` function correctly **classifies** both
     // instances of `"Nate"` as **ambiguous**.
     //
-    // Validate that the function can handle **both unambiguous and ambiguous matches
-    // simultaneously** without interference. Prior to this, the real-world failure was
+    // `identify_ambiguous_matches` must handle **both unambiguous and ambiguous
+    // matches simultaneously** without interference. Prior to this, the real-world failure was
     // that it would find `Karen` as an alias but not `karen` even though we have a
     // case-insensitive search. The problem with the old test is that when there were no
     // ambiguous matches, the lowercase `karen` was not getting stripped out and the
@@ -545,7 +545,7 @@ Nate was here and so was Nate"
                     base_date + ChronoDuration::days(i64::try_from(i).expect("test index"));
                 let modified = created + ChronoDuration::hours(1);
 
-                // Convert to UTC for the filesystem dates
+                // `created_utc` and `modified_utc` store filesystem dates in UTC.
                 let created_utc = created.with_timezone(&Utc);
                 let modified_utc = modified.with_timezone(&Utc);
 
@@ -878,7 +878,7 @@ date_modified: 2024-01-01
         let file_system_created_time = FileTime::from_creation_time(&metadata).unwrap();
         let file_system_modified_time = FileTime::from_last_modification_time(&metadata);
 
-        // Convert to UTC for comparison
+        // `file_system_created_date` stores the creation timestamp in UTC.
         let file_system_created_date = DateTime::<Utc>::from(
             SystemTime::UNIX_EPOCH
                 + Duration::from_secs(file_system_created_time.unix_seconds().cast_unsigned()),
@@ -891,7 +891,7 @@ date_modified: 2024-01-01
         )
         .date_naive();
 
-        // Compare dates
+        // `case.expected.dates.file_system` stores the expected file dates.
         assert_eq!(
             file_system_created_date, case.expected.dates.file_system.created,
             "Filesystem created date mismatch for case: {}",
@@ -1280,7 +1280,7 @@ date_modified: 2024-01-01
         let mut obsidian_repository = ObsidianRepository::default();
         let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1);
 
-        // Update only the first file with a fixed date
+        // `markdown_file1` is the only file with a fixed modified date.
         if let Some(frontmatter) = &mut markdown_file1.frontmatter {
             frontmatter.set_date_modified(update_date, DEFAULT_TIMEZONE);
         }
@@ -1335,14 +1335,14 @@ date_modified: 2024-01-01
             .mark_image_reference_as_updated(DEFAULT_TIMEZONE)
             .unwrap();
 
-        // Get the frontmatter modified date
+        // `modified_date` stores the updated frontmatter date.
         let modified_date = markdown_file
             .frontmatter
             .as_ref()
             .and_then(FrontMatter::date_modified)
             .expect("Should have a modified date");
 
-        // Get today's date in the same format as the frontmatter
+        // `today` uses the same wikilink format as the frontmatter date.
         let today = test_utils::frontmatter_date_wikilink(Utc::now());
 
         assert_eq!(

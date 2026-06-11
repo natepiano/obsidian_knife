@@ -213,7 +213,7 @@ output_folder: output"#
         let mut markdown_file = test_utils::get_test_markdown_file(config_path.clone());
         let mut config = Config::try_from(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
 
-        // Validate initial values
+        // `Config::try_from` preserves the initial frontmatter values.
         assert_eq!(config.configured_changes, ConfiguredChanges::Apply);
         assert_eq!(config.file_limit, Some(5));
         assert_eq!(config.back_populate_file_filter, Some("*test*".to_string()));

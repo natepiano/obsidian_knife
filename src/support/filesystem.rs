@@ -59,7 +59,7 @@ pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Se
     Ok(contents)
 }
 
-// Expands a path that starts with `~/` to the user's home directory.
+// `expand_tilde` replaces a leading `~/` with the user's home directory.
 pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
     let path = path.as_ref();
 
@@ -81,7 +81,7 @@ pub fn expand_tilde<P: AsRef<Path>>(path: P) -> PathBuf {
         return expanded_path;
     }
 
-    // Return the original path if no tilde expansion was needed
+    // `path` is returned unchanged when neither tilde expansion branch matches.
     path.to_path_buf()
 }
 
@@ -97,8 +97,8 @@ pub struct RepositoryFiles {
     pub markdown: Vec<PathBuf>,
 }
 
-// using `rayon` (`.into_par_iter()`) and not using `walkdir`
-// takes this from 12ms down to 4ms
+// `rayon` via `.into_par_iter()` keeps `collect_repository_files` at about 4ms
+// instead of the 12ms measured with `walkdir`.
 pub fn collect_repository_files(
     validated_config: &ValidatedConfig,
     ignore_folders: &[PathBuf],

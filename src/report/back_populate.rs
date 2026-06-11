@@ -154,7 +154,7 @@ impl ObsidianRepository {
 
         output_file_writer.writeln("", &header_message)?;
 
-        // Group matches by display text (case-insensitive)
+        // `matches_by_text` groups `BackPopulateMatch` values by lowercase display text.
         let mut matches_by_text: HashMap<String, Vec<BackPopulateMatch>> = HashMap::new();
         for match_info in matches {
             let key = match_info.found_text.to_lowercase();

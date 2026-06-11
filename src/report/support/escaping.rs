@@ -7,7 +7,7 @@ use crate::constants::ESCAPED_PIPE_CAPACITY_MULTIPLIER;
 use crate::constants::OPENING_BRACKET;
 use crate::constants::PIPE;
 
-// Helper function to escape pipes in Markdown strings
+// `escape_pipe` escapes unescaped Markdown table pipes.
 pub(super) fn escape_pipe(text: &str) -> String {
     let mut escaped = String::with_capacity(text.len() * ESCAPED_PIPE_CAPACITY_MULTIPLIER);
     let chars: Vec<char> = text.chars().collect();
@@ -38,7 +38,7 @@ pub(super) fn escape_pipe(text: &str) -> String {
     escaped
 }
 
-// Helper function to escape pipes and brackets for visual verification
+// `escape_brackets` displays wikilink brackets as escaped text.
 pub(super) fn escape_brackets(text: &str) -> String {
     text.replace(OPENING_BRACKET, ESCAPED_BRACKET_OPEN)
         .replace(CLOSING_BRACKET, ESCAPED_BRACKET_CLOSE)

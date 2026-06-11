@@ -55,7 +55,7 @@ use crate::validated_config::ChangeMode;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatterError;
 
-// Custom error type for main specific errors
+// `MainError` represents command-line failures.
 #[derive(Debug)]
 enum MainError {
     Usage(String),
@@ -118,7 +118,7 @@ fn reset_change_mode(
     Ok(())
 }
 
-// Separate error handling and reporting logic
+// `handle_error` prints the source chain before returning the original error.
 fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + Send + Sync>> {
     eprintln!("{ERROR_OCCURRED}");
     eprintln!("{ERROR_TYPE}");
@@ -132,7 +132,7 @@ fn handle_error(e: Box<dyn Error + Send + Sync>) -> Result<(), Box<dyn Error + S
     Err(e)
 }
 
-// Get config file name with better error handling
+// `get_config_file` reads the config path argument.
 fn get_config_file() -> Result<PathBuf, Box<dyn Error + Send + Sync>> {
     let args: Vec<String> = args().collect();
 

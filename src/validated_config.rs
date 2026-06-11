@@ -87,21 +87,21 @@ impl ValidatedConfigBuilder {
             ));
         }
 
-        // Validate file_limit
+        // `file_limit` must meet `MIN_FILE_LIMIT`.
         if let Some(Some(count)) = self.file_limit
             && count < MIN_FILE_LIMIT
         {
             return Err(ValidationError::InvalidFileLimit);
         }
 
-        // Validate back_populate_file_filter
+        // `back_populate_file_filter` must not be blank.
         if let Some(Some(filter)) = &self.back_populate_file_filter
             && filter.trim().is_empty()
         {
             return Err(ValidationError::EmptyBackPopulateFileFilter);
         }
 
-        // Validate output_folder
+        // `output_folder` must not be blank.
         if let Some(folder) = &self.output_folder {
             let path_str = folder.as_os_str().to_string_lossy();
             if path_str.trim().is_empty() {
@@ -109,7 +109,7 @@ impl ValidatedConfigBuilder {
             }
         }
 
-        // Validate timezone
+        // `timezone` must parse as a `Tz`.
         let timezone = self
             .operational_timezone
             .clone()

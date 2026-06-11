@@ -64,7 +64,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
         items: &[Self::Item],
         _: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
-        // Group matches by file path and line number for consolidation
+        // `line_map` consolidates `BackPopulateMatch` values by path and line.
         let mut line_map: HashMap<(String, usize), (String, Vec<usize>)> = HashMap::new();
 
         // line_map groups BackPopulateMatch positions by relative path and line number.
@@ -294,7 +294,7 @@ impl ObsidianRepository {
                 .unwrap_or(&default_targets)
                 .clone();
 
-            // collect out all possible targets to display in the description
+            // `sorted_targets` lists every target shown in the description.
             let mut sorted_targets: Vec<String> = targets.iter().cloned().collect();
             sorted_targets.sort();
 

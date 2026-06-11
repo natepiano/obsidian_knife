@@ -92,7 +92,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get all matches from the first (and only) file
+        // `matches` stores results from the first and only markdown file.
         let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
 
         // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
@@ -138,7 +138,7 @@ mod tests {
             .find_all_back_populate_matches(&validated_config)
             .unwrap();
 
-        // Get matches from the first (and only) file
+        // `matches` stores results from the first and only markdown file.
         let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
 
         assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
@@ -198,7 +198,7 @@ mod tests {
         let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
         let valid_wikilinks = markdown_file.wikilinks.valid;
 
-        // Check valid wikilinks
+        // `valid_wikilinks` includes the file name and inline wikilink.
         assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
         assert!(
             valid_wikilinks
@@ -206,7 +206,7 @@ mod tests {
                 .any(|w| w.display_text == "Valid Link")
         );
 
-        // Check invalid wikilinks
+        // `markdown_file.wikilinks.invalid` contains malformed wikilinks.
         assert_eq!(markdown_file.wikilinks.invalid.len(), 3);
 
         // Verify specific invalid wikilinks

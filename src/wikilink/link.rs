@@ -24,14 +24,14 @@ use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::OPENING_WIKILINK;
 use crate::constants::PIPE;
 
-/// Trait to convert strings to wikilink format
+/// `ToWikilink` converts strings to wikilink text.
 pub trait ToWikilink {
-    /// Converts the string to a wikilink format by surrounding it with [[]]
+    /// Returns `self` as `[[target]]` wikilink text.
     fn to_wikilink(&self) -> String;
 
-    /// Creates an aliased wikilink using the target (`self`) and display text
-    /// If the texts match (case-sensitive), returns a simple wikilink
-    /// Otherwise returns an aliased wikilink in the format [[target|display]]
+    /// Builds an aliased wikilink from `self` and `display_text`.
+    /// Matching target and display text return `[[target]]`; differing values return
+    /// `[[target|display]]`.
     fn to_aliased_wikilink(&self, display_text: &str) -> String
     where
         Self: AsRef<str>,
@@ -61,7 +61,7 @@ impl ToWikilink for String {
     fn to_wikilink(&self) -> String { self.as_str().to_wikilink() }
 }
 
-/// Helper function to strip .md extension if present
+/// Removes `MARKDOWN_SUFFIX` from `text` when it is present.
 fn strip_markdown_extension(text: &str) -> &str {
     text.strip_suffix(MARKDOWN_SUFFIX).unwrap_or(text)
 }
@@ -216,7 +216,7 @@ mod tests {
         assert_eq!(links[1], "[two](link2)");
     }
 
-    /// Helper function to parse a full wikilink string.
+    /// Parses a full wikilink string.
     /// It ensures the input starts with `[[` and ends with `]]`,
     /// extracts the inner content, and passes it to `parse_wikilink`.
     fn parse_full_wikilink(input: &str) -> Option<WikilinkParseResult> {

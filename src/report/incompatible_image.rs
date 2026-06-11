@@ -100,7 +100,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                 ]);
             } else {
                 for ref_path in &image.references {
-                    // Only output the row if we can find the markdown file
+                    // `markdown_file` supplies the folder and wikilink columns for the row.
                     if let Some(markdown_file) = self
                         .markdown_files
                         .iter()

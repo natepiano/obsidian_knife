@@ -55,14 +55,14 @@ impl BlockDelimiter for SingleBacktickDelimiter {
 
 #[derive(Debug)]
 struct BlockTracker<D: BlockDelimiter> {
-    location:  BlockLocation,
-    delimiter: D,
+    block_location: BlockLocation,
+    delimiter:      D,
 }
 
 impl<D: BlockDelimiter> BlockTracker<D> {
     const fn new_with_delimiter(delimiter: D) -> Self {
         Self {
-            location: BlockLocation::Outside,
+            block_location: BlockLocation::Outside,
             delimiter,
         }
     }
@@ -77,16 +77,16 @@ impl<D: BlockDelimiter> BlockTracker<D> {
         if let Ok(delimiter) = content.try_into()
             && delimiter == self.delimiter.delimiter_type()
         {
-            match self.location {
+            match self.block_location {
                 BlockLocation::Inside => {
-                    self.location = BlockLocation::ClosingDelimiterFound;
+                    self.block_location = BlockLocation::ClosingDelimiterFound;
                 },
                 BlockLocation::Outside | BlockLocation::ClosingDelimiterFound => {
-                    self.location = BlockLocation::Inside;
+                    self.block_location = BlockLocation::Inside;
                 },
             }
-        } else if self.location == BlockLocation::ClosingDelimiterFound {
-            self.location = BlockLocation::Outside;
+        } else if self.block_location == BlockLocation::ClosingDelimiterFound {
+            self.block_location = BlockLocation::Outside;
         }
     }
 
@@ -95,12 +95,12 @@ impl<D: BlockDelimiter> BlockTracker<D> {
     // the character iterator would read an open/close/open code-block sequence.
     const fn is_in_code_block(&self) -> bool {
         matches!(
-            self.location,
+            self.block_location,
             BlockLocation::Inside | BlockLocation::ClosingDelimiterFound
         )
     }
 
-    fn is_inside(&self) -> bool { self.location == BlockLocation::Inside }
+    fn is_inside(&self) -> bool { self.block_location == BlockLocation::Inside }
 }
 
 #[derive(Debug)]
@@ -306,7 +306,7 @@ mod tests {
             line_number: 1,
         });
 
-        // Check exclusion zones for line2
+        // `zones` should not contain exclusions for the second line.
         let zones =
             markdown_file.collect_exclusion_zones("Line 2 with normal text", &validated_config);
 

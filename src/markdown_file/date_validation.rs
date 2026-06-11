@@ -177,47 +177,47 @@ pub(super) fn get_date_validation_issue(
     file_system_date: &DateTime<Utc>,
     operational_timezone: &str,
 ) -> Option<DateValidationIssue> {
-    // Check if the date is missing
+    // `DateValidationIssue::Missing` applies when the frontmatter date is absent.
     let Some(date_str) = date_opt else {
         return Some(DateValidationIssue::Missing);
     };
 
-    // Check if the date string is a valid wikilink
+    // `wikilink::is_wikilink` rejects non-wikilink date strings.
     if !wikilink::is_wikilink(Some(date_str)) {
         return Some(DateValidationIssue::InvalidWikilink);
     }
 
     let extracted_date = extract_date(date_str);
 
-    // Validate the extracted date format
+    // `is_valid_date` accepts only `YYYY-MM-DD` dates.
     if !is_valid_date(extracted_date) {
         return Some(DateValidationIssue::InvalidFormat);
     }
 
-    // Parse the frontmatter date string into a `NaiveDate`
+    // `frontmatter_date` stores the wikilink date as a `NaiveDate`.
     let Ok(frontmatter_date) = NaiveDate::parse_from_str(extracted_date.trim(), FORMAT_DATE) else {
         return Some(DateValidationIssue::InvalidFormat);
     };
 
-    // Parse timezone string into a Tz
+    // `operational_timezone` must parse into a `Tz`.
     let Ok(timezone) = operational_timezone.parse::<Tz>() else {
         return Some(DateValidationIssue::InvalidFormat);
     };
 
-    // Convert UTC `file_system_date` to the specified timezone
+    // `file_system_date_local` stores `file_system_date` in `operational_timezone`.
     let file_system_date_local = file_system_date.with_timezone(&timezone);
     let file_system_date_naive = file_system_date_local.date_naive();
 
-    // Compare the dates
+    // `FileSystemMismatch` records a frontmatter date that differs from the file timestamp.
     if frontmatter_date != file_system_date_naive {
         return Some(DateValidationIssue::FileSystemMismatch);
     }
 
-    // All validations passed
+    // `None` means `get_date_validation_issue` found no `DateValidationIssue`.
     None
 }
 
-// Extracts the date string from a possible wikilink format
+// `extract_date` returns the inner date from a wikilink, or the trimmed input.
 pub(super) fn extract_date(date_str: &str) -> &str {
     let date_str = date_str.trim();
     if wikilink::is_wikilink(Some(date_str)) {
@@ -230,7 +230,7 @@ pub(super) fn extract_date(date_str: &str) -> &str {
     }
 }
 
-// Validates if a string is a valid YYYY-MM-DD date
+// `is_valid_date` accepts strings that parse with `FORMAT_DATE`.
 pub(super) fn is_valid_date(date_str: &str) -> bool {
     NaiveDate::parse_from_str(date_str.trim(), FORMAT_DATE).is_ok()
 }
@@ -261,7 +261,7 @@ pub(super) fn process_date_validations(
             reasons.push(PersistReason::DateCreatedFixApplied);
         }
 
-        // Update created date if there's an issue
+        // `DateCreatedUpdated` records a created-date repair.
         if let Some(ref issue) = created_validation.issue
             && created_date_update == CreatedDateUpdate::IfInvalid
         {
@@ -271,7 +271,7 @@ pub(super) fn process_date_validations(
             });
         }
 
-        // Update modified date if there's an issue
+        // `DateModifiedUpdated` records a modified-date repair.
         if let Some(ref issue) = modified_validation.issue {
             frontmatter.set_date_modified(modified_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
@@ -552,13 +552,13 @@ mod tests {
         ];
 
         for case in test_cases {
-            // Create initial frontmatter
+            // `frontmatter` starts with the test case dates.
             let mut frontmatter = Some(create_frontmatter(
                 case.modified.as_deref(),
                 case.created.as_deref(),
             ));
 
-            // Get date validations
+            // `created_validation` and `modified_validation` mirror production checks.
             let created_validation = DateValidation {
                 frontmatter:          case.created.clone(), // Add clone here
                 file_system:          case.file_system.created,

@@ -466,7 +466,7 @@ pub fn is_within_wikilink(line: &str, byte_position: usize) -> bool {
         let content_start = mat.start() + OPENING_WIKILINK.len();
         let content_end = mat.end() - CLOSING_WIKILINK.len();
 
-        // Return true only if the byte_position falls within the link content
+        // `byte_position` must be inside the wikilink content, excluding brackets.
         if byte_position >= content_start && byte_position < content_end {
             return true;
         }

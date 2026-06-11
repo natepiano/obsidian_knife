@@ -81,7 +81,7 @@ pub(crate) const LEVEL1: &str = "#";
 pub(crate) const LEVEL2: &str = "##";
 pub(crate) const LEVEL3: &str = "###";
 
-// markdown tables
+// markdown table constants
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_CENTER: &str = ":---:";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_LEFT: &str = ":---";
 pub(crate) const MARKDOWN_TABLE_ALIGNMENT_RIGHT: &str = "---:";
