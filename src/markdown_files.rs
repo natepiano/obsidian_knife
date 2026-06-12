@@ -23,29 +23,6 @@ pub(crate) struct MarkdownFiles {
     pub(super) file_limit: Option<usize>,
 }
 
-impl FromIterator<MarkdownFile> for MarkdownFiles {
-    fn from_iter<I: IntoIterator<Item = MarkdownFile>>(iter: I) -> Self {
-        Self {
-            files:      iter.into_iter().collect(),
-            file_limit: None,
-        }
-    }
-}
-
-impl<'a> IntoIterator for &'a MarkdownFiles {
-    type Item = &'a MarkdownFile;
-    type IntoIter = Iter<'a, MarkdownFile>;
-
-    fn into_iter(self) -> Self::IntoIter { self.files.iter() }
-}
-
-impl<'a> IntoIterator for &'a mut MarkdownFiles {
-    type Item = &'a mut MarkdownFile;
-    type IntoIter = IterMut<'a, MarkdownFile>;
-
-    fn into_iter(self) -> Self::IntoIter { self.files.iter_mut() }
-}
-
 impl MarkdownFiles {
     #[cfg(test)]
     pub(crate) const fn new(files: Vec<MarkdownFile>, file_limit: Option<usize>) -> Self {
@@ -121,4 +98,27 @@ impl MarkdownFiles {
             file_limit: self.file_limit,
         }
     }
+}
+
+impl FromIterator<MarkdownFile> for MarkdownFiles {
+    fn from_iter<I: IntoIterator<Item = MarkdownFile>>(iter: I) -> Self {
+        Self {
+            files:      iter.into_iter().collect(),
+            file_limit: None,
+        }
+    }
+}
+
+impl<'a> IntoIterator for &'a MarkdownFiles {
+    type Item = &'a MarkdownFile;
+    type IntoIter = Iter<'a, MarkdownFile>;
+
+    fn into_iter(self) -> Self::IntoIter { self.files.iter() }
+}
+
+impl<'a> IntoIterator for &'a mut MarkdownFiles {
+    type Item = &'a mut MarkdownFile;
+    type IntoIter = IterMut<'a, MarkdownFile>;
+
+    fn into_iter(self) -> Self::IntoIter { self.files.iter_mut() }
 }

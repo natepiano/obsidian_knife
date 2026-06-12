@@ -21,10 +21,6 @@ use crate::constants::SPACE;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
 
-pub(crate) struct OutputFileWriter {
-    file: Mutex<File>,
-}
-
 #[derive(Clone, Copy)]
 pub(crate) enum ColumnAlignment {
     Left,
@@ -39,24 +35,8 @@ enum MarkdownPrefix<'a> {
     NeedsSpace(&'a str),
 }
 
-impl<'a> From<&'a str> for MarkdownPrefix<'a> {
-    fn from(markdown_prefix: &'a str) -> Self {
-        match (markdown_prefix.is_empty(), markdown_prefix.ends_with(SPACE)) {
-            (true, _) => Self::Empty,
-            (false, true) => Self::AlreadySpaced(markdown_prefix),
-            (false, false) => Self::NeedsSpace(markdown_prefix),
-        }
-    }
-}
-
-impl MarkdownPrefix<'_> {
-    fn into_string(self) -> String {
-        match self {
-            Self::Empty => String::new(),
-            Self::AlreadySpaced(markdown_prefix) => markdown_prefix.to_string(),
-            Self::NeedsSpace(markdown_prefix) => format!("{markdown_prefix} "),
-        }
-    }
+pub(crate) struct OutputFileWriter {
+    file: Mutex<File>,
 }
 
 impl OutputFileWriter {
@@ -158,5 +138,25 @@ impl OutputFileWriter {
         let mut file = self.lock_file()?;
         file.write_all(file_message.as_bytes())?;
         file.flush()
+    }
+}
+
+impl<'a> From<&'a str> for MarkdownPrefix<'a> {
+    fn from(markdown_prefix: &'a str) -> Self {
+        match (markdown_prefix.is_empty(), markdown_prefix.ends_with(SPACE)) {
+            (true, _) => Self::Empty,
+            (false, true) => Self::AlreadySpaced(markdown_prefix),
+            (false, false) => Self::NeedsSpace(markdown_prefix),
+        }
+    }
+}
+
+impl MarkdownPrefix<'_> {
+    fn into_string(self) -> String {
+        match self {
+            Self::Empty => String::new(),
+            Self::AlreadySpaced(markdown_prefix) => markdown_prefix.to_string(),
+            Self::NeedsSpace(markdown_prefix) => format!("{markdown_prefix} "),
+        }
     }
 }

@@ -44,22 +44,6 @@ pub enum ImageLinkType {
     Markdown(ImageLinkTarget, ImageRendering),
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub(crate) struct ImageLinks {
-    #[deref]
-    #[deref_mut]
-    #[into_iterator]
-    pub links: Vec<ImageLink>,
-}
-
-impl FromIterator<ImageLink> for ImageLinks {
-    fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
-        Self {
-            links: iter.into_iter().collect(),
-        }
-    }
-}
-
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub enum ImageLinkState {
     #[default]
@@ -86,30 +70,29 @@ pub struct ImageLink {
     pub link_type:      ImageLinkType,
 }
 
-struct ParsedImageLink {
-    filename:       String,
-    link_type:      ImageLinkType,
-    alt_text:       String,
-    size_parameter: Option<String>,
-}
+impl ImageLink {
+    pub fn new(raw_link: String, line_number: usize, position: usize) -> Result<Self, String> {
+        let relative_path = extract_relative_path(&raw_link);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum RawImageLinkSyntax {
-    Wiki,
-    Markdown,
-    Invalid,
-}
+        let parsed_link = match RawImageLinkSyntax::from(raw_link.as_str()) {
+            RawImageLinkSyntax::Wiki => parse_wiki_image_link(&raw_link),
+            RawImageLinkSyntax::Markdown => parse_markdown_image_link(&raw_link),
+            RawImageLinkSyntax::Invalid => {
+                return Err(format!("{INVALID_IMAGE_LINK_FORMAT_PREFIX}{raw_link}"));
+            },
+        };
 
-impl From<&str> for RawImageLinkSyntax {
-    fn from(raw_link: &str) -> Self {
-        match (
-            raw_link.ends_with(CLOSING_WIKILINK),
-            raw_link.ends_with(CLOSING_PAREN),
-        ) {
-            (true, _) => Self::Wiki,
-            (false, true) => Self::Markdown,
-            (false, false) => Self::Invalid,
-        }
+        Ok(Self {
+            matched_text: raw_link,
+            position,
+            line_number,
+            filename: parsed_link.filename,
+            relative_path,
+            alt_text: parsed_link.alt_text,
+            size_parameter: parsed_link.size_parameter,
+            state: ImageLinkState::default(),
+            link_type: parsed_link.link_type,
+        })
     }
 }
 
@@ -178,29 +161,46 @@ impl ReplaceableContent for ImageLink {
     fn match_type(&self) -> MatchType { MatchType::ImageReference }
 }
 
-impl ImageLink {
-    pub fn new(raw_link: String, line_number: usize, position: usize) -> Result<Self, String> {
-        let relative_path = extract_relative_path(&raw_link);
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
+pub(crate) struct ImageLinks {
+    #[deref]
+    #[deref_mut]
+    #[into_iterator]
+    pub links: Vec<ImageLink>,
+}
 
-        let parsed_link = match RawImageLinkSyntax::from(raw_link.as_str()) {
-            RawImageLinkSyntax::Wiki => parse_wiki_image_link(&raw_link),
-            RawImageLinkSyntax::Markdown => parse_markdown_image_link(&raw_link),
-            RawImageLinkSyntax::Invalid => {
-                return Err(format!("{INVALID_IMAGE_LINK_FORMAT_PREFIX}{raw_link}"));
-            },
-        };
+impl FromIterator<ImageLink> for ImageLinks {
+    fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
+        Self {
+            links: iter.into_iter().collect(),
+        }
+    }
+}
 
-        Ok(Self {
-            matched_text: raw_link,
-            position,
-            line_number,
-            filename: parsed_link.filename,
-            relative_path,
-            alt_text: parsed_link.alt_text,
-            size_parameter: parsed_link.size_parameter,
-            state: ImageLinkState::default(),
-            link_type: parsed_link.link_type,
-        })
+struct ParsedImageLink {
+    filename:       String,
+    link_type:      ImageLinkType,
+    alt_text:       String,
+    size_parameter: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RawImageLinkSyntax {
+    Wiki,
+    Markdown,
+    Invalid,
+}
+
+impl From<&str> for RawImageLinkSyntax {
+    fn from(raw_link: &str) -> Self {
+        match (
+            raw_link.ends_with(CLOSING_WIKILINK),
+            raw_link.ends_with(CLOSING_PAREN),
+        ) {
+            (true, _) => Self::Wiki,
+            (false, true) => Self::Markdown,
+            (false, false) => Self::Invalid,
+        }
     }
 }
 
