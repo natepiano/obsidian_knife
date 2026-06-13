@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use chrono::DateTime;
 use chrono::Utc;
 use chrono_tz::Tz;
+use chrono_tz::UTC;
 use regex::Regex;
 use serde::Deserialize;
 use serde::Serialize;
@@ -66,7 +67,7 @@ impl FrontMatter {
     // `set_date_created` may only change filesystem creation time, so
     // `set_date_modified_now` records a fallback `raw_modified` value.
     pub(crate) fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
-        let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let timezone: Tz = operational_timezone.parse().unwrap_or(UTC);
         let local_date = date.with_timezone(&timezone);
         self.raw_created = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);
@@ -90,7 +91,7 @@ impl FrontMatter {
 
     // `set_date_modified` fills missing `date_modified` values.
     pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
-        let timezone: Tz = operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+        let timezone: Tz = operational_timezone.parse().unwrap_or(UTC);
         let local_date = date.with_timezone(&timezone);
         self.raw_modified = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);

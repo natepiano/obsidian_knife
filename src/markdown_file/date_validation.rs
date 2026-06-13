@@ -10,6 +10,7 @@ use chrono::NaiveDate;
 use chrono::TimeZone;
 use chrono::Utc;
 use chrono_tz::Tz;
+use chrono_tz::UTC;
 
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DOUBLE_QUOTE;
@@ -106,8 +107,7 @@ impl DateCreatedFixValidation {
             };
 
             let naive_date = NaiveDate::parse_from_str(date.trim(), FORMAT_DATE).ok()?;
-            let timezone: Tz =
-                operational_timezone.parse().unwrap_or(chrono_tz::UTC);
+            let timezone: Tz = operational_timezone.parse().unwrap_or(UTC);
             let naive_datetime = naive_date.and_hms_opt(NOON_HOUR, 0, 0)?;
 
             let fixed_date = timezone
