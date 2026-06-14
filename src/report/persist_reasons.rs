@@ -27,13 +27,13 @@ use crate::constants::REASON;
 use crate::constants::REPORT_CHUNK_SIZE;
 use crate::constants::UPDATE;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::markdown_file::DateValidation;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::validated_config::ValidatedConfig;
 
 pub(super) struct PersistReasonsTable;

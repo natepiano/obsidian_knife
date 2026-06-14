@@ -16,6 +16,7 @@ mod markdown_file;
 mod markdown_files;
 mod obsidian_repository;
 mod output_file_writer;
+mod phrase;
 mod report;
 mod run;
 mod sha256_cache;

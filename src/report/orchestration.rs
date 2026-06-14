@@ -1,17 +1,11 @@
 use std::error::Error;
-use std::path::Path;
 
 use chrono::Local;
 use chrono::Utc;
 
-use super::constants::HIGHLIGHT_CLOSE_TAG;
-use super::constants::HIGHLIGHT_EXTRA_TAG_CAPACITY_MULTIPLIER;
-use super::constants::HIGHLIGHT_OPEN_TAG;
-use super::constants::INVALID_UTF8_BOUNDARY_DETECTED;
 use crate::constants::BACK_POPULATE;
 use crate::constants::BACK_POPULATE_FILE_FILTER_PREFIX;
 use crate::constants::BACK_POPULATE_FILE_FILTER_SUFFIX;
-use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FORMAT_TIME_STAMP;
 use crate::constants::IMAGES;
 use crate::constants::IN_CHANGESET;
@@ -19,8 +13,6 @@ use crate::constants::LEVEL1;
 use crate::constants::MODE_APPLY_CHANGES;
 use crate::constants::MODE_APPLY_CHANGES_OFF;
 use crate::constants::OF;
-use crate::constants::OPENING_WIKILINK;
-use crate::constants::PIPE;
 use crate::constants::YAML_APPLY_CHANGES;
 use crate::constants::YAML_FALSE;
 use crate::constants::YAML_FILE_LIMIT;
@@ -29,13 +21,13 @@ use crate::constants::YAML_TIMESTAMP_LOCAL;
 use crate::constants::YAML_TIMESTAMP_UTC;
 use crate::constants::YAML_TRUE;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
@@ -244,38 +236,4 @@ fn write_back_populate_report_header(
     }
 
     Ok(())
-}
-
-pub(super) fn format_wikilink(path: &Path, obsidian_path: &Path) -> String {
-    let relative_path = path.strip_prefix(obsidian_path).unwrap_or(path);
-    let display_name = path.file_stem().unwrap_or_default().to_string_lossy();
-
-    let path_display = relative_path.display();
-    format!("{OPENING_WIKILINK}{path_display}\\{PIPE}{display_name}{CLOSING_WIKILINK}")
-}
-
-pub(super) fn highlight_matches(text: &str, positions: &[usize], match_length: usize) -> String {
-    let mut result = String::with_capacity(text.len() * HIGHLIGHT_EXTRA_TAG_CAPACITY_MULTIPLIER);
-    let mut last_end = 0;
-
-    let mut sorted_positions = positions.to_vec();
-    sorted_positions.sort_unstable();
-
-    for &start in &sorted_positions {
-        let end = start + match_length;
-
-        if !text.is_char_boundary(start) || !text.is_char_boundary(end) {
-            eprintln!("{INVALID_UTF8_BOUNDARY_DETECTED} {start} or {end}");
-            return text.to_string();
-        }
-
-        result.push_str(&text[last_end..start]);
-        result.push_str(HIGHLIGHT_OPEN_TAG);
-        result.push_str(&text[start..end]);
-        result.push_str(HIGHLIGHT_CLOSE_TAG);
-        last_end = end;
-    }
-
-    result.push_str(&text[last_end..]);
-    result
 }

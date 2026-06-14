@@ -11,7 +11,6 @@ use anyhow::Result as AnyhowResult;
 
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
-use super::orchestration;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
@@ -29,11 +28,11 @@ use crate::constants::REFERENCES_TO;
 use crate::constants::TEXT;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::markdown_file::BackPopulateMatch;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
@@ -86,7 +85,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
                 .unwrap_or_default();
 
             let highlighted_line =
-                orchestration::highlight_matches(&line_text, &positions, self.display_text.len());
+                support::highlight_matches(&line_text, &positions, self.display_text.len());
 
             rows.push(vec![
                 file_stem.to_wikilink(),

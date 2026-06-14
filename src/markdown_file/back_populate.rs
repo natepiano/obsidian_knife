@@ -3,13 +3,19 @@ use std::ffi::OsStr;
 use aho_corasick::AhoCorasick;
 
 use super::MarkdownFile;
-use super::matching;
+use super::constants::APOSTROPHE;
+use super::constants::MAX_OBSIDIAN_LINK_PIPE_COUNT;
+use super::constants::RIGHT_SINGLE_QUOTATION_MARK;
+use super::constants::T_LOWER;
+use super::constants::T_UPPER;
+use super::constants::UNDERSCORE;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use super::text_excluder::CodeBlockExcluder;
 use super::text_excluder::InlineCodeExcluder;
 use crate::constants::ESCAPED_PIPE;
 use crate::constants::PIPE;
+use crate::constants::SPACE;
 use crate::support;
 use crate::support::MARKDOWN_REGEX;
 use crate::validated_config::ValidatedConfig;
@@ -101,12 +107,12 @@ impl MarkdownFile {
             let starts_at = match_result.start();
             let ends_at = match_result.end();
 
-            if matching::range_overlaps(&exclusion_zones, starts_at, ends_at) {
+            if range_overlaps(&exclusion_zones, starts_at, ends_at) {
                 continue;
             }
 
             let matched_text = &line[starts_at..ends_at];
-            if !matching::is_word_boundary(line, starts_at, ends_at) {
+            if !is_word_boundary(line, starts_at, ends_at) {
                 continue;
             }
 
@@ -117,7 +123,7 @@ impl MarkdownFile {
                     wikilink.target.to_aliased_wikilink(matched_text)
                 };
 
-                let match_context = if matching::is_in_markdown_table(line, matched_text) {
+                let match_context = if is_in_markdown_table(line, matched_text) {
                     MatchContext::MarkdownTable
                 } else {
                     MatchContext::Plaintext
@@ -195,7 +201,7 @@ impl MarkdownFile {
             exclusion_zones.push((markdown_link_match.start(), markdown_link_match.end()));
         }
 
-        // matching::range_overlaps expects spans ordered by start byte.
+        // `range_overlaps` expects spans ordered by start byte.
         exclusion_zones.sort_by_key(|&(start, _)| start);
         exclusion_zones
     }
@@ -227,6 +233,52 @@ impl MarkdownFile {
     }
 }
 
+fn is_word_boundary(line: &str, starts_at: usize, ends_at: usize) -> bool {
+    // Word characters match Rust alphanumerics plus UNDERSCORE.
+    fn is_word_char(ch: char) -> bool { ch.is_alphanumeric() || ch == UNDERSCORE }
+
+    // T-contractions block a word boundary after apostrophe+t.
+    fn is_t_contraction(chars: &str) -> bool {
+        let mut chars = chars.chars();
+        matches!(
+            (chars.next(), chars.next()),
+            (
+                Some(APOSTROPHE | RIGHT_SINGLE_QUOTATION_MARK),
+                Some(T_LOWER | T_UPPER)
+            )
+        )
+    }
+
+    // before and after_chars provide the neighbor characters for boundary checks.
+    let before = line[..starts_at].chars().last();
+    let after_chars = &line[ends_at..];
+
+    let start_is_boundary = starts_at == 0 || before.is_none_or(|ch| !is_word_char(ch));
+
+    // Possessive suffixes remain valid replacement candidates.
+    let end_is_boundary = ends_at == line.len()
+        || (!is_word_char(after_chars.chars().next().unwrap_or(SPACE))
+            && !is_t_contraction(after_chars));
+
+    start_is_boundary && end_is_boundary
+}
+
+fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
+    ranges.iter().any(|&(r_start, r_end)| {
+        (start >= r_start && start < r_end)
+            || (end > r_start && end <= r_end)
+            || (start <= r_start && end >= r_end)
+    })
+}
+
+fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
+    let trimmed = line.trim();
+    trimmed.starts_with(PIPE)
+        && trimmed.ends_with(PIPE)
+        && trimmed.matches(PIPE).count() > MAX_OBSIDIAN_LINK_PIPE_COUNT
+        && trimmed.contains(matched_text)
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -235,11 +287,14 @@ impl MarkdownFile {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::collections::HashSet;
+    use std::ffi::OsStr;
     use std::slice;
 
     use tempfile::TempDir;
 
     use crate::constants::DEFAULT_TIMEZONE;
+    use crate::constants::MARKDOWN_EXTENSION;
     use crate::markdown_file::BackPopulateMatch;
     use crate::markdown_file::MarkdownFile;
     use crate::markdown_file::MatchContext;
@@ -249,7 +304,296 @@ mod tests {
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
+    use crate::wikilink;
+    use crate::wikilink::InvalidWikilinkReason;
     use crate::wikilink::Wikilink;
+
+    #[test]
+    fn test_find_matches_with_existing_wikilinks() {
+        let content = "[[Some Link]] and Test Link in same line\n\
+       Test Link [[Other Link]] Test Link mixed\n\
+       This don't match\n\
+       This don't match either\n\
+       But this Test Link should match";
+
+        let (_temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, None, Some(content));
+
+        // Find matches - this now stores them in repository.markdown_files
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `matches` stores results from the first and only markdown file.
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
+
+        // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
+        assert_eq!(
+            matches.unambiguous.len(),
+            4,
+            "Mismatch in number of matches"
+        );
+
+        // Verify that the matches are at the expected positions
+        let expected_lines = vec![5, 6, 6, 9];
+        let actual_lines: Vec<usize> = matches.unambiguous.iter().map(|m| m.line_number).collect();
+        assert_eq!(
+            actual_lines, expected_lines,
+            "Mismatch in line numbers of matches"
+        );
+    }
+
+    #[test]
+    fn test_overlapping_wikilink_matches() {
+        let content = "[[Kyriana McCoy|Kyriana]] - Kyri and [[Kalina McCoy|Kali]]";
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target:       "Kyri".to_string(),
+            },
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target:       "Kyriana McCoy".to_string(),
+            },
+        ];
+
+        let (_temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(
+                ChangeMode::DryRun,
+                None,
+                Some(wikilinks),
+                Some(content),
+            );
+
+        // Find matches - this now stores them in repository.markdown_files
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `matches` stores results from the first and only markdown file.
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
+
+        assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
+        assert_eq!(
+            matches.unambiguous[0].position, 28,
+            "Expected match at position 28"
+        );
+    }
+
+    #[test]
+    fn test_is_within_wikilink() {
+        let test_cases = vec![
+            // ASCII cases
+            ("before [[link]] after", 7, false),
+            ("before [[link]] after", 8, false),
+            ("before [[link]] after", 9, true),
+            ("before [[link]] after", 10, true),
+            ("before [[link]] after", 11, true),
+            ("before [[link]] after", 12, true),
+            ("before [[link]] after", 13, false),
+            ("before [[link]] after", 14, false),
+            // Unicode cases
+            ("привет [[ссылка]] текст", 13, false),
+            ("привет [[ссылка]] текст", 14, false),
+            ("привет [[ссылка]] текст", 15, true),
+            ("привет [[ссылка]] текст", 25, true),
+            ("привет [[ссылка]] текст", 27, false),
+            ("привет [[ссылка]] текст", 28, false),
+            ("привет [[ссылка]] текст", 12, false),
+            ("привет [[ссылка]] текст", 29, false),
+        ];
+
+        for (text, pos, expected) in test_cases {
+            assert_eq!(
+                wikilink::is_within_wikilink(text, pos),
+                expected,
+                "Failed for text '{text}' at position {pos}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_markdown_file_with_invalid_wikilinks() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let file_path = TestFileBuilder::new()
+            .with_content(
+                r"# Test File
+[[Valid Link]]
+[[invalid|link|extra]]
+[[unmatched
+[[]]"
+                    .to_string(),
+            )
+            .create(&temp_dir, "test.md");
+
+        let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+        let valid_wikilinks = markdown_file.wikilinks.valid;
+
+        // `valid_wikilinks` includes the file name and inline wikilink.
+        assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
+        assert!(
+            valid_wikilinks
+                .iter()
+                .any(|w| w.display_text == "Valid Link")
+        );
+
+        // `markdown_file.wikilinks.invalid` contains malformed wikilinks.
+        assert_eq!(markdown_file.wikilinks.invalid.len(), 3);
+
+        // Verify specific invalid wikilinks
+        let double_alias = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
+            .expect("Should have a double alias invalid wikilink");
+        assert_eq!(double_alias.content, "[[invalid|link|extra]]");
+
+        let unmatched = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
+            .expect("Should have an unmatched opening invalid wikilink");
+        assert_eq!(unmatched.content, "[[unmatched");
+
+        let empty = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::Empty)
+            .expect("Should have an empty wikilink");
+        assert_eq!(empty.content, "[[]]");
+    }
+
+    #[test]
+    fn test_markdown_file_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let file_path = TestFileBuilder::new()
+            .with_aliases(vec!["Alias One".to_string(), "Second Alias".to_string()])
+            .with_content(
+                r"# Test Note
+
+Here's a [[Simple Link]] and [[Target Page|Display Text]].
+Also linking to [[Alias One]] which is defined in frontmatter."
+                    .to_string(),
+            )
+            .create(&temp_dir, "test_note.md");
+
+        let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+        let wikilinks = markdown_file.wikilinks.valid;
+
+        // Collect unique target-display pairs
+        let wikilink_pairs: HashSet<(String, String)> = wikilinks
+            .iter()
+            .map(|w| (w.target.clone(), w.display_text.clone()))
+            .collect();
+
+        // Updated assertions
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
+            "Should contain filename-based wikilink"
+        );
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "Alias One".to_string())),
+            "Should contain first alias from frontmatter"
+        );
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "Second Alias".to_string())),
+            "Should contain second alias from frontmatter"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Simple Link".to_string(), "Simple Link".to_string())),
+            "Should contain simple wikilink"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Target Page".to_string(), "Display Text".to_string())),
+            "Should contain aliased display text"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Alias One".to_string(), "Alias One".to_string())),
+            "Should contain content wikilink to Alias One"
+        );
+
+        // note Alias One is technically a mistake on the user's part but let's deal with that
+        // with a scan to find wikilinks that target nothing
+        assert_eq!(
+            wikilink_pairs.len(),
+            6,
+            "Should have collected all unique wikilinks including content reference to Alias One"
+        );
+    }
+
+    #[test]
+    fn test_scan_folders_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create first note using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_aliases(vec!["Alias One".to_string()])
+            .with_content("# Note 1\n[[Simple Link]]".to_string())
+            .create(&temp_dir, "note1.md");
+
+        // Create second note using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_aliases(vec!["Alias Two".to_string()])
+            .with_content("# Note 2\n[[Target|Display Text]]\n[[Simple Link]]".to_string())
+            .create(&temp_dir, "note2.md");
+
+        // Create minimal validated config
+        let validated_config = test_support::get_test_validated_config(&temp_dir, None);
+
+        // Scan the folders
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Filter for .md files only and exclude "obsidian knife output" explicitly
+        let wikilinks: HashSet<String> = obsidian_repository
+            .markdown_files
+            .iter()
+            .filter(|markdown_file| {
+                markdown_file.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
+            })
+            .flat_map(|markdown_file| {
+                let markdown_file =
+                    MarkdownFile::new(markdown_file.path.clone(), DEFAULT_TIMEZONE).unwrap();
+                let file_wikilinks = markdown_file.wikilinks.valid;
+                file_wikilinks.into_iter().map(|w| w.display_text)
+            })
+            .filter(|link| link != "obsidian knife output")
+            .collect();
+
+        // Verify expected wikilinks are present
+        assert!(wikilinks.contains("note1"), "Should contain first filename");
+        assert!(
+            wikilinks.contains("note2"),
+            "Should contain second filename"
+        );
+        assert!(
+            wikilinks.contains("Alias One"),
+            "Should contain first alias"
+        );
+        assert!(
+            wikilinks.contains("Alias Two"),
+            "Should contain second alias"
+        );
+        assert!(
+            wikilinks.contains("Simple Link"),
+            "Should contain simple link"
+        );
+        assert!(
+            wikilinks.contains("Display Text"),
+            "Should contain display text from alias"
+        );
+
+        // Verify total count
+        assert_eq!(
+            wikilinks.len(),
+            6,
+            "Should have collected all unique wikilinks"
+        );
+    }
 
     #[test]
     fn test_alias_priority() {

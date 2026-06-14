@@ -14,10 +14,10 @@ use crate::constants::FRONTMATTER_ISSUES;
 use crate::constants::LEVEL1;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 

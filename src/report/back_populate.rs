@@ -8,7 +8,6 @@ use anyhow::Result as AnyhowResult;
 
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
-use super::orchestration;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
@@ -26,12 +25,12 @@ use crate::constants::WIKILINKS;
 use crate::constants::WILL_BE_BACK_POPULATED;
 use crate::constants::WILL_REPLACE_WITH;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MatchContext;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::validated_config::ValidatedConfig;
 use crate::wikilink::ToWikilink;
 
@@ -79,7 +78,7 @@ impl ReportDefinition for BackPopulateTable {
             let file_stem = file_path.file_stem().and_then(OsStr::to_str).unwrap_or("");
 
             for match_line in entry.lines {
-                let highlighted_line = orchestration::highlight_matches(
+                let highlighted_line = support::highlight_matches(
                     &match_line.text,
                     &match_line.positions,
                     self.display_text.len(),

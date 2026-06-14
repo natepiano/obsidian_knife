@@ -7,7 +7,6 @@ use anyhow::Result as AnyhowResult;
 use anyhow::anyhow;
 
 use super::constants::DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED;
-use super::orchestration;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
@@ -39,7 +38,6 @@ use crate::constants::TYPE;
 use crate::constants::UNKNOWN;
 use crate::constants::WILL_DELETE;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::image_file::DeletionStatus;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
@@ -48,6 +46,7 @@ use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ChangeMode;
 use crate::validated_config::ValidatedConfig;
@@ -159,10 +158,8 @@ impl DuplicateImagesTable<'_> {
             .references
             .iter()
             .map(|ref_path| {
-                let file_link = orchestration::format_wikilink(
-                    Path::new(ref_path),
-                    validated_config.obsidian_path(),
-                );
+                let file_link =
+                    support::format_wikilink(Path::new(ref_path), validated_config.obsidian_path());
                 let (line_number, position) = self.resolve_image_position(ref_path, &image.path);
 
                 vec![

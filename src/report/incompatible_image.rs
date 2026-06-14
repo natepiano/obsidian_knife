@@ -6,7 +6,7 @@ use anyhow::anyhow;
 
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED;
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_INVARIANT;
-use super::orchestration;
+use super::support as report_support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
@@ -25,7 +25,6 @@ use crate::constants::TYPE;
 use crate::constants::WILL_DELETE;
 use crate::constants::ZERO_BYTE;
 use crate::description_builder::DescriptionBuilder;
-use crate::description_builder::Phrase;
 use crate::image_file::ImageFile;
 use crate::image_file::ImageFileState;
 use crate::image_file::IncompatibilityReason;
@@ -34,6 +33,7 @@ use crate::markdown_files::MarkdownFiles;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
+use crate::phrase::Phrase;
 use crate::support;
 use crate::support::VecEnumFilter;
 use crate::validated_config::ValidatedConfig;
@@ -106,7 +106,7 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                         .iter()
                         .find(|f| f.path == Path::new(ref_path))
                     {
-                        let file_link = orchestration::format_wikilink(
+                        let file_link = report_support::format_wikilink(
                             Path::new(ref_path),
                             validated_config.obsidian_path(),
                         );
