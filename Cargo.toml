@@ -25,7 +25,7 @@ derive_more = { version = "2", features = [
   "into_iterator",
 ] }
 filetime = "0.2.29"
-itertools = "0.14.0"
+itertools = "0.15.0"
 rayon = "1.12.0"
 regex = "1.12.4"
 serde = { version = "1.0.228", features = ["derive"] }
