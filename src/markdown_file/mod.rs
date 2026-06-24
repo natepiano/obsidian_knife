@@ -347,21 +347,16 @@ mod tests {
     use tempfile::TempDir;
 
     use super::BackPopulateMatch;
-    use super::ImageLink;
     use super::MarkdownFile;
     use super::MatchContext;
     use super::PersistReason;
     use super::date_validation::DateValidationIssue;
-    use super::image_link::ImageLinkTarget;
-    use super::image_link::ImageLinkType;
-    use super::image_link::ImageRendering;
     use crate::constants::DEFAULT_TIMEZONE;
     use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
     use crate::constants::PERSIST_REQUIRES_RAW_DATE_MODIFIED;
     use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
     use crate::constants::YAML_OPENING_DELIMITER;
     use crate::markdown_files::MarkdownFiles;
-    use crate::support::IMAGE_REGEX;
     use crate::test_support;
     use crate::test_support as test_utils;
     use crate::test_support::AliasExpectation;
@@ -1026,96 +1021,6 @@ mod tests {
                 .iter()
                 .any(|link| link.filename == "another.jpg")
         );
-    }
-
-    #[derive(Debug)]
-    struct ImageLinkTestCase {
-        input:     &'static str,
-        filename:  &'static str,
-        link_type: ImageLinkType,
-    }
-
-    impl ImageLinkTestCase {
-        const fn new(
-            input: &'static str,
-            filename: &'static str,
-            link_type: ImageLinkType,
-        ) -> Self {
-            Self {
-                input,
-                filename,
-                link_type,
-            }
-        }
-    }
-
-    #[test]
-    fn test_image_link_types() {
-        let test_cases = [
-            // Wikilinks
-            ImageLinkTestCase::new(
-                "![[image.png]]",
-                "image.png",
-                ImageLinkType::Wiki(ImageRendering::Embedded),
-            ),
-            ImageLinkTestCase::new(
-                "[[image.jpg]]",
-                "image.jpg",
-                ImageLinkType::Wiki(ImageRendering::Linked),
-            ),
-            ImageLinkTestCase::new(
-                "![[image.png|alt text]]",
-                "image.png",
-                ImageLinkType::Wiki(ImageRendering::Embedded),
-            ),
-            // Markdown Internal Links
-            ImageLinkTestCase::new(
-                "![alt](image.png)",
-                "image.png",
-                ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageRendering::Embedded),
-            ),
-            ImageLinkTestCase::new(
-                "[alt](image.jpg)",
-                "image.jpg",
-                ImageLinkType::Markdown(ImageLinkTarget::Internal, ImageRendering::Linked),
-            ),
-            // Markdown External Links
-            ImageLinkTestCase::new(
-                "![alt](https://example.com/image.png)",
-                "https://example.com/image.png",
-                ImageLinkType::Markdown(ImageLinkTarget::External, ImageRendering::Embedded),
-            ),
-            ImageLinkTestCase::new(
-                "[alt](https://example.com/image.jpg)",
-                "https://example.com/image.jpg",
-                ImageLinkType::Markdown(ImageLinkTarget::External, ImageRendering::Linked),
-            ),
-        ];
-
-        for case in &test_cases {
-            let captures = IMAGE_REGEX.captures(case.input).unwrap_or_else(|| {
-                panic!("Regex failed to match valid image link: {}", case.input)
-            });
-
-            let raw_image_link = captures
-                .get(0)
-                .unwrap_or_else(|| panic!("Failed to get capture group for: {}", case.input))
-                .as_str();
-
-            // Add line number 1 and position 0 as test defaults
-            let image_link = ImageLink::new(raw_image_link.to_string(), 1, 0).unwrap();
-
-            assert_eq!(
-                image_link.filename, case.filename,
-                "Filename mismatch for input: {}",
-                case.input
-            );
-            assert_eq!(
-                image_link.link_type, case.link_type,
-                "ImageLinkType mismatch for input: {}",
-                case.input
-            );
-        }
     }
 
     #[test]
