@@ -3,9 +3,15 @@ use std::path::PathBuf;
 use super::ImageFileState;
 use super::ImageFileType;
 use super::ImageHash;
-use super::ImageRole;
 use super::IncompatibilityReason;
 use crate::constants::EMPTY_FILE_SIZE_BYTES;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ImageRole {
+    Unique,
+    Duplicate,
+    Original,
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ReferencePresence {

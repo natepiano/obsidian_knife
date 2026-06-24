@@ -1,6 +1,5 @@
 mod initial_state;
 
-use std::error::Error;
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
@@ -9,9 +8,7 @@ use std::fs;
 use std::io;
 use std::path::PathBuf;
 
-use derive_more::Deref;
-use derive_more::DerefMut;
-use derive_more::IntoIterator;
+pub(crate) use initial_state::ImageRole;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -23,6 +20,7 @@ use crate::constants::TIF_EXTENSION;
 use crate::constants::TIFF_EXTENSION;
 use crate::constants::UNKNOWN;
 use crate::constants::WEBP_EXTENSION;
+pub(crate) use crate::image_files::ImageFiles;
 use crate::support::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
@@ -45,13 +43,6 @@ pub(crate) enum DeletionStatus {
     #[default]
     Keep,
     Delete,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) enum ImageRole {
-    Unique,
-    Duplicate,
-    Original,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -149,33 +140,6 @@ impl EnumFilter for ImageFile {
     type EnumType = ImageFileState;
 
     fn as_enum(&self) -> &Self::EnumType { &self.state }
-}
-
-#[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub(crate) struct ImageFiles {
-    #[deref]
-    #[deref_mut]
-    #[into_iterator]
-    pub(super) images: Vec<ImageFile>,
-}
-
-impl FromIterator<ImageFile> for ImageFiles {
-    fn from_iter<I: IntoIterator<Item = ImageFile>>(iter: I) -> Self {
-        Self {
-            images: iter.into_iter().collect(),
-        }
-    }
-}
-
-impl ImageFiles {
-    pub(crate) fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
-        self.images
-            .iter()
-            .filter(|file| file.deletion_status == DeletionStatus::Delete)
-            .try_for_each(|file| fs::remove_file(&file.path))?;
-
-        Ok(())
-    }
 }
 
 #[cfg(test)]
