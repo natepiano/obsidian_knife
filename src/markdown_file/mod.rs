@@ -334,7 +334,6 @@ impl MarkdownFile {
 #[allow(
     clippy::unwrap_used,
     clippy::expect_used,
-    clippy::panic,
     reason = "tests should panic on unexpected values"
 )]
 mod tests {

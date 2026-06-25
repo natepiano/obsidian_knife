@@ -16,14 +16,6 @@ pub(crate) struct ImageFiles {
     pub(super) images: Vec<ImageFile>,
 }
 
-impl FromIterator<ImageFile> for ImageFiles {
-    fn from_iter<I: IntoIterator<Item = ImageFile>>(iter: I) -> Self {
-        Self {
-            images: iter.into_iter().collect(),
-        }
-    }
-}
-
 impl ImageFiles {
     pub(crate) fn delete_marked(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         self.images
@@ -32,5 +24,13 @@ impl ImageFiles {
             .try_for_each(|file| fs::remove_file(&file.path))?;
 
         Ok(())
+    }
+}
+
+impl FromIterator<ImageFile> for ImageFiles {
+    fn from_iter<I: IntoIterator<Item = ImageFile>>(iter: I) -> Self {
+        Self {
+            images: iter.into_iter().collect(),
+        }
     }
 }
