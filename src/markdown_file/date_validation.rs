@@ -154,7 +154,7 @@ pub(super) fn get_date_validations(
 
     // skip when the create date has a `date_created_fix` in place, we don't need to validate as
     // it's moot
-    let [created_validation, modified_validation] =
+    let [created_date_validation, modified_date_validation] =
         dates.map(|(frontmatter_date, file_system_date)| {
             let issue = get_date_validation_issue(
                 frontmatter_date.as_deref(),
@@ -169,7 +169,7 @@ pub(super) fn get_date_validations(
             }
         });
 
-    Ok([created_validation, modified_validation].into())
+    Ok([created_date_validation, modified_date_validation].into())
 }
 
 pub(super) fn get_date_validation_issue(
@@ -237,8 +237,8 @@ pub(super) fn is_valid_date(date_str: &str) -> bool {
 
 pub(super) fn process_date_validations(
     frontmatter: &mut Option<FrontMatter>,
-    created_validation: &DateValidation,
-    modified_validation: &DateValidation,
+    created_date_validation: &DateValidation,
+    modified_date_validation: &DateValidation,
     date_created_fix_validation: &DateCreatedFixValidation,
     operational_timezone: &str,
 ) -> Vec<PersistReason> {
@@ -262,18 +262,19 @@ pub(super) fn process_date_validations(
         }
 
         // `DateCreatedUpdated` records a created-date repair.
-        if let Some(ref issue) = created_validation.issue
+        if let Some(ref issue) = created_date_validation.issue
             && created_date_update == CreatedDateUpdate::IfInvalid
         {
-            frontmatter.set_date_created(created_validation.file_system, operational_timezone);
+            frontmatter.set_date_created(created_date_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateCreatedUpdated {
                 reason: issue.clone(),
             });
         }
 
         // `DateModifiedUpdated` records a modified-date repair.
-        if let Some(ref issue) = modified_validation.issue {
-            frontmatter.set_date_modified(modified_validation.file_system, operational_timezone);
+        if let Some(ref issue) = modified_date_validation.issue {
+            frontmatter
+                .set_date_modified(modified_date_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
                 reason: issue.clone(),
             });
@@ -558,8 +559,8 @@ mod tests {
                 case.created.as_deref(),
             ));
 
-            // `created_validation` and `modified_validation` mirror production checks.
-            let created_validation = DateValidation {
+            // `created_date_validation` and `modified_date_validation` mirror production checks.
+            let created_date_validation = DateValidation {
                 frontmatter:          case.created.clone(), // Add clone here
                 file_system:          case.file_system.created,
                 issue:                date_validation::get_date_validation_issue(
@@ -570,7 +571,7 @@ mod tests {
                 operational_timezone: DEFAULT_TIMEZONE.to_string(),
             };
 
-            let modified_validation = DateValidation {
+            let modified_date_validation = DateValidation {
                 frontmatter:          case.modified.clone(), // Add clone here
                 file_system:          case.file_system.modified,
                 issue:                date_validation::get_date_validation_issue(
@@ -584,8 +585,8 @@ mod tests {
             // Process validations
             date_validation::process_date_validations(
                 &mut frontmatter,
-                &created_validation,
-                &modified_validation,
+                &created_date_validation,
+                &modified_date_validation,
                 &DateCreatedFixValidation::default(),
                 DEFAULT_TIMEZONE,
             );
@@ -697,7 +698,7 @@ mod tests {
                     Some(eastern_date_wikilink(2024, 1, 15)),
                     Some(eastern_date_wikilink(2024, 1, 15)),
                 )
-                .with_fs_dates(test_date, test_date)
+                .with_file_system_dates(test_date, test_date)
                 .with_date_created_fix(case.fix_input.clone())
                 .create(&temp_dir, "test1.md");
 
@@ -793,23 +794,23 @@ mod tests {
             let temp_dir = TempDir::new().unwrap();
             let file_path = TestFileBuilder::new()
                 .with_frontmatter_dates(case.created.clone(), case.modified.clone())
-                .with_fs_dates(case.file_system.created, case.file_system.modified)
+                .with_file_system_dates(case.file_system.created, case.file_system.modified)
                 .create(&temp_dir, "test.md");
 
             let frontmatter = create_frontmatter(case.modified.as_deref(), case.created.as_deref());
-            let (created_validation, modified_validation) =
+            let (created_date_validation, modified_date_validation) =
                 date_validation::get_date_validations(Some(&frontmatter), &file_path, timezone)
                     .unwrap();
 
             test_utils::assert_test_case(
-                created_validation.issue,
+                created_date_validation.issue,
                 case.issues.created,
                 &format!("{} - created date validation", case.name),
                 |actual, expected| assert_eq!(actual, expected),
             );
 
             test_utils::assert_test_case(
-                modified_validation.issue,
+                modified_date_validation.issue,
                 case.issues.modified,
                 &format!("{} - modified date validation", case.name),
                 |actual, expected| assert_eq!(actual, expected),
@@ -833,7 +834,7 @@ mod tests {
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_fs_dates(late_night_time, late_night_time)
+            .with_file_system_dates(late_night_time, late_night_time)
             // bare date (no wikilink) on purpose — exercises the non-wikilink fix input path
             .with_date_created_fix(Some("2024-01-16".to_string()))
             .create(&temp_dir, "test1.md");

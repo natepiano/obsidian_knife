@@ -157,10 +157,13 @@ impl DuplicateImagesTable<'_> {
         image
             .references
             .iter()
-            .map(|ref_path| {
-                let file_link =
-                    support::format_wikilink(Path::new(ref_path), validated_config.obsidian_path());
-                let (line_number, position) = self.resolve_image_position(ref_path, &image.path);
+            .map(|reference_path| {
+                let file_link = support::format_wikilink(
+                    Path::new(reference_path),
+                    validated_config.obsidian_path(),
+                );
+                let (line_number, position) =
+                    self.resolve_image_position(reference_path, &image.path);
 
                 vec![
                     thumbnail.clone(),
@@ -215,10 +218,10 @@ impl DuplicateImagesTable<'_> {
         }
     }
 
-    fn resolve_image_position(&self, ref_path: &Path, image_path: &Path) -> (String, String) {
+    fn resolve_image_position(&self, reference_path: &Path, image_path: &Path) -> (String, String) {
         self.markdown_files
             .iter()
-            .find(|f| f.path == ref_path)
+            .find(|f| f.path == reference_path)
             .and_then(|markdown_file| {
                 let filename = image_path
                     .file_name()

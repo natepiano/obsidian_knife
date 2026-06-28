@@ -412,7 +412,7 @@ mod tests {
                 "# Test\n![[missing.jpg]]\nSome content\n![Another](also_missing.jpg)".to_string(),
             )
             .with_matching_dates(test_date)
-            .with_fs_dates(test_date, test_date)
+            .with_file_system_dates(test_date, test_date)
             .create(&temp_dir, "test.md");
 
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
@@ -622,7 +622,7 @@ mod tests {
         let markdown_file_path = TestFileBuilder::new()
             .with_content("# Test\n![[[[Some File]]]]".to_string())
             .with_matching_dates(test_date)
-            .with_fs_dates(test_date, test_date)
+            .with_file_system_dates(test_date, test_date)
             .create(&temp_dir, "test_file.md");
 
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();

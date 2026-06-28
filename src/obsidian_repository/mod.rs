@@ -554,7 +554,7 @@ Nate was here and so was Nate"
                         Some(format!("[[{}-01-01]]", 2023 - i)),
                         Some(format!("[[{}-01-01]]", 2023 - i)),
                     )
-                    .with_fs_dates(created_utc, modified_utc)
+                    .with_file_system_dates(created_utc, modified_utc)
                     .create(temp_dir, &format!("test_{i}.md"));
 
                 test_utils::get_test_markdown_file(file)
@@ -824,7 +824,7 @@ date_modified: 2024-01-01
 
         TestFileBuilder::new()
             .with_frontmatter_dates(created, modified)
-            .with_fs_dates(
+            .with_file_system_dates(
                 case.initial.file_system.created,
                 case.initial.file_system.modified,
             )
@@ -1215,7 +1215,7 @@ date_modified: 2024-01-01
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_fs_dates(base_date, base_date)
+            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test1.md");
 
         let mut obsidian_repository = ObsidianRepository::default();
@@ -1267,14 +1267,14 @@ date_modified: 2024-01-01
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_fs_dates(base_date, base_date)
+            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test1.md");
         let file_path2 = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_fs_dates(base_date, base_date)
+            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test2.md");
 
         let mut obsidian_repository = ObsidianRepository::default();
@@ -1325,7 +1325,7 @@ date_modified: 2024-01-01
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_fs_dates(base_date, base_date)
+            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test.md");
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path);

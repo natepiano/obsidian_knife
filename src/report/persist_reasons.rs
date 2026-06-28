@@ -40,15 +40,15 @@ pub(super) struct PersistReasonsTable;
 
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
-    back_populate_count:   usize,
-    date_created_fix:      Option<(String, String)>,
-    created_validation:    Option<(String, String)>, // (before, after)
-    modified_validation:   Option<(String, String)>,
-    full_path:             PathBuf, //for sorting
-    image_reference_count: usize,
-    parent_path:           String,
-    reason:                PersistReason,
-    wikilink:              String,
+    back_populate_count:      usize,
+    date_created_fix:         Option<(String, String)>,
+    created_date_validation:  Option<(String, String)>, // (before, after)
+    modified_date_validation: Option<(String, String)>,
+    full_path:                PathBuf, //for sorting
+    image_reference_count:    usize,
+    parent_path:              String,
+    reason:                   PersistReason,
+    wikilink:                 String,
 }
 
 impl ReportDefinition for PersistReasonsTable {
@@ -77,11 +77,13 @@ impl ReportDefinition for PersistReasonsTable {
             .map(|item| {
                 let (before, after, reason_info) = match &item.reason {
                     PersistReason::DateCreatedUpdated { reason } => {
-                        let (before, after) = item.created_validation.clone().unwrap_or_default();
+                        let (before, after) =
+                            item.created_date_validation.clone().unwrap_or_default();
                         (before, after, reason.to_string())
                     },
                     PersistReason::DateModifiedUpdated { reason } => {
-                        let (before, after) = item.modified_validation.clone().unwrap_or_default();
+                        let (before, after) =
+                            item.modified_date_validation.clone().unwrap_or_default();
                         (before, after, reason.to_string())
                     },
                     PersistReason::DateCreatedFixApplied => {
@@ -212,15 +214,15 @@ impl ObsidianRepository {
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
             .count();
 
-        let created_validation = Some(Self::format_date_validation(
-            &markdown_file.created_validation,
+        let created_date_validation = Some(Self::format_date_validation(
+            &markdown_file.created_date_validation,
         ));
-        let modified_validation = Some(Self::format_date_validation(
-            &markdown_file.modified_validation,
+        let modified_date_validation = Some(Self::format_date_validation(
+            &markdown_file.modified_date_validation,
         ));
         let date_created_fix = Some({
             let formatted_date = markdown_file
-                .created_validation
+                .created_date_validation
                 .operational_file_system_date()
                 .format(FORMAT_DATE);
             let fixed_formatted = markdown_file
@@ -247,19 +249,19 @@ impl ObsidianRepository {
                 back_populate_count,
                 image_reference_count,
                 parent_path: parent_path.clone(),
-                created_validation: created_validation.clone(),
-                modified_validation: modified_validation.clone(),
+                created_date_validation: created_date_validation.clone(),
+                modified_date_validation: modified_date_validation.clone(),
                 date_created_fix: date_created_fix.clone(),
             })
             .collect()
     }
 
-    fn format_date_validation(validation: &DateValidation) -> (String, String) {
-        let formatted_date = validation
+    fn format_date_validation(date_validation: &DateValidation) -> (String, String) {
+        let formatted_date = date_validation
             .operational_file_system_date()
             .format(FORMAT_DATE);
         (
-            validation.frontmatter.clone().unwrap_or_default(),
+            date_validation.frontmatter.clone().unwrap_or_default(),
             format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
         )
     }

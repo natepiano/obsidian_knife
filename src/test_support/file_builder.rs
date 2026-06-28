@@ -92,7 +92,11 @@ impl TestFileBuilder {
         self
     }
 
-    pub fn with_fs_dates(mut self, created: DateTime<Utc>, modified: DateTime<Utc>) -> Self {
+    pub fn with_file_system_dates(
+        mut self,
+        created: DateTime<Utc>,
+        modified: DateTime<Utc>,
+    ) -> Self {
         self.file_system_dates.created = created;
         self.file_system_dates.modified = modified;
         self

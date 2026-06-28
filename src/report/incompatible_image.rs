@@ -99,15 +99,15 @@ impl ReportDefinition for IncompatibleImagesReport<'_> {
                     String::new(),
                 ]);
             } else {
-                for ref_path in &image.references {
+                for reference_path in &image.references {
                     // `markdown_file` supplies the folder and wikilink columns for the row.
                     if let Some(markdown_file) = self
                         .markdown_files
                         .iter()
-                        .find(|f| f.path == Path::new(ref_path))
+                        .find(|f| f.path == Path::new(reference_path))
                     {
                         let file_link = report_support::format_wikilink(
-                            Path::new(ref_path),
+                            Path::new(reference_path),
                             validated_config.obsidian_path(),
                         );
 
@@ -187,11 +187,11 @@ impl ObsidianRepository {
             // `would_have_rows` mirrors `IncompatibleImagesReport::build_rows` filtering.
             let would_have_rows = incompatible_images.iter().any(|image| {
                 image.references.is_empty()
-                    || image.references.iter().any(|ref_path| {
+                    || image.references.iter().any(|reference_path| {
                         self.markdown_files
                             .files_to_persist()
                             .iter()
-                            .any(|f| f.path == Path::new(ref_path))
+                            .any(|f| f.path == Path::new(reference_path))
                     })
             });
 
