@@ -916,7 +916,8 @@ date_modified: 2024-01-01
         let test_cases = create_test_cases();
 
         for case in test_cases {
-            // temp_dir needs to go out of scope each time for the file to be cleaned up
+            // Each loop iteration scopes its own `TempDir` so file cleanup runs before the next
+            // case.
             let temp_dir = TempDir::new()?;
             let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
 
@@ -1184,7 +1185,7 @@ date_modified: 2024-01-01
                 .expect("cache file should deserialize to a JSON object");
             assert!(cache.is_empty(), "Cache should be empty after cleanup");
 
-            // temp_dir will be dropped here
+            // Exiting this block drops `TempDir` and removes the cached repository files.
         }
 
         // Try to create a new temp dir with the same path

@@ -44,141 +44,6 @@ pub struct ParsedExtractedWikilinks {
     pub invalid: Vec<ParsedInvalidWikilink>,
 }
 
-pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
-    potential_wikilink.is_some_and(|test_wikilink| {
-        test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
-    })
-}
-
-pub fn create_filename_wikilink(filename: &str) -> Wikilink {
-    let display_text = filename
-        .strip_suffix(MARKDOWN_SUFFIX)
-        .unwrap_or(filename)
-        .to_string();
-
-    Wikilink {
-        display_text: display_text.clone(),
-        target:       display_text,
-    }
-}
-
-pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
-    let mut extracted_wikilinks = ParsedExtractedWikilinks::default();
-    let mut inline_code_excluder = InlineCodeExcluder::new();
-
-    parse_special_patterns(line, &mut extracted_wikilinks);
-
-    let mut chars = line.char_indices().peekable();
-    let mut markdown_opening: Option<usize> = None;
-    let mut last_position: usize = 0;
-
-    while let Some((start_idx, ch)) = chars.next() {
-        // InlineCodeExcluder suppresses wikilink parsing inside inline code.
-        inline_code_excluder.update(ch);
-
-        if inline_code_excluder.is_in_code_block() {
-            continue;
-        }
-
-        // BACKSLASH consumes the next char before wikilink parsing.
-        if ch == BACKSLASH {
-            chars.next();
-            continue;
-        }
-
-        // InvalidWikilinkReason::UnmatchedClosing records stray closing brackets.
-        if ch == CLOSING_BRACKET && is_next_char(&mut chars, CLOSING_BRACKET) {
-            let content = line[last_position..(start_idx + CLOSING_WIKILINK.len())].to_string();
-            extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-                content,
-                reason: InvalidWikilinkReason::UnmatchedClosing,
-                span: (last_position, start_idx + CLOSING_WIKILINK.len()),
-            });
-            markdown_opening = None;
-            last_position = start_idx + CLOSING_WIKILINK.len();
-            continue;
-        }
-
-        // A single CLOSING_BRACKET clears markdown-link tracking.
-        if ch == CLOSING_BRACKET {
-            markdown_opening = None;
-        }
-
-        if ch == OPENING_BRACKET {
-            if is_next_char(&mut chars, OPENING_BRACKET) {
-                // `markdown_opening` becomes a `ParsedInvalidWikilink` before the wikilink.
-                if let Some(start_position) = markdown_opening {
-                    let content_slice = line[start_position..start_idx].trim();
-                    extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-                        content: content_slice.to_string(),
-                        reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-                        span:    (start_position, start_position + content_slice.len()),
-                    });
-                    markdown_opening = None;
-                }
-
-                // `IMAGE_EMBED_MARKER` sets the `is_image` flag.
-                let is_image =
-                    start_idx > 0 && is_previous_char(line, start_idx, IMAGE_EMBED_MARKER);
-
-                // Still parse the wikilink normally
-                if let Some(wikilink_result) = parse_wikilink(&mut chars) {
-                    match wikilink_result {
-                        WikilinkParseResult::Valid(wikilink) => {
-                            // Non-image wikilinks are stored in `extracted_wikilinks.valid`.
-                            if !is_image {
-                                extracted_wikilinks.valid.push(wikilink);
-                            }
-                            if let Some((position, _)) = chars.peek() {
-                                last_position = *position;
-                            }
-                        },
-                        WikilinkParseResult::Invalid(invalid) => {
-                            extracted_wikilinks.invalid.push(invalid);
-                        },
-                    }
-                }
-            } else {
-                // `markdown_opening` records a possible markdown link opening bracket.
-                if let Some(start_position) = markdown_opening {
-                    let between = &line[start_position..start_idx];
-                    // `[!` between brackets is a `[![` markdown clickable image, not invalid
-                    if between != MARKDOWN_CLICKABLE_IMAGE_PREFIX {
-                        let content_slice = between.trim();
-                        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-                            content: content_slice.to_string(),
-                            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-                            span:    (start_position, start_position + content_slice.len()),
-                        });
-                    }
-                }
-                markdown_opening = Some(start_idx);
-            }
-        }
-    }
-
-    // `markdown_opening` reports `InvalidWikilinkReason::UnmatchedMarkdownLinkOpening`.
-    if let Some(start_position) = markdown_opening {
-        let content_slice = line[start_position..].trim();
-        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-            content: content_slice.to_string(),
-            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
-            span:    (start_position, start_position + content_slice.len()),
-        });
-    }
-
-    // `InlineCodeExcluder::is_inside` reports `InvalidWikilinkReason::UnclosedInlineCode`.
-    if inline_code_excluder.is_inside() {
-        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
-            content: line[last_position..].to_string(),
-            reason:  InvalidWikilinkReason::UnclosedInlineCode,
-            span:    (last_position, line.len()),
-        });
-    }
-
-    extracted_wikilinks
-}
-
 impl ParsedInvalidWikilink {
     pub fn into_invalid_wikilink(self, line: String, line_number: usize) -> InvalidWikilink {
         InvalidWikilink {
@@ -188,38 +53,6 @@ impl ParsedInvalidWikilink {
             line,
             line_number,
         }
-    }
-}
-
-fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
-    // EMAIL_REGEX marks email addresses as InvalidWikilinkReason::EmailAddress.
-    let reason = InvalidWikilinkReason::EmailAddress;
-    let regex = &EMAIL_REGEX;
-
-    add_special_patterns(line, result, reason, regex);
-
-    let reason = InvalidWikilinkReason::RawHttpLink;
-    let regex = &RAW_HTTP_REGEX;
-    add_special_patterns(line, result, reason, regex);
-
-    // TAG_REGEX marks tags as InvalidWikilinkReason::Tag.
-    let reason = InvalidWikilinkReason::Tag;
-    let regex = &TAG_REGEX;
-    add_special_patterns(line, result, reason, regex);
-}
-
-fn add_special_patterns(
-    line: &str,
-    result: &mut ParsedExtractedWikilinks,
-    reason: InvalidWikilinkReason,
-    regex: &Regex,
-) {
-    for regex_match in regex.find_iter(line) {
-        result.invalid.push(ParsedInvalidWikilink {
-            content: regex_match.as_str().trim().to_string(),
-            reason,
-            span: (regex_match.start(), regex_match.end()),
-        });
     }
 }
 
@@ -358,6 +191,173 @@ impl WikilinkState {
                 })
             },
         }
+    }
+}
+
+pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
+    potential_wikilink.is_some_and(|test_wikilink| {
+        test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
+    })
+}
+
+pub fn create_filename_wikilink(filename: &str) -> Wikilink {
+    let display_text = filename
+        .strip_suffix(MARKDOWN_SUFFIX)
+        .unwrap_or(filename)
+        .to_string();
+
+    Wikilink {
+        display_text: display_text.clone(),
+        target:       display_text,
+    }
+}
+
+pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
+    let mut extracted_wikilinks = ParsedExtractedWikilinks::default();
+    let mut inline_code_excluder = InlineCodeExcluder::new();
+
+    parse_special_patterns(line, &mut extracted_wikilinks);
+
+    let mut chars = line.char_indices().peekable();
+    let mut markdown_opening: Option<usize> = None;
+    let mut last_position: usize = 0;
+
+    while let Some((start_idx, ch)) = chars.next() {
+        // InlineCodeExcluder suppresses wikilink parsing inside inline code.
+        inline_code_excluder.update(ch);
+
+        if inline_code_excluder.is_in_code_block() {
+            continue;
+        }
+
+        // BACKSLASH consumes the next char before wikilink parsing.
+        if ch == BACKSLASH {
+            chars.next();
+            continue;
+        }
+
+        // InvalidWikilinkReason::UnmatchedClosing records stray closing brackets.
+        if ch == CLOSING_BRACKET && is_next_char(&mut chars, CLOSING_BRACKET) {
+            let content = line[last_position..(start_idx + CLOSING_WIKILINK.len())].to_string();
+            extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+                content,
+                reason: InvalidWikilinkReason::UnmatchedClosing,
+                span: (last_position, start_idx + CLOSING_WIKILINK.len()),
+            });
+            markdown_opening = None;
+            last_position = start_idx + CLOSING_WIKILINK.len();
+            continue;
+        }
+
+        // A single CLOSING_BRACKET clears markdown-link tracking.
+        if ch == CLOSING_BRACKET {
+            markdown_opening = None;
+        }
+
+        if ch == OPENING_BRACKET {
+            if is_next_char(&mut chars, OPENING_BRACKET) {
+                // `markdown_opening` becomes a `ParsedInvalidWikilink` before the wikilink.
+                if let Some(start_position) = markdown_opening {
+                    let content_slice = line[start_position..start_idx].trim();
+                    extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+                        content: content_slice.to_string(),
+                        reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+                        span:    (start_position, start_position + content_slice.len()),
+                    });
+                    markdown_opening = None;
+                }
+
+                // `IMAGE_EMBED_MARKER` sets the `is_image` flag.
+                let is_image =
+                    start_idx > 0 && is_previous_char(line, start_idx, IMAGE_EMBED_MARKER);
+
+                // Still parse the wikilink normally
+                if let Some(wikilink_result) = parse_wikilink(&mut chars) {
+                    match wikilink_result {
+                        WikilinkParseResult::Valid(wikilink) => {
+                            // Non-image wikilinks are stored in `extracted_wikilinks.valid`.
+                            if !is_image {
+                                extracted_wikilinks.valid.push(wikilink);
+                            }
+                            if let Some((position, _)) = chars.peek() {
+                                last_position = *position;
+                            }
+                        },
+                        WikilinkParseResult::Invalid(invalid) => {
+                            extracted_wikilinks.invalid.push(invalid);
+                        },
+                    }
+                }
+            } else {
+                // `markdown_opening` records a possible markdown link opening bracket.
+                if let Some(start_position) = markdown_opening {
+                    let between = &line[start_position..start_idx];
+                    // `[!` between brackets is a `[![` markdown clickable image, not invalid
+                    if between != MARKDOWN_CLICKABLE_IMAGE_PREFIX {
+                        let content_slice = between.trim();
+                        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+                            content: content_slice.to_string(),
+                            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+                            span:    (start_position, start_position + content_slice.len()),
+                        });
+                    }
+                }
+                markdown_opening = Some(start_idx);
+            }
+        }
+    }
+
+    // `markdown_opening` reports `InvalidWikilinkReason::UnmatchedMarkdownLinkOpening`.
+    if let Some(start_position) = markdown_opening {
+        let content_slice = line[start_position..].trim();
+        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+            content: content_slice.to_string(),
+            reason:  InvalidWikilinkReason::UnmatchedMarkdownLinkOpening,
+            span:    (start_position, start_position + content_slice.len()),
+        });
+    }
+
+    // `InlineCodeExcluder::is_inside` reports `InvalidWikilinkReason::UnclosedInlineCode`.
+    if inline_code_excluder.is_inside() {
+        extracted_wikilinks.invalid.push(ParsedInvalidWikilink {
+            content: line[last_position..].to_string(),
+            reason:  InvalidWikilinkReason::UnclosedInlineCode,
+            span:    (last_position, line.len()),
+        });
+    }
+
+    extracted_wikilinks
+}
+
+fn parse_special_patterns(line: &str, result: &mut ParsedExtractedWikilinks) {
+    // EMAIL_REGEX marks email addresses as InvalidWikilinkReason::EmailAddress.
+    let reason = InvalidWikilinkReason::EmailAddress;
+    let regex = &EMAIL_REGEX;
+
+    add_special_patterns(line, result, reason, regex);
+
+    let reason = InvalidWikilinkReason::RawHttpLink;
+    let regex = &RAW_HTTP_REGEX;
+    add_special_patterns(line, result, reason, regex);
+
+    // TAG_REGEX marks tags as InvalidWikilinkReason::Tag.
+    let reason = InvalidWikilinkReason::Tag;
+    let regex = &TAG_REGEX;
+    add_special_patterns(line, result, reason, regex);
+}
+
+fn add_special_patterns(
+    line: &str,
+    result: &mut ParsedExtractedWikilinks,
+    reason: InvalidWikilinkReason,
+    regex: &Regex,
+) {
+    for regex_match in regex.find_iter(line) {
+        result.invalid.push(ParsedInvalidWikilink {
+            content: regex_match.as_str().trim().to_string(),
+            reason,
+            span: (regex_match.start(), regex_match.end()),
+        });
     }
 }
 

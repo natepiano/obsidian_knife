@@ -947,7 +947,7 @@ Also linking to [[Alias One]] which is defined in frontmatter."
                     display_text: "Test Link".to_string(),
                     target:       "Test Link".to_string(),
                 },
-                // careful - these must match the order returned by process_line
+                // `TestCase::expected_matches` follows the order returned by `process_line`.
                 expected_matches: vec![
                     ("test link", "[[Test Link|test link]]"),
                     ("TEST LINK", "[[Test Link|TEST LINK]]"),

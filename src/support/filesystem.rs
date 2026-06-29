@@ -42,6 +42,11 @@ use crate::constants::TILDE;
 use crate::constants::TILDE_SLASH;
 use crate::validated_config::ValidatedConfig;
 
+pub struct RepositoryFiles {
+    pub images:   Vec<PathBuf>,
+    pub markdown: Vec<PathBuf>,
+}
+
 pub fn read_contents_from_file(path: &Path) -> Result<String, Box<dyn Error + Send + Sync>> {
     let contents = fs::read_to_string(path).map_err(|e| -> Box<dyn Error + Send + Sync> {
         if e.kind() == ErrorKind::NotFound {
@@ -90,11 +95,6 @@ pub(crate) fn format_relative_path(path: &Path, base_path: &Path) -> String {
         .unwrap_or(path)
         .to_string_lossy()
         .into_owned()
-}
-
-pub struct RepositoryFiles {
-    pub images:   Vec<PathBuf>,
-    pub markdown: Vec<PathBuf>,
 }
 
 // `rayon` via `.into_par_iter()` keeps `collect_repository_files` at about 4ms

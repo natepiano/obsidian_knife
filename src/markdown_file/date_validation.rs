@@ -642,7 +642,7 @@ mod tests {
             },
             DateCreatedFixTestCase {
                 name:      "valid date without wikilink",
-                // bare date (no wikilink) on purpose — tests the non-wikilink input path
+                // `DateCreatedFixTestCase::fix_input` stays outside wikilink syntax for this path.
                 fix_input: Some("2024-01-15".to_string()),
                 expected:  DateCreatedFixExpectations {
                     persist: PersistExpectation::Persists,
@@ -835,7 +835,7 @@ mod tests {
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
             .with_file_system_dates(late_night_time, late_night_time)
-            // bare date (no wikilink) on purpose — exercises the non-wikilink fix input path
+            // `TestFileBuilder::with_date_created_fix` receives non-wikilink input here.
             .with_date_created_fix(Some("2024-01-16".to_string()))
             .create(&temp_dir, "test1.md");
 
