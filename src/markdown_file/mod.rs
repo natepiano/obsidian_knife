@@ -341,30 +341,29 @@ impl MarkdownFile {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::collections::HashSet;
     use std::error::Error;
     use std::fs;
     use std::path::Path;
     use std::path::PathBuf;
 
+    use chrono::Utc;
     use filetime::FileTime;
     use tempfile::TempDir;
 
-    use super::BackPopulateMatch;
     use super::MarkdownFile;
-    use super::MatchContext;
     use super::PersistReason;
     use super::date_validation::DateValidationIssue;
     use crate::constants::DEFAULT_TIMEZONE;
+    use crate::constants::ERROR_NOT_FOUND;
     use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
     use crate::constants::PERSIST_REQUIRES_RAW_DATE_MODIFIED;
     use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
     use crate::constants::YAML_OPENING_DELIMITER;
-    use crate::markdown_files::MarkdownFiles;
-    use crate::test_support;
+    use crate::frontmatter::FrontMatter;
     use crate::test_support as test_utils;
     use crate::test_support::AliasExpectation;
     use crate::test_support::TestFileBuilder;
-    use crate::validated_config::ChangeMode;
     use crate::wikilink::InvalidWikilinkReason;
     use crate::wikilink::Wikilink;
 
@@ -827,6 +826,177 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn test_markdown_file_with_invalid_wikilinks() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let file_path = TestFileBuilder::new()
+            .with_content(
+                r"# Test File
+[[Valid Link]]
+[[invalid|link|extra]]
+[[unmatched
+[[]]"
+                    .to_string(),
+            )
+            .create(&temp_dir, "test.md");
+
+        let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+        let valid_wikilinks = markdown_file.wikilinks.valid;
+
+        // `valid_wikilinks` includes the file name and inline wikilink.
+        assert_eq!(valid_wikilinks.len(), 2); // file name and "Valid Link"
+        assert!(
+            valid_wikilinks
+                .iter()
+                .any(|w| w.display_text == "Valid Link")
+        );
+
+        // `markdown_file.wikilinks.invalid` contains malformed wikilinks.
+        assert_eq!(markdown_file.wikilinks.invalid.len(), 3);
+
+        // Verify specific invalid wikilinks
+        let double_alias = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::DoubleAlias)
+            .expect("Should have a double alias invalid wikilink");
+        assert_eq!(double_alias.content, "[[invalid|link|extra]]");
+
+        let unmatched = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::UnmatchedOpening)
+            .expect("Should have an unmatched opening invalid wikilink");
+        assert_eq!(unmatched.content, "[[unmatched");
+
+        let empty = markdown_file
+            .wikilinks
+            .invalid
+            .iter()
+            .find(|w| w.reason == InvalidWikilinkReason::Empty)
+            .expect("Should have an empty wikilink");
+        assert_eq!(empty.content, "[[]]");
+    }
+
+    #[test]
+    fn test_markdown_file_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        let file_path = TestFileBuilder::new()
+            .with_aliases(vec!["Alias One".to_string(), "Second Alias".to_string()])
+            .with_content(
+                r"# Test Note
+
+Here's a [[Simple Link]] and [[Target Page|Display Text]].
+Also linking to [[Alias One]] which is defined in frontmatter."
+                    .to_string(),
+            )
+            .create(&temp_dir, "test_note.md");
+
+        let markdown_file = MarkdownFile::new(file_path, DEFAULT_TIMEZONE).unwrap();
+        let wikilinks = markdown_file.wikilinks.valid;
+
+        // Collect unique target-display pairs
+        let wikilink_pairs: HashSet<(String, String)> = wikilinks
+            .iter()
+            .map(|w| (w.target.clone(), w.display_text.clone()))
+            .collect();
+
+        // Updated assertions
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
+            "Should contain filename-based wikilink"
+        );
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "Alias One".to_string())),
+            "Should contain first alias from frontmatter"
+        );
+        assert!(
+            wikilink_pairs.contains(&("test_note".to_string(), "Second Alias".to_string())),
+            "Should contain second alias from frontmatter"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Simple Link".to_string(), "Simple Link".to_string())),
+            "Should contain simple wikilink"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Target Page".to_string(), "Display Text".to_string())),
+            "Should contain aliased display text"
+        );
+        assert!(
+            wikilink_pairs.contains(&("Alias One".to_string(), "Alias One".to_string())),
+            "Should contain content wikilink to Alias One"
+        );
+
+        // note Alias One is technically a mistake on the user's part but let's deal with that
+        // with a scan to find wikilinks that target nothing
+        assert_eq!(
+            wikilink_pairs.len(),
+            6,
+            "Should have collected all unique wikilinks including content reference to Alias One"
+        );
+    }
+
+    #[test]
+    fn test_config_file_not_found() {
+        let nonexistent_path = PathBuf::from("nonexistent/config.md");
+        let result = MarkdownFile::new(nonexistent_path.clone(), DEFAULT_TIMEZONE);
+
+        assert!(result.is_err());
+        assert!(result.unwrap_err().to_string().contains(&format!(
+            "{}{}",
+            ERROR_NOT_FOUND,
+            nonexistent_path.display()
+        )));
+    }
+
+    #[test]
+    #[cfg_attr(
+        target_os = "linux",
+        ignore = "requires filesystem access unavailable on Linux CI"
+    )]
+    fn test_update_modified_uses_current_date() {
+        let temp_dir = TempDir::new().unwrap();
+        let base_date = test_utils::eastern_midnight(2024, 1, 15);
+
+        let file_path = TestFileBuilder::new()
+            .with_frontmatter_dates(
+                Some(test_utils::frontmatter_date_wikilink(base_date)),
+                Some(test_utils::frontmatter_date_wikilink(base_date)),
+            )
+            .with_file_system_dates(base_date, base_date)
+            .create(&temp_dir, "test.md");
+
+        let mut markdown_file = test_utils::get_test_markdown_file(file_path);
+
+        // Use the actual mark_image_reference_as_updated method
+        markdown_file
+            .mark_image_reference_as_updated(DEFAULT_TIMEZONE)
+            .unwrap();
+
+        // `modified_date` stores the updated frontmatter date.
+        let modified_date = markdown_file
+            .frontmatter
+            .as_ref()
+            .and_then(FrontMatter::date_modified)
+            .expect("Should have a modified date");
+
+        // `today` uses the same wikilink format as the frontmatter date.
+        let today = test_utils::frontmatter_date_wikilink(Utc::now());
+
+        assert_eq!(
+            modified_date, &today,
+            "Modified date should be today's date"
+        );
+        assert!(
+            markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
+            "needs_persist should be true"
+        );
+    }
+
     fn assert_contains_wikilink(
         wikilinks: &[Wikilink],
         target: &str,
@@ -1024,183 +1194,5 @@ mod tests {
                 .iter()
                 .any(|link| link.filename == "another.jpg")
         );
-    }
-
-    #[test]
-    fn test_should_create_match_in_table() {
-        // Set up the test environment
-        let (temp_dir, validated_config, _) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
-        let file_path = temp_dir.path().join("test.md");
-
-        let markdown_file =
-            MarkdownFile::new(file_path, validated_config.operational_timezone()).unwrap();
-
-        // Test simple table cell match
-        assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
-
-        // Test match in table with existing wikilinks
-        assert!(markdown_file.should_create_match("| Test Link | [[Other]] |", 2, "Test Link",));
-    }
-
-    #[test]
-    fn test_back_populate_content() {
-        // Initialize environment with `apply_changes` set to true
-        let (temp_dir, validated_config, mut obsidian_repository) =
-            test_support::create_test_environment(ChangeMode::Apply, None, None, None);
-
-        let test_cases = vec![(
-            "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
-            vec![BackPopulateMatch {
-                relative_path: "test.md".into(),
-                line_number:   4,
-                line_text:     "|Test Link|Sample text|".into(),
-                found_text:    "Test Link".into(),
-                replacement:   "[[Test Link\\|Another Name]]".into(),
-                position:      1,
-                match_context: MatchContext::MarkdownTable,
-            }],
-            "Table content replacement",
-        )];
-
-        for (content, matches, description) in test_cases {
-            // Create and populate the test file
-            let file = TestFileBuilder::new()
-                .with_content(content.to_string())
-                .with_title("test".to_string())
-                .create(&temp_dir, "test.md");
-
-            // Prepare markdown info and repository state
-            let markdown_file = {
-                let mut markdown_file =
-                    MarkdownFile::new(file.clone(), validated_config.operational_timezone())
-                        .unwrap();
-                markdown_file.content = content.to_string();
-                markdown_file.back_populate_matches.unambiguous = matches.clone();
-                markdown_file
-            };
-
-            obsidian_repository.markdown_files = MarkdownFiles::new(vec![markdown_file], None);
-
-            // Apply back-populate changes
-            obsidian_repository
-                .apply_replaceable_matches(validated_config.operational_timezone())
-                .unwrap();
-
-            // `file.content` contains the back-populate replacements.
-            if let Some(file) = obsidian_repository
-                .markdown_files
-                .iter()
-                .find(|f| f.path == file)
-            {
-                for match_info in &matches {
-                    assert!(
-                        file.content.contains(&match_info.replacement),
-                        "Failed for: {}\nReplacement '{}' not found in content:\n{}",
-                        description,
-                        match_info.replacement,
-                        file.content
-                    );
-                }
-            }
-        }
-    }
-
-    #[test]
-    fn test_process_line_table_escaping_combined() {
-        // Define multiple wikilinks
-        let wikilinks = vec![
-            Wikilink {
-                display_text: "Another Link".to_string(),
-                target:       "Other Page".to_string(),
-            },
-            Wikilink {
-                display_text: "Test Link".to_string(),
-                target:       "Target Page".to_string(),
-            },
-        ];
-
-        // Initialize environment with custom wikilinks
-        let (temp_dir, validated_config, obsidian_repository) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
-
-        // Compile the wikilinks
-        let sorted_wikilinks = &obsidian_repository.wikilinks_sorted;
-
-        let automaton = test_support::build_aho_corasick(sorted_wikilinks);
-
-        let markdown_file = obsidian_repository.markdown_files.first().unwrap();
-
-        // Define test cases with different table formats and expected replacements
-        let test_cases = vec![
-            (
-                "| Test Link | Another Link | description |",
-                vec![
-                    "[[Target Page\\|Test Link]]",
-                    "[[Other Page\\|Another Link]]",
-                ],
-                "Multiple matches in one row",
-            ),
-            (
-                "| prefix Test Link suffix | Another Link |",
-                vec![
-                    "[[Target Page\\|Test Link]]",
-                    "[[Other Page\\|Another Link]]",
-                ],
-                "Table cells with surrounding text",
-            ),
-            (
-                "| column1 | Test Link | Another Link |",
-                vec![
-                    "[[Target Page\\|Test Link]]",
-                    "[[Other Page\\|Another Link]]",
-                ],
-                "Different column positions",
-            ),
-            (
-                "| Test Link | description | Another Link |",
-                vec![
-                    "[[Target Page\\|Test Link]]",
-                    "[[Other Page\\|Another Link]]",
-                ],
-                "Multiple replacements in different columns",
-            ),
-        ];
-
-        // Create references to the compiled wikilinks
-        let wikilink_refs: Vec<&Wikilink> = sorted_wikilinks.iter().collect();
-        for (line, expected_replacements, description) in test_cases {
-            // Create test file using `TestFileBuilder`
-            let _ = TestFileBuilder::new()
-                .with_title("test".to_string())
-                .with_content(line.to_string())
-                .create(&temp_dir, "test.md");
-
-            let matches = markdown_file.process_line_for_back_populate_replacements(
-                line,
-                0,
-                &automaton,
-                &wikilink_refs,
-                &validated_config,
-            );
-
-            assert_eq!(
-                matches.len(),
-                expected_replacements.len(),
-                "Incorrect number of replacements for: {description}"
-            );
-
-            for (match_info, expected) in matches.iter().zip(expected_replacements.iter()) {
-                assert_eq!(
-                    match_info.replacement, *expected,
-                    "Incorrect replacement for: {description}"
-                );
-                assert_eq!(
-                    match_info.match_context,
-                    MatchContext::MarkdownTable,
-                    "Should be marked as in table for: {description}"
-                );
-            }
-        }
     }
 }

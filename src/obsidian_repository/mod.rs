@@ -157,6 +157,7 @@ impl ObsidianRepository {
 mod tests {
     use std::cmp::Ordering;
     use std::collections::HashMap;
+    use std::collections::HashSet;
     use std::error::Error;
     use std::ffi::OsStr;
     use std::fs;
@@ -183,349 +184,20 @@ mod tests {
     use crate::constants::CACHE_FOLDER;
     use crate::constants::DEFAULT_TIMEZONE;
     use crate::constants::FORMAT_DATE;
-    use crate::frontmatter::FrontMatter;
+    use crate::constants::MARKDOWN_EXTENSION;
     use crate::image_file::ImageFile;
     use crate::image_file::ImageFileState;
     use crate::image_file::ImageFiles;
     use crate::image_file::IncompatibilityReason;
-    use crate::markdown_file::BackPopulateMatch;
     use crate::markdown_file::ImageLink;
     use crate::markdown_file::MarkdownFile;
-    use crate::markdown_file::MatchContext;
     use crate::markdown_file::PersistReason;
     use crate::test_support;
     use crate::test_support as test_utils;
     use crate::test_support::PersistExpectation;
     use crate::test_support::TestFileBuilder;
-    use crate::validated_config::ChangeMode;
     use crate::validated_config::ValidatedConfig;
     use crate::validated_config::ValidatedConfigBuilder;
-    use crate::wikilink::Wikilink;
-
-    #[test]
-    fn test_identify_ambiguous_matches() {
-        let (temp_dir, validated_config, mut obsidian_repository) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
-
-        // Set up aliases that make "Ed" ambiguous
-        obsidian_repository.wikilinks_sorted = vec![
-            Wikilink {
-                display_text: "Ed".to_string(),
-                target:       "Ed Barnes".to_string(),
-            },
-            Wikilink {
-                display_text: "Ed".to_string(),
-                target:       "Ed Stanfield".to_string(),
-            },
-            Wikilink {
-                display_text: "Unique".to_string(),
-                target:       "Unique Target".to_string(),
-            },
-        ];
-
-        // Create test files
-        TestFileBuilder::new()
-            .with_content("Ed wrote this")
-            .create(&temp_dir, "test1.md");
-
-        TestFileBuilder::new()
-            .with_content("Unique wrote this")
-            .create(&temp_dir, "test2.md");
-
-        // Set up initial matches in test1.md
-        let mut test_file = MarkdownFile::new(
-            temp_dir.path().join("test1.md"),
-            validated_config.operational_timezone(),
-        )
-        .unwrap();
-        test_file.back_populate_matches.unambiguous = vec![BackPopulateMatch {
-            relative_path: "test1.md".to_string(),
-            line_number:   1,
-            line_text:     "Ed wrote this".to_string(),
-            found_text:    "Ed".to_string(),
-            replacement:   "[[Ed Barnes|Ed]]".to_string(),
-            position:      0,
-            match_context: MatchContext::Plaintext,
-        }];
-
-        // Set up initial matches in test2.md
-        let mut test_file2 = MarkdownFile::new(
-            temp_dir.path().join("test2.md"),
-            validated_config.operational_timezone(),
-        )
-        .unwrap();
-        test_file2.back_populate_matches.unambiguous = vec![BackPopulateMatch {
-            relative_path: "test2.md".to_string(),
-            line_number:   1,
-            line_text:     "Unique wrote this".to_string(),
-            found_text:    "Unique".to_string(),
-            replacement:   "[[Unique Target]]".to_string(),
-            position:      0,
-            match_context: MatchContext::Plaintext,
-        }];
-
-        obsidian_repository.markdown_files.push(test_file2);
-        obsidian_repository.markdown_files.push(test_file);
-
-        obsidian_repository.identify_ambiguous_matches();
-
-        // Find test1.md to check its matches
-        let test_file = obsidian_repository
-            .markdown_files
-            .iter()
-            .find(|f| f.path.ends_with("test1.md"))
-            .expect("Should find test1.md");
-
-        // Verify match was moved from unambiguous to ambiguous
-        assert!(
-            !test_file.has_unambiguous_matches(),
-            "Ed match should be removed from unambiguous"
-        );
-        assert_eq!(
-            test_file.back_populate_matches.ambiguous.len(),
-            1,
-            "Ed match should be moved to ambiguous"
-        );
-        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
-        assert_eq!(ambiguous_match.found_text, "Ed");
-        assert_eq!(ambiguous_match.line_text, "Ed wrote this");
-
-        // Verify unambiguous match for "Unique" remains unchanged
-        let test_file2 = obsidian_repository
-            .markdown_files
-            .iter()
-            .find(|f| f.path.ends_with("test2.md"))
-            .expect("Should find test2.md");
-        assert_eq!(
-            test_file2.back_populate_matches.unambiguous.len(),
-            1,
-            "Should have one unambiguous match"
-        );
-        assert_eq!(
-            test_file2.back_populate_matches.unambiguous[0].found_text,
-            "Unique"
-        );
-        assert!(
-            !test_file2.has_ambiguous_matches(),
-            "Should have no ambiguous matches"
-        );
-    }
-
-    #[test]
-    fn test_truly_ambiguous_targets() {
-        let (temp_dir, validated_config, _) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
-
-        // Create the test files using `TestFileBuilder`
-        TestFileBuilder::new()
-            .with_content("Amazon is huge")
-            .create(&temp_dir, "test1.md");
-
-        TestFileBuilder::new()
-            .with_content("# Amazon (company)")
-            .with_title("amazon (company)".to_string())
-            .with_aliases(vec!["Amazon".to_string()])
-            .create(&temp_dir, "Amazon (company).md");
-
-        TestFileBuilder::new()
-            .with_content("# Amazon (river)")
-            .with_title("amazon (river)".to_string())
-            .with_aliases(vec!["Amazon".to_string()])
-            .create(&temp_dir, "Amazon (river).md");
-
-        // Let `ObsidianRepository::new` find all the files and process them.
-        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
-
-        // Find test1.md again and verify final state
-        let test_file = obsidian_repository
-            .markdown_files
-            .iter()
-            .find(|f| f.path.ends_with("test1.md"))
-            .expect("Should find test1.md");
-
-        // Verify the match was moved to ambiguous
-        assert!(
-            !test_file.has_unambiguous_matches(),
-            "All matches should be moved from unambiguous"
-        );
-        assert_eq!(
-            test_file.back_populate_matches.ambiguous.len(),
-            1,
-            "Should have one match in ambiguous"
-        );
-
-        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
-        assert_eq!(ambiguous_match.found_text, "Amazon");
-        assert_eq!(ambiguous_match.line_text, "Amazon is huge");
-    }
-
-    #[test]
-    fn test_mixed_case_and_truly_ambiguous() {
-        let (temp_dir, validated_config, _) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
-
-        // Create test files for case variations
-        TestFileBuilder::new()
-            .with_content("# AWS")
-            .with_title("aws".to_string())
-            .create(&temp_dir, "AWS.md");
-
-        TestFileBuilder::new()
-            .with_content("# aws")
-            .with_title("aws".to_string())
-            .create(&temp_dir, "aws.md");
-
-        // Create test files for truly ambiguous targets
-        TestFileBuilder::new()
-            .with_content("# Amazon (company)")
-            .with_title("amazon (company)".to_string())
-            .with_aliases(vec!["Amazon".to_string()])
-            .create(&temp_dir, "Amazon (company).md");
-
-        TestFileBuilder::new()
-            .with_content("# Amazon (river)")
-            .with_title("amazon (river)".to_string())
-            .with_aliases(vec!["Amazon".to_string()])
-            .create(&temp_dir, "Amazon (river).md");
-
-        // Create the test file with both types of matches
-        TestFileBuilder::new()
-            .with_content(
-                r"AWS and aws are the same
-Amazon is ambiguous",
-            )
-            .with_title("Test Document".to_string()) // This adds frontmatter with the title
-            .create(&temp_dir, "test1.md");
-
-        // Let `ObsidianRepository::new` find all the files and process them.
-        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
-
-        // Find test1.md again and verify final state
-        let test_file = obsidian_repository
-            .markdown_files
-            .iter()
-            .find(|f| f.path.ends_with("test1.md"))
-            .expect("Should find test1.md");
-
-        // Verify final state of unambiguous matches
-        assert_eq!(
-            test_file.back_populate_matches.unambiguous.len(),
-            2,
-            "Both AWS case variations should remain as unambiguous"
-        );
-
-        // Verify the remaining matches are both AWS-related
-        let aws_match_count = test_file
-            .back_populate_matches
-            .unambiguous
-            .iter()
-            .filter(|m| m.found_text.to_lowercase() == "aws")
-            .count();
-        assert_eq!(
-            aws_match_count, 2,
-            "Should have both AWS case variations remaining"
-        );
-
-        // Verify Amazon was moved to ambiguous
-        assert_eq!(
-            test_file.back_populate_matches.ambiguous.len(),
-            1,
-            "Should have one ambiguous match"
-        );
-        assert_eq!(
-            test_file.back_populate_matches.ambiguous[0].found_text, "Amazon",
-            "Amazon should be in ambiguous matches"
-        );
-    }
-
-    // This test sets up an **ambiguous alias** (`"Nate"`) mapping to two different targets.
-    // It ensures that the `identify_ambiguous_matches` function correctly **classifies** both
-    // instances of `"Nate"` as **ambiguous**.
-    //
-    // `identify_ambiguous_matches` must handle **both unambiguous and ambiguous
-    // matches simultaneously** without interference. Prior to this, the real-world failure was
-    // that it would find `Karen` as an alias but not `karen` even though we have a
-    // case-insensitive search. The problem with the old test is that when there were no
-    // ambiguous matches, the lowercase `karen` was not getting stripped out and the
-    // test would pass even though the real world failed. In this case we are creating a
-    // more realistic test that has a mix of ambiguous and unambiguous matches.
-    #[test]
-    fn test_combined_ambiguous_and_unambiguous_matches() {
-        let (temp_dir, validated_config, _) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
-
-        // Create the files using `TestFileBuilder`
-        TestFileBuilder::new()
-            .with_content(
-                r"# Reference Page
-Karen is here
-karen is here too
-Nate was here and so was Nate"
-                    .to_string(),
-            )
-            .with_title("reference page".to_string())
-            .create(&temp_dir, "other.md");
-
-        TestFileBuilder::new()
-            .with_content("# Karen McCoy's Page".to_string())
-            .with_title("karen mccoy".to_string())
-            .with_aliases(vec!["Karen".to_string()])
-            .create(&temp_dir, "Karen McCoy.md");
-
-        TestFileBuilder::new()
-            .with_content("# Nate McCoy's Page".to_string())
-            .with_title("nate mccoy".to_string())
-            .with_aliases(vec!["Nate".to_string()])
-            .create(&temp_dir, "Nate McCoy.md");
-
-        TestFileBuilder::new()
-            .with_content("# Nathan Dye's Page".to_string())
-            .with_title("nathan dye".to_string())
-            .with_aliases(vec!["Nate".to_string()])
-            .create(&temp_dir, "Nathan Dye.md");
-
-        // Let `ObsidianRepository::new` find all the files and process them.
-        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
-
-        // Find other.md again and verify final state
-        let other_file = obsidian_repository
-            .markdown_files
-            .iter()
-            .find(|f| f.path.ends_with("other.md"))
-            .expect("Should find other.md");
-
-        // Verify Karen matches remain unambiguous
-        let karen_match_count = other_file
-            .back_populate_matches
-            .unambiguous
-            .iter()
-            .filter(|m| m.found_text.to_lowercase() == "karen")
-            .count();
-        assert_eq!(
-            karen_match_count, 2,
-            "Both Karen case variations should remain as unambiguous"
-        );
-
-        // Verify Nate matches were moved to ambiguous
-        let nate_ambiguous_matches: Vec<_> = other_file
-            .back_populate_matches
-            .ambiguous
-            .iter()
-            .filter(|m| m.found_text == "Nate")
-            .collect();
-        assert_eq!(
-            nate_ambiguous_matches.len(),
-            2,
-            "Should have both Nate matches in ambiguous"
-        );
-
-        // Verify correct line text for Nate matches
-        assert!(
-            nate_ambiguous_matches
-                .iter()
-                .any(|m| m.line_text == "Nate was here and so was Nate")
-        );
-    }
 
     #[derive(Debug)]
     struct FileLimitTestCase {
@@ -1196,6 +868,75 @@ date_modified: 2024-01-01
         );
     }
 
+    #[test]
+    fn test_scan_folders_wikilink_collection() {
+        let temp_dir = TempDir::new().unwrap();
+
+        // Create first note using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_aliases(vec!["Alias One".to_string()])
+            .with_content("# Note 1\n[[Simple Link]]".to_string())
+            .create(&temp_dir, "note1.md");
+
+        // Create second note using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_aliases(vec!["Alias Two".to_string()])
+            .with_content("# Note 2\n[[Target|Display Text]]\n[[Simple Link]]".to_string())
+            .create(&temp_dir, "note2.md");
+
+        // Create minimal validated config
+        let validated_config = test_support::get_test_validated_config(&temp_dir, None);
+
+        // Scan the folders
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Filter for .md files only and exclude "obsidian knife output" explicitly
+        let wikilinks: HashSet<String> = obsidian_repository
+            .markdown_files
+            .iter()
+            .filter(|markdown_file| {
+                markdown_file.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
+            })
+            .flat_map(|markdown_file| {
+                let markdown_file =
+                    MarkdownFile::new(markdown_file.path.clone(), DEFAULT_TIMEZONE).unwrap();
+                let file_wikilinks = markdown_file.wikilinks.valid;
+                file_wikilinks.into_iter().map(|w| w.display_text)
+            })
+            .filter(|link| link != "obsidian knife output")
+            .collect();
+
+        // Verify expected wikilinks are present
+        assert!(wikilinks.contains("note1"), "Should contain first filename");
+        assert!(
+            wikilinks.contains("note2"),
+            "Should contain second filename"
+        );
+        assert!(
+            wikilinks.contains("Alias One"),
+            "Should contain first alias"
+        );
+        assert!(
+            wikilinks.contains("Alias Two"),
+            "Should contain second alias"
+        );
+        assert!(
+            wikilinks.contains("Simple Link"),
+            "Should contain simple link"
+        );
+        assert!(
+            wikilinks.contains("Display Text"),
+            "Should contain display text from alias"
+        );
+
+        // Verify total count
+        assert_eq!(
+            wikilinks.len(),
+            6,
+            "Should have collected all unique wikilinks"
+        );
+    }
+
     fn eastern_date_wikilink(year: i32, month: u32, day: u32) -> String {
         test_utils::frontmatter_date_wikilink(test_utils::eastern_midnight(year, month, day))
     }
@@ -1310,49 +1051,5 @@ date_modified: 2024-01-01
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str())
         );
         assert!(!file2.frontmatter.as_ref().unwrap().needs_persist());
-    }
-
-    #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
-    fn test_update_modified_uses_current_date() {
-        let temp_dir = TempDir::new().unwrap();
-        let base_date = test_utils::eastern_midnight(2024, 1, 15);
-
-        let file_path = TestFileBuilder::new()
-            .with_frontmatter_dates(
-                Some(eastern_date_wikilink(2024, 1, 15)),
-                Some(eastern_date_wikilink(2024, 1, 15)),
-            )
-            .with_file_system_dates(base_date, base_date)
-            .create(&temp_dir, "test.md");
-
-        let mut markdown_file = test_utils::get_test_markdown_file(file_path);
-
-        // Use the actual mark_image_reference_as_updated method
-        markdown_file
-            .mark_image_reference_as_updated(DEFAULT_TIMEZONE)
-            .unwrap();
-
-        // `modified_date` stores the updated frontmatter date.
-        let modified_date = markdown_file
-            .frontmatter
-            .as_ref()
-            .and_then(FrontMatter::date_modified)
-            .expect("Should have a modified date");
-
-        // `today` uses the same wikilink format as the frontmatter date.
-        let today = test_utils::frontmatter_date_wikilink(Utc::now());
-
-        assert_eq!(
-            modified_date, &today,
-            "Modified date should be today's date"
-        );
-        assert!(
-            markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
-            "needs_persist should be true"
-        );
     }
 }

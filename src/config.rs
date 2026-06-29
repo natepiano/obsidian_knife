@@ -147,10 +147,8 @@ mod tests {
     use super::Config;
     use super::ConfiguredChanges;
     use crate::constants::DEFAULT_TIMEZONE;
-    use crate::constants::ERROR_NOT_FOUND;
     use crate::constants::OBSIDIAN_FOLDER;
     use crate::frontmatter::FrontMatter;
-    use crate::markdown_file::MarkdownFile;
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
@@ -272,19 +270,6 @@ cleanup_image_files: true";
 
         assert_eq!(config.obsidian_path, "~/Documents/brain");
         assert_eq!(config.configured_changes, ConfiguredChanges::DryRun);
-    }
-
-    #[test]
-    fn test_config_file_not_found() {
-        let nonexistent_path = PathBuf::from("nonexistent/config.md");
-        let result = MarkdownFile::new(nonexistent_path.clone(), DEFAULT_TIMEZONE);
-
-        assert!(result.is_err());
-        assert!(result.unwrap_err().to_string().contains(&format!(
-            "{}{}",
-            ERROR_NOT_FOUND,
-            nonexistent_path.display()
-        )));
     }
 
     #[test]

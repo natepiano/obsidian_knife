@@ -308,3 +308,759 @@ fn apply_line_replacements(
 }
 
 fn normalize_spaces(text: &str) -> String { text.split_whitespace().collect::<Vec<_>>().join(" ") }
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    reason = "tests should panic on unexpected values"
+)]
+mod tests {
+    use crate::markdown_file::BackPopulateMatch;
+    use crate::markdown_file::MarkdownFile;
+    use crate::markdown_file::MatchContext;
+    use crate::markdown_files::MarkdownFiles;
+    use crate::obsidian_repository::ObsidianRepository;
+    use crate::support;
+    use crate::test_support;
+    use crate::test_support as test_utils;
+    use crate::test_support::TestFileBuilder;
+    use crate::validated_config::ChangeMode;
+    use crate::wikilink::Wikilink;
+    #[test]
+    fn test_identify_ambiguous_matches() {
+        let (temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        // Set up aliases that make "Ed" ambiguous
+        obsidian_repository.wikilinks_sorted = vec![
+            Wikilink {
+                display_text: "Ed".to_string(),
+                target:       "Ed Barnes".to_string(),
+            },
+            Wikilink {
+                display_text: "Ed".to_string(),
+                target:       "Ed Stanfield".to_string(),
+            },
+            Wikilink {
+                display_text: "Unique".to_string(),
+                target:       "Unique Target".to_string(),
+            },
+        ];
+
+        // Create test files
+        TestFileBuilder::new()
+            .with_content("Ed wrote this")
+            .create(&temp_dir, "test1.md");
+
+        TestFileBuilder::new()
+            .with_content("Unique wrote this")
+            .create(&temp_dir, "test2.md");
+
+        // Set up initial matches in test1.md
+        let mut test_file = MarkdownFile::new(
+            temp_dir.path().join("test1.md"),
+            validated_config.operational_timezone(),
+        )
+        .unwrap();
+        test_file.back_populate_matches.unambiguous = vec![BackPopulateMatch {
+            relative_path: "test1.md".to_string(),
+            line_number:   1,
+            line_text:     "Ed wrote this".to_string(),
+            found_text:    "Ed".to_string(),
+            replacement:   "[[Ed Barnes|Ed]]".to_string(),
+            position:      0,
+            match_context: MatchContext::Plaintext,
+        }];
+
+        // Set up initial matches in test2.md
+        let mut test_file2 = MarkdownFile::new(
+            temp_dir.path().join("test2.md"),
+            validated_config.operational_timezone(),
+        )
+        .unwrap();
+        test_file2.back_populate_matches.unambiguous = vec![BackPopulateMatch {
+            relative_path: "test2.md".to_string(),
+            line_number:   1,
+            line_text:     "Unique wrote this".to_string(),
+            found_text:    "Unique".to_string(),
+            replacement:   "[[Unique Target]]".to_string(),
+            position:      0,
+            match_context: MatchContext::Plaintext,
+        }];
+
+        obsidian_repository.markdown_files.push(test_file2);
+        obsidian_repository.markdown_files.push(test_file);
+
+        obsidian_repository.identify_ambiguous_matches();
+
+        // Find test1.md to check its matches
+        let test_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test1.md"))
+            .expect("Should find test1.md");
+
+        // Verify match was moved from unambiguous to ambiguous
+        assert!(
+            !test_file.has_unambiguous_matches(),
+            "Ed match should be removed from unambiguous"
+        );
+        assert_eq!(
+            test_file.back_populate_matches.ambiguous.len(),
+            1,
+            "Ed match should be moved to ambiguous"
+        );
+        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
+        assert_eq!(ambiguous_match.found_text, "Ed");
+        assert_eq!(ambiguous_match.line_text, "Ed wrote this");
+
+        // Verify unambiguous match for "Unique" remains unchanged
+        let test_file2 = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test2.md"))
+            .expect("Should find test2.md");
+        assert_eq!(
+            test_file2.back_populate_matches.unambiguous.len(),
+            1,
+            "Should have one unambiguous match"
+        );
+        assert_eq!(
+            test_file2.back_populate_matches.unambiguous[0].found_text,
+            "Unique"
+        );
+        assert!(
+            !test_file2.has_ambiguous_matches(),
+            "Should have no ambiguous matches"
+        );
+    }
+
+    #[test]
+    fn test_truly_ambiguous_targets() {
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        // Create the test files using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_content("Amazon is huge")
+            .create(&temp_dir, "test1.md");
+
+        TestFileBuilder::new()
+            .with_content("# Amazon (company)")
+            .with_title("amazon (company)".to_string())
+            .with_aliases(vec!["Amazon".to_string()])
+            .create(&temp_dir, "Amazon (company).md");
+
+        TestFileBuilder::new()
+            .with_content("# Amazon (river)")
+            .with_title("amazon (river)".to_string())
+            .with_aliases(vec!["Amazon".to_string()])
+            .create(&temp_dir, "Amazon (river).md");
+
+        // Let `ObsidianRepository::new` find all the files and process them.
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Find test1.md again and verify final state
+        let test_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test1.md"))
+            .expect("Should find test1.md");
+
+        // Verify the match was moved to ambiguous
+        assert!(
+            !test_file.has_unambiguous_matches(),
+            "All matches should be moved from unambiguous"
+        );
+        assert_eq!(
+            test_file.back_populate_matches.ambiguous.len(),
+            1,
+            "Should have one match in ambiguous"
+        );
+
+        let ambiguous_match = &test_file.back_populate_matches.ambiguous[0];
+        assert_eq!(ambiguous_match.found_text, "Amazon");
+        assert_eq!(ambiguous_match.line_text, "Amazon is huge");
+    }
+
+    #[test]
+    fn test_mixed_case_and_truly_ambiguous() {
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        // Create test files for case variations
+        TestFileBuilder::new()
+            .with_content("# AWS")
+            .with_title("aws".to_string())
+            .create(&temp_dir, "AWS.md");
+
+        TestFileBuilder::new()
+            .with_content("# aws")
+            .with_title("aws".to_string())
+            .create(&temp_dir, "aws.md");
+
+        // Create test files for truly ambiguous targets
+        TestFileBuilder::new()
+            .with_content("# Amazon (company)")
+            .with_title("amazon (company)".to_string())
+            .with_aliases(vec!["Amazon".to_string()])
+            .create(&temp_dir, "Amazon (company).md");
+
+        TestFileBuilder::new()
+            .with_content("# Amazon (river)")
+            .with_title("amazon (river)".to_string())
+            .with_aliases(vec!["Amazon".to_string()])
+            .create(&temp_dir, "Amazon (river).md");
+
+        // Create the test file with both types of matches
+        TestFileBuilder::new()
+            .with_content(
+                r"AWS and aws are the same
+Amazon is ambiguous",
+            )
+            .with_title("Test Document".to_string()) // This adds frontmatter with the title
+            .create(&temp_dir, "test1.md");
+
+        // Let `ObsidianRepository::new` find all the files and process them.
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Find test1.md again and verify final state
+        let test_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test1.md"))
+            .expect("Should find test1.md");
+
+        // Verify final state of unambiguous matches
+        assert_eq!(
+            test_file.back_populate_matches.unambiguous.len(),
+            2,
+            "Both AWS case variations should remain as unambiguous"
+        );
+
+        // Verify the remaining matches are both AWS-related
+        let aws_match_count = test_file
+            .back_populate_matches
+            .unambiguous
+            .iter()
+            .filter(|m| m.found_text.to_lowercase() == "aws")
+            .count();
+        assert_eq!(
+            aws_match_count, 2,
+            "Should have both AWS case variations remaining"
+        );
+
+        // Verify Amazon was moved to ambiguous
+        assert_eq!(
+            test_file.back_populate_matches.ambiguous.len(),
+            1,
+            "Should have one ambiguous match"
+        );
+        assert_eq!(
+            test_file.back_populate_matches.ambiguous[0].found_text, "Amazon",
+            "Amazon should be in ambiguous matches"
+        );
+    }
+
+    // This test sets up an **ambiguous alias** (`"Nate"`) mapping to two different targets.
+    // It ensures that the `identify_ambiguous_matches` function correctly **classifies** both
+    // instances of `"Nate"` as **ambiguous**.
+    //
+    // `identify_ambiguous_matches` must handle **both unambiguous and ambiguous
+    // matches simultaneously** without interference. Prior to this, the real-world failure was
+    // that it would find `Karen` as an alias but not `karen` even though we have a
+    // case-insensitive search. The problem with the old test is that when there were no
+    // ambiguous matches, the lowercase `karen` was not getting stripped out and the
+    // test would pass even though the real world failed. In this case we are creating a
+    // more realistic test that has a mix of ambiguous and unambiguous matches.
+    #[test]
+    fn test_combined_ambiguous_and_unambiguous_matches() {
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        // Create the files using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_content(
+                r"# Reference Page
+Karen is here
+karen is here too
+Nate was here and so was Nate"
+                    .to_string(),
+            )
+            .with_title("reference page".to_string())
+            .create(&temp_dir, "other.md");
+
+        TestFileBuilder::new()
+            .with_content("# Karen McCoy's Page".to_string())
+            .with_title("karen mccoy".to_string())
+            .with_aliases(vec!["Karen".to_string()])
+            .create(&temp_dir, "Karen McCoy.md");
+
+        TestFileBuilder::new()
+            .with_content("# Nate McCoy's Page".to_string())
+            .with_title("nate mccoy".to_string())
+            .with_aliases(vec!["Nate".to_string()])
+            .create(&temp_dir, "Nate McCoy.md");
+
+        TestFileBuilder::new()
+            .with_content("# Nathan Dye's Page".to_string())
+            .with_title("nathan dye".to_string())
+            .with_aliases(vec!["Nate".to_string()])
+            .create(&temp_dir, "Nathan Dye.md");
+
+        // Let `ObsidianRepository::new` find all the files and process them.
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Find other.md again and verify final state
+        let other_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("other.md"))
+            .expect("Should find other.md");
+
+        // Verify Karen matches remain unambiguous
+        let karen_match_count = other_file
+            .back_populate_matches
+            .unambiguous
+            .iter()
+            .filter(|m| m.found_text.to_lowercase() == "karen")
+            .count();
+        assert_eq!(
+            karen_match_count, 2,
+            "Both Karen case variations should remain as unambiguous"
+        );
+
+        // Verify Nate matches were moved to ambiguous
+        let nate_ambiguous_matches: Vec<_> = other_file
+            .back_populate_matches
+            .ambiguous
+            .iter()
+            .filter(|m| m.found_text == "Nate")
+            .collect();
+        assert_eq!(
+            nate_ambiguous_matches.len(),
+            2,
+            "Should have both Nate matches in ambiguous"
+        );
+
+        // Verify correct line text for Nate matches
+        assert!(
+            nate_ambiguous_matches
+                .iter()
+                .any(|m| m.line_text == "Nate was here and so was Nate")
+        );
+    }
+
+    #[test]
+    fn test_find_matches_with_existing_wikilinks() {
+        let content = "[[Some Link]] and Test Link in same line\n\
+       Test Link [[Other Link]] Test Link mixed\n\
+       This don't match\n\
+       This don't match either\n\
+       But this Test Link should match";
+
+        let (_temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, None, Some(content));
+
+        // Find matches - this now stores them in repository.markdown_files
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `matches` stores results from the first and only markdown file.
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
+
+        // We expect 4 matches for "Test Link" outside existing wikilinks and contractions
+        assert_eq!(
+            matches.unambiguous.len(),
+            4,
+            "Mismatch in number of matches"
+        );
+
+        // Verify that the matches are at the expected positions
+        let expected_lines = vec![5, 6, 6, 9];
+        let actual_lines: Vec<usize> = matches.unambiguous.iter().map(|m| m.line_number).collect();
+        assert_eq!(
+            actual_lines, expected_lines,
+            "Mismatch in line numbers of matches"
+        );
+    }
+
+    #[test]
+    fn test_overlapping_wikilink_matches() {
+        let content = "[[Kyriana McCoy|Kyriana]] - Kyri and [[Kalina McCoy|Kali]]";
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target:       "Kyri".to_string(),
+            },
+            Wikilink {
+                display_text: "Kyri".to_string(),
+                target:       "Kyriana McCoy".to_string(),
+            },
+        ];
+
+        let (_temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(
+                ChangeMode::DryRun,
+                None,
+                Some(wikilinks),
+                Some(content),
+            );
+
+        // Find matches - this now stores them in repository.markdown_files
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `matches` stores results from the first and only markdown file.
+        let matches = &obsidian_repository.markdown_files[0].back_populate_matches;
+
+        assert_eq!(matches.unambiguous.len(), 1, "Expected exactly one match");
+        assert_eq!(
+            matches.unambiguous[0].position, 28,
+            "Expected match at position 28"
+        );
+    }
+
+    #[test]
+    fn test_alias_priority() {
+        let wikilinks = vec![
+            Wikilink {
+                display_text: "tomatoes".to_string(),
+                target:       "tomato".to_string(),
+            },
+            Wikilink {
+                display_text: "tomatoes".to_string(),
+                target:       "tomatoes".to_string(),
+            },
+        ];
+
+        let (temp_dir, validated_config, mut obsidian_repository) =
+            test_utils::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
+
+        let content = "I love tomatoes in my salad";
+        test_utils::create_markdown_test_file(
+            &temp_dir,
+            "salad.md",
+            content,
+            &mut obsidian_repository,
+        );
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `total_matches` counts unambiguous matches across all files.
+        let total_matches: usize = obsidian_repository
+            .markdown_files
+            .iter()
+            .map(|file| file.back_populate_matches.unambiguous.len())
+            .sum();
+
+        // Verify we got exactly one match
+        assert_eq!(total_matches, 1, "Should find exactly one match");
+
+        // Find the file that has matches
+        let file_with_matches = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|file| file.has_unambiguous_matches())
+            .expect("Should have a file with matches");
+
+        // Verify the match uses the alias form
+        let first_match = &file_with_matches.back_populate_matches.unambiguous[0];
+        assert_eq!(first_match.found_text, "tomatoes");
+        assert_eq!(
+            first_match.replacement, "[[tomato|tomatoes]]",
+            "Should use the alias form [[tomato|tomatoes]] instead of [[tomatoes]]"
+        );
+    }
+
+    #[test]
+    fn test_no_matches_for_frontmatter_aliases() {
+        let (temp_dir, validated_config, mut obsidian_repository) =
+            test_utils::create_test_environment(ChangeMode::DryRun, None, None, None);
+
+        let wikilink = Wikilink {
+            display_text: "Will".to_string(),
+            target:       "William.md".to_string(),
+        };
+
+        obsidian_repository.wikilinks_sorted.clear();
+        obsidian_repository.wikilinks_sorted.push(wikilink);
+        obsidian_repository.wikilinks_automaton = Some(test_utils::build_aho_corasick(
+            &obsidian_repository.wikilinks_sorted,
+        ));
+
+        let content = "Will is mentioned here but should not be replaced";
+        let file_path = TestFileBuilder::new()
+            .with_title("Will".to_string())
+            .with_content(content.to_string())
+            .create(&temp_dir, "Will.md");
+
+        obsidian_repository
+            .markdown_files
+            .push(test_utils::get_test_markdown_file(file_path));
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `total_matches` counts unambiguous matches in the single markdown file.
+        let total_matches: usize = obsidian_repository
+            .markdown_files
+            .iter()
+            .map(|file| file.back_populate_matches.unambiguous.len())
+            .sum();
+
+        assert_eq!(
+            total_matches, 0,
+            "Should not find matches on page's own name"
+        );
+
+        // Test with different file using same text
+        let other_file_path = TestFileBuilder::new()
+            .with_title("Other".to_string())
+            .with_content(content.to_string())
+            .create(&temp_dir, "Other.md");
+
+        obsidian_repository
+            .markdown_files
+            .push(test_utils::get_test_markdown_file(other_file_path));
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `total_matches` includes the additional markdown file.
+        let total_matches: usize = obsidian_repository
+            .markdown_files
+            .iter()
+            .map(|file| file.back_populate_matches.unambiguous.len())
+            .sum();
+
+        assert_eq!(total_matches, 1, "Should find match on other pages");
+    }
+
+    #[test]
+    fn test_no_self_referential_back_population() {
+        let (temp_dir, validated_config, mut obsidian_repository) =
+            test_utils::create_test_environment(ChangeMode::DryRun, None, None, None);
+
+        let wikilink = Wikilink {
+            display_text: "Will".to_string(),
+            target:       "William.md".to_string(),
+        };
+
+        obsidian_repository.wikilinks_sorted.clear();
+        obsidian_repository.wikilinks_sorted.push(wikilink);
+        obsidian_repository.wikilinks_automaton = Some(test_utils::build_aho_corasick(
+            &obsidian_repository.wikilinks_sorted,
+        ));
+
+        let content = "Will is mentioned here but should not be replaced";
+        test_utils::create_markdown_test_file(
+            &temp_dir,
+            "Will.md",
+            content,
+            &mut obsidian_repository,
+        );
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `total_matches` counts unambiguous matches in the single markdown file.
+        let total_matches: usize = obsidian_repository
+            .markdown_files
+            .iter()
+            .map(|file| file.back_populate_matches.unambiguous.len())
+            .sum();
+
+        assert_eq!(
+            total_matches, 0,
+            "Should not find matches on page's own name"
+        );
+
+        let other_file_path = test_utils::create_markdown_test_file(
+            &temp_dir,
+            "Other.md",
+            content,
+            &mut obsidian_repository,
+        );
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // `total_matches` includes the additional markdown file.
+        let total_matches: usize = obsidian_repository
+            .markdown_files
+            .iter()
+            .map(|file| file.back_populate_matches.unambiguous.len())
+            .sum();
+
+        assert_eq!(total_matches, 1, "Should find match on other pages");
+
+        // Find the file with matches and check its path
+        let file_with_matches = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|file| file.has_unambiguous_matches())
+            .expect("Should have a file with matches");
+
+        assert_eq!(
+            support::format_relative_path(
+                &file_with_matches.path,
+                validated_config.obsidian_path(),
+            ),
+            support::format_relative_path(&other_file_path, validated_config.obsidian_path(),),
+            "Match should be in 'Other.md'"
+        );
+    }
+
+    #[test]
+    fn test_apply_changes() {
+        let initial_content = "This is Test Link in a sentence.";
+        let (_temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(
+                ChangeMode::Apply,
+                None,
+                None,
+                Some(initial_content),
+            );
+
+        // First find the matches
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+
+        // Apply the changes
+        obsidian_repository
+            .apply_replaceable_matches(validated_config.operational_timezone())
+            .unwrap();
+
+        // Verify changes by checking `MarkdownFile` content
+        assert_eq!(
+            obsidian_repository.markdown_files[0].content,
+            "This is [[Test Link]] in a sentence."
+        );
+    }
+
+    #[test]
+    fn test_case_insensitive_targets() {
+        // Create test environment
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        // Create test files with case variations using `TestFileBuilder`
+        TestFileBuilder::new()
+            .with_content("# Sample\nAmazon") // Changed to not use "Test" in content
+            .with_title("Sample".to_string()) // Changed from "Test"
+            .create(&temp_dir, "Amazon.md");
+
+        TestFileBuilder::new()
+            .with_content("# Sample Document\nAmazon is huge\namazon is also huge")
+            .with_title("Test Document".to_string()) // This adds frontmatter with the title
+            .create(&temp_dir, "test1.md");
+
+        // Scan folders to populate repository
+        let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        // Find our test file
+        let test_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test1.md"))
+            .expect("Should find test1.md");
+
+        // Verify we found both case variations initially
+        assert_eq!(
+            test_file.back_populate_matches.unambiguous.len(),
+            2,
+            "Should have matches for both case variations"
+        );
+
+        // `identify_ambiguous_matches` moves alias collisions into ambiguous matches.
+        obsidian_repository.identify_ambiguous_matches();
+
+        // Find our test file again after ambiguous matching
+        let test_file = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|f| f.path.ends_with("test1.md"))
+            .expect("Should find test1.md");
+
+        // All matches should remain in the markdown file as unambiguous
+        assert_eq!(
+            test_file.back_populate_matches.unambiguous.len(),
+            2,
+            "Both matches should be considered unambiguous"
+        );
+    }
+
+    #[test]
+    fn test_back_populate_content() {
+        // Initialize environment with `apply_changes` set to true
+        let (temp_dir, validated_config, mut obsidian_repository) =
+            test_support::create_test_environment(ChangeMode::Apply, None, None, None);
+
+        let test_cases = vec![(
+            "# Test Table\n|Name|Description|\n|---|---|\n|Test Link|Sample text|\n",
+            vec![BackPopulateMatch {
+                relative_path: "test.md".into(),
+                line_number:   4,
+                line_text:     "|Test Link|Sample text|".into(),
+                found_text:    "Test Link".into(),
+                replacement:   "[[Test Link\\|Another Name]]".into(),
+                position:      1,
+                match_context: MatchContext::MarkdownTable,
+            }],
+            "Table content replacement",
+        )];
+
+        for (content, matches, description) in test_cases {
+            // Create and populate the test file
+            let file = TestFileBuilder::new()
+                .with_content(content.to_string())
+                .with_title("test".to_string())
+                .create(&temp_dir, "test.md");
+
+            // Prepare markdown info and repository state
+            let markdown_file = {
+                let mut markdown_file =
+                    MarkdownFile::new(file.clone(), validated_config.operational_timezone())
+                        .unwrap();
+                markdown_file.content = content.to_string();
+                markdown_file.back_populate_matches.unambiguous = matches.clone();
+                markdown_file
+            };
+
+            obsidian_repository.markdown_files = MarkdownFiles::new(vec![markdown_file], None);
+
+            // Apply back-populate changes
+            obsidian_repository
+                .apply_replaceable_matches(validated_config.operational_timezone())
+                .unwrap();
+
+            // `file.content` contains the back-populate replacements.
+            if let Some(file) = obsidian_repository
+                .markdown_files
+                .iter()
+                .find(|f| f.path == file)
+            {
+                for match_info in &matches {
+                    assert!(
+                        file.content.contains(&match_info.replacement),
+                        "Failed for: {}\nReplacement '{}' not found in content:\n{}",
+                        description,
+                        match_info.replacement,
+                        file.content
+                    );
+                }
+            }
+        }
+    }
+}

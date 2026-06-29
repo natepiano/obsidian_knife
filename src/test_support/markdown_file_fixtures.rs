@@ -87,3 +87,46 @@ pub fn create_markdown_test_file(
 
     file_path
 }
+
+#[cfg(test)]
+#[allow(clippy::panic, reason = "tests should panic on unexpected values")]
+mod tests {
+    use super::create_test_environment;
+    use crate::validated_config::ChangeMode;
+
+    #[test]
+    fn test_config_creation() {
+        // Basic usage with defaults
+        let (_, basic_config, _) = create_test_environment(ChangeMode::DryRun, None, None, None);
+        assert_eq!(basic_config.change_mode(), ChangeMode::DryRun);
+
+        // With apply_changes set to true
+        let (_, apply_config, _) = create_test_environment(ChangeMode::Apply, None, None, None);
+        assert_eq!(apply_config.change_mode(), ChangeMode::Apply);
+
+        // With do_not_back_populate patterns
+        let patterns = vec!["pattern1".to_string(), "pattern2".to_string()];
+        let (_, pattern_config, _) =
+            create_test_environment(ChangeMode::DryRun, Some(patterns.clone()), None, None);
+        let Some(regexes) = pattern_config.do_not_back_populate_regexes() else {
+            panic!("expected do-not-back-populate regexes")
+        };
+        assert_eq!(regexes.len(), patterns.len());
+        for pattern in &patterns {
+            assert!(
+                regexes.iter().any(|regex| regex.is_match(pattern)),
+                "missing regex for pattern {pattern}"
+            );
+        }
+
+        // With both parameters
+        let (_, full_config, _) = create_test_environment(
+            ChangeMode::Apply,
+            Some(vec!["pattern".to_string()]),
+            None,
+            None,
+        );
+        assert_eq!(full_config.change_mode(), ChangeMode::Apply);
+        assert!(full_config.do_not_back_populate_regexes().is_some());
+    }
+}

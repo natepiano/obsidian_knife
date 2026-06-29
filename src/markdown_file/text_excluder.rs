@@ -136,10 +136,6 @@ impl InlineCodeExcluder {
 )]
 mod tests {
     use super::*;
-    use crate::test_support;
-    use crate::validated_config::ChangeMode;
-    use crate::wikilink::InvalidWikilink;
-    use crate::wikilink::InvalidWikilinkReason;
 
     #[test]
     fn test_code_block_tracking() {
@@ -212,107 +208,6 @@ mod tests {
         assert!(
             !tracker.is_in_code_block(),
             "Should not skip regular text after an inline code block"
-        );
-    }
-
-    #[test]
-    fn test_collect_exclusion_zones_with_invalid_wikilinks() {
-        let (_, validated_config, mut obsidian_repository) = test_support::create_test_environment(
-            ChangeMode::DryRun,
-            None,
-            None,
-            Some("Text [[invalid|link|extra]] and more text"),
-        );
-
-        let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
-
-        // Add an invalid wikilink
-        markdown_file.wikilinks.invalid.push(InvalidWikilink {
-            content:     "[[invalid|link|extra]]".to_string(),
-            reason:      InvalidWikilinkReason::DoubleAlias,
-            span:        (5, 27),
-            line:        "Text [[invalid|link|extra]] and more text".to_string(),
-            line_number: 1,
-        });
-
-        let zones = markdown_file.collect_exclusion_zones(
-            "Text [[invalid|link|extra]] and more text",
-            &validated_config,
-        );
-
-        assert!(!zones.is_empty(), "Should have at least one exclusion zone");
-        assert!(
-            zones.contains(&(5, 27)),
-            "Should contain invalid wikilink span"
-        );
-    }
-
-    #[test]
-    fn test_exclusion_zones_with_multiple_invalid_wikilinks() {
-        let (_, validated_config, mut obsidian_repository) =
-            test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
-
-        let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
-
-        // Add multiple invalid wikilinks
-        markdown_file.wikilinks.invalid.extend(vec![
-            InvalidWikilink {
-                content:     "[[test|one|two]]".to_string(),
-                reason:      InvalidWikilinkReason::DoubleAlias,
-                span:        (0, 16),
-                line:        "[[test|one|two]] some text [[]]".to_string(),
-                line_number: 1,
-            },
-            InvalidWikilink {
-                content:     "[[]]".to_string(),
-                reason:      InvalidWikilinkReason::Empty,
-                span:        (27, 31),
-                line:        "[[test|one|two]] some text [[]]".to_string(),
-                line_number: 1,
-            },
-        ]);
-
-        let zones = markdown_file
-            .collect_exclusion_zones("[[test|one|two]] some text [[]]", &validated_config);
-
-        assert_eq!(zones.len(), 2, "Should have two exclusion zones");
-        assert!(
-            zones.contains(&(0, 16)),
-            "Should contain first invalid wikilink span"
-        );
-        assert!(
-            zones.contains(&(27, 31)),
-            "Should contain second invalid wikilink span"
-        );
-    }
-
-    #[test]
-    fn test_exclusion_zones_only_matches_current_line() {
-        let (_, validated_config, mut obsidian_repository) = test_support::create_test_environment(
-            ChangeMode::DryRun,
-            None,
-            None,
-            Some("Line 1 with [[bad|link|here]]\nLine 2 with normal text"),
-        );
-
-        let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
-
-        // Add invalid wikilink from a different line
-        markdown_file.wikilinks.invalid.push(InvalidWikilink {
-            content:     "[[bad|link|here]]".to_string(),
-            reason:      InvalidWikilinkReason::DoubleAlias,
-            span:        (10, 26),
-            line:        "Line 1 with [[bad|link|here]]".to_string(),
-            line_number: 1,
-        });
-
-        // `zones` should not contain exclusions for the second line.
-        let zones =
-            markdown_file.collect_exclusion_zones("Line 2 with normal text", &validated_config);
-
-        assert!(
-            zones.is_empty(),
-            "Should not have exclusion zones for different line"
         );
     }
 }
