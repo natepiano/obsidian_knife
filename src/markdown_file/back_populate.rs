@@ -308,7 +308,6 @@ mod tests {
 
         let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
-        // Add an invalid wikilink
         markdown_file.wikilinks.invalid.push(InvalidWikilink {
             content:     "[[invalid|link|extra]]".to_string(),
             reason:      InvalidWikilinkReason::DoubleAlias,
@@ -336,7 +335,6 @@ mod tests {
 
         let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
-        // Add multiple invalid wikilinks
         markdown_file.wikilinks.invalid.extend(vec![
             InvalidWikilink {
                 content:     "[[test|one|two]]".to_string(),
@@ -379,7 +377,6 @@ mod tests {
 
         let markdown_file = obsidian_repository.markdown_files.first_mut().unwrap();
 
-        // Add invalid wikilink from a different line
         markdown_file.wikilinks.invalid.push(InvalidWikilink {
             content:     "[[bad|link|here]]".to_string(),
             reason:      InvalidWikilinkReason::DoubleAlias,
@@ -400,7 +397,6 @@ mod tests {
 
     #[test]
     fn test_should_create_match_in_table() {
-        // Set up the test environment
         let (temp_dir, validated_config, _) =
             test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
         let file_path = temp_dir.path().join("test.md");
@@ -408,16 +404,13 @@ mod tests {
         let markdown_file =
             MarkdownFile::new(file_path, validated_config.operational_timezone()).unwrap();
 
-        // Test simple table cell match
         assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
 
-        // Test match in table with existing wikilinks
         assert!(markdown_file.should_create_match("| Test Link | [[Other]] |", 2, "Test Link",));
     }
 
     #[test]
     fn test_process_line_table_escaping_combined() {
-        // Define multiple wikilinks
         let wikilinks = vec![
             Wikilink {
                 display_text: "Another Link".to_string(),
@@ -429,7 +422,6 @@ mod tests {
             },
         ];
 
-        // Initialize environment with custom wikilinks
         let (temp_dir, validated_config, obsidian_repository) =
             test_support::create_test_environment(ChangeMode::DryRun, None, Some(wikilinks), None);
 
@@ -440,7 +432,6 @@ mod tests {
 
         let markdown_file = obsidian_repository.markdown_files.first().unwrap();
 
-        // Define test cases with different table formats and expected replacements
         let test_cases = vec![
             (
                 "| Test Link | Another Link | description |",
@@ -476,10 +467,8 @@ mod tests {
             ),
         ];
 
-        // Create references to the compiled wikilinks
         let wikilink_refs: Vec<&Wikilink> = sorted_wikilinks.iter().collect();
         for (line, expected_replacements, description) in test_cases {
-            // Create test file using `TestFileBuilder`
             let _ = TestFileBuilder::new()
                 .with_title("test".to_string())
                 .with_content(line.to_string())
@@ -513,7 +502,6 @@ mod tests {
         }
     }
 
-    // Helper struct for test cases
     struct TestCase {
         content:          &'static str,
         wikilink:         Wikilink,
@@ -600,7 +588,6 @@ mod tests {
 
     #[test]
     fn test_case_sensitivity_behavior() {
-        // Initialize test environment without specific wikilinks
         let (temp_dir, validated_config, mut obsidian_repository) =
             test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
 
@@ -612,7 +599,6 @@ mod tests {
                 &mut obsidian_repository,
             );
 
-            // Create a custom wikilink and build AC automaton directly
             let wikilink = case.wikilink;
             let automaton = test_support::build_aho_corasick(slice::from_ref(&wikilink));
 

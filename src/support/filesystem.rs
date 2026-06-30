@@ -260,7 +260,6 @@ mod expand_tilde_tests {
 
     #[test]
     fn test_expand_tilde_invalid_utf8() {
-        // Create a path with invalid UTF-8
         let bytes = b"~/invalid-\xFF-path";
         let os_str = OsStr::from_bytes(bytes);
         let path = Path::new(os_str);
@@ -304,11 +303,9 @@ mod set_file_dates_tests {
         let operational_timezone = DEFAULT_TIMEZONE;
         let timezone: Tz = operational_timezone.parse().unwrap();
 
-        // Define creation and modification dates in UTC
         let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
         let modified_date_utc = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
 
-        // Create a temporary file for testing
         let temp_dir = tempdir().expect("Failed to create temporary directory");
         let temp_file_path = temp_dir.path().join("test_file.txt");
         File::create(&temp_file_path).expect("Failed to create test file");
@@ -319,7 +316,6 @@ mod set_file_dates_tests {
         // Retrieve metadata for verification
         let metadata = fs::metadata(&temp_file_path).expect("Failed to retrieve metadata");
 
-        // Verify modification date
         let retrieved_modified: DateTime<Utc> = metadata
             .modified()
             .expect("Failed to retrieve modified date")
@@ -336,7 +332,6 @@ mod set_file_dates_tests {
             "Modified dates do not match in the operational timezone"
         );
 
-        // Verify creation date
         #[cfg(target_os = "macos")]
         {
             let retrieved_created: DateTime<Utc> = metadata

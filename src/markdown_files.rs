@@ -35,7 +35,8 @@ impl MarkdownFiles {
         sorted_wikilinks: &[&Wikilink],
         automaton: &AhoCorasick,
     ) {
-        // this use of rayon generally makes it go about 100ms faster
+        // `MarkdownFiles::process_files_for_back_populate_matches` uses `rayon::ParallelIterator`
+        // to reduce repository scan time by roughly 100ms.
         self.par_iter_mut().for_each(|markdown_file| {
             if !cfg!(test)
                 && let Some(filter) = validated_config.back_populate_file_filter()

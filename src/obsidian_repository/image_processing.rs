@@ -374,7 +374,6 @@ mod tests {
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
         let mut paths = Vec::new();
 
-        // Create images
         for image in &setup.images {
             let path = TestFileBuilder::new()
                 .with_content(image.content.clone())
@@ -382,7 +381,6 @@ mod tests {
             paths.push(path);
         }
 
-        // Create markdown files
         for markdown in &setup.markdown_files {
             let path = TestFileBuilder::new()
                 .with_content(markdown.content.clone())
@@ -405,7 +403,6 @@ mod tests {
         let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
         fs::create_dir_all(validated_config.output_folder()).unwrap();
 
-        // Create a markdown file that references a non-existent image
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
         let markdown_file_path = TestFileBuilder::new()
             .with_content(
@@ -432,7 +429,6 @@ mod tests {
 
         obsidian_repository.persist().unwrap();
 
-        // Verify the markdown file was updated
         let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
         let mut expected_frontmatter = FrontMatter::default();
         expected_frontmatter.set_date_created(test_date, validated_config.operational_timezone());
@@ -444,12 +440,10 @@ mod tests {
         );
         assert_eq!(updated_content, expected_content);
 
-        // Second analyze pass to verify idempotency
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
         obsidian_repository.mark_image_files_for_deletion();
         obsidian_repository.persist().unwrap();
 
-        // Verify content remains the same after second pass
         let final_content = fs::read_to_string(&markdown_file_path).unwrap();
         assert_eq!(
             final_content, expected_content,
@@ -617,7 +611,6 @@ mod tests {
         let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
         fs::create_dir_all(validated_config.output_folder()).unwrap();
 
-        // Create a markdown file with a wikilink as a path (invalid)
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
         let markdown_file_path = TestFileBuilder::new()
             .with_content("# Test\n![[[[Some File]]]]".to_string())
@@ -627,10 +620,8 @@ mod tests {
 
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
-        // Run analyze and verify it handles wikilink paths appropriately
         obsidian_repository.mark_image_files_for_deletion();
 
-        // Verify the content wasn't modified
         let final_content = fs::read_to_string(&markdown_file_path).unwrap();
         assert!(
             final_content.contains("![[[[Some File]]]]"),
@@ -647,7 +638,6 @@ mod tests {
 
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
-        // Create markdown files with references to non-existent images
         let markdown_content = r"# Test Document
 ![[missing_image1.jpg]]
 ![[missing_image2.jpg]]
@@ -657,10 +647,8 @@ mod tests {
             .with_matching_dates(test_date)
             .create(&temp_dir, "test_doc.md");
 
-        // Initialize the repository info
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
-        // Verify that the missing references are handled correctly
         let markdown_file = &obsidian_repository
             .markdown_files
             .get_mut(&markdown_file_path)
@@ -674,14 +662,12 @@ mod tests {
             "Expected two missing image references"
         );
 
-        // Verify that `MarkdownFile.content` does not have the references anymore
         assert!(
             !&markdown_file.content.contains("![[missing_image1.jpg]]")
                 && !&markdown_file.content.contains("![[missing_image2.jpg]]"),
             "`MarkdownFile` content should not contain missing references"
         );
 
-        // verify needs persist has been activated
         assert!(
             &markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
             "needs persist should better well be true, boyo"
@@ -701,10 +687,8 @@ mod tests {
 
         let test_date = test_utils::eastern_midnight(2024, 1, 15);
 
-        // Create 4 identical files (same content = same hash)
         let content = vec![0xFF, 0xD8, 0xFF, 0xE0]; // Basic JPEG header
 
-        // Create files that will have the same hash
         let files = [
             ("output1.png", content.clone(), vec![]),
             ("output2.png", content.clone(), vec![]),
@@ -712,14 +696,12 @@ mod tests {
             ("output4.png", content, vec!["test2.md"]),
         ];
 
-        // Create the image files
         for (name, image_content, _) in &files {
             TestFileBuilder::new()
                 .with_content(image_content.clone())
                 .create(&temp_dir, name);
         }
 
-        // Create markdown files referencing some of the images
         for (name, _, references) in &files {
             if !references.is_empty() {
                 let markdown_content = references
@@ -737,7 +719,6 @@ mod tests {
 
         let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
-        // Verify all files are in the same duplicate group
         let duplicates = obsidian_repository
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Duplicate { .. }));
@@ -746,19 +727,15 @@ mod tests {
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::DuplicateKeeper { .. }));
 
-        // Should have exactly one keeper
         assert_eq!(keepers.len(), 1, "Should have exactly one keeper");
 
-        // Should have three duplicates
         assert_eq!(duplicates.len(), 3, "Should have exactly three duplicates");
 
-        // Verify no files were marked as unreferenced
         let unreferenced = obsidian_repository
             .image_files
             .filter_by_predicate(|state| matches!(state, ImageFileState::Unreferenced));
         assert_eq!(unreferenced.len(), 0, "Should have no unreferenced files");
 
-        // Verify all duplicates share the same hash as the keeper
         if let ImageFileState::DuplicateKeeper {
             image_hash: keeper_image_hash,
         } = &keepers.images[0].state
@@ -780,7 +757,6 @@ mod tests {
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
         let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
-        // Create multiple files marked for deletion
         let jpeg_header = vec![0xFF, 0xD8, 0xFF, 0xE0];
         let test_setup = TestSetup {
             images:         vec![
@@ -803,7 +779,6 @@ mod tests {
         let created_paths = create_test_files(&temp_dir, &test_setup);
         let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
-        // Verify all files are marked for deletion
         assert_eq!(
             obsidian_repository
                 .image_files
@@ -816,7 +791,6 @@ mod tests {
 
         obsidian_repository.persist().unwrap();
 
-        // Verify all files were deleted
         for path in created_paths {
             assert!(!path.exists(), "File should have been deleted: {path:?}");
         }
@@ -828,10 +802,8 @@ mod tests {
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
         let validated_config = builder.change_mode(ChangeMode::Apply).build().unwrap();
 
-        // Create two sets of duplicate files with different content
         let test_setup = TestSetup {
             images:         vec![
-                // First set - both unreferenced
                 TestImage {
                     name:    "unreferenced1.jpg".into(),
                     content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
@@ -840,7 +812,6 @@ mod tests {
                     name:    "unreferenced2.jpg".into(),
                     content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x01],
                 },
-                // Second set - one will be referenced
                 TestImage {
                     name:    "referenced1.jpg".into(),
                     content: vec![0xFF, 0xD8, 0xFF, 0xE0, 0x02],
@@ -871,7 +842,6 @@ mod tests {
 
         obsidian_repository.persist().unwrap();
 
-        // Verify unreferenced duplicates - both should be deleted
         assert!(
             !created_paths[0].exists(),
             "unreferenced1.jpg should be deleted"
@@ -881,7 +851,6 @@ mod tests {
             "unreferenced2.jpg should be deleted"
         );
 
-        // Verify referenced duplicates
         assert!(
             created_paths[2].exists(),
             "referenced1.jpg should be kept as it's referenced in markdown"

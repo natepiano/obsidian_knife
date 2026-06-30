@@ -371,7 +371,6 @@ mod tests {
     fn test_parse_content_separation() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Test 1: File with frontmatter and content
         let file_with_frontmatter = TestFileBuilder::new()
             .with_title("Test".to_string())
             .with_content("This is the actual content")
@@ -380,7 +379,6 @@ mod tests {
         let markdown_file = test_utils::get_test_markdown_file(file_with_frontmatter);
         assert_eq!(markdown_file.content.trim(), "This is the actual content");
 
-        // Test 2: File with no frontmatter
         let file_no_frontmatter = TestFileBuilder::new()
             .with_content("Pure content\nNo frontmatter")
             .create(&temp_dir, "no_fm.md");
@@ -388,7 +386,6 @@ mod tests {
         let markdown_file = test_utils::get_test_markdown_file(file_no_frontmatter);
         assert_eq!(markdown_file.content.trim(), "Pure content\nNo frontmatter");
 
-        // Test 3: File with --- separators in content
         let delimiter = YAML_OPENING_DELIMITER.trim_end();
         let content = format!("First line\n{delimiter}\nMiddle section\n{delimiter}\nLast section");
         let file_with_separators = TestFileBuilder::new()
@@ -449,7 +446,6 @@ mod tests {
     fn test_date_validation_persist_reasons() -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
 
-        // Test missing dates
         let file_path = TestFileBuilder::new()
             .with_frontmatter_dates(None, None)
             .with_title("test".to_string()) // to force valid frontmatter with missing dates
@@ -472,7 +468,6 @@ mod tests {
                 })
         );
 
-        // Test invalid format dates
         let file_path = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some("[[2024-13-45]]".to_string()),
@@ -588,13 +583,10 @@ mod tests {
                 })
         );
 
-        // Add back populate reason
         markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
-        // Add image reference change
         markdown_file.mark_image_reference_as_updated(DEFAULT_TIMEZONE)?;
 
-        // Verify all reasons are present
         // the 3 reasons are DateCreatedUpdated { reason: Missing }, BackPopulated,
         // ImageReferencesModified we don't have an update date missing because if we
         // BackPopulate we automatically remove the modified date reason
@@ -630,7 +622,6 @@ mod tests {
 
         markdown_file.persist()?;
 
-        // Verify frontmatter was updated but content preserved
         let updated_content = fs::read_to_string(&file_path)?;
         assert!(
             updated_content.contains("[[2024-01-02]]"),
@@ -673,7 +664,6 @@ mod tests {
     fn test_persist_with_created_and_modified_dates() -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
 
-        // Define the created and modified dates
         let created_date = test_utils::parse_datetime("2024-01-05 10:00:00");
         let modified_date = test_utils::parse_datetime("2024-01-06 15:30:00");
 
@@ -724,7 +714,6 @@ mod tests {
             frontmatter.raw_modified = None;
         }
 
-        // Attempt to persist and expect an error
         let result = markdown_file.persist();
 
         assert!(
@@ -768,7 +757,6 @@ mod tests {
 
         markdown_file.persist()?;
 
-        // Verify that the file content remains unchanged except for the frontmatter
         let updated_content = fs::read_to_string(&file_path)?;
         assert!(updated_content.contains("Sample content for testing"));
         assert!(updated_content.contains("[[2024-01-03]]"));
@@ -782,20 +770,17 @@ mod tests {
     -> Result<(), Box<dyn Error + Send + Sync>> {
         let temp_dir = TempDir::new()?;
 
-        // Create a file without frontmatter
         let file_path = TestFileBuilder::new()
             .with_content("Some text that mentions a wikilink target")
             .create(&temp_dir, "no_frontmatter.md");
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
-        // Confirm starting state: no frontmatter, has frontmatter error
         assert!(markdown_file.frontmatter.is_none());
         assert!(markdown_file.frontmatter_error.is_some());
 
         markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
-        // Frontmatter was created
         assert!(markdown_file.frontmatter.is_some());
         let frontmatter = markdown_file.frontmatter.as_ref().expect("just confirmed");
 
@@ -808,7 +793,6 @@ mod tests {
         assert!(frontmatter.modified.is_some());
         assert!(frontmatter.raw_modified.is_some());
 
-        // Frontmatter error cleared
         assert!(markdown_file.frontmatter_error.is_none());
 
         // Persist reasons include both `FrontmatterCreated` and `BackPopulated`
@@ -855,7 +839,6 @@ mod tests {
         // `markdown_file.wikilinks.invalid` contains malformed wikilinks.
         assert_eq!(markdown_file.wikilinks.invalid.len(), 3);
 
-        // Verify specific invalid wikilinks
         let double_alias = markdown_file
             .wikilinks
             .invalid
@@ -905,7 +888,6 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             .map(|w| (w.target.clone(), w.display_text.clone()))
             .collect();
 
-        // Updated assertions
         assert!(
             wikilink_pairs.contains(&("test_note".to_string(), "test_note".to_string())),
             "Should contain filename-based wikilink"
@@ -931,8 +913,8 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             "Should contain content wikilink to Alias One"
         );
 
-        // note Alias One is technically a mistake on the user's part but let's deal with that
-        // with a scan to find wikilinks that target nothing
+        // `extract_wikilinks_from_content` keeps the user-provided `Alias One` target until
+        // missing-target validation handles it.
         assert_eq!(
             wikilink_pairs.len(),
             6,
@@ -1030,7 +1012,6 @@ Also linking to [[Alias One]] which is defined in frontmatter."
         let extracted = markdown_file.process_wikilinks();
         let image_links = markdown_file.process_image_links();
 
-        // Verify expected wikilinks
         assert_contains_wikilink(
             &extracted.valid,
             "test file",
@@ -1062,13 +1043,11 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             AliasExpectation::Aliased,
         );
 
-        // Verify no invalid wikilinks in this case
         assert!(
             extracted.invalid.is_empty(),
             "Should not have invalid wikilinks"
         );
 
-        // Verify no image links in this case
         assert!(image_links.is_empty(), "Should not have image links");
     }
 
@@ -1094,14 +1073,12 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             AliasExpectation::DirectLink,
         );
 
-        // Verify invalid wikilinks with line information
         assert_eq!(
             extracted.invalid.len(),
             2,
             "Should have exactly two invalid wikilinks"
         );
 
-        // Find and verify the double alias invalid wikilink
         let double_alias = extracted
             .invalid
             .iter()
@@ -1115,7 +1092,6 @@ Also linking to [[Alias One]] which is defined in frontmatter."
         );
         assert_eq!(double_alias.content, "[[bad|link|extra]]");
 
-        // Find and verify the unmatched opening invalid wikilink
         let unmatched = extracted
             .invalid
             .iter()
@@ -1126,7 +1102,6 @@ Also linking to [[Alias One]] which is defined in frontmatter."
         assert_eq!(unmatched.line, "[[unmatched");
         assert_eq!(unmatched.content, "[[unmatched");
 
-        // Verify no image links
         assert!(image_links.is_empty(), "Should not have image links");
     }
 
@@ -1149,21 +1124,18 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             "Should have two invalid empty wikilinks"
         );
 
-        // Verify first empty wikilink
         let first_empty = &extracted.invalid[0];
         assert_eq!(first_empty.line_number, 1);
         assert_eq!(first_empty.line, "Test [[]] here");
         assert_eq!(first_empty.content, "[[]]");
         assert_eq!(first_empty.reason, InvalidWikilinkReason::Empty);
 
-        // Verify second empty wikilink
         let second_empty = &extracted.invalid[1];
         assert_eq!(second_empty.line_number, 2);
         assert_eq!(second_empty.line, "And [[|]] there");
         assert_eq!(second_empty.content, "[[|]]");
         assert_eq!(second_empty.reason, InvalidWikilinkReason::Empty);
 
-        // Verify no image links
         assert!(image_links.is_empty(), "Should not have image links");
     }
 
@@ -1187,7 +1159,6 @@ Also linking to [[Alias One]] which is defined in frontmatter."
         // `image_links` contains embedded image wikilinks.
         assert_eq!(image_links.len(), 2, "Should have two image links");
 
-        // Optionally, also test the filenames were extracted correctly
         assert!(image_links.iter().any(|link| link.filename == "image.png"));
         assert!(
             image_links

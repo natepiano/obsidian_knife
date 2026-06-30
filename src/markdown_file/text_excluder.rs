@@ -141,7 +141,6 @@ mod tests {
     fn test_code_block_tracking() {
         let mut tracker = CodeBlockExcluder::new();
 
-        // Initial state
         assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
         tracker.update("```rust");
@@ -186,7 +185,6 @@ mod tests {
     fn test_inline_code_tracking() {
         let mut tracker = InlineCodeExcluder::new();
 
-        // Initial state
         assert!(!tracker.is_in_code_block(), "Initial state should not skip");
 
         tracker.update('`');

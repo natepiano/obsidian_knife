@@ -157,7 +157,6 @@ mod tests {
     fn create_test_environment() -> (TempDir, PathBuf) {
         let temp_dir = TempDir::new().unwrap();
 
-        // Create Obsidian vault structure
         let obsidian_path = temp_dir.path().join("vault");
         fs::create_dir(&obsidian_path).unwrap();
         fs::create_dir(obsidian_path.join(OBSIDIAN_FOLDER)).unwrap();
@@ -166,10 +165,8 @@ mod tests {
             .canonicalize()
             .expect("Failed to get canonical path");
 
-        // Create output directory
         fs::create_dir(canonical_path.join("output")).unwrap();
 
-        // Create config file using `TestFileBuilder`
         let config_yaml = format!(
             "obsidian_path: {}\napply_changes: false\noutput_folder: output",
             canonical_path.to_string_lossy()
@@ -220,7 +217,6 @@ output_folder: output"#
         assert_eq!(config.output_folder, Some("output".to_string()));
         assert_eq!(config.obsidian_path, "/test/path".to_string());
 
-        // Test apply_changes update
         config.configured_changes = ConfiguredChanges::DryRun;
         let config_yaml = config.to_yaml_str().unwrap();
 
@@ -233,7 +229,6 @@ output_folder: output"#
             .set_date_modified_now(DEFAULT_TIMEZONE);
         markdown_file.persist().unwrap();
 
-        // Verify all fields after update
         let new_markdown_file = test_utils::get_test_markdown_file(config_path);
         let new_config = Config::try_from(&new_markdown_file.frontmatter.unwrap()).unwrap();
 

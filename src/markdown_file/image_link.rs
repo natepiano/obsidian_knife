@@ -57,6 +57,20 @@ pub enum ImageLinkState {
     },
 }
 
+struct ParsedImageLink {
+    filename:       String,
+    link_type:      ImageLinkType,
+    alt_text:       String,
+    size_parameter: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RawImageLinkSyntax {
+    Wiki,
+    Markdown,
+    Invalid,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImageLink {
     pub matched_text:   String,
@@ -68,6 +82,14 @@ pub struct ImageLink {
     pub size_parameter: Option<String>,
     pub state:          ImageLinkState,
     pub link_type:      ImageLinkType,
+}
+
+#[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
+pub(crate) struct ImageLinks {
+    #[deref]
+    #[deref_mut]
+    #[into_iterator]
+    pub links: Vec<ImageLink>,
 }
 
 impl ImageLink {
@@ -161,34 +183,12 @@ impl ReplaceableContent for ImageLink {
     fn match_type(&self) -> MatchType { MatchType::ImageReference }
 }
 
-#[derive(Debug, Default, Clone, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub(crate) struct ImageLinks {
-    #[deref]
-    #[deref_mut]
-    #[into_iterator]
-    pub links: Vec<ImageLink>,
-}
-
 impl FromIterator<ImageLink> for ImageLinks {
     fn from_iter<I: IntoIterator<Item = ImageLink>>(iter: I) -> Self {
         Self {
             links: iter.into_iter().collect(),
         }
     }
-}
-
-struct ParsedImageLink {
-    filename:       String,
-    link_type:      ImageLinkType,
-    alt_text:       String,
-    size_parameter: Option<String>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum RawImageLinkSyntax {
-    Wiki,
-    Markdown,
-    Invalid,
 }
 
 impl From<&str> for RawImageLinkSyntax {

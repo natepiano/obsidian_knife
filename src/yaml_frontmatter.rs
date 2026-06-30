@@ -21,6 +21,61 @@ use crate::constants::YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER;
 use crate::constants::YAML_FRONTMATTER_PARSE_PREFIX;
 use crate::constants::YAML_FRONTMATTER_SERIALIZE_PREFIX;
 use crate::constants::YAML_OPENING_DELIMITER;
+
+/// `YamlFrontMatter` provides YAML frontmatter serialization and deserialization.
+pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
+    /// Deserializes `Self` from a YAML string.
+    fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
+        from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
+    }
+
+    /// Returns `self` as a YAML string with sorted mapping keys and sorted
+    /// `Value::Sequence` string entries.
+    fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
+        // `to_value` exposes the frontmatter fields as a `Value::Mapping`.
+        let value = to_value(self).map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
+
+        if let Value::Mapping(map) = value {
+            // `sorted_map` stores mapping entries in sorted key order.
+            let mut sorted_map = Mapping::new();
+
+            // `keys` contains sorted string keys from the YAML mapping.
+            let mut keys: Vec<String> = map
+                .keys()
+                .filter_map(|key| key.as_str().map(String::from))
+                .collect();
+            keys.sort();
+
+            // `sorted_map` receives `Value::Mapping` entries in `keys` order.
+            for key in keys {
+                if let Some(value) = map.get(Value::String(key.clone())) {
+                    // `Value::Sequence` entries are sorted when every item is a string.
+                    let sorted_value = match value {
+                        Value::Sequence(seq) => {
+                            let mut sorted_seq: Vec<String> = seq
+                                .iter()
+                                .filter_map(|value| value.as_str().map(String::from))
+                                .collect();
+                            sorted_seq.sort();
+                            Value::Sequence(sorted_seq.into_iter().map(Value::String).collect())
+                        },
+                        _ => value.clone(),
+                    };
+                    sorted_map.insert(Value::String(key), sorted_value);
+                }
+            }
+
+            // `sorted_map` preserves deterministic frontmatter key order.
+            to_string(&Value::Mapping(sorted_map))
+                .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
+        } else {
+            Err(YamlFrontMatterError::Serialize(
+                YAML_EXPECTED_MAPPING.to_string(),
+            ))
+        }
+    }
+}
+
 /// `yaml_frontmatter_struct!` adds `other_fields: HashMap<String, Value>` to
 /// generated frontmatter structs.
 ///
@@ -113,60 +168,6 @@ impl Display for YamlFrontMatterError {
 }
 
 impl Error for YamlFrontMatterError {}
-
-/// `YamlFrontMatter` provides YAML frontmatter serialization and deserialization.
-pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
-    /// Deserializes `Self` from a YAML string.
-    fn from_yaml_str(yaml: &str) -> Result<Self, YamlFrontMatterError> {
-        from_str(yaml).map_err(|e| YamlFrontMatterError::Parse(e.to_string()))
-    }
-
-    /// Returns `self` as a YAML string with sorted mapping keys and sorted
-    /// `Value::Sequence` string entries.
-    fn to_yaml_str(&self) -> Result<String, YamlFrontMatterError> {
-        // `to_value` exposes the frontmatter fields as a `Value::Mapping`.
-        let value = to_value(self).map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))?;
-
-        if let Value::Mapping(map) = value {
-            // `sorted_map` stores mapping entries in sorted key order.
-            let mut sorted_map = Mapping::new();
-
-            // `keys` contains sorted string keys from the YAML mapping.
-            let mut keys: Vec<String> = map
-                .keys()
-                .filter_map(|key| key.as_str().map(String::from))
-                .collect();
-            keys.sort();
-
-            // `sorted_map` receives `Value::Mapping` entries in `keys` order.
-            for key in keys {
-                if let Some(value) = map.get(Value::String(key.clone())) {
-                    // `Value::Sequence` entries are sorted when every item is a string.
-                    let sorted_value = match value {
-                        Value::Sequence(seq) => {
-                            let mut sorted_seq: Vec<String> = seq
-                                .iter()
-                                .filter_map(|value| value.as_str().map(String::from))
-                                .collect();
-                            sorted_seq.sort();
-                            Value::Sequence(sorted_seq.into_iter().map(Value::String).collect())
-                        },
-                        _ => value.clone(),
-                    };
-                    sorted_map.insert(Value::String(key), sorted_value);
-                }
-            }
-
-            // `sorted_map` preserves deterministic frontmatter key order.
-            to_string(&Value::Mapping(sorted_map))
-                .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
-        } else {
-            Err(YamlFrontMatterError::Serialize(
-                YAML_EXPECTED_MAPPING.to_string(),
-            ))
-        }
-    }
-}
 
 pub(crate) fn find_yaml_section(
     content: &str,

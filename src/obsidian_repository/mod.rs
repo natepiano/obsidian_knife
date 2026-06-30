@@ -274,7 +274,6 @@ mod tests {
             builder.file_limit(case.limit);
             let validated_config = builder.build()?;
 
-            // Create test files
             create_test_files(
                 &temp_dir,
                 case.file_count,
@@ -282,10 +281,8 @@ mod tests {
             );
             let obsidian_repository = ObsidianRepository::new(&validated_config)?;
 
-            // Run persistence
             obsidian_repository.persist()?;
 
-            // Verify files were actually processed by checking their content
             let processed_count = obsidian_repository
                 .markdown_files
                 .files_to_persist()
@@ -326,14 +323,11 @@ mod tests {
     fn setup_test_repo() -> (TempDir, ValidatedConfig) {
         let temp_dir = TempDir::new().unwrap();
 
-        // First create the validated config so we know the correct media path
         let validated_config = get_validated_config(&temp_dir);
 
-        // Now create our test files using the config's media path
         let media_path = temp_dir.path().join("media");
         fs::create_dir_all(&media_path).unwrap();
 
-        // Create test cases with `TestFileBuilder`, putting them in the media folder
         let markdown_content = r"---
 date_created: 2024-01-01
 date_modified: 2024-01-01
@@ -409,7 +403,6 @@ date_modified: 2024-01-01
 
         let (temp_dir, validated_config) = setup_test_repo();
 
-        // Create test cases with `TestFileBuilder`
         let zero_byte_path = TestFileBuilder::new()
             .with_content(vec![])
             .create(&temp_dir, "media/zero_byte.png");
@@ -545,7 +538,6 @@ date_modified: 2024-01-01
             );
         }
 
-        // Verify filesystem dates
         let metadata = fs::metadata(&markdown_file.path)?;
         let file_system_created_time = FileTime::from_creation_time(&metadata).unwrap();
         let file_system_modified_time = FileTime::from_last_modification_time(&metadata);
@@ -600,10 +592,8 @@ date_modified: 2024-01-01
 
             obsidian_repository.markdown_files.push(markdown_file);
 
-            // Run persistence
             obsidian_repository.persist()?;
 
-            // Verify results
             verify_dates(&obsidian_repository.markdown_files[0], &case)?;
         }
 
@@ -697,7 +687,6 @@ date_modified: 2024-01-01
 
     #[test]
     fn test_parallel_image_reference_collection() {
-        // Common filter logic
         fn has_common_image(markdown_file: &MarkdownFile) -> bool {
             markdown_file
                 .image_links
@@ -705,7 +694,6 @@ date_modified: 2024-01-01
                 .any(|link| link.filename == "common.jpg")
         }
 
-        // Helper functions using shared filter
         fn process_parallel(files: &HashMap<PathBuf, MarkdownFile>) -> Vec<PathBuf> {
             files
                 .par_iter()
@@ -745,13 +733,10 @@ date_modified: 2024-01-01
             markdown_files.insert(file_path, info);
         }
 
-        // Test parallel processing
         let parallel_results = process_parallel(&markdown_files);
 
-        // Test sequential processing
         let sequential_results = process_sequential(&markdown_files);
 
-        // Verify results
         assert_eq!(parallel_results.len(), sequential_results.len());
         assert_eq!(
             parallel_results.len(),
@@ -764,48 +749,40 @@ date_modified: 2024-01-01
     fn test_wikilink_sorting_with_aliases() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Create tomato file with alias
         TestFileBuilder::new()
             .with_aliases(vec!["tomatoes".to_string()])
             .with_content("# Tomato\nBasic tomato info".to_string())
             .create(&temp_dir, "tomato.md");
 
-        // Create recipe file
         TestFileBuilder::new()
             .with_content("# Recipe\nUsing tomatoes in cooking".to_string())
             .create(&temp_dir, "recipe.md");
 
-        // Create other file with wikilink
         TestFileBuilder::new()
             .with_content("# Other\n[[tomatoes]] reference that might confuse things".to_string())
             .create(&temp_dir, "other.md");
 
         let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
 
-        // Scan folders and check results
         let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
-        // Find the wikilinks for "tomatoes" in the sorted list
         let tomatoes_wikilinks: Vec<_> = obsidian_repository
             .wikilinks_sorted
             .iter()
             .filter(|w| w.display_text.eq_ignore_ascii_case("tomatoes"))
             .collect();
 
-        // Verify we found the wikilinks
         assert!(
             !tomatoes_wikilinks.is_empty(),
             "Should find wikilinks for 'tomatoes'"
         );
 
-        // The first occurrence should be the alias version
         let first_tomatoes = &tomatoes_wikilinks[0];
         assert!(
             first_tomatoes.is_alias() && first_tomatoes.target == "tomato",
             "First 'tomatoes' wikilink should be the alias version targeting 'tomato'"
         );
 
-        // Add test for total ordering property
         let sorted = obsidian_repository.wikilinks_sorted;
         for i in 1..sorted.len() {
             let comparison = sorted[i - 1]
@@ -822,12 +799,11 @@ date_modified: 2024-01-01
 
     #[test]
     fn test_cache_file_cleanup() {
-        // Create scope to ensure TempDir is dropped
+        // The inner `TempDir` drops before the path-reuse assertion below.
         {
             let temp_dir = TempDir::new().unwrap();
             let cache_path = temp_dir.path().join(CACHE_FOLDER).join(CACHE_FILE);
 
-            // Create a test file and image using `TestFileBuilder`
             TestFileBuilder::new()
                 .with_content("# Test\n![test](test.png)".to_string())
                 .with_title("Test Document".to_string())
@@ -837,19 +813,15 @@ date_modified: 2024-01-01
                 .with_content(vec![0xFF, 0xD8, 0xFF, 0xE0]) // Simple PNG header
                 .create(&temp_dir, "test.png");
 
-            // Create config that will create cache in temp dir
             let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
 
-            // First scan - creates cache with the image
             let _ = ObsidianRepository::new(&validated_config).unwrap();
 
             // Delete the image file
             fs::remove_file(temp_dir.path().join("test.png")).unwrap();
 
-            // Second scan - should detect the deleted image
             let _ = ObsidianRepository::new(&validated_config).unwrap();
 
-            // Verify cache was cleaned up
             let cache_content = read_to_string(&cache_path).unwrap();
             let cache: Value = from_str(&cache_content).unwrap();
             let cache = cache
@@ -860,7 +832,6 @@ date_modified: 2024-01-01
             // Exiting this block drops `TempDir` and removes the cached repository files.
         }
 
-        // Try to create a new temp dir with the same path
         let new_temp = TempDir::new().unwrap();
         assert!(
             new_temp.path().exists(),
@@ -872,22 +843,18 @@ date_modified: 2024-01-01
     fn test_scan_folders_wikilink_collection() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Create first note using `TestFileBuilder`
         TestFileBuilder::new()
             .with_aliases(vec!["Alias One".to_string()])
             .with_content("# Note 1\n[[Simple Link]]".to_string())
             .create(&temp_dir, "note1.md");
 
-        // Create second note using `TestFileBuilder`
         TestFileBuilder::new()
             .with_aliases(vec!["Alias Two".to_string()])
             .with_content("# Note 2\n[[Target|Display Text]]\n[[Simple Link]]".to_string())
             .create(&temp_dir, "note2.md");
 
-        // Create minimal validated config
         let validated_config = test_support::get_test_validated_config(&temp_dir, None);
 
-        // Scan the folders
         let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
 
         // Filter for .md files only and exclude "obsidian knife output" explicitly
@@ -906,7 +873,6 @@ date_modified: 2024-01-01
             .filter(|link| link != "obsidian knife output")
             .collect();
 
-        // Verify expected wikilinks are present
         assert!(wikilinks.contains("note1"), "Should contain first filename");
         assert!(
             wikilinks.contains("note2"),
@@ -929,7 +895,6 @@ date_modified: 2024-01-01
             "Should contain display text from alias"
         );
 
-        // Verify total count
         assert_eq!(
             wikilinks.len(),
             6,
@@ -1003,7 +968,6 @@ date_modified: 2024-01-01
         let base_date = test_utils::eastern_midnight(2024, 1, 15);
         let update_date = test_utils::eastern_midnight(2024, 1, 20);
 
-        // Create two files
         let file_path1 = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some(eastern_date_wikilink(2024, 1, 15)),
@@ -1038,14 +1002,12 @@ date_modified: 2024-01-01
         let file1 = &obsidian_repository.markdown_files[0];
         let file2 = &obsidian_repository.markdown_files[1];
 
-        // First file should have new date and needs_persist
         assert_eq!(
             file1.frontmatter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(update_date).as_str())
         );
         assert!(file1.frontmatter.as_ref().unwrap().needs_persist());
 
-        // Second file should have original date and not need persist
         assert_eq!(
             file2.frontmatter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str())

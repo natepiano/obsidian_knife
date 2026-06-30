@@ -495,7 +495,6 @@ mod tests {
     fn assert_wikilink_extraction(test_case: &WikilinkTestCase) {
         let extracted = extract_wikilinks(test_case.input);
 
-        // Verify valid wikilinks
         assert_eq!(
             extracted.valid.len(),
             test_case.valid.len(),
@@ -524,7 +523,6 @@ mod tests {
             );
         }
 
-        // Verify invalid wikilinks
         assert_eq!(
             extracted.invalid.len(),
             test_case.invalid.len(),
@@ -732,7 +730,6 @@ mod tests {
             ),
             // Consecutive pipes
             ("[[target||alias]]", InvalidWikilinkReason::DoubleAlias),
-            // Mixed consecutive and separated pipes
             (
                 "[[target||alias|another]]",
                 InvalidWikilinkReason::DoubleAlias,
@@ -806,7 +803,6 @@ mod tests {
             // Basic unmatched brackets
             ("[[text]text]]", InvalidWikilinkReason::UnmatchedSingle),
             ("[[text[text]]", InvalidWikilinkReason::UnmatchedSingle),
-            // Mixed escape scenarios - only flag when a bracket is actually unmatched
             ("[[text[\\]text]]", InvalidWikilinkReason::UnmatchedSingle), /* first [ is
                                                                            * unmatched,
                                                                            * second is escaped */
@@ -970,7 +966,6 @@ mod tests {
                     (14, 25),
                 )],
             },
-            // New Test Case for Unmatched Opening
             WikilinkTestCase {
                 description: "Unmatched opening brackets at the end",
                 input:       "Here is an [[unmatched link",

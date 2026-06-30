@@ -30,6 +30,29 @@ pub enum PersistReason {
     ImageReferencesModified,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum DateValidationIssue {
+    Missing,
+    InvalidFormat,
+    InvalidWikilink,
+    FileSystemMismatch,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DateValidation {
+    pub frontmatter:          Option<String>,
+    pub file_system:          DateTime<Utc>,
+    pub issue:                Option<DateValidationIssue>,
+    pub operational_timezone: String,
+}
+
+#[derive(Debug, Default, Clone)]
+pub(crate) struct DateCreatedFixValidation {
+    #[cfg(test)]
+    pub raw:   Option<String>,
+    pub fixed: Option<DateTime<Utc>>,
+}
+
 impl Display for PersistReason {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
@@ -41,14 +64,6 @@ impl Display for PersistReason {
             Self::ImageReferencesModified => write!(f, "image references updated"),
         }
     }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum DateValidationIssue {
-    Missing,
-    InvalidFormat,
-    InvalidWikilink,
-    FileSystemMismatch,
 }
 
 impl Display for DateValidationIssue {
@@ -63,14 +78,6 @@ impl Display for DateValidationIssue {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct DateValidation {
-    pub frontmatter:          Option<String>,
-    pub file_system:          DateTime<Utc>,
-    pub issue:                Option<DateValidationIssue>,
-    pub operational_timezone: String,
-}
-
 impl DateValidation {
     pub fn operational_file_system_date(&self) -> DateTime<Utc> {
         self.operational_timezone
@@ -81,13 +88,6 @@ impl DateValidation {
                 DateTime::from_naive_utc_and_offset(naive_file_system_date, Utc)
             })
     }
-}
-
-#[derive(Debug, Default, Clone)]
-pub(crate) struct DateCreatedFixValidation {
-    #[cfg(test)]
-    pub raw:   Option<String>,
-    pub fixed: Option<DateTime<Utc>>,
 }
 
 impl DateCreatedFixValidation {
@@ -591,7 +591,6 @@ mod tests {
                 DEFAULT_TIMEZONE,
             );
 
-            // Verify frontmatter dates
             test_utils::assert_test_case(
                 frontmatter
                     .as_ref()
@@ -702,10 +701,8 @@ mod tests {
                 .with_date_created_fix(case.fix_input.clone())
                 .create(&temp_dir, "test1.md");
 
-            // Create `MarkdownFile` from the test file
             let markdown_file = test_utils::get_test_markdown_file(file_path);
 
-            // Verify the `DateCreatedFixValidation` state
             test_utils::assert_test_case(
                 markdown_file.date_created_fix_validation.raw,
                 case.fix_input,
@@ -748,7 +745,8 @@ mod tests {
                     modified: Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
                     created:  Utc.with_ymd_and_hms(2024, 1, 16, 4, 30, 0).unwrap(),
                 },
-                // These should match because in EST it's still Jan 15th at 11:30 PM
+                // `DateValidationTestCase.issues` stays empty because `DEFAULT_TIMEZONE` still
+                // sees January 15 at 23:30.
                 issues:      ValidationIssues {
                     modified: None,
                     created:  None,
@@ -763,7 +761,8 @@ mod tests {
                     modified: Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
                     created:  Utc.with_ymd_and_hms(2024, 1, 15, 7, 30, 0).unwrap(),
                 },
-                // These should fail because in EST it's Jan 15th but frontmatter says Jan 16th
+                // `DateValidationTestCase.issues` records `FileSystemMismatch` because
+                // `DEFAULT_TIMEZONE` sees January 15 while `FrontMatter` says January 16.
                 issues:      ValidationIssues {
                     modified: Some(DateValidationIssue::FileSystemMismatch),
                     created:  Some(DateValidationIssue::FileSystemMismatch),
@@ -778,7 +777,8 @@ mod tests {
                     modified: Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
                     created:  Utc.with_ymd_and_hms(2024, 1, 15, 5, 0, 0).unwrap(),
                 },
-                // Should match because it's exactly the start of Jan 15th in EST
+                // `DateValidationTestCase.issues` stays empty at the `DEFAULT_TIMEZONE` start of
+                // January 15.
                 issues:      ValidationIssues {
                     modified: None,
                     created:  None,
@@ -826,7 +826,7 @@ mod tests {
     fn test_late_night_date_created_fix() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Create time at 10:11 PM Eastern (next day 03:11 UTC)
+        // `late_night_time` represents 2024-01-15 22:11 in `DEFAULT_TIMEZONE`.
         let late_night_time = Utc.with_ymd_and_hms(2024, 1, 16, 3, 11, 0).unwrap();
 
         let file_path = TestFileBuilder::new()
@@ -839,10 +839,8 @@ mod tests {
             .with_date_created_fix(Some("2024-01-16".to_string()))
             .create(&temp_dir, "test1.md");
 
-        // Create `MarkdownFile` from the test file
         let markdown_file = test_utils::get_test_markdown_file(file_path);
 
-        // Verify the parsed date shows as Jan 16 when viewed in Eastern
         let timezone: Tz = DEFAULT_TIMEZONE.parse().unwrap();
         let fixed_local = markdown_file
             .date_created_fix_validation
@@ -856,7 +854,6 @@ mod tests {
             "Date created fix should show as Jan 16 in Eastern time"
         );
 
-        // Also verify that the persist report would show Jan 16
         let persist_reasons = &markdown_file.persist_reasons;
         assert!(
             persist_reasons

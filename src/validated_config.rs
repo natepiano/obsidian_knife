@@ -269,7 +269,6 @@ mod tests {
             Some(expected_markdown_file.clone())
         );
 
-        // Test with wikilink format
         let validated_config =
             test_support::get_test_validated_config(&temp_dir, Some("[[test_file]]"));
         assert_eq!(
@@ -277,7 +276,6 @@ mod tests {
             Some(expected_markdown_file.clone())
         );
 
-        // Test with existing .md extension
         let validated_config = test_support::get_test_validated_config(
             &temp_dir,
             Some(expected_markdown_file.as_str()),
@@ -287,7 +285,6 @@ mod tests {
             Some(expected_markdown_file.clone())
         );
 
-        // Test with wikilink and .md extension
         let validated_config = test_support::get_test_validated_config(
             &temp_dir,
             Some(format!("[[{expected_markdown_file}]]").as_str()),
@@ -297,7 +294,6 @@ mod tests {
             Some(expected_markdown_file)
         );
 
-        // Test with None
         let validated_config = test_support::get_test_validated_config(&temp_dir, None);
         assert_eq!(validated_config.back_populate_file_filter(), None);
     }
@@ -307,17 +303,13 @@ mod tests {
         let temp_dir = TempDir::new().unwrap();
         let obsidian_path = temp_dir.path().to_path_buf();
 
-        // Create builder with initial ignore folders containing the default Obsidian folder
         let mut builder = ValidatedConfigBuilder::default();
         builder.obsidian_path(obsidian_path.clone());
 
-        // First set ignore_folders with the default Obsidian folder
         builder.ignore_folders(Some(vec![PathBuf::from(OBSIDIAN_FOLDER)]));
 
-        // Then set output folder
         builder.output_folder(obsidian_path.join("custom_output"));
 
-        // Build and verify both paths are in ignore folders
         let validated_config = builder.build().unwrap();
         let ignore_folders = validated_config.ignore_folders().unwrap();
 
@@ -338,7 +330,6 @@ mod tests {
     fn test_timezone_validation() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Test valid timezone
         let yaml = format!(
             r#"
     obsidian_path: {}
@@ -354,7 +345,6 @@ mod tests {
             "America/Los_Angeles"
         );
 
-        // Test invalid timezone
         let yaml = format!(
             r#"
     obsidian_path: {}
@@ -377,7 +367,6 @@ mod tests {
     fn test_default_timezone() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Test default timezone when none specified
         let yaml = format!(
             r"
     obsidian_path: {}",
@@ -392,7 +381,6 @@ mod tests {
 
     #[test]
     fn test_default_output_folder() {
-        // Create a temporary directory for the test
         let temp_dir = TempDir::new().unwrap();
 
         let yaml = format!(
@@ -410,10 +398,8 @@ mod tests {
 
     #[test]
     fn test_output_folder_added_to_ignore() {
-        // Create a temporary directory for the test
         let temp_dir = TempDir::new().unwrap();
 
-        // Create the default Obsidian directory
         let obsidian_dir = temp_dir.path().join(OBSIDIAN_FOLDER);
         fs::create_dir(&obsidian_dir).unwrap();
 
@@ -439,7 +425,6 @@ mod tests {
 
     #[test]
     fn test_validate_empty_output_folder() {
-        // Create a temporary directory for the test
         let temp_dir = TempDir::new().unwrap();
 
         let yaml = format!(
@@ -472,7 +457,6 @@ mod tests {
             ValidationError::InvalidFileLimit
         ));
 
-        // Test that valid counts work
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.file_limit(Some(1));
         });
@@ -491,7 +475,6 @@ mod tests {
             ValidationError::EmptyBackPopulateFileFilter
         ));
 
-        // Test that non-empty filter works
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.back_populate_file_filter(Some("valid_filter".to_string()));
         });
@@ -541,12 +524,10 @@ mod tests {
             ValidationError::UninitializedField(field) if field == "output_folder"
         ));
 
-        // Now test with obsidian_path missing but output_folder set
         let mut builder = ValidatedConfigBuilder::default();
         builder.output_folder(temp_dir.path().join("output"));
         let result = builder.build();
 
-        // This should fail with `MissingObsidianPath` first
         assert!(matches!(
             result.unwrap_err(),
             ValidationError::MissingObsidianPath
@@ -562,7 +543,6 @@ mod tests {
                 .back_populate_file_filter(Some(String::new()));
         });
 
-        // Should fail with the first error encountered
         assert!(matches!(
             result.unwrap_err(),
             ValidationError::InvalidFileLimit
@@ -586,7 +566,6 @@ mod tests {
     fn test_timezone_edge_cases() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Test empty timezone
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.operational_timezone(String::new());
         });
@@ -595,7 +574,6 @@ mod tests {
             ValidationError::InvalidTimezone(_)
         ));
 
-        // Test timezone with invalid characters
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.operational_timezone("America/New@York".to_string());
         });
@@ -609,7 +587,6 @@ mod tests {
     fn test_output_folder_edge_cases() {
         let temp_dir = TempDir::new().unwrap();
 
-        // Test with absolute path
         let absolute_path = temp_dir.path().join("absolute_output");
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.output_folder(absolute_path.clone());
@@ -623,13 +600,11 @@ mod tests {
                 .contains(&absolute_path)
         );
 
-        // Test with relative path
         let result = test_support::get_test_validated_config_result(&temp_dir, |builder| {
             builder.output_folder(PathBuf::from("relative_output"));
         });
         assert!(result.is_ok());
 
-        // Test that output folder is properly resolved and added to ignore folders
         let validated_config = result.unwrap();
         let expected_path = temp_dir.path().join("relative_output");
         assert!(
