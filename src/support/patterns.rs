@@ -16,16 +16,6 @@ use crate::constants::MARKDOWN_LINK_PATTERN;
 use crate::constants::RAW_HTTP_PATTERN;
 use crate::constants::TAG_PATTERN;
 
-pub(crate) fn compile_regex(pattern: &str) -> Regex {
-    match Regex::new(pattern) {
-        Ok(regex) => regex,
-        Err(error) => {
-            eprintln!("{INVALID_REGEX_PATTERN} {pattern:?}: {error}");
-            exit(INVALID_REGEX_EXIT_CODE);
-        },
-    }
-}
-
 pub static MARKDOWN_REGEX: LazyLock<Regex> = LazyLock::new(|| compile_regex(MARKDOWN_LINK_PATTERN));
 pub static EMAIL_REGEX: LazyLock<Regex> = LazyLock::new(|| compile_regex(EMAIL_PATTERN));
 pub static TAG_REGEX: LazyLock<Regex> = LazyLock::new(|| compile_regex(TAG_PATTERN));
@@ -44,6 +34,16 @@ pub static IMAGE_REGEX: LazyLock<Arc<Regex>> = LazyLock::new(|| {
 
     Arc::new(compile_regex(&image_pattern))
 });
+
+pub(crate) fn compile_regex(pattern: &str) -> Regex {
+    match Regex::new(pattern) {
+        Ok(regex) => regex,
+        Err(error) => {
+            eprintln!("{INVALID_REGEX_PATTERN} {pattern:?}: {error}");
+            exit(INVALID_REGEX_EXIT_CODE);
+        },
+    }
+}
 
 pub fn build_case_insensitive_word_finder(patterns: &[String]) -> Vec<Regex> {
     patterns
