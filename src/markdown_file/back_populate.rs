@@ -219,8 +219,8 @@ impl MarkdownFile {
             }
 
             // `matched_text` cannot target the current frontmatter aliases.
-            if let Some(frontmatter) = &self.frontmatter
-                && let Some(aliases) = frontmatter.aliases()
+            if let Some(front_matter) = &self.front_matter
+                && let Some(aliases) = front_matter.aliases()
                 && aliases
                     .iter()
                     .any(|alias| alias.eq_ignore_ascii_case(matched_text))

@@ -38,19 +38,6 @@ use crate::validated_config::ValidatedConfig;
 
 pub(super) struct PersistReasonsTable;
 
-#[derive(Clone)]
-pub(super) struct PersistReasonData {
-    back_populate_count:      usize,
-    date_created_fix:         Option<(String, String)>,
-    created_date_validation:  Option<(String, String)>, // (before, after)
-    modified_date_validation: Option<(String, String)>,
-    full_path:                PathBuf, //for sorting
-    image_reference_count:    usize,
-    parent_path:              String,
-    reason:                   PersistReason,
-    wikilink:                 String,
-}
-
 impl ReportDefinition for PersistReasonsTable {
     type Item = PersistReasonData;
 
@@ -128,6 +115,21 @@ impl ReportDefinition for PersistReasonsTable {
     }
 
     fn level(&self) -> &'static str { LEVEL2 }
+}
+
+#[derive(Clone)]
+pub(super) struct PersistReasonData {
+    back_populate_count:      usize,
+    date_created_fix:         Option<(String, String)>,
+    // `created_date_validation` stores before and after date strings.
+    created_date_validation:  Option<(String, String)>,
+    modified_date_validation: Option<(String, String)>,
+    // `full_path` orders rows before report chunking.
+    full_path:                PathBuf,
+    image_reference_count:    usize,
+    parent_path:              String,
+    reason:                   PersistReason,
+    wikilink:                 String,
 }
 
 impl ObsidianRepository {

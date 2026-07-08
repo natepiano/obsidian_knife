@@ -67,8 +67,8 @@ fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error
     let path = support::expand_tilde(config_path);
 
     let mut markdown_file = MarkdownFile::new(path, DEFAULT_TIMEZONE)?;
-    let mut config = if let Some(frontmatter) = &markdown_file.frontmatter {
-        Config::try_from(frontmatter)?
+    let mut config = if let Some(front_matter) = &markdown_file.front_matter {
+        Config::try_from(front_matter)?
     } else {
         return Err(markdown_file
             .frontmatter_error
@@ -95,16 +95,16 @@ fn reset_change_mode(
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
     config.configured_changes = ConfiguredChanges::DryRun;
     let yaml = config.to_yaml_str()?;
-    let updated_frontmatter = FrontMatter::from_yaml_str(&yaml)?;
-    markdown_file.frontmatter = Some(updated_frontmatter);
+    let updated_front_matter = FrontMatter::from_yaml_str(&yaml)?;
+    markdown_file.front_matter = Some(updated_front_matter);
 
     let operational_timezone = config
         .operational_timezone
         .as_ref()
         .map_or(DEFAULT_TIMEZONE, String::as_str);
 
-    if let Some(frontmatter) = markdown_file.frontmatter.as_mut() {
-        frontmatter.set_date_modified_now(operational_timezone);
+    if let Some(front_matter) = markdown_file.front_matter.as_mut() {
+        front_matter.set_date_modified_now(operational_timezone);
     }
     markdown_file.persist()?;
     Ok(())

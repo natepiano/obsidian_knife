@@ -40,21 +40,6 @@ struct BackPopulateTable {
     file_count:        usize,
 }
 
-#[derive(Debug, Clone)]
-struct ConsolidatedMatch {
-    file_path:     String,
-    lines:         Vec<MatchLine>,
-    replacement:   String,
-    match_context: MatchContext,
-}
-
-#[derive(Debug, Clone)]
-struct MatchLine {
-    number:    usize,
-    text:      String,
-    positions: Vec<usize>,
-}
-
 impl ReportDefinition for BackPopulateTable {
     type Item = BackPopulateMatch;
 
@@ -139,6 +124,21 @@ impl ReportDefinition for BackPopulateTable {
     fn description(&self, _: &[Self::Item]) -> String { String::new() }
 
     fn level(&self) -> &'static str { LEVEL3 }
+}
+
+#[derive(Debug, Clone)]
+struct ConsolidatedMatch {
+    file_path:     String,
+    lines:         Vec<MatchLine>,
+    replacement:   String,
+    match_context: MatchContext,
+}
+
+#[derive(Debug, Clone)]
+struct MatchLine {
+    number:    usize,
+    text:      String,
+    positions: Vec<usize>,
 }
 
 impl ObsidianRepository {

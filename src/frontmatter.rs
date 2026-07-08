@@ -132,8 +132,8 @@ impl FrontMatter {
 mod tests {
     use super::FrontMatter;
 
-    fn regex_matches(frontmatter: &FrontMatter, expected_count: usize, test_line: &str) {
-        let regexes = frontmatter.get_do_not_back_populate_regexes().unwrap();
+    fn regex_matches(front_matter: &FrontMatter, expected_count: usize, test_line: &str) {
+        let regexes = front_matter.get_do_not_back_populate_regexes().unwrap();
         assert_eq!(regexes.len(), expected_count);
         for regex in regexes {
             assert!(regex.is_match(test_line));
@@ -142,17 +142,17 @@ mod tests {
 
     #[test]
     fn test_markdown_file_aliases_only() {
-        let frontmatter = FrontMatter {
+        let front_matter = FrontMatter {
             aliases: Some(vec!["Only Alias".to_string()]),
             ..FrontMatter::default()
         };
 
-        regex_matches(&frontmatter, 1, "Only Alias appears here");
+        regex_matches(&front_matter, 1, "Only Alias appears here");
     }
 
     #[test]
     fn test_scan_markdown_file_with_do_not_back_populate() {
-        let frontmatter = FrontMatter {
+        let front_matter = FrontMatter {
             do_not_back_populate: Some(vec![
                 "test phrase".to_string(),
                 "another phrase".to_string(),
@@ -160,19 +160,19 @@ mod tests {
             ..FrontMatter::default()
         };
 
-        regex_matches(&frontmatter, 2, "here is a test phrase and another phrase");
+        regex_matches(&front_matter, 2, "here is a test phrase and another phrase");
     }
 
     #[test]
     fn test_scan_markdown_file_combines_aliases_with_do_not_back_populate() {
-        let frontmatter = FrontMatter {
+        let front_matter = FrontMatter {
             aliases: Some(vec!["First Alias".to_string(), "Second Alias".to_string()]),
             do_not_back_populate: Some(vec!["exclude this".to_string()]),
             ..FrontMatter::default()
         };
 
         regex_matches(
-            &frontmatter,
+            &front_matter,
             3,
             "First Alias and Second Alias and exclude this",
         );

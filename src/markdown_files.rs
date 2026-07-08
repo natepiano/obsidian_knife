@@ -70,7 +70,7 @@ impl MarkdownFiles {
         self.iter()
             .filter(|file_info| {
                 file_info
-                    .frontmatter
+                    .front_matter
                     .as_ref()
                     .is_some_and(FrontMatter::needs_persist)
             })
@@ -82,7 +82,7 @@ impl MarkdownFiles {
             .iter()
             .filter(|file_info| {
                 file_info
-                    .frontmatter
+                    .front_matter
                     .as_ref()
                     .is_some_and(FrontMatter::needs_persist)
             })

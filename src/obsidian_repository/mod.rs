@@ -455,8 +455,8 @@ date_modified: 2024-01-01
 
     #[derive(Debug)]
     struct PersistenceState<T> {
-        frontmatter: FrontmatterDates,
-        file_system: FileSystemDates<T>,
+        frontmatter_dates: FrontmatterDates,
+        file_system:       FileSystemDates<T>,
     }
 
     #[derive(Debug)]
@@ -476,13 +476,13 @@ date_modified: 2024-01-01
         // Format dates in wikilink format if they exist
         let created = case
             .initial
-            .frontmatter
+            .frontmatter_dates
             .created
             .as_ref()
             .map(|d| format!("[[{d}]]"));
         let modified = case
             .initial
-            .frontmatter
+            .frontmatter_dates
             .modified
             .as_ref()
             .map(|d| format!("[[{d}]]"));
@@ -500,37 +500,37 @@ date_modified: 2024-01-01
         markdown_file: &MarkdownFile,
         case: &PersistenceTestCase,
     ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(frontmatter) = &markdown_file.frontmatter {
+        if let Some(front_matter) = &markdown_file.front_matter {
             assert_eq!(
-                frontmatter.needs_persist(),
+                front_matter.needs_persist(),
                 case.expected.persist.needs_persist(),
                 "Persistence flag mismatch for case: {}",
                 case.name
             );
 
             assert_eq!(
-                frontmatter.date_created().map(|d| d
+                front_matter.date_created().map(|d| d
                     .trim_matches('"')
                     .trim_matches('[')
                     .trim_matches(']')
                     .to_string()),
-                case.expected.dates.frontmatter.created,
+                case.expected.dates.frontmatter_dates.created,
                 "Frontmatter created date mismatch for case: {}",
                 case.name
             );
 
             assert_eq!(
-                frontmatter.date_modified().map(|d| d
+                front_matter.date_modified().map(|d| d
                     .trim_matches('"')
                     .trim_matches('[')
                     .trim_matches(']')
                     .to_string()),
-                case.expected.dates.frontmatter.modified,
+                case.expected.dates.frontmatter_dates.modified,
                 "Frontmatter modified date mismatch for case: {}",
                 case.name
             );
-        } else if case.expected.dates.frontmatter.created.is_some()
-            || case.expected.dates.frontmatter.modified.is_some()
+        } else if case.expected.dates.frontmatter_dates.created.is_some()
+            || case.expected.dates.frontmatter_dates.modified.is_some()
         {
             panic!(
                 "Expected frontmatter but none found for case: {}",
@@ -607,22 +607,22 @@ date_modified: 2024-01-01
             PersistenceTestCase {
                 name:     "no changes needed - dates match",
                 initial:  PersistenceState {
-                    frontmatter: FrontmatterDates {
+                    frontmatter_dates: FrontmatterDates {
                         created:  Some("2024-01-01".to_string()),
                         modified: Some("2024-01-01".to_string()),
                     },
-                    file_system: FileSystemDates {
+                    file_system:       FileSystemDates {
                         created:  test_utils::eastern_midnight(2024, 1, 1),
                         modified: test_utils::eastern_midnight(2024, 1, 1),
                     },
                 },
                 expected: PersistenceOutcome {
                     dates:   PersistenceState {
-                        frontmatter: FrontmatterDates {
+                        frontmatter_dates: FrontmatterDates {
                             created:  Some("2024-01-01".to_string()),
                             modified: Some("2024-01-01".to_string()),
                         },
-                        file_system: FileSystemDates {
+                        file_system:       FileSystemDates {
                             created:  NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
                             modified: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
                         },
@@ -633,22 +633,22 @@ date_modified: 2024-01-01
             PersistenceTestCase {
                 name:     "created date mismatch triggers both dates update",
                 initial:  PersistenceState {
-                    frontmatter: FrontmatterDates {
+                    frontmatter_dates: FrontmatterDates {
                         created:  Some("2024-01-15".to_string()),
                         modified: Some("2024-01-15".to_string()),
                     },
-                    file_system: FileSystemDates {
+                    file_system:       FileSystemDates {
                         created:  test_utils::eastern_midnight(2024, 1, 20),
                         modified: test_utils::eastern_midnight(2024, 1, 20),
                     },
                 },
                 expected: PersistenceOutcome {
                     dates:   PersistenceState {
-                        frontmatter: FrontmatterDates {
+                        frontmatter_dates: FrontmatterDates {
                             created:  Some("2024-01-20".to_string()),
                             modified: Some("2024-01-20".to_string()),
                         },
-                        file_system: FileSystemDates {
+                        file_system:       FileSystemDates {
                             created:  NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
                             modified: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
                         },
@@ -659,22 +659,22 @@ date_modified: 2024-01-01
             PersistenceTestCase {
                 name:     "invalid dates fixed from filesystem",
                 initial:  PersistenceState {
-                    frontmatter: FrontmatterDates {
+                    frontmatter_dates: FrontmatterDates {
                         created:  Some("invalid date".to_string()),
                         modified: Some("also invalid".to_string()),
                     },
-                    file_system: FileSystemDates {
+                    file_system:       FileSystemDates {
                         created:  last_week,
                         modified: last_week,
                     },
                 },
                 expected: PersistenceOutcome {
                     dates:   PersistenceState {
-                        frontmatter: FrontmatterDates {
+                        frontmatter_dates: FrontmatterDates {
                             created:  Some(last_week.format(FORMAT_DATE).to_string()),
                             modified: Some(last_week.format(FORMAT_DATE).to_string()),
                         },
-                        file_system: FileSystemDates {
+                        file_system:       FileSystemDates {
                             created:  last_week.date_naive(),
                             modified: last_week.date_naive(),
                         },
@@ -930,8 +930,8 @@ date_modified: 2024-01-01
 
         // Instead of using mark_image_reference_as_updated which uses current date,
         // set the frontmatter dates directly
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
-            frontmatter.set_date_modified(update_date, DEFAULT_TIMEZONE);
+        if let Some(front_matter) = &mut markdown_file.front_matter {
+            front_matter.set_date_modified(update_date, DEFAULT_TIMEZONE);
         }
         markdown_file
             .persist_reasons
@@ -939,22 +939,22 @@ date_modified: 2024-01-01
 
         obsidian_repository.markdown_files.push(markdown_file);
 
-        let frontmatter = obsidian_repository.markdown_files[0]
-            .frontmatter
+        let front_matter = obsidian_repository.markdown_files[0]
+            .front_matter
             .as_ref()
             .unwrap();
 
         assert_eq!(
-            frontmatter.date_modified(),
+            front_matter.date_modified(),
             Some(test_utils::frontmatter_date_wikilink(update_date).as_str()),
             "Modified date should be update date"
         );
         assert_eq!(
-            frontmatter.date_created(),
+            front_matter.date_created(),
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str()),
             "Created date should not have changed"
         );
-        assert!(frontmatter.needs_persist(), "needs_persist should be true");
+        assert!(front_matter.needs_persist(), "needs_persist should be true");
     }
 
     #[test]
@@ -987,8 +987,8 @@ date_modified: 2024-01-01
         let mut markdown_file1 = test_utils::get_test_markdown_file(file_path1);
 
         // `markdown_file1` is the only file with a fixed modified date.
-        if let Some(frontmatter) = &mut markdown_file1.frontmatter {
-            frontmatter.set_date_modified(update_date, DEFAULT_TIMEZONE);
+        if let Some(front_matter) = &mut markdown_file1.front_matter {
+            front_matter.set_date_modified(update_date, DEFAULT_TIMEZONE);
         }
         markdown_file1
             .persist_reasons
@@ -1003,15 +1003,15 @@ date_modified: 2024-01-01
         let file2 = &obsidian_repository.markdown_files[1];
 
         assert_eq!(
-            file1.frontmatter.as_ref().unwrap().date_modified(),
+            file1.front_matter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(update_date).as_str())
         );
-        assert!(file1.frontmatter.as_ref().unwrap().needs_persist());
+        assert!(file1.front_matter.as_ref().unwrap().needs_persist());
 
         assert_eq!(
-            file2.frontmatter.as_ref().unwrap().date_modified(),
+            file2.front_matter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str())
         );
-        assert!(!file2.frontmatter.as_ref().unwrap().needs_persist());
+        assert!(!file2.front_matter.as_ref().unwrap().needs_persist());
     }
 }

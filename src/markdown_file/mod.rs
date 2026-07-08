@@ -47,6 +47,12 @@ use crate::yaml_frontmatter;
 use crate::yaml_frontmatter::YamlFrontMatter;
 use crate::yaml_frontmatter::YamlFrontMatterError;
 
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub(crate) struct Wikilinks {
+    pub(crate) valid:   Vec<Wikilink>,
+    pub(crate) invalid: Vec<InvalidWikilink>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct MarkdownFile {
     pub(crate) content:                      String,
@@ -54,7 +60,7 @@ pub(crate) struct MarkdownFile {
     pub(crate) created_date_validation:      DateValidation,
     pub(crate) modified_date_validation:     DateValidation,
     pub(crate) do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub(crate) frontmatter:                  Option<FrontMatter>,
+    pub(crate) front_matter:                 Option<FrontMatter>,
     pub(crate) frontmatter_error:            Option<YamlFrontMatterError>,
     pub(crate) frontmatter_line_count:       usize,
     pub(crate) image_links:                  ImageLinks,
@@ -62,12 +68,6 @@ pub(crate) struct MarkdownFile {
     pub(crate) back_populate_matches:        BackPopulateMatches,
     pub(crate) path:                         PathBuf,
     pub(crate) persist_reasons:              Vec<PersistReason>,
-}
-
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) struct Wikilinks {
-    pub(crate) valid:   Vec<Wikilink>,
-    pub(crate) invalid: Vec<InvalidWikilink>,
 }
 
 impl MarkdownFile {
@@ -85,10 +85,10 @@ impl MarkdownFile {
             _ => 0,
         };
 
-        let (mut frontmatter, content, frontmatter_error) = match yaml_result {
+        let (mut front_matter, content, frontmatter_error) = match yaml_result {
             Ok(Some((yaml_section, after_yaml))) => {
                 match FrontMatter::from_yaml_str(yaml_section) {
-                    Ok(frontmatter) => (Some(frontmatter), after_yaml.to_string(), None),
+                    Ok(front_matter) => (Some(front_matter), after_yaml.to_string(), None),
                     Err(e) => (None, after_yaml.to_string(), Some(e)),
                 }
             },
@@ -98,26 +98,26 @@ impl MarkdownFile {
 
         let (created_date_validation, modified_date_validation) =
             date_validation::get_date_validations(
-                frontmatter.as_ref(),
+                front_matter.as_ref(),
                 &path,
                 operational_timezone,
             )?;
 
         let date_created_fix_validation = DateCreatedFixValidation::from_frontmatter(
-            frontmatter.as_ref(),
+            front_matter.as_ref(),
             created_date_validation.file_system,
             operational_timezone,
         );
 
         let persist_reasons = date_validation::process_date_validations(
-            &mut frontmatter,
+            &mut front_matter,
             &created_date_validation,
             &modified_date_validation,
             &date_created_fix_validation,
             operational_timezone,
         );
 
-        let do_not_back_populate_regexes = frontmatter
+        let do_not_back_populate_regexes = front_matter
             .as_ref()
             .and_then(FrontMatter::get_do_not_back_populate_regexes);
 
@@ -127,7 +127,7 @@ impl MarkdownFile {
             do_not_back_populate_regexes,
             created_date_validation,
             modified_date_validation,
-            frontmatter,
+            front_matter,
             frontmatter_error,
             frontmatter_line_count,
             wikilinks: Wikilinks::default(),
@@ -158,10 +158,10 @@ impl MarkdownFile {
     }
 
     fn to_full_content(&self) -> String {
-        self.frontmatter.as_ref().map_or_else(
+        self.front_matter.as_ref().map_or_else(
             || self.content.clone(),
-            |frontmatter| {
-                frontmatter.to_yaml_str().map_or_else(
+            |front_matter| {
+                front_matter.to_yaml_str().map_or_else(
                     |_| self.content.clone(),
                     |yaml| {
                         format!(
@@ -178,13 +178,13 @@ impl MarkdownFile {
     pub(crate) fn persist(&self) -> Result<(), Box<dyn Error + Send + Sync>> {
         fs::write(&self.path, self.to_full_content())?;
 
-        let Some(frontmatter) = self.frontmatter.as_ref() else {
+        let Some(front_matter) = self.front_matter.as_ref() else {
             return Err(PERSIST_REQUIRES_FRONTMATTER.into());
         };
-        let modified_date = frontmatter
+        let modified_date = front_matter
             .raw_modified
             .ok_or_else(|| PERSIST_REQUIRES_RAW_DATE_MODIFIED.to_string())?;
-        let created_date = frontmatter.raw_created;
+        let created_date = front_matter.raw_created;
 
         support::set_file_dates(&self.path, created_date, modified_date)?;
 
@@ -192,13 +192,13 @@ impl MarkdownFile {
     }
 
     fn ensure_frontmatter(&mut self, operational_timezone: &str) {
-        if self.frontmatter.is_none() {
-            let mut frontmatter = FrontMatter::default();
-            frontmatter.set_date_created(
+        if self.front_matter.is_none() {
+            let mut front_matter = FrontMatter::default();
+            front_matter.set_date_created(
                 self.created_date_validation.file_system,
                 operational_timezone,
             );
-            self.frontmatter = Some(frontmatter);
+            self.front_matter = Some(front_matter);
             self.frontmatter_error = None;
             self.persist_reasons.push(PersistReason::FrontmatterCreated);
         }
@@ -215,11 +215,11 @@ impl MarkdownFile {
         self.persist_reasons
             .retain(|reason| !matches!(reason, PersistReason::DateModifiedUpdated { .. }));
 
-        let frontmatter = self
-            .frontmatter
+        let front_matter = self
+            .front_matter
             .as_mut()
             .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
-        frontmatter.set_date_modified_now(operational_timezone);
+        front_matter.set_date_modified_now(operational_timezone);
         self.persist_reasons.push(PersistReason::BackPopulated);
         Ok(())
     }
@@ -230,11 +230,11 @@ impl MarkdownFile {
     ) -> AnyhowResult<()> {
         self.ensure_frontmatter(operational_timezone);
 
-        let frontmatter = self
-            .frontmatter
+        let front_matter = self
+            .front_matter
             .as_mut()
             .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
-        frontmatter.set_date_modified_now(operational_timezone);
+        front_matter.set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);
         Ok(())
@@ -244,9 +244,9 @@ impl MarkdownFile {
         let mut wikilinks = Wikilinks::default();
 
         let aliases = self
-            .frontmatter
+            .front_matter
             .as_ref()
-            .and_then(|frontmatter| frontmatter.aliases().map(<[String]>::to_vec));
+            .and_then(|front_matter| front_matter.aliases().map(<[String]>::to_vec));
 
         let filename = self
             .path
@@ -614,10 +614,10 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-        // `frontmatter` receives the new created date before `persist`.
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
+        // `front_matter` receives the new created date before `persist`.
+        if let Some(front_matter) = &mut markdown_file.front_matter {
             let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
-            frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
+            front_matter.set_date_created(created_date, DEFAULT_TIMEZONE);
         }
 
         markdown_file.persist()?;
@@ -642,9 +642,9 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
+        if let Some(front_matter) = &mut markdown_file.front_matter {
             let created_date = test_utils::eastern_midnight(2024, 1, 2); // Instead of parse_datetime
-            frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE);
+            front_matter.set_date_created(created_date, DEFAULT_TIMEZONE);
         }
 
         markdown_file.persist()?;
@@ -674,12 +674,12 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
+        if let Some(front_matter) = &mut markdown_file.front_matter {
             // `raw_created` and `raw_modified` set the persisted frontmatter dates.
-            frontmatter.raw_created = Some(created_date);
-            frontmatter.raw_modified = Some(modified_date);
-            frontmatter.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure frontmatter reflects this change
-            frontmatter.set_date_modified(modified_date, DEFAULT_TIMEZONE);
+            front_matter.raw_created = Some(created_date);
+            front_matter.raw_modified = Some(modified_date);
+            front_matter.set_date_created(created_date, DEFAULT_TIMEZONE); // Ensure front_matter reflects this change
+            front_matter.set_date_modified(modified_date, DEFAULT_TIMEZONE);
         }
 
         markdown_file.persist()?;
@@ -710,8 +710,8 @@ mod tests {
         let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
         // Simulate the absence of `raw_date_modified` by explicitly removing it
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
-            frontmatter.raw_modified = None;
+        if let Some(front_matter) = &mut markdown_file.front_matter {
+            front_matter.raw_modified = None;
         }
 
         let result = markdown_file.persist();
@@ -744,12 +744,12 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path.clone());
 
-        if let Some(frontmatter) = &mut markdown_file.frontmatter {
-            frontmatter.set_date_created(
+        if let Some(front_matter) = &mut markdown_file.front_matter {
+            front_matter.set_date_created(
                 test_utils::parse_datetime("2024-01-03 10:00:00"),
                 DEFAULT_TIMEZONE,
             );
-            frontmatter.set_date_modified(
+            front_matter.set_date_modified(
                 test_utils::parse_datetime("2024-01-04 15:00:00"),
                 DEFAULT_TIMEZONE,
             );
@@ -776,22 +776,22 @@ mod tests {
 
         let mut markdown_file = test_utils::get_test_markdown_file(file_path);
 
-        assert!(markdown_file.frontmatter.is_none());
+        assert!(markdown_file.front_matter.is_none());
         assert!(markdown_file.frontmatter_error.is_some());
 
         markdown_file.mark_as_back_populated(DEFAULT_TIMEZONE)?;
 
-        assert!(markdown_file.frontmatter.is_some());
-        let frontmatter = markdown_file.frontmatter.as_ref().expect("just confirmed");
+        assert!(markdown_file.front_matter.is_some());
+        let front_matter = markdown_file.front_matter.as_ref().expect("just confirmed");
 
         // `date_created` set from filesystem date
-        assert!(frontmatter.created.is_some());
-        assert!(frontmatter.raw_created.is_some());
+        assert!(front_matter.created.is_some());
+        assert!(front_matter.raw_created.is_some());
 
         // `date_modified` set (by `set_date_created` auto-call and then
         // `set_date_modified_now`)
-        assert!(frontmatter.modified.is_some());
-        assert!(frontmatter.raw_modified.is_some());
+        assert!(front_matter.modified.is_some());
+        assert!(front_matter.raw_modified.is_some());
 
         assert!(markdown_file.frontmatter_error.is_none());
 
@@ -961,7 +961,7 @@ Also linking to [[Alias One]] which is defined in frontmatter."
 
         // `modified_date` stores the updated frontmatter date.
         let modified_date = markdown_file
-            .frontmatter
+            .front_matter
             .as_ref()
             .and_then(FrontMatter::date_modified)
             .expect("Should have a modified date");
@@ -974,7 +974,7 @@ Also linking to [[Alias One]] which is defined in frontmatter."
             "Modified date should be today's date"
         );
         assert!(
-            markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
+            markdown_file.front_matter.as_ref().unwrap().needs_persist(),
             "needs_persist should be true"
         );
     }

@@ -42,17 +42,6 @@ struct AmbiguousMatchesTable {
     sorted_targets: Vec<String>,
 }
 
-struct TargetLinesTable {
-    target_text: String,
-}
-
-#[derive(Clone)]
-struct TargetLine {
-    file_path: PathBuf,
-    number:    usize,
-    text:      String,
-}
-
 impl ReportDefinition for AmbiguousMatchesTable {
     type Item = BackPopulateMatch;
 
@@ -170,6 +159,17 @@ impl ReportDefinition for AmbiguousMatchesTable {
     }
 
     fn level(&self) -> &'static str { LEVEL2 }
+}
+
+struct TargetLinesTable {
+    target_text: String,
+}
+
+#[derive(Clone)]
+struct TargetLine {
+    file_path: PathBuf,
+    number:    usize,
+    text:      String,
 }
 
 impl ReportDefinition for TargetLinesTable {

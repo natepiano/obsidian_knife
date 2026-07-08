@@ -92,12 +92,12 @@ impl DateValidation {
 
 impl DateCreatedFixValidation {
     pub(super) fn from_frontmatter(
-        frontmatter: Option<&FrontMatter>,
+        front_matter: Option<&FrontMatter>,
         file_created_date: DateTime<Utc>,
         operational_timezone: &str,
     ) -> Self {
         let fix_str =
-            frontmatter.and_then(|frontmatter| frontmatter.date_created_fix().map(String::from));
+            front_matter.and_then(|front_matter| front_matter.date_created_fix().map(String::from));
 
         let parsed = fix_str.as_ref().and_then(|date_str| {
             let date = if wikilink::is_wikilink(Some(date_str)) {
@@ -135,7 +135,7 @@ impl DateCreatedFixValidation {
 }
 
 pub(super) fn get_date_validations(
-    frontmatter: Option<&FrontMatter>,
+    front_matter: Option<&FrontMatter>,
     path: &Path,
     operational_timezone: &str,
 ) -> Result<(DateValidation, DateValidation), Error> {
@@ -143,11 +143,11 @@ pub(super) fn get_date_validations(
 
     let dates = [
         (
-            frontmatter.and_then(|frontmatter| frontmatter.date_created().map(String::from)),
+            front_matter.and_then(|front_matter| front_matter.date_created().map(String::from)),
             metadata.created().map_or_else(|_| Utc::now(), Into::into),
         ),
         (
-            frontmatter.and_then(|frontmatter| frontmatter.date_modified().map(String::from)),
+            front_matter.and_then(|front_matter| front_matter.date_modified().map(String::from)),
             metadata.modified().map_or_else(|_| Utc::now(), Into::into),
         ),
     ];
@@ -236,7 +236,7 @@ pub(super) fn is_valid_date(date_str: &str) -> bool {
 }
 
 pub(super) fn process_date_validations(
-    frontmatter: &mut Option<FrontMatter>,
+    front_matter: &mut Option<FrontMatter>,
     created_date_validation: &DateValidation,
     modified_date_validation: &DateValidation,
     date_created_fix_validation: &DateCreatedFixValidation,
@@ -250,14 +250,14 @@ pub(super) fn process_date_validations(
 
     let mut reasons = Vec::new();
 
-    if let Some(frontmatter) = frontmatter {
+    if let Some(front_matter) = front_matter {
         let mut created_date_update = CreatedDateUpdate::IfInvalid;
 
         if let Some(fixed) = date_created_fix_validation.fixed {
             created_date_update = CreatedDateUpdate::Skip;
 
-            frontmatter.set_date_created(fixed, operational_timezone);
-            frontmatter.remove_date_created_fix();
+            front_matter.set_date_created(fixed, operational_timezone);
+            front_matter.remove_date_created_fix();
             reasons.push(PersistReason::DateCreatedFixApplied);
         }
 
@@ -265,7 +265,8 @@ pub(super) fn process_date_validations(
         if let Some(ref issue) = created_date_validation.issue
             && created_date_update == CreatedDateUpdate::IfInvalid
         {
-            frontmatter.set_date_created(created_date_validation.file_system, operational_timezone);
+            front_matter
+                .set_date_created(created_date_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateCreatedUpdated {
                 reason: issue.clone(),
             });
@@ -273,7 +274,7 @@ pub(super) fn process_date_validations(
 
         // `DateModifiedUpdated` records a modified-date repair.
         if let Some(ref issue) = modified_date_validation.issue {
-            frontmatter
+            front_matter
                 .set_date_modified(modified_date_validation.file_system, operational_timezone);
             reasons.push(PersistReason::DateModifiedUpdated {
                 reason: issue.clone(),
@@ -553,8 +554,8 @@ mod tests {
         ];
 
         for case in test_cases {
-            // `frontmatter` starts with the test case dates.
-            let mut frontmatter = Some(create_frontmatter(
+            // `front_matter` starts with the test case dates.
+            let mut front_matter = Some(create_frontmatter(
                 case.modified.as_deref(),
                 case.created.as_deref(),
             ));
@@ -584,7 +585,7 @@ mod tests {
 
             // Process validations
             date_validation::process_date_validations(
-                &mut frontmatter,
+                &mut front_matter,
                 &created_date_validation,
                 &modified_date_validation,
                 &DateCreatedFixValidation::default(),
@@ -592,25 +593,27 @@ mod tests {
             );
 
             test_utils::assert_test_case(
-                frontmatter
+                front_matter
                     .as_ref()
-                    .and_then(|frontmatter| frontmatter.date_modified().map(String::from)),
+                    .and_then(|front_matter| front_matter.date_modified().map(String::from)),
                 case.expected.modified,
                 &format!("{} - modified date", case.name),
                 |actual, expected| assert_eq!(actual, expected),
             );
 
             test_utils::assert_test_case(
-                frontmatter
+                front_matter
                     .as_ref()
-                    .and_then(|frontmatter| frontmatter.date_created().map(String::from)),
+                    .and_then(|front_matter| front_matter.date_created().map(String::from)),
                 case.expected.created,
                 &format!("{} - created date", case.name),
                 |actual, expected| assert_eq!(actual, expected),
             );
 
             test_utils::assert_test_case(
-                frontmatter.as_ref().is_some_and(FrontMatter::needs_persist),
+                front_matter
+                    .as_ref()
+                    .is_some_and(FrontMatter::needs_persist),
                 case.expected.persist.needs_persist(),
                 &format!("{} - needs persist flag", case.name),
                 |actual, expected| assert_eq!(actual, expected),
@@ -711,7 +714,7 @@ mod tests {
             );
 
             test_utils::assert_test_case(
-                markdown_file.frontmatter.unwrap().needs_persist(),
+                markdown_file.front_matter.unwrap().needs_persist(),
                 case.expected.persist.needs_persist(),
                 &format!("{} - expect persist", case.name),
                 |actual, expected| assert_eq!(actual, expected),
@@ -797,9 +800,10 @@ mod tests {
                 .with_file_system_dates(case.file_system.created, case.file_system.modified)
                 .create(&temp_dir, "test.md");
 
-            let frontmatter = create_frontmatter(case.modified.as_deref(), case.created.as_deref());
+            let front_matter =
+                create_frontmatter(case.modified.as_deref(), case.created.as_deref());
             let (created_date_validation, modified_date_validation) =
-                date_validation::get_date_validations(Some(&frontmatter), &file_path, timezone)
+                date_validation::get_date_validations(Some(&front_matter), &file_path, timezone)
                     .unwrap();
 
             test_utils::assert_test_case(

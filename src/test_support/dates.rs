@@ -36,7 +36,7 @@ pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile {
 }
 
 pub fn frontmatter_date_wikilink(date: DateTime<Utc>) -> String {
-    let mut frontmatter = FrontMatter::default();
-    frontmatter.set_date_modified(date, DEFAULT_TIMEZONE);
-    frontmatter.date_modified().map(String::from).unwrap()
+    let mut front_matter = FrontMatter::default();
+    front_matter.set_date_modified(date, DEFAULT_TIMEZONE);
+    front_matter.date_modified().map(String::from).unwrap()
 }

@@ -125,8 +125,8 @@ impl Config {
 impl TryFrom<&FrontMatter> for Config {
     type Error = Box<dyn Error + Send + Sync>;
 
-    fn try_from(frontmatter: &FrontMatter) -> Result<Self, Self::Error> {
-        let yaml = frontmatter.to_yaml_str()?;
+    fn try_from(front_matter: &FrontMatter) -> Result<Self, Self::Error> {
+        let yaml = front_matter.to_yaml_str()?;
         Self::from_yaml_str(&yaml).map_err(|e| Box::new(e) as Self::Error)
     }
 }
@@ -206,7 +206,7 @@ output_folder: output"#
             .create(&temp_dir, "config.md");
 
         let mut markdown_file = test_utils::get_test_markdown_file(config_path.clone());
-        let mut config = Config::try_from(markdown_file.frontmatter.as_ref().unwrap()).unwrap();
+        let mut config = Config::try_from(markdown_file.front_matter.as_ref().unwrap()).unwrap();
 
         // `Config::try_from` preserves the initial frontmatter values.
         assert_eq!(config.configured_changes, ConfiguredChanges::Apply);
@@ -220,17 +220,17 @@ output_folder: output"#
         config.configured_changes = ConfiguredChanges::DryRun;
         let config_yaml = config.to_yaml_str().unwrap();
 
-        let updated_frontmatter = FrontMatter::from_yaml_str(&config_yaml).unwrap();
-        markdown_file.frontmatter = Some(updated_frontmatter);
+        let updated_front_matter = FrontMatter::from_yaml_str(&config_yaml).unwrap();
+        markdown_file.front_matter = Some(updated_front_matter);
         markdown_file
-            .frontmatter
+            .front_matter
             .as_mut()
             .unwrap()
             .set_date_modified_now(DEFAULT_TIMEZONE);
         markdown_file.persist().unwrap();
 
         let new_markdown_file = test_utils::get_test_markdown_file(config_path);
-        let new_config = Config::try_from(&new_markdown_file.frontmatter.unwrap()).unwrap();
+        let new_config = Config::try_from(&new_markdown_file.front_matter.unwrap()).unwrap();
 
         assert_eq!(new_config.configured_changes, ConfiguredChanges::DryRun);
         assert_eq!(new_config.file_limit, Some(5));
@@ -261,7 +261,7 @@ cleanup_image_files: true";
             .create(&temp_dir, "config.md");
 
         let markdown_file = test_utils::get_test_markdown_file(config_path);
-        let config = Config::try_from(&markdown_file.frontmatter.unwrap()).unwrap();
+        let config = Config::try_from(&markdown_file.front_matter.unwrap()).unwrap();
 
         assert_eq!(config.obsidian_path, "~/Documents/brain");
         assert_eq!(config.configured_changes, ConfiguredChanges::DryRun);
@@ -280,7 +280,7 @@ invalid: yaml: content:
             .create(&temp_dir, "config.md");
 
         let markdown_file = test_utils::get_test_markdown_file(config_path);
-        let result = Config::try_from(&markdown_file.frontmatter.unwrap_or_default());
+        let result = Config::try_from(&markdown_file.front_matter.unwrap_or_default());
 
         assert!(result.is_err());
     }
@@ -311,7 +311,7 @@ apply_changes: false";
         let (_temp_dir, config_path) = create_test_environment();
 
         let markdown_file = test_utils::get_test_markdown_file(config_path);
-        let config = Config::try_from(&markdown_file.frontmatter.unwrap()).unwrap();
+        let config = Config::try_from(&markdown_file.front_matter.unwrap()).unwrap();
 
         let validated_config = config.validate().unwrap();
         assert_eq!(validated_config.change_mode(), ChangeMode::DryRun);

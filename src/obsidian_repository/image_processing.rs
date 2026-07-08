@@ -419,8 +419,8 @@ mod tests {
         {
             // Instead of using `mark_image_reference_as_updated`, which uses the current date,
             // directly set the date we want
-            if let Some(frontmatter) = &mut markdown_file.frontmatter {
-                frontmatter.set_date_modified(test_date, validated_config.operational_timezone());
+            if let Some(front_matter) = &mut markdown_file.front_matter {
+                front_matter.set_date_modified(test_date, validated_config.operational_timezone());
             }
             markdown_file
                 .persist_reasons
@@ -430,10 +430,10 @@ mod tests {
         obsidian_repository.persist().unwrap();
 
         let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
-        let mut expected_frontmatter = FrontMatter::default();
-        expected_frontmatter.set_date_created(test_date, validated_config.operational_timezone());
-        expected_frontmatter.set_date_modified(test_date, validated_config.operational_timezone());
-        let yaml = expected_frontmatter.to_yaml_str().unwrap();
+        let mut expected_front_matter = FrontMatter::default();
+        expected_front_matter.set_date_created(test_date, validated_config.operational_timezone());
+        expected_front_matter.set_date_modified(test_date, validated_config.operational_timezone());
+        let yaml = expected_front_matter.to_yaml_str().unwrap();
         let expected_content = format!(
             "{YAML_OPENING_DELIMITER}{}{YAML_CLOSING_DELIMITER_NEWLINE}# Test\nSome content",
             yaml.trim()
@@ -669,7 +669,7 @@ mod tests {
         );
 
         assert!(
-            &markdown_file.frontmatter.as_ref().unwrap().needs_persist(),
+            &markdown_file.front_matter.as_ref().unwrap().needs_persist(),
             "needs persist should better well be true, boyo"
         );
     }
