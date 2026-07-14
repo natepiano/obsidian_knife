@@ -7,6 +7,7 @@ use anyhow::Result as AnyhowResult;
 use anyhow::anyhow;
 
 use super::constants::DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED;
+use super::constants::IMAGE_PATH_COLUMN_INDEX;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
@@ -54,76 +55,6 @@ use crate::validated_config::ValidatedConfig;
 pub(super) struct DuplicateImagesTable<'a> {
     image_hash:     ImageHash,
     markdown_files: &'a MarkdownFiles,
-}
-
-impl ReportDefinition for DuplicateImagesTable<'_> {
-    type Item = ImageFile;
-
-    fn headers(&self) -> Vec<&str> {
-        vec![
-            THUMBNAIL,
-            IMAGE_FILE,
-            TYPE,
-            FILE,
-            LINE,
-            POSITION,
-            ACTION,
-            REFERENCE_CHANGE,
-        ]
-    }
-
-    fn alignments(&self) -> Vec<ColumnAlignment> {
-        vec![
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-            ColumnAlignment::Right,
-            ColumnAlignment::Right,
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
-        ]
-    }
-
-    fn build_rows(
-        &self,
-        items: &[Self::Item],
-        validated_config: Option<&ValidatedConfig>,
-    ) -> AnyhowResult<Vec<Vec<String>>> {
-        let validated_config =
-            validated_config.ok_or_else(|| anyhow!(DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED))?;
-        let keeper = items
-            .iter()
-            .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
-
-        let mut rows: Vec<Vec<String>> = items
-            .iter()
-            .flat_map(|image| self.build_image_rows(image, validated_config, keeper))
-            .collect();
-
-        rows.sort_by(|a, b| a[1].cmp(&b[1]));
-        Ok(rows)
-    }
-
-    fn title(&self) -> Option<String> {
-        Some(format!("{IMAGE_FILE_HASH}{COLON} {}", &self.image_hash))
-    }
-
-    fn description(&self, items: &[Self::Item]) -> String {
-        let unique_references: HashSet<_> =
-            items.iter().flat_map(|image| &image.references).collect();
-
-        DescriptionBuilder::new()
-            .text(FOUND)
-            .number(items.len())
-            .text(DUPLICATE)
-            .pluralize(Phrase::Image(items.len()))
-            .text(REFERENCED_BY)
-            .pluralize_with_count(Phrase::File(unique_references.len()))
-            .build()
-    }
-
-    fn level(&self) -> &'static str { LEVEL3 }
 }
 
 impl DuplicateImagesTable<'_> {
@@ -243,6 +174,76 @@ impl DuplicateImagesTable<'_> {
                 },
             )
     }
+}
+
+impl ReportDefinition for DuplicateImagesTable<'_> {
+    type Item = ImageFile;
+
+    fn headers(&self) -> Vec<&str> {
+        vec![
+            THUMBNAIL,
+            IMAGE_FILE,
+            TYPE,
+            FILE,
+            LINE,
+            POSITION,
+            ACTION,
+            REFERENCE_CHANGE,
+        ]
+    }
+
+    fn alignments(&self) -> Vec<ColumnAlignment> {
+        vec![
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+            ColumnAlignment::Right,
+            ColumnAlignment::Right,
+            ColumnAlignment::Left,
+            ColumnAlignment::Left,
+        ]
+    }
+
+    fn build_rows(
+        &self,
+        items: &[Self::Item],
+        validated_config: Option<&ValidatedConfig>,
+    ) -> AnyhowResult<Vec<Vec<String>>> {
+        let validated_config =
+            validated_config.ok_or_else(|| anyhow!(DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED))?;
+        let keeper = items
+            .iter()
+            .find(|image| matches!(image.state, ImageFileState::DuplicateKeeper { .. }));
+
+        let mut rows: Vec<Vec<String>> = items
+            .iter()
+            .flat_map(|image| self.build_image_rows(image, validated_config, keeper))
+            .collect();
+
+        rows.sort_by(|a, b| a[IMAGE_PATH_COLUMN_INDEX].cmp(&b[IMAGE_PATH_COLUMN_INDEX]));
+        Ok(rows)
+    }
+
+    fn title(&self) -> Option<String> {
+        Some(format!("{IMAGE_FILE_HASH}{COLON} {}", self.image_hash))
+    }
+
+    fn description(&self, items: &[Self::Item]) -> String {
+        let unique_references: HashSet<_> =
+            items.iter().flat_map(|image| &image.references).collect();
+
+        DescriptionBuilder::new()
+            .text(FOUND)
+            .number(items.len())
+            .text(DUPLICATE)
+            .pluralize(Phrase::Image(items.len()))
+            .text(REFERENCED_BY)
+            .pluralize_with_count(Phrase::File(unique_references.len()))
+            .build()
+    }
+
+    fn level(&self) -> &'static str { LEVEL3 }
 }
 
 impl ObsidianRepository {

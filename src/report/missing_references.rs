@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use anyhow::Result as AnyhowResult;
 use anyhow::anyhow;
 
+use super::constants::FILE_COLUMN_INDEX;
 use super::constants::MISSING_REFERENCES_REPORT_CONFIG_REQUIRED;
 use super::support;
 use super::writer::ReportDefinition;
@@ -80,7 +81,7 @@ impl ReportDefinition for MissingReferencesTable {
             .collect();
 
         // MissingReferencesTable rows sort by markdown-link column.
-        rows.sort_by(|a, b| a[0].cmp(&b[0]));
+        rows.sort_by(|a, b| a[FILE_COLUMN_INDEX].cmp(&b[FILE_COLUMN_INDEX]));
         Ok(rows)
     }
 

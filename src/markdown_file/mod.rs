@@ -25,6 +25,7 @@ pub use replaceable_content::ReplaceableContent;
 pub use text_excluder::InlineCodeExcluder;
 
 use self::back_populate::BackPopulateMatches;
+use self::constants::IMAGE_LINK_WHOLE_MATCH_CAPTURE_INDEX;
 use self::date_validation::DateCreatedFixValidation;
 use self::image_link::ImageLinkTarget;
 use self::image_link::ImageLinkType;
@@ -299,7 +300,7 @@ impl MarkdownFile {
 
         for (line_idx, line) in self.content.lines().enumerate() {
             for capture in IMAGE_REGEX.captures_iter(line) {
-                if let Some(raw_image_link) = capture.get(0) {
+                if let Some(raw_image_link) = capture.get(IMAGE_LINK_WHOLE_MATCH_CAPTURE_INDEX) {
                     let Ok(image_link) = ImageLink::new(
                         raw_image_link.as_str().to_string(),
                         self.get_real_line_number(line_idx),

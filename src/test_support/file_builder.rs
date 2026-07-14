@@ -51,24 +51,6 @@ pub struct TestFileBuilder {
     title:              Option<String>,
 }
 
-impl Default for TestFileBuilder {
-    fn default() -> Self {
-        let now = Utc::now();
-        Self {
-            aliases:            None,
-            content:            Content::Text("Test content".to_string()),
-            custom_frontmatter: None,
-            file_system_dates:  FileSystemDates {
-                created:  now,
-                modified: now,
-            },
-            frontmatter_dates:  FrontmatterDates::default(),
-            tags:               None,
-            title:              None,
-        }
-    }
-}
-
 impl TestFileBuilder {
     pub fn new() -> Self { Self::default() }
 
@@ -196,5 +178,23 @@ impl TestFileBuilder {
         .unwrap();
 
         file_path
+    }
+}
+
+impl Default for TestFileBuilder {
+    fn default() -> Self {
+        let now = Utc::now();
+        Self {
+            aliases:            None,
+            content:            Content::Text("Test content".to_string()),
+            custom_frontmatter: None,
+            file_system_dates:  FileSystemDates {
+                created:  now,
+                modified: now,
+            },
+            frontmatter_dates:  FrontmatterDates::default(),
+            tags:               None,
+            title:              None,
+        }
     }
 }

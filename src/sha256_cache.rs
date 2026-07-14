@@ -160,7 +160,7 @@ impl Sha256Cache {
         let hash = sha256_hasher.finalize();
         let mut hex = String::with_capacity(hash.len() * HEX_DIGITS_PER_BYTE);
         for byte in hash {
-            let _ = write!(hex, "{byte:02x}");
+            let _ = write!(hex, "{byte:0HEX_DIGITS_PER_BYTE$x}");
         }
         Ok(hex)
     }

@@ -5,7 +5,9 @@ use std::ffi::OsStr;
 use std::path::Path;
 
 use anyhow::Result as AnyhowResult;
+use anyhow::anyhow;
 
+use super::constants::BACK_POPULATE_MATCH_GROUP_EMPTY;
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
 use super::support;
@@ -185,7 +187,10 @@ impl ObsidianRepository {
         // BackPopulateTable writes one section per grouped display text.
         for key in sorted_keys {
             let group_matches = &matches_by_text[&key];
-            let display_text = &group_matches[0].found_text;
+            let display_text = &group_matches
+                .first()
+                .ok_or_else(|| anyhow!(BACK_POPULATE_MATCH_GROUP_EMPTY))?
+                .found_text;
             let total_occurrences = group_matches.len();
             let file_paths: HashSet<String> = group_matches
                 .iter()

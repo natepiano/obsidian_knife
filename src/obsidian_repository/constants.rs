@@ -1,4 +1,5 @@
 // back populate
+pub(super) const FIRST_CONTENT_LINE_NUMBER: usize = 1;
 pub(super) const INVALID_UTF8_BOUNDARY_PREFIX: &str = "invalid UTF-8 boundary in ";
 pub(super) const MIN_AMBIGUOUS_TARGETS: usize = 2;
 pub(super) const NESTED_PATTERN_WARNING: &str =
@@ -13,6 +14,7 @@ pub(super) const WIKILINKS_AUTOMATON_NOT_INITIALIZED_DETAIL: &str =
 
 // repository
 pub(super) const ANALYZE_TIMER_LABEL: &str = "analyze";
+pub(super) const DUPLICATE_KEEPER_INDEX: usize = 0;
 pub(super) const ERROR_PROCESSING_FILE: &str = "Error processing file";
 pub(super) const MARKDOWN_FILE_COLLECTION_SHARED_REFERENCES: &str =
     "markdown file collection still had shared references";

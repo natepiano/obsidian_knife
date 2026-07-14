@@ -4,6 +4,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 use super::ObsidianRepository;
+use super::constants::DUPLICATE_KEEPER_INDEX;
 use super::constants::MIN_DUPLICATE_GROUP_SIZE;
 use crate::constants::CACHE_FILE;
 use crate::constants::CACHE_FOLDER;
@@ -48,7 +49,7 @@ impl DuplicateGroupRole {
             Self::Unique => ImageRole::Unique,
             Self::Duplicate {
                 keeper_selection: KeeperSelection::FirstSortedImage,
-            } if index == 0 => ImageRole::Original,
+            } if index == DUPLICATE_KEEPER_INDEX => ImageRole::Original,
             Self::Duplicate { .. } => ImageRole::Duplicate,
         }
     }

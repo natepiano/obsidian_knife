@@ -10,6 +10,7 @@ use anyhow::Result as AnyhowResult;
 use anyhow::bail;
 
 use super::ObsidianRepository;
+use super::constants::FIRST_CONTENT_LINE_NUMBER;
 use super::constants::INVALID_UTF8_BOUNDARY_PREFIX;
 use super::constants::MIN_AMBIGUOUS_TARGETS;
 use super::constants::NESTED_PATTERN_WARNING;
@@ -159,7 +160,7 @@ impl ObsidianRepository {
             }
 
             let mut updated_content = String::new();
-            let mut content_line_number = 1;
+            let mut content_line_number = FIRST_CONTENT_LINE_NUMBER;
             let mut change_set = ChangeSet::default();
 
             for (zero_based_idx, line) in markdown_file.content.lines().enumerate() {

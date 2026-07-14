@@ -22,7 +22,7 @@ impl Drop for Timer {
         if !cfg!(test) {
             let label = &self.label;
             let elapsed = duration.as_millis();
-            println!("{label}: {elapsed:.2}{MILLISECONDS}");
+            println!("{label}: {elapsed}{MILLISECONDS}");
         }
     }
 }

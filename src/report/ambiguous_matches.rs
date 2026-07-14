@@ -8,9 +8,14 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use anyhow::Result as AnyhowResult;
+use anyhow::anyhow;
 
+use super::constants::AMBIGUOUS_MATCH_GROUP_EMPTY;
+use super::constants::FILE_COLUMN_INDEX;
+use super::constants::LINE_NUMBER_COLUMN_INDEX;
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
+use super::constants::UNPARSABLE_LINE_NUMBER_SORT_KEY;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
@@ -97,11 +102,18 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
         // Rows sort by wikilink target, then source line number.
         rows.sort_by(|a, b| {
-            let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
+            let file_cmp = a[FILE_COLUMN_INDEX]
+                .to_lowercase()
+                .cmp(&b[FILE_COLUMN_INDEX].to_lowercase());
             if file_cmp == Ordering::Equal {
-                a[1].parse::<usize>()
-                    .unwrap_or(0)
-                    .cmp(&b[1].parse::<usize>().unwrap_or(0))
+                a[LINE_NUMBER_COLUMN_INDEX]
+                    .parse::<usize>()
+                    .unwrap_or(UNPARSABLE_LINE_NUMBER_SORT_KEY)
+                    .cmp(
+                        &b[LINE_NUMBER_COLUMN_INDEX]
+                            .parse::<usize>()
+                            .unwrap_or(UNPARSABLE_LINE_NUMBER_SORT_KEY),
+                    )
             } else {
                 file_cmp
             }
@@ -208,11 +220,18 @@ impl ReportDefinition for TargetLinesTable {
             .collect();
 
         rows.sort_by(|a, b| {
-            let file_cmp = a[0].to_lowercase().cmp(&b[0].to_lowercase());
+            let file_cmp = a[FILE_COLUMN_INDEX]
+                .to_lowercase()
+                .cmp(&b[FILE_COLUMN_INDEX].to_lowercase());
             if file_cmp == Ordering::Equal {
-                a[1].parse::<usize>()
-                    .unwrap_or(0)
-                    .cmp(&b[1].parse::<usize>().unwrap_or(0))
+                a[LINE_NUMBER_COLUMN_INDEX]
+                    .parse::<usize>()
+                    .unwrap_or(UNPARSABLE_LINE_NUMBER_SORT_KEY)
+                    .cmp(
+                        &b[LINE_NUMBER_COLUMN_INDEX]
+                            .parse::<usize>()
+                            .unwrap_or(UNPARSABLE_LINE_NUMBER_SORT_KEY),
+                    )
             } else {
                 file_cmp
             }
@@ -270,8 +289,11 @@ impl ObsidianRepository {
         let mut targets_by_text: HashMap<String, HashSet<String>> = HashMap::new();
         for wikilink in &self.wikilinks_sorted {
             if let Some(matches) = matches_by_text.get(&wikilink.display_text.to_lowercase()) {
+                let first_match = matches
+                    .first()
+                    .ok_or_else(|| anyhow!(AMBIGUOUS_MATCH_GROUP_EMPTY))?;
                 targets_by_text
-                    .entry(matches[0].found_text.clone())
+                    .entry(first_match.found_text.clone())
                     .or_default()
                     .insert(wikilink.target.clone());
             }
@@ -286,7 +308,10 @@ impl ObsidianRepository {
             let Some(matches) = matches_by_text.get(&key) else {
                 continue;
             };
-            let display_text = &matches[0].found_text;
+            let display_text = &matches
+                .first()
+                .ok_or_else(|| anyhow!(AMBIGUOUS_MATCH_GROUP_EMPTY))?
+                .found_text;
             let default_targets = HashSet::new();
             let targets = targets_by_text
                 .get(display_text)
