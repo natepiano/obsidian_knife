@@ -90,6 +90,11 @@ impl ReportDefinition for PersistReasonsTable {
                     PersistReason::FrontmatterCreated => {
                         (String::new(), String::new(), String::new())
                     },
+                    PersistReason::LinksCanonicalized => (
+                        String::new(),
+                        String::new(),
+                        format!("{} {INSTANCES}", item.canonical_link_count),
+                    ),
                     PersistReason::PhantomLinksResolved => (
                         String::new(),
                         String::new(),
@@ -125,6 +130,7 @@ impl ReportDefinition for PersistReasonsTable {
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
     back_populate_count:      usize,
+    canonical_link_count:     usize,
     date_created_fix:         Option<(String, String)>,
     // `created_date_validation` stores before and after date strings.
     created_date_validation:  Option<(String, String)>,
@@ -216,6 +222,7 @@ impl ObsidianRepository {
         };
 
         let back_populate_count = markdown_file.back_populate_matches.unambiguous.len();
+        let canonical_link_count = markdown_file.canonical_link_matches.len();
         let phantom_link_count = markdown_file.phantom_link_matches.len();
         let image_reference_count = markdown_file
             .persist_reasons
@@ -256,6 +263,7 @@ impl ObsidianRepository {
                 wikilink: support::escape_pipe(&wikilink),
                 reason: reason.clone(),
                 back_populate_count,
+                canonical_link_count,
                 image_reference_count,
                 parent_path: parent_path.clone(),
                 phantom_link_count,

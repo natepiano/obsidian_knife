@@ -135,6 +135,7 @@ impl ObsidianRepository {
 
     fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> AnyhowResult<()> {
         let _timer = Timer::new(ANALYZE_TIMER_LABEL);
+        self.canonicalize_wikilink_targets(validated_config);
         self.resolve_phantom_wikilinks(validated_config);
         self.find_all_back_populate_matches(validated_config)?;
         self.identify_ambiguous_matches();

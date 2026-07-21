@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::ffi::OsStr;
 
 use super::MarkdownFile;
-use super::back_populate::is_in_markdown_table;
+use super::back_populate;
 use super::replaceable_content::MatchType;
 use super::replaceable_content::ReplaceableContent;
 use super::text_excluder::CodeBlockExcluder;
@@ -68,7 +68,7 @@ impl MarkdownFile {
             let found_text = line[start..end].to_string();
 
             let mut replacement = real_target.to_aliased_wikilink(&wikilink.display_text);
-            if is_in_markdown_table(line, &found_text) {
+            if back_populate::is_in_markdown_table(line, &found_text) {
                 replacement = replacement.replace(PIPE, ESCAPED_PIPE);
             }
 

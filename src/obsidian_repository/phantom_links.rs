@@ -10,6 +10,7 @@ use crate::constants::FORMAT_DATE;
 use crate::constants::FORWARD_SLASH;
 use crate::constants::HASH;
 use crate::constants::MARKDOWN_SUFFIX;
+use crate::support;
 use crate::validated_config::ValidatedConfig;
 
 /// One wikilink whose target note does not exist and cannot be re-targeted automatically.
@@ -21,6 +22,63 @@ pub(crate) struct UnresolvedLink {
 }
 
 impl ObsidianRepository {
+    /// Rewrites each `Wikilink.target` naming a real note to that note's file stem, when the
+    /// stem names exactly one note in the vault. Obsidian path-qualifies links on file moves
+    /// once two notes share a basename (`topics/service/LinkedIn`), and filenames contribute
+    /// case variants (`Linkedin`); collapsing them lets `identify_ambiguous_matches` and the
+    /// ambiguous-matches report count one candidate note instead of one per spelling, and
+    /// back-populate replacements use the short form (`[[LinkedIn|linkedin]]`).
+    ///
+    /// Content links spelled with a rewritten target become `CanonicalLinkMatch` entries on
+    /// their `MarkdownFile`, so `apply_replaceable_matches` also rewrites the existing links
+    /// (`[[topics/service/LinkedIn|linkedin]]` to `[[LinkedIn|linkedin]]`).
+    pub(crate) fn canonicalize_wikilink_targets(&mut self, validated_config: &ValidatedConfig) {
+        // `stems_by_lower` maps a lowercased stem to the actual-case stem of every note
+        // bearing it; only a stem naming a single note canonicalizes.
+        let mut stems_by_lower: HashMap<String, Vec<String>> = HashMap::new();
+        // `stems_by_relative_path` maps a note's lowercased vault-relative path (without
+        // `MARKDOWN_SUFFIX`) to its stem, resolving path-qualified targets.
+        let mut stems_by_relative_path: HashMap<String, String> = HashMap::new();
+
+        for markdown_file in &self.markdown_files {
+            let Some(stem) = markdown_file.path.file_stem().and_then(OsStr::to_str) else {
+                continue;
+            };
+
+            stems_by_lower
+                .entry(stem.to_lowercase())
+                .or_default()
+                .push(stem.to_string());
+
+            let relative_path = support::format_relative_path(
+                &markdown_file.path,
+                validated_config.obsidian_path(),
+            );
+            let path_key = relative_path
+                .strip_suffix(MARKDOWN_SUFFIX)
+                .unwrap_or(&relative_path)
+                .to_lowercase();
+            stems_by_relative_path.insert(path_key, stem.to_string());
+        }
+
+        // `canonical_targets` maps each lowercased target naming a real note to that note's
+        // stem; `find_canonical_link_matches` rewrites content links through it.
+        let mut canonical_targets: HashMap<String, String> = HashMap::new();
+        for wikilink in &mut self.wikilinks_sorted {
+            if let Some(canonical_target) =
+                canonical_note_target(&wikilink.target, &stems_by_lower, &stems_by_relative_path)
+            {
+                canonical_targets.insert(wikilink.target.to_lowercase(), canonical_target.clone());
+                wikilink.target = canonical_target;
+            }
+        }
+
+        for markdown_file in &mut self.markdown_files {
+            markdown_file.canonical_link_matches =
+                markdown_file.find_canonical_link_matches(&canonical_targets, validated_config);
+        }
+    }
+
     /// A phantom wikilink names a note that does not exist. When its target text matches the
     /// display text of exactly one `Wikilink` backed by a real note (an alias or a filename),
     /// this re-targets the phantom entries in `wikilinks_sorted` at that note and records a
@@ -146,6 +204,36 @@ fn target_resolves(note_stems: &HashSet<String>, target: &str) -> bool {
     note_stems.contains(&target_note_stem(target))
 }
 
+/// Returns the file stem to use as a canonical `Wikilink.target` when `target` names exactly
+/// one note whose stem no other note shares: `topics/service/LinkedIn` and `linkedin` both
+/// canonicalize to `LinkedIn`. Heading targets, paths naming no note, and stems naming
+/// several notes return `None`.
+fn canonical_note_target(
+    target: &str,
+    stems_by_lower: &HashMap<String, Vec<String>>,
+    stems_by_relative_path: &HashMap<String, String>,
+) -> Option<String> {
+    if target.contains(HASH) {
+        return None;
+    }
+
+    let stem_key = if target.contains(FORWARD_SLASH) {
+        let trimmed = target.trim();
+        let path_key = trimmed
+            .strip_suffix(MARKDOWN_SUFFIX)
+            .unwrap_or(trimmed)
+            .to_lowercase();
+        stems_by_relative_path.get(&path_key)?.to_lowercase()
+    } else {
+        target_note_stem(target)
+    };
+
+    match stems_by_lower.get(&stem_key)?.as_slice() {
+        [only_note_stem] => Some(only_note_stem.clone()),
+        _ => None,
+    }
+}
+
 /// Date targets are daily-note links; a missing daily note is a placeholder, not a phantom.
 fn is_date_target(target: &str) -> bool {
     NaiveDate::parse_from_str(&target_note_stem(target), FORMAT_DATE).is_ok()
@@ -158,6 +246,9 @@ fn is_date_target(target: &str) -> bool {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::collections::HashMap;
+
+    use super::canonical_note_target;
     use super::target_note_stem;
     use crate::obsidian_repository::ObsidianRepository;
     use crate::test_support;
@@ -274,6 +365,122 @@ mod tests {
         );
         assert_eq!(unresolved_links[0].target, "Missing Note");
         assert!(unresolved_links[0].file_path.ends_with("diary.md"));
+    }
+
+    #[test]
+    fn test_path_qualified_targets_collapse_to_stem() {
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        std::fs::create_dir_all(temp_dir.path().join("topics/service")).unwrap();
+        TestFileBuilder::new()
+            .with_content("# LinkedIn")
+            .with_title("linkedin".to_string())
+            .create(&temp_dir, "topics/service/LinkedIn.md");
+
+        TestFileBuilder::new()
+            .with_content("[[topics/service/LinkedIn|LinkedIn]] profile\nrun a linkedin campaign")
+            .with_title("diary".to_string())
+            .create(&temp_dir, "diary.md");
+
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        let diary = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|file| file.path.ends_with("diary.md"))
+            .expect("Should find diary.md");
+
+        assert!(
+            !diary.has_ambiguous_matches(),
+            "path-qualified and stem targets name the same note"
+        );
+        assert_eq!(diary.back_populate_matches.unambiguous.len(), 1);
+        assert_eq!(
+            diary.back_populate_matches.unambiguous[0].replacement,
+            "[[LinkedIn|linkedin]]"
+        );
+
+        // The existing path-qualified link rewrites to the stem; its alias equals the stem, so
+        // the aliased form collapses to the bare link.
+        assert_eq!(diary.canonical_link_matches.len(), 1);
+        assert_eq!(
+            diary.canonical_link_matches[0].found_text,
+            "[[topics/service/LinkedIn|LinkedIn]]"
+        );
+        assert_eq!(diary.canonical_link_matches[0].replacement, "[[LinkedIn]]");
+        assert_eq!(
+            diary.content,
+            "[[LinkedIn]] profile\nrun a [[LinkedIn|linkedin]] campaign"
+        );
+    }
+
+    #[test]
+    fn test_shared_stem_targets_stay_ambiguous() {
+        let (temp_dir, validated_config, _) =
+            test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
+
+        std::fs::create_dir_all(temp_dir.path().join("topics/service")).unwrap();
+        TestFileBuilder::new()
+            .with_content("# LinkedIn")
+            .with_title("linkedin".to_string())
+            .create(&temp_dir, "topics/service/LinkedIn.md");
+
+        TestFileBuilder::new()
+            .with_content("a draft post")
+            .with_title("linkedin".to_string())
+            .create(&temp_dir, "Linkedin.md");
+
+        TestFileBuilder::new()
+            .with_content("[[topics/service/LinkedIn|LinkedIn]] profile\nrun a linkedin campaign")
+            .with_title("diary".to_string())
+            .create(&temp_dir, "diary.md");
+
+        let obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
+
+        let diary = obsidian_repository
+            .markdown_files
+            .iter()
+            .find(|file| file.path.ends_with("diary.md"))
+            .expect("Should find diary.md");
+
+        assert!(
+            diary.has_ambiguous_matches(),
+            "two notes with the linkedin stem keep the match ambiguous"
+        );
+        assert!(!diary.has_unambiguous_matches());
+    }
+
+    #[test]
+    fn test_canonical_note_target_variants() {
+        let stems_by_lower = HashMap::from([
+            ("linkedin".to_string(), vec!["LinkedIn".to_string()]),
+            (
+                "todo".to_string(),
+                vec!["todo".to_string(), "Todo".to_string()],
+            ),
+        ]);
+        let stems_by_relative_path = HashMap::from([(
+            "topics/service/linkedin".to_string(),
+            "LinkedIn".to_string(),
+        )]);
+
+        let test_cases = vec![
+            ("topics/service/LinkedIn", Some("LinkedIn")),
+            ("topics/service/LinkedIn.md", Some("LinkedIn")),
+            ("linkedin", Some("LinkedIn")),
+            ("LinkedIn#Jobs", None),
+            ("topics/other/LinkedIn", None),
+            ("todo", None),
+        ];
+
+        for (target, expected) in test_cases {
+            assert_eq!(
+                canonical_note_target(target, &stems_by_lower, &stems_by_relative_path).as_deref(),
+                expected,
+                "canonical target mismatch for: {target}"
+            );
+        }
     }
 
     #[test]

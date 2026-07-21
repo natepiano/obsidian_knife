@@ -1,4 +1,5 @@
 mod back_populate;
+mod canonical_link;
 mod constants;
 mod date_validation;
 mod image_link;
@@ -16,6 +17,7 @@ use anyhow::Result as AnyhowResult;
 use anyhow::anyhow;
 pub use back_populate::BackPopulateMatch;
 pub use back_populate::MatchContext;
+pub use canonical_link::CanonicalLinkMatch;
 pub use date_validation::DateValidation;
 pub use date_validation::PersistReason;
 pub use image_link::ImageLink;
@@ -69,6 +71,7 @@ pub(crate) struct MarkdownFile {
     pub(crate) image_links:                  ImageLinks,
     pub(crate) wikilinks:                    Wikilinks,
     pub(crate) back_populate_matches:        BackPopulateMatches,
+    pub(crate) canonical_link_matches:       Vec<CanonicalLinkMatch>,
     pub(crate) phantom_link_matches:         Vec<PhantomLinkMatch>,
     pub(crate) path:                         PathBuf,
     pub(crate) persist_reasons:              Vec<PersistReason>,
@@ -137,6 +140,7 @@ impl MarkdownFile {
             wikilinks: Wikilinks::default(),
             image_links: ImageLinks::default(),
             back_populate_matches: BackPopulateMatches::default(),
+            canonical_link_matches: Vec::new(),
             phantom_link_matches: Vec::new(),
             path,
             persist_reasons,
@@ -242,6 +246,21 @@ impl MarkdownFile {
         front_matter.set_date_modified_now(operational_timezone);
         self.persist_reasons
             .push(PersistReason::ImageReferencesModified);
+        Ok(())
+    }
+
+    pub(crate) fn mark_links_canonicalized(
+        &mut self,
+        operational_timezone: &str,
+    ) -> AnyhowResult<()> {
+        self.ensure_frontmatter(operational_timezone);
+
+        let front_matter = self
+            .front_matter
+            .as_mut()
+            .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
+        front_matter.set_date_modified_now(operational_timezone);
+        self.persist_reasons.push(PersistReason::LinksCanonicalized);
         Ok(())
     }
 
@@ -357,6 +376,10 @@ impl MarkdownFile {
 
     pub(crate) const fn has_unambiguous_matches(&self) -> bool {
         !self.back_populate_matches.unambiguous.is_empty()
+    }
+
+    pub(crate) const fn has_canonical_link_matches(&self) -> bool {
+        !self.canonical_link_matches.is_empty()
     }
 
     pub(crate) const fn has_phantom_link_matches(&self) -> bool {

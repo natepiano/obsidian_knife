@@ -12,7 +12,7 @@ use crate::constants::FOUND;
 use crate::constants::IN;
 use crate::constants::LEVEL1;
 use crate::constants::LEVEL2;
-use crate::constants::LINK;
+use crate::constants::LINK_CLICK_TO_CREATE;
 use crate::constants::OCCURRENCES;
 use crate::constants::UNRESOLVED_LINKS;
 use crate::constants::UNRESOLVED_LINKS_DESCRIPTION;
@@ -30,7 +30,7 @@ struct UnresolvedLinksTable;
 impl ReportDefinition for UnresolvedLinksTable {
     type Item = UnresolvedLink;
 
-    fn headers(&self) -> Vec<&str> { vec![LINK, OCCURRENCES, FILES] }
+    fn headers(&self) -> Vec<&str> { vec![LINK_CLICK_TO_CREATE, OCCURRENCES, FILES] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
@@ -46,36 +46,29 @@ impl ReportDefinition for UnresolvedLinksTable {
         _: Option<&ValidatedConfig>,
     ) -> AnyhowResult<Vec<Vec<String>>> {
         // `ObsidianRepository::collect_unresolved_links` sorts by target, so one aggregated
-        // row per missing note comes from grouping consecutive `UnresolvedLink` items.
-        let mut rows = Vec::new();
-        let mut current_group: Option<(String, usize, HashSet<&PathBuf>)> = None;
+        // group per missing note comes from grouping consecutive `UnresolvedLink` items;
+        // rows then order by occurrences descending, target ascending on ties.
+        let mut groups: Vec<(String, usize, HashSet<&PathBuf>)> = Vec::new();
 
         for unresolved_link in items {
-            match &mut current_group {
+            match groups.last_mut() {
                 Some((target, occurrences, files))
                     if target.eq_ignore_ascii_case(&unresolved_link.target) =>
                 {
                     *occurrences += 1;
                     files.insert(&unresolved_link.file_path);
                 },
-                _ => {
-                    if let Some(group) = current_group.take() {
-                        rows.push(group_row(group));
-                    }
-                    current_group = Some((
-                        unresolved_link.target.clone(),
-                        1,
-                        HashSet::from([&unresolved_link.file_path]),
-                    ));
-                },
+                _ => groups.push((
+                    unresolved_link.target.clone(),
+                    1,
+                    HashSet::from([&unresolved_link.file_path]),
+                )),
             }
         }
 
-        if let Some(group) = current_group.take() {
-            rows.push(group_row(group));
-        }
+        groups.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
-        Ok(rows)
+        Ok(groups.into_iter().map(group_row).collect())
     }
 
     fn description(&self, items: &[Self::Item]) -> String {
@@ -95,8 +88,11 @@ impl ReportDefinition for UnresolvedLinksTable {
 }
 
 fn group_row((target, occurrences, files): (String, usize, HashSet<&PathBuf>)) -> Vec<String> {
+    // The wikilink stays unescaped so Obsidian renders it clickable - clicking an
+    // unresolved link creates the note. The output folder is in `ignore_folders`,
+    // so the report's own links are never scanned back in.
     vec![
-        support::escape_pipe(&support::escape_brackets(&target.to_wikilink())),
+        support::escape_pipe(&target.to_wikilink()),
         occurrences.to_string(),
         files.len().to_string(),
     ]
@@ -144,16 +140,28 @@ mod tests {
             unresolved_link("Missing Note", "2026-01-01.md", 9),
             unresolved_link("Missing Note", "waiting.md", 2),
             unresolved_link("Other Note", "waiting.md", 3),
+            unresolved_link("Zebra Note", "2026-01-01.md", 1),
+            unresolved_link("Zebra Note", "2026-01-02.md", 4),
+            unresolved_link("Zebra Note", "2026-01-03.md", 6),
+            unresolved_link("Zebra Note", "waiting.md", 8),
         ];
 
         let rows = UnresolvedLinksTable.build_rows(&items, None).unwrap();
 
-        assert_eq!(rows.len(), 2, "one row per missing note");
-        assert_eq!(rows[0][0], r"\[\[Missing Note\]\]");
-        assert_eq!(rows[0][1], "3", "occurrence count spans files");
-        assert_eq!(rows[0][2], "2", "file count is distinct");
-        assert_eq!(rows[1][0], r"\[\[Other Note\]\]");
-        assert_eq!(rows[1][1], "1");
-        assert_eq!(rows[1][2], "1");
+        assert_eq!(rows.len(), 3, "one row per missing note");
+        assert_eq!(
+            rows[0][0], "[[Zebra Note]]",
+            "rows sort by occurrences descending, not target"
+        );
+        assert_eq!(rows[0][1], "4");
+        assert_eq!(
+            rows[1][0], "[[Missing Note]]",
+            "link renders unescaped so Obsidian makes it clickable"
+        );
+        assert_eq!(rows[1][1], "3", "occurrence count spans files");
+        assert_eq!(rows[1][2], "2", "file count is distinct");
+        assert_eq!(rows[2][0], "[[Other Note]]");
+        assert_eq!(rows[2][1], "1");
+        assert_eq!(rows[2][2], "1");
     }
 }

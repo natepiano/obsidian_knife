@@ -191,13 +191,17 @@ pub(crate) const INVALID: &str = "invalid";
 pub(crate) const INVALID_WIKILINKS: &str = "invalid wikilinks";
 pub(crate) const KEEPER: &str = "keeper";
 pub(crate) const LINE: &str = "line";
-pub(crate) const LINK: &str = "link";
+pub(crate) const LINK_CLICK_TO_CREATE: &str = "link (click to create)";
 pub(crate) const MATCHES: &str = "matches";
 pub(crate) const MATCHES_AMBIGUOUS: &str = "ambiguous matches";
 pub(crate) const MISSING_IMAGE: &str = "missing image";
 pub(crate) const MISSING_IMAGE_REFERENCES: &str = "files that refer to images that don't exist";
 pub(crate) const MOST_RECENT_UNIQUE_LINES: &str = "most recent unique lines";
 pub(crate) const NO_CHANGE: &str = "no change";
+pub(crate) const NON_CANONICAL_LINK: &str = "non-canonical link";
+pub(crate) const NON_CANONICAL_LINKS: &str = "non-canonical links";
+pub(crate) const NON_CANONICAL_LINKS_DESCRIPTION: &str = "these links name their target note \
+    by vault path or case variant - each will be rewritten to the note's file name";
 pub(crate) const NOT_REFERENCED: &str = "not referenced";
 pub(crate) const OCCURRENCES: &str = "occurrences";
 pub(crate) const OF: &str = "of";
@@ -223,7 +227,7 @@ pub(crate) const UNKNOWN: &str = "unknown";
 pub(crate) const UNREFERENCED_IMAGES: &str = "unreferenced images";
 pub(crate) const UNRESOLVED_LINKS: &str = "unresolved links";
 pub(crate) const UNRESOLVED_LINKS_DESCRIPTION: &str =
-    "these links point at notes that don't exist - create the note or fix the link";
+    "these links point at notes that don't exist - click one to create the note, or fix the link";
 pub(crate) const UPDATE: &str = "update";
 pub(crate) const WIKILINKS: &str = "wikilinks";
 pub(crate) const WILL_BE_BACK_POPULATED: &str = "will be back populated";

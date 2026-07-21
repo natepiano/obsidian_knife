@@ -1,6 +1,7 @@
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum MatchType {
     BackPopulate,
+    CanonicalLink,
     ImageReference,
     PhantomLink,
 }

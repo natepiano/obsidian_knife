@@ -28,6 +28,7 @@ pub enum PersistReason {
     BackPopulated,
     FrontmatterCreated,
     ImageReferencesModified,
+    LinksCanonicalized,
     PhantomLinksResolved,
 }
 
@@ -63,6 +64,7 @@ impl Display for PersistReason {
             Self::BackPopulated => write!(f, "back populated"),
             Self::FrontmatterCreated => write!(f, "frontmatter created"),
             Self::ImageReferencesModified => write!(f, "image references updated"),
+            Self::LinksCanonicalized => write!(f, "links canonicalized"),
             Self::PhantomLinksResolved => write!(f, "phantom links resolved"),
         }
     }

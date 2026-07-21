@@ -150,6 +150,7 @@ impl ObsidianRepository {
             });
 
             if !markdown_file.has_unambiguous_matches()
+                && !markdown_file.has_canonical_link_matches()
                 && !markdown_file.has_phantom_link_matches()
                 && !has_replaceable_image_links
             {
@@ -208,6 +209,9 @@ impl ObsidianRepository {
             if change_set.contains(&MatchType::BackPopulate) {
                 markdown_file.mark_as_back_populated(operational_timezone)?;
             }
+            if change_set.contains(&MatchType::CanonicalLink) {
+                markdown_file.mark_links_canonicalized(operational_timezone)?;
+            }
             if change_set.contains(&MatchType::ImageReference) {
                 markdown_file.mark_image_reference_as_updated(operational_timezone)?;
             }
@@ -227,6 +231,14 @@ impl ObsidianRepository {
             markdown_file
                 .back_populate_matches
                 .unambiguous
+                .iter()
+                .cloned()
+                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
+        );
+
+        matches.extend(
+            markdown_file
+                .canonical_link_matches
                 .iter()
                 .cloned()
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),

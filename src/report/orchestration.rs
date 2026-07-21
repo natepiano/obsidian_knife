@@ -108,6 +108,12 @@ impl ObsidianRepository {
                 .any(|r| matches!(r, PersistReason::FrontmatterCreated))
         });
 
+        let has_canonical_links = self
+            .markdown_files
+            .files_to_persist()
+            .iter()
+            .any(MarkdownFile::has_canonical_link_matches);
+
         let has_phantom_links = self
             .markdown_files
             .files_to_persist()
@@ -117,6 +123,7 @@ impl ObsidianRepository {
         if has_back_populate_entries
             || has_invalid_wikilinks
             || has_frontmatter_created
+            || has_canonical_links
             || has_phantom_links
         {
             write_back_populate_report_header(validated_config, output_file_writer)?;
@@ -127,6 +134,10 @@ impl ObsidianRepository {
 
             if has_invalid_wikilinks {
                 self.write_invalid_wikilinks_report(output_file_writer)?;
+            }
+
+            if has_canonical_links {
+                self.write_canonical_links_report(output_file_writer)?;
             }
 
             if has_phantom_links {
