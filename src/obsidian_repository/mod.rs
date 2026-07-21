@@ -1,6 +1,7 @@
 mod back_populate;
 mod constants;
 mod image_processing;
+mod phantom_links;
 
 use std::collections::HashSet;
 use std::error::Error;
@@ -12,6 +13,7 @@ use aho_corasick::AhoCorasick;
 use aho_corasick::AhoCorasickBuilder;
 use aho_corasick::MatchKind;
 use anyhow::Result as AnyhowResult;
+pub(crate) use phantom_links::UnresolvedLink;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
 
@@ -133,6 +135,7 @@ impl ObsidianRepository {
 
     fn analyze_repository(&mut self, validated_config: &ValidatedConfig) -> AnyhowResult<()> {
         let _timer = Timer::new(ANALYZE_TIMER_LABEL);
+        self.resolve_phantom_wikilinks(validated_config);
         self.find_all_back_populate_matches(validated_config)?;
         self.identify_ambiguous_matches();
         self.identify_image_reference_replacements();

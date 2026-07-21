@@ -2,6 +2,7 @@
 pub enum MatchType {
     BackPopulate,
     ImageReference,
+    PhantomLink,
 }
 
 pub trait ReplaceableContent {

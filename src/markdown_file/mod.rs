@@ -2,6 +2,7 @@ mod back_populate;
 mod constants;
 mod date_validation;
 mod image_link;
+mod phantom_link;
 mod replaceable_content;
 mod text_excluder;
 
@@ -19,6 +20,7 @@ pub use date_validation::DateValidation;
 pub use date_validation::PersistReason;
 pub use image_link::ImageLink;
 pub use image_link::ImageLinkState;
+pub use phantom_link::PhantomLinkMatch;
 use regex::Regex;
 pub use replaceable_content::MatchType;
 pub use replaceable_content::ReplaceableContent;
@@ -67,6 +69,7 @@ pub(crate) struct MarkdownFile {
     pub(crate) image_links:                  ImageLinks,
     pub(crate) wikilinks:                    Wikilinks,
     pub(crate) back_populate_matches:        BackPopulateMatches,
+    pub(crate) phantom_link_matches:         Vec<PhantomLinkMatch>,
     pub(crate) path:                         PathBuf,
     pub(crate) persist_reasons:              Vec<PersistReason>,
 }
@@ -134,6 +137,7 @@ impl MarkdownFile {
             wikilinks: Wikilinks::default(),
             image_links: ImageLinks::default(),
             back_populate_matches: BackPopulateMatches::default(),
+            phantom_link_matches: Vec::new(),
             path,
             persist_reasons,
         };
@@ -241,6 +245,22 @@ impl MarkdownFile {
         Ok(())
     }
 
+    pub(crate) fn mark_phantom_links_resolved(
+        &mut self,
+        operational_timezone: &str,
+    ) -> AnyhowResult<()> {
+        self.ensure_frontmatter(operational_timezone);
+
+        let front_matter = self
+            .front_matter
+            .as_mut()
+            .ok_or_else(|| anyhow!("{FRONTMATTER_MISSING_AFTER_ENSURE} {}", self.path.display()))?;
+        front_matter.set_date_modified_now(operational_timezone);
+        self.persist_reasons
+            .push(PersistReason::PhantomLinksResolved);
+        Ok(())
+    }
+
     fn process_wikilinks(&self) -> Wikilinks {
         let mut wikilinks = Wikilinks::default();
 
@@ -277,7 +297,12 @@ impl MarkdownFile {
             }
 
             let extracted = wikilink::extract_wikilinks(line);
-            wikilinks.valid.extend(extracted.valid);
+            wikilinks.valid.extend(
+                extracted
+                    .valid
+                    .into_iter()
+                    .map(|spanned_wikilink| spanned_wikilink.wikilink),
+            );
 
             let invalid_with_lines: Vec<InvalidWikilink> = extracted
                 .invalid
@@ -332,6 +357,10 @@ impl MarkdownFile {
 
     pub(crate) const fn has_unambiguous_matches(&self) -> bool {
         !self.back_populate_matches.unambiguous.is_empty()
+    }
+
+    pub(crate) const fn has_phantom_link_matches(&self) -> bool {
+        !self.phantom_link_matches.is_empty()
     }
 }
 

@@ -90,6 +90,11 @@ impl ReportDefinition for PersistReasonsTable {
                     PersistReason::FrontmatterCreated => {
                         (String::new(), String::new(), String::new())
                     },
+                    PersistReason::PhantomLinksResolved => (
+                        String::new(),
+                        String::new(),
+                        format!("{} {INSTANCES}", item.phantom_link_count),
+                    ),
                 };
 
                 vec![
@@ -128,6 +133,7 @@ pub(super) struct PersistReasonData {
     full_path:                PathBuf,
     image_reference_count:    usize,
     parent_path:              String,
+    phantom_link_count:       usize,
     reason:                   PersistReason,
     wikilink:                 String,
 }
@@ -210,6 +216,7 @@ impl ObsidianRepository {
         };
 
         let back_populate_count = markdown_file.back_populate_matches.unambiguous.len();
+        let phantom_link_count = markdown_file.phantom_link_matches.len();
         let image_reference_count = markdown_file
             .persist_reasons
             .iter()
@@ -251,6 +258,7 @@ impl ObsidianRepository {
                 back_populate_count,
                 image_reference_count,
                 parent_path: parent_path.clone(),
+                phantom_link_count,
                 created_date_validation: created_date_validation.clone(),
                 modified_date_validation: modified_date_validation.clone(),
                 date_created_fix: date_created_fix.clone(),

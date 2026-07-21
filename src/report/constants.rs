@@ -20,10 +20,15 @@ pub(super) const INVALID_UTF8_BOUNDARY_DETECTED: &str =
 pub(super) const MISSING_REFERENCES_REPORT_CONFIG_REQUIRED: &str =
     "ValidatedConfig required for missing-references report";
 
+// sampling
+/// Cap on rows shown per "references to" table in the ambiguous-matches report.
+pub(super) const TARGET_REFERENCE_SAMPLE_MAX: usize = 10;
+
 // table columns
 pub(super) const FILE_COLUMN_INDEX: usize = 0;
 pub(super) const IMAGE_PATH_COLUMN_INDEX: usize = 1;
 pub(super) const LINE_NUMBER_COLUMN_INDEX: usize = 1;
+pub(super) const TEXT_COLUMN_INDEX: usize = 2;
 pub(super) const UNPARSABLE_LINE_NUMBER_SORT_KEY: usize = 0;
 
 // table headers

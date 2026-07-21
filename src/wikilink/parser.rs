@@ -27,8 +27,16 @@ use crate::support::TAG_REGEX;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum WikilinkParseResult {
-    Valid(Wikilink),
+    Valid(SpannedWikilink),
     Invalid(ParsedInvalidWikilink),
+}
+
+/// A valid `Wikilink` plus its byte `span` in the source line, including the
+/// `OPENING_WIKILINK` and `CLOSING_WIKILINK` brackets.
+#[derive(Debug, PartialEq, Eq)]
+pub struct SpannedWikilink {
+    pub wikilink: Wikilink,
+    pub span:     (usize, usize),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -40,7 +48,7 @@ pub struct ParsedInvalidWikilink {
 
 #[derive(Debug, Default)]
 pub struct ParsedExtractedWikilinks {
-    pub valid:   Vec<Wikilink>,
+    pub valid:   Vec<SpannedWikilink>,
     pub invalid: Vec<ParsedInvalidWikilink>,
 }
 
@@ -141,9 +149,12 @@ impl WikilinkState {
                         ),
                     })
                 } else {
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed.clone(),
-                        target:       trimmed,
+                    WikilinkParseResult::Valid(SpannedWikilink {
+                        wikilink: Wikilink {
+                            display_text: trimmed.clone(),
+                            target:       trimmed,
+                        },
+                        span:     (*start_position, end_position),
                     })
                 }
             },
@@ -167,9 +178,12 @@ impl WikilinkState {
                         ),
                     })
                 } else {
-                    WikilinkParseResult::Valid(Wikilink {
-                        display_text: trimmed_display,
-                        target:       trimmed_target,
+                    WikilinkParseResult::Valid(SpannedWikilink {
+                        wikilink: Wikilink {
+                            display_text: trimmed_display,
+                            target:       trimmed_target,
+                        },
+                        span:     (*start_position, end_position),
                     })
                 }
             },
@@ -274,10 +288,10 @@ pub fn extract_wikilinks(line: &str) -> ParsedExtractedWikilinks {
                 // Still parse the wikilink normally
                 if let Some(wikilink_result) = parse_wikilink(&mut chars) {
                     match wikilink_result {
-                        WikilinkParseResult::Valid(wikilink) => {
+                        WikilinkParseResult::Valid(spanned_wikilink) => {
                             // Non-image wikilinks are stored in `extracted_wikilinks.valid`.
                             if !is_image {
-                                extracted_wikilinks.valid.push(wikilink);
+                                extracted_wikilinks.valid.push(spanned_wikilink);
                             }
                             if let Some((position, _)) = chars.peek() {
                                 last_position = *position;
@@ -502,9 +516,10 @@ mod tests {
             test_case.description
         );
 
-        for ((target, display, alias_expectation), wikilink) in
+        for ((target, display, alias_expectation), spanned_wikilink) in
             test_case.valid.iter().zip(extracted.valid.iter())
         {
+            let wikilink = &spanned_wikilink.wikilink;
             assert_eq!(
                 wikilink.target, *target,
                 "Target mismatch in {}",
@@ -576,7 +591,8 @@ mod tests {
         let result = parse_full_wikilink(input).expect("Failed to parse wikilink");
 
         match result {
-            WikilinkParseResult::Valid(wikilink) => {
+            WikilinkParseResult::Valid(spanned_wikilink) => {
+                let wikilink = &spanned_wikilink.wikilink;
                 assert_eq!(
                     wikilink.target, expected_target,
                     "Target mismatch for input: {input}"
@@ -649,6 +665,37 @@ mod tests {
                 is_within_wikilink(text, pos),
                 expected,
                 "Failed for text '{text}' at position {pos}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_extracted_wikilink_spans_cover_brackets() {
+        let test_cases = vec![
+            ("text [[link]] more", "link", (5, 13)),
+            ("[[target|display]] rest", "target", (0, 18)),
+            ("| [[cell\\|alias]] |", "cell", (2, 17)),
+        ];
+
+        for (line, expected_target, expected_span) in test_cases {
+            let extracted = extract_wikilinks(line);
+            let spanned_wikilink = extracted
+                .valid
+                .first()
+                .expect("expected one valid wikilink");
+            assert_eq!(
+                spanned_wikilink.wikilink.target, expected_target,
+                "target mismatch for line: {line}"
+            );
+            assert_eq!(
+                spanned_wikilink.span, expected_span,
+                "span mismatch for line: {line}"
+            );
+            let (start, end) = spanned_wikilink.span;
+            assert!(
+                line[start..end].starts_with(OPENING_WIKILINK)
+                    && line[start..end].ends_with(CLOSING_WIKILINK),
+                "span must cover the full wikilink for line: {line}"
             );
         }
     }

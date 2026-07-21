@@ -28,6 +28,7 @@ pub enum PersistReason {
     BackPopulated,
     FrontmatterCreated,
     ImageReferencesModified,
+    PhantomLinksResolved,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -62,6 +63,7 @@ impl Display for PersistReason {
             Self::BackPopulated => write!(f, "back populated"),
             Self::FrontmatterCreated => write!(f, "frontmatter created"),
             Self::ImageReferencesModified => write!(f, "image references updated"),
+            Self::PhantomLinksResolved => write!(f, "phantom links resolved"),
         }
     }
 }

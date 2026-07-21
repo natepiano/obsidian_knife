@@ -15,6 +15,8 @@ use super::constants::FILE_COLUMN_INDEX;
 use super::constants::LINE_NUMBER_COLUMN_INDEX;
 use super::constants::TABLE_HEADER_FILE_NAME;
 use super::constants::TABLE_HEADER_LINE;
+use super::constants::TARGET_REFERENCE_SAMPLE_MAX;
+use super::constants::TEXT_COLUMN_INDEX;
 use super::constants::UNPARSABLE_LINE_NUMBER_SORT_KEY;
 use super::support;
 use super::writer::ReportDefinition;
@@ -27,9 +29,11 @@ use crate::constants::LEVEL2;
 use crate::constants::LEVEL3;
 use crate::constants::MATCHES;
 use crate::constants::MATCHES_AMBIGUOUS;
+use crate::constants::MOST_RECENT_UNIQUE_LINES;
 use crate::constants::OCCURRENCES;
 use crate::constants::OPENING_WIKILINK;
 use crate::constants::REFERENCES_TO;
+use crate::constants::SHOWING_THE;
 use crate::constants::TEXT;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
@@ -237,7 +241,7 @@ impl ReportDefinition for TargetLinesTable {
             }
         });
 
-        Ok(rows)
+        Ok(sample_recent_unique_rows(rows))
     }
 
     fn title(&self) -> Option<String> {
@@ -252,15 +256,46 @@ impl ReportDefinition for TargetLinesTable {
     fn description(&self, items: &[Self::Item]) -> String {
         let unique_files: HashSet<&PathBuf> = items.iter().map(|r| &r.file_path).collect();
 
-        DescriptionBuilder::new()
+        let mut builder = DescriptionBuilder::new()
             .text(FOUND)
             .pluralize_with_count(Phrase::Reference(items.len()))
             .text(IN)
-            .pluralize_with_count(Phrase::File(unique_files.len()))
-            .build()
+            .pluralize_with_count(Phrase::File(unique_files.len()));
+
+        // `sample_recent_unique_rows` collapses duplicate lines and caps the table.
+        let unique_lines: HashSet<String> = items
+            .iter()
+            .map(|item| support::escape_pipe(&item.text).trim().to_string())
+            .collect();
+        let shown = unique_lines.len().min(TARGET_REFERENCE_SAMPLE_MAX);
+        if shown < items.len() {
+            let sample_note = DescriptionBuilder::new()
+                .text(SHOWING_THE)
+                .number(shown)
+                .text(MOST_RECENT_UNIQUE_LINES)
+                .build();
+            builder = builder.parenthetical_text(&sample_note);
+        }
+
+        builder.build()
     }
 
     fn level(&self) -> &'static str { LEVEL3 }
+}
+
+/// Collapses rows sharing the same trimmed `TEXT_COLUMN_INDEX` cell (carried-forward daily
+/// tasks repeat verbatim) and keeps the last `TARGET_REFERENCE_SAMPLE_MAX` of the sorted rows,
+/// which for date-stemmed files are the most recent references.
+fn sample_recent_unique_rows(rows: Vec<Vec<String>>) -> Vec<Vec<String>> {
+    let mut seen_texts: HashSet<String> = HashSet::new();
+    let mut sampled: Vec<Vec<String>> = rows
+        .into_iter()
+        .rev()
+        .filter(|row| seen_texts.insert(row[TEXT_COLUMN_INDEX].trim().to_string()))
+        .take(TARGET_REFERENCE_SAMPLE_MAX)
+        .collect();
+    sampled.reverse();
+    sampled
 }
 
 impl ObsidianRepository {
@@ -372,5 +407,90 @@ impl ObsidianRepository {
                     })
             })
             .collect()
+    }
+}
+
+#[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    reason = "tests should panic on unexpected values"
+)]
+mod tests {
+    use std::path::PathBuf;
+
+    use super::*;
+
+    fn target_line(file: &str, number: usize, text: &str) -> TargetLine {
+        TargetLine {
+            file_path: PathBuf::from(file),
+            number,
+            text: text.to_string(),
+        }
+    }
+
+    fn target_lines_table() -> TargetLinesTable {
+        TargetLinesTable {
+            target_text: "Someone".to_string(),
+        }
+    }
+
+    #[test]
+    fn test_target_lines_sample_caps_at_most_recent() {
+        let item_count = TARGET_REFERENCE_SAMPLE_MAX + 4;
+        let items: Vec<TargetLine> = (1..=item_count)
+            .map(|i| target_line(&format!("2026-01-{i:02}.md"), 1, &format!("line {i}")))
+            .collect();
+
+        let rows = target_lines_table().build_rows(&items, None).unwrap();
+
+        assert_eq!(rows.len(), TARGET_REFERENCE_SAMPLE_MAX);
+        assert_eq!(
+            rows[0][TEXT_COLUMN_INDEX],
+            format!("line {}", item_count - TARGET_REFERENCE_SAMPLE_MAX + 1),
+            "the oldest rows are dropped"
+        );
+        assert_eq!(
+            rows[rows.len() - 1][TEXT_COLUMN_INDEX],
+            format!("line {item_count}"),
+            "the most recent row is kept"
+        );
+    }
+
+    #[test]
+    fn test_target_lines_sample_collapses_duplicate_text() {
+        let items = vec![
+            target_line("2026-01-01.md", 5, "- carried-forward task"),
+            target_line("2026-01-02.md", 5, "- carried-forward task"),
+            target_line("2026-01-03.md", 5, "- carried-forward task"),
+            target_line("waiting.md", 2, "- distinct line"),
+        ];
+
+        let rows = target_lines_table().build_rows(&items, None).unwrap();
+
+        assert_eq!(rows.len(), 2, "duplicate lines collapse to one row");
+        assert_eq!(
+            rows[0][FILE_COLUMN_INDEX],
+            "2026-01-03".to_wikilink(),
+            "the collapsed row keeps the most recent file"
+        );
+    }
+
+    #[test]
+    fn test_target_lines_description_notes_sampling() {
+        let sampled_items: Vec<TargetLine> = (1..=TARGET_REFERENCE_SAMPLE_MAX + 4)
+            .map(|i| target_line(&format!("2026-01-{i:02}.md"), 1, &format!("line {i}")))
+            .collect();
+        let description = target_lines_table().description(&sampled_items);
+        assert!(
+            description.contains(SHOWING_THE),
+            "capped tables note the sample size: {description}"
+        );
+
+        let small_items = vec![target_line("waiting.md", 2, "- distinct line")];
+        let description = target_lines_table().description(&small_items);
+        assert!(
+            !description.contains(SHOWING_THE),
+            "uncapped tables have no sample note: {description}"
+        );
     }
 }

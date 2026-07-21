@@ -53,6 +53,7 @@ impl ObsidianRepository {
 
         self.write_image_reports(validated_config, &output_file_writer)?;
         self.write_ambiguous_matches_reports(&output_file_writer)?;
+        self.write_unresolved_links_report(&output_file_writer)?;
         self.write_back_populate_reports(validated_config, &output_file_writer)?;
 
         // This report is slightly duplicative because image reference updates and back-populate
@@ -107,7 +108,17 @@ impl ObsidianRepository {
                 .any(|r| matches!(r, PersistReason::FrontmatterCreated))
         });
 
-        if has_back_populate_entries || has_invalid_wikilinks || has_frontmatter_created {
+        let has_phantom_links = self
+            .markdown_files
+            .files_to_persist()
+            .iter()
+            .any(MarkdownFile::has_phantom_link_matches);
+
+        if has_back_populate_entries
+            || has_invalid_wikilinks
+            || has_frontmatter_created
+            || has_phantom_links
+        {
             write_back_populate_report_header(validated_config, output_file_writer)?;
 
             if has_frontmatter_created {
@@ -116,6 +127,10 @@ impl ObsidianRepository {
 
             if has_invalid_wikilinks {
                 self.write_invalid_wikilinks_report(output_file_writer)?;
+            }
+
+            if has_phantom_links {
+                self.write_phantom_links_report(output_file_writer)?;
             }
 
             if has_back_populate_entries {

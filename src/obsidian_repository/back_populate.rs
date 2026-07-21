@@ -149,7 +149,10 @@ impl ObsidianRepository {
                 )
             });
 
-            if !markdown_file.has_unambiguous_matches() && !has_replaceable_image_links {
+            if !markdown_file.has_unambiguous_matches()
+                && !markdown_file.has_phantom_link_matches()
+                && !has_replaceable_image_links
+            {
                 continue;
             }
 
@@ -208,6 +211,9 @@ impl ObsidianRepository {
             if change_set.contains(&MatchType::ImageReference) {
                 markdown_file.mark_image_reference_as_updated(operational_timezone)?;
             }
+            if change_set.contains(&MatchType::PhantomLink) {
+                markdown_file.mark_phantom_links_resolved(operational_timezone)?;
+            }
         }
         Ok(())
     }
@@ -221,6 +227,14 @@ impl ObsidianRepository {
             markdown_file
                 .back_populate_matches
                 .unambiguous
+                .iter()
+                .cloned()
+                .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),
+        );
+
+        matches.extend(
+            markdown_file
+                .phantom_link_matches
                 .iter()
                 .cloned()
                 .map(|m| Box::new(m) as Box<dyn ReplaceableContent>),

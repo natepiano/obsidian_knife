@@ -10,7 +10,9 @@ mod invalid_wikilink;
 mod missing_references;
 mod orchestration;
 mod persist_reasons;
+mod phantom_links;
 mod support;
 mod unreferenced_images;
+mod unresolved_links;
 
 mod writer;

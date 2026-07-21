@@ -271,7 +271,7 @@ fn range_overlaps(ranges: &[(usize, usize)], start: usize, end: usize) -> bool {
     })
 }
 
-fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
+pub(super) fn is_in_markdown_table(line: &str, matched_text: &str) -> bool {
     let trimmed = line.trim();
     trimmed.starts_with(PIPE)
         && trimmed.ends_with(PIPE)
