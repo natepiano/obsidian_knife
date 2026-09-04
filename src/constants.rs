@@ -13,8 +13,6 @@ pub(crate) const EXPECTED_ARG_COUNT: usize = 2;
 pub(crate) const INVALID_REGEX_EXIT_CODE: i32 = 1;
 
 // config
-/// the `DEFAULT_MEDIA_PATH` could be a configuration parameter as it's really specific to my repo
-pub(crate) const DEFAULT_MEDIA_PATH: &str = "conf/media";
 pub(crate) const DEFAULT_OUTPUT_FOLDER: &str = "obsidian_knife";
 pub(crate) const DEFAULT_TIMEZONE: &str = "America/New_York";
 pub(crate) const ERROR_NOT_FOUND: &str = "file not found: ";

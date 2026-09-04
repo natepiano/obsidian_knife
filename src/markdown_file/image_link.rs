@@ -14,7 +14,6 @@ use super::replaceable_content::ReplaceableContent;
 use crate::constants::BACKSLASH;
 use crate::constants::CLOSING_PAREN;
 use crate::constants::CLOSING_WIKILINK;
-use crate::constants::DEFAULT_MEDIA_PATH;
 use crate::constants::FORWARD_SLASH;
 use crate::constants::IMAGE_EMBED_MARKER;
 use crate::constants::IMAGE_LINK_PREFIX;
@@ -57,13 +56,34 @@ pub enum ImageLinkState {
     },
 }
 
+/// How a note spelled the directory part of an image link. Obsidian resolves a bare filename by
+/// name alone, so a rewritten link has to reproduce whichever form the note already used —
+/// synthesizing a prefix onto a bare link points it at a directory the image may not live in.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ImageLinkPath {
+    /// `![[image.png]]` — no directory in the link.
+    Bare,
+    /// `![[conf/media/acheter/image.png]]` — the link carried this directory.
+    Qualified(String),
+}
+
+impl ImageLinkPath {
+    /// Builds the link target for `filename` in the same shape as the original link.
+    fn to_link_target(&self, filename: &str) -> String {
+        match self {
+            Self::Bare => filename.to_string(),
+            Self::Qualified(directory) => format!("{directory}{FORWARD_SLASH}{filename}"),
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ImageLink {
     pub matched_text:   String,
     pub position:       usize,
     pub line_number:    usize,
     pub filename:       String,
-    pub relative_path:  String,
+    pub link_path:      ImageLinkPath,
     pub alt_text:       String,
     pub size_parameter: Option<String>,
     pub state:          ImageLinkState,
@@ -72,7 +92,7 @@ pub struct ImageLink {
 
 impl ImageLink {
     pub fn new(raw_link: String, line_number: usize, position: usize) -> Result<Self, String> {
-        let relative_path = extract_relative_path(&raw_link);
+        let link_path = extract_link_path(&raw_link);
 
         let parsed_link = match RawImageLinkSyntax::from(raw_link.as_str()) {
             RawImageLinkSyntax::Wiki => parse_wiki_image_link(&raw_link),
@@ -87,7 +107,7 @@ impl ImageLink {
             position,
             line_number,
             filename: parsed_link.filename,
-            relative_path,
+            link_path,
             alt_text: parsed_link.alt_text,
             size_parameter: parsed_link.size_parameter,
             state: ImageLinkState::default(),
@@ -116,36 +136,36 @@ impl ReplaceableContent for ImageLink {
                     .file_name()
                     .and_then(OsStr::to_str)
                     .unwrap_or_default();
-                let new_relative = format!("{}{FORWARD_SLASH}{new_name}", self.relative_path);
+                let link_target = self.link_path.to_link_target(new_name);
 
                 match &self.link_type {
                     ImageLinkType::Wiki(rendering) => match rendering {
                         ImageRendering::Embedded => self.size_parameter.as_ref().map_or_else(
                             || {
                                 format!(
-                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{new_relative}{CLOSING_WIKILINK}"
+                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{link_target}{CLOSING_WIKILINK}"
                                 )
                             },
                             |size| {
                                 format!(
-                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{new_relative}{PIPE}{size}{CLOSING_WIKILINK}"
+                                    "{IMAGE_EMBED_MARKER}{OPENING_WIKILINK}{link_target}{PIPE}{size}{CLOSING_WIKILINK}"
                                 )
                             },
                         ),
                         ImageRendering::Linked => {
-                            format!("{OPENING_WIKILINK}{new_relative}{CLOSING_WIKILINK}")
+                            format!("{OPENING_WIKILINK}{link_target}{CLOSING_WIKILINK}")
                         },
                     },
                     ImageLinkType::Markdown(target, rendering) => match (target, rendering) {
                         (ImageLinkTarget::Internal, ImageRendering::Embedded) => {
                             format!(
-                                "{IMAGE_LINK_PREFIX}{}{MARKDOWN_LINK_SEPARATOR}{new_relative}{CLOSING_PAREN}",
+                                "{IMAGE_LINK_PREFIX}{}{MARKDOWN_LINK_SEPARATOR}{link_target}{CLOSING_PAREN}",
                                 self.alt_text
                             )
                         },
                         (ImageLinkTarget::Internal, ImageRendering::Linked) => {
                             format!(
-                                "{OPENING_BRACKET}{}{MARKDOWN_LINK_SEPARATOR}{new_relative}{CLOSING_PAREN}",
+                                "{OPENING_BRACKET}{}{MARKDOWN_LINK_SEPARATOR}{link_target}{CLOSING_PAREN}",
                                 self.alt_text
                             )
                         },
@@ -275,9 +295,9 @@ fn parse_markdown_image_link(raw_link: &str) -> ParsedImageLink {
     }
 }
 
-fn extract_relative_path(matched: &str) -> String {
+fn extract_link_path(matched: &str) -> ImageLinkPath {
     if !matched.contains(FORWARD_SLASH) {
-        return DEFAULT_MEDIA_PATH.to_string();
+        return ImageLinkPath::Bare;
     }
 
     let prefix = matched
@@ -289,8 +309,9 @@ fn extract_relative_path(matched: &str) -> String {
         .map(|index| &prefix[index + 1..])
         .map(|path| path.trim_end_matches(FORWARD_SLASH))
         .filter(|path| !path.is_empty())
-        .unwrap_or(DEFAULT_MEDIA_PATH)
-        .to_string()
+        .map_or(ImageLinkPath::Bare, |path| {
+            ImageLinkPath::Qualified(path.to_string())
+        })
 }
 
 #[cfg(test)]
@@ -300,10 +321,14 @@ fn extract_relative_path(matched: &str) -> String {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use std::path::PathBuf;
+
     use super::ImageLink;
+    use super::ImageLinkState;
     use super::ImageLinkTarget;
     use super::ImageLinkType;
     use super::ImageRendering;
+    use super::ReplaceableContent;
     use crate::support::IMAGE_REGEX;
 
     const TEST_IMAGE_LINK_LINE_NUMBER: usize = 1;
@@ -327,6 +352,44 @@ mod tests {
                 filename,
                 link_type,
             }
+        }
+    }
+
+    #[test]
+    fn test_duplicate_replacement_preserves_link_shape() {
+        let cases = [
+            // A bare link must stay bare — Obsidian resolves it by filename, and prefixing a
+            // directory points it at a folder the keeper may not live in.
+            ("![[dup.png]]", "![[keeper.png]]"),
+            ("![[dup.png|300]]", "![[keeper.png|300]]"),
+            ("[[dup.png]]", "[[keeper.png]]"),
+            // A qualified link keeps the directory the note already spelled out.
+            (
+                "![[conf/media/acheter/dup.png]]",
+                "![[conf/media/acheter/keeper.png]]",
+            ),
+            (
+                "![alt](conf/media/dup.png)",
+                "![alt](conf/media/keeper.png)",
+            ),
+        ];
+
+        for (raw_link, expected) in cases {
+            let mut image_link = ImageLink::new(
+                raw_link.to_string(),
+                TEST_IMAGE_LINK_LINE_NUMBER,
+                TEST_IMAGE_LINK_POSITION,
+            )
+            .unwrap();
+            image_link.state = ImageLinkState::Duplicate {
+                keeper_path: PathBuf::from("conf/media/acheter/keeper.png"),
+            };
+
+            assert_eq!(
+                image_link.get_replacement(),
+                expected,
+                "replacement changed the link shape for {raw_link}"
+            );
         }
     }
 
