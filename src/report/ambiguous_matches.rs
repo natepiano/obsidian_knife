@@ -21,7 +21,9 @@ use super::constants::UNPARSABLE_LINE_NUMBER_SORT_KEY;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
+use crate::constants::CLOSING_WIKILINK;
 use crate::constants::COLON;
+use crate::constants::ESCAPED_OPENING_WIKILINK;
 use crate::constants::FOUND;
 use crate::constants::IN;
 use crate::constants::LEVEL1;
@@ -32,6 +34,7 @@ use crate::constants::MATCHES_AMBIGUOUS;
 use crate::constants::MOST_RECENT_UNIQUE_LINES;
 use crate::constants::OCCURRENCES;
 use crate::constants::OPENING_WIKILINK;
+use crate::constants::PIPE;
 use crate::constants::REFERENCES_TO;
 use crate::constants::SHOWING_THE;
 use crate::constants::TEXT;
@@ -142,12 +145,7 @@ impl ReportDefinition for AmbiguousMatchesTable {
 
         // `sorted_targets` form the target list before the source-line tables.
         for target in &self.sorted_targets {
-            let _ = writeln!(
-                result,
-                "- \\[\\[{}|{}]]",
-                target.to_wikilink(),
-                self.display_text
-            );
+            let _ = writeln!(result, "- {}", escaped_wikilink(target, &self.display_text));
         }
 
         // DescriptionBuilder summarizes the source file count for this display text.
@@ -281,6 +279,24 @@ impl ReportDefinition for TargetLinesTable {
     }
 
     fn level(&self) -> &'static str { LEVEL3 }
+}
+
+/// Renders `target` as the wikilink back-population would write for `display_text`. The outer
+/// brackets are escaped so the reader sees the literal link form, while `target` nests as a real
+/// wikilink so the report navigates to the candidate note.
+///
+/// `ToWikilink::to_aliased_wikilink` owns the decision of whether an alias is needed, so a target
+/// equal to `display_text` renders as `[[Mercedes]]` rather than the redundant
+/// `[[Mercedes|Mercedes]]`, which reads as a mis-aliased link already in the vault. A target
+/// differing only in case keeps the alias, because back-population preserves the found casing.
+fn escaped_wikilink(target: &str, display_text: &str) -> String {
+    let target_wikilink = target.to_wikilink();
+
+    if target.to_aliased_wikilink(display_text) == target_wikilink {
+        format!("{ESCAPED_OPENING_WIKILINK}{target_wikilink}{CLOSING_WIKILINK}")
+    } else {
+        format!("{ESCAPED_OPENING_WIKILINK}{target_wikilink}{PIPE}{display_text}{CLOSING_WIKILINK}")
+    }
 }
 
 /// Collapses rows sharing the same trimmed `TEXT_COLUMN_INDEX` cell (carried-forward daily
@@ -432,6 +448,25 @@ mod tests {
         TargetLinesTable {
             target_text: "Someone".to_string(),
         }
+    }
+
+    #[test]
+    fn test_escaped_wikilink_omits_redundant_alias() {
+        assert_eq!(
+            escaped_wikilink("Mercedes", "Mercedes"),
+            r"\[\[[[Mercedes]]]]",
+            "a target matching the display text renders without an alias"
+        );
+        assert_eq!(
+            escaped_wikilink("Mercedes Maxwell", "Mercedes"),
+            r"\[\[[[Mercedes Maxwell]]|Mercedes]]",
+            "a target reached through an alias keeps the display text"
+        );
+        assert_eq!(
+            escaped_wikilink("Mercedes", "mercedes"),
+            r"\[\[[[Mercedes]]|mercedes]]",
+            "a case difference keeps the alias so back-population preserves the found casing"
+        );
     }
 
     #[test]

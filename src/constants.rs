@@ -87,6 +87,7 @@ pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
 pub(crate) const ESCAPED_BRACKET_CLOSE: &str = r"\]";
 pub(crate) const ESCAPED_BRACKET_OPEN: &str = r"\[";
+pub(crate) const ESCAPED_OPENING_WIKILINK: &str = r"\[\[";
 pub(crate) const ESCAPED_PIPE: &str = r"\|";
 pub(crate) const ESCAPED_PIPE_CAPACITY_MULTIPLIER: usize = 2;
 pub(crate) const FORWARD_SLASH: char = '/';
