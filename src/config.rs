@@ -147,19 +147,17 @@ mod tests {
     use super::Config;
     use super::ConfiguredChanges;
     use crate::constants::DEFAULT_TIMEZONE;
-    use crate::constants::OBSIDIAN_FOLDER;
     use crate::frontmatter::FrontMatter;
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
-    use crate::yaml_frontmatter::YamlFrontMatter;
+        use crate::yaml_frontmatter::YamlFrontMatter;
 
     fn create_test_environment() -> (TempDir, PathBuf) {
         let temp_dir = TempDir::new().unwrap();
 
         let obsidian_path = temp_dir.path().join("vault");
         fs::create_dir(&obsidian_path).unwrap();
-        fs::create_dir(obsidian_path.join(OBSIDIAN_FOLDER)).unwrap();
 
         let canonical_path = obsidian_path
             .canonicalize()

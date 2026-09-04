@@ -10,10 +10,12 @@ use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::FOUND;
 use crate::constants::FRONTMATTER;
+use crate::constants::DATE_CREATED_MISSING;
 use crate::constants::FRONTMATTER_ISSUES;
 use crate::constants::LEVEL1;
 use crate::constants::YOU_HAVE_TO_FIX_THESE_YOURSELF;
 use crate::description_builder::DescriptionBuilder;
+use crate::markdown_file::MarkdownFile;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::ColumnAlignment;
 use crate::output_file_writer::OutputFileWriter;
@@ -81,11 +83,25 @@ impl ObsidianRepository {
     fn collect_frontmatter_issues(&self) -> Vec<(PathBuf, String)> {
         self.markdown_files
             .iter()
-            .filter_map(|info| {
-                info.frontmatter_error
-                    .as_ref()
-                    .map(|err| (info.path.clone(), err.to_string()))
+            .filter_map(|markdown_file| {
+                Self::frontmatter_issue(markdown_file)
+                    .map(|issue| (markdown_file.path.clone(), issue))
             })
             .collect()
+    }
+
+    /// The vault's linter owns `date_created`: it stamps the property when a note is made,
+    /// and this tool never writes one, so a note without it is reported for the user to fix
+    /// rather than dated from a filesystem timestamp that any copy or checkout would reset.
+    fn frontmatter_issue(markdown_file: &MarkdownFile) -> Option<String> {
+        if let Some(error) = markdown_file.frontmatter_error.as_ref() {
+            return Some(error.to_string());
+        }
+
+        markdown_file
+            .front_matter
+            .as_ref()
+            .filter(|front_matter| front_matter.date_created().is_none())
+            .map(|_| DATE_CREATED_MISSING.to_string())
     }
 }

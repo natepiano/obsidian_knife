@@ -24,7 +24,6 @@ use crate::description_builder::DescriptionBuilder;
 use crate::image_file::ImageFileState;
 use crate::markdown_file::ImageLinkState;
 use crate::markdown_file::MarkdownFile;
-use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
 use crate::output_file_writer::OutputFileWriter;
 use crate::phrase::Phrase;
@@ -102,12 +101,6 @@ impl ObsidianRepository {
             })
         });
 
-        let has_frontmatter_created = self.markdown_files.iter().any(|file| {
-            file.persist_reasons
-                .iter()
-                .any(|r| matches!(r, PersistReason::FrontmatterCreated))
-        });
-
         let has_canonical_links = self
             .markdown_files
             .files_to_persist()
@@ -122,15 +115,10 @@ impl ObsidianRepository {
 
         if has_back_populate_entries
             || has_invalid_wikilinks
-            || has_frontmatter_created
             || has_canonical_links
             || has_phantom_links
         {
             write_back_populate_report_header(validated_config, output_file_writer)?;
-
-            if has_frontmatter_created {
-                self.write_add_frontmatter_report(output_file_writer)?;
-            }
 
             if has_invalid_wikilinks {
                 self.write_invalid_wikilinks_report(output_file_writer)?;

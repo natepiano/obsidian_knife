@@ -140,6 +140,12 @@ impl ObsidianRepository {
 
     pub fn apply_replaceable_matches(&mut self, operational_timezone: &str) -> AnyhowResult<()> {
         for markdown_file in &mut self.markdown_files {
+            // A file with absent or unreadable frontmatter is reported, never rewritten:
+            // the tool does not invent the frontmatter such a file would need.
+            if !markdown_file.has_usable_frontmatter() {
+                continue;
+            }
+
             let has_replaceable_image_links = markdown_file.image_links.iter().any(|link| {
                 matches!(
                     link.state,
@@ -344,6 +350,8 @@ fn normalize_spaces(text: &str) -> String { text.split_whitespace().collect::<Ve
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
+    use tempfile::TempDir;
+
     use crate::markdown_file::BackPopulateMatch;
     use crate::markdown_file::MarkdownFile;
     use crate::markdown_file::MatchContext;
@@ -355,9 +363,10 @@ mod tests {
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
     use crate::wikilink::Wikilink;
+
     #[test]
     fn test_identify_ambiguous_matches() {
-        let (temp_dir, validated_config, mut obsidian_repository) =
+        let (temp_dir, _, mut obsidian_repository) =
             test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
 
         obsidian_repository.wikilinks_sorted = vec![
@@ -383,10 +392,7 @@ mod tests {
             .with_content("Unique wrote this")
             .create(&temp_dir, "test2.md");
 
-        let mut test_file = MarkdownFile::new(
-            temp_dir.path().join("test1.md"),
-            validated_config.operational_timezone(),
-        )
+        let mut test_file = MarkdownFile::new(temp_dir.path().join("test1.md"))
         .unwrap();
         test_file.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test1.md".to_string(),
@@ -398,10 +404,7 @@ mod tests {
             match_context: MatchContext::Plaintext,
         }];
 
-        let mut test_file2 = MarkdownFile::new(
-            temp_dir.path().join("test2.md"),
-            validated_config.operational_timezone(),
-        )
+        let mut test_file2 = MarkdownFile::new(temp_dir.path().join("test2.md"))
         .unwrap();
         test_file2.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test2.md".to_string(),
@@ -946,6 +949,50 @@ Nate was here and so was Nate"
     }
 
     #[test]
+    fn test_apply_replaceable_matches_skips_unparseable_frontmatter() {
+        let initial_content = "This is Test Link in a sentence.";
+        let temp_dir = TempDir::new().unwrap();
+        let validated_config =
+            test_support::get_test_validated_config_result(&temp_dir, |builder| {
+                builder.change_mode(ChangeMode::Apply);
+            })
+            .unwrap();
+
+        let file_path = TestFileBuilder::new()
+            .with_custom_frontmatter("tags: [unclosed".to_string())
+            .with_content(initial_content)
+            .create(&temp_dir, "unparseable_frontmatter.md");
+
+        let mut obsidian_repository = ObsidianRepository::default();
+        obsidian_repository.markdown_files.push(
+            MarkdownFile::new(file_path)
+            .unwrap(),
+        );
+        obsidian_repository.wikilinks_sorted = vec![Wikilink {
+            display_text: "Test Link".to_string(),
+            target:       "Test Link".to_string(),
+        }];
+        obsidian_repository.wikilinks_automaton = Some(test_support::build_aho_corasick(
+            &obsidian_repository.wikilinks_sorted,
+        ));
+
+        obsidian_repository
+            .find_all_back_populate_matches(&validated_config)
+            .unwrap();
+        assert!(obsidian_repository.markdown_files[0].has_unambiguous_matches());
+
+        obsidian_repository
+            .apply_replaceable_matches(validated_config.operational_timezone())
+            .unwrap();
+
+        let markdown_file = &obsidian_repository.markdown_files[0];
+        assert_eq!(markdown_file.content.trim_end(), initial_content);
+        assert!(markdown_file.front_matter.is_none());
+        assert!(!markdown_file.has_usable_frontmatter());
+        assert!(markdown_file.persist_reasons.is_empty());
+    }
+
+    #[test]
     fn test_case_insensitive_targets() {
         let (temp_dir, validated_config, _) =
             test_support::create_test_environment(ChangeMode::DryRun, None, Some(vec![]), None);
@@ -1017,7 +1064,7 @@ Nate was here and so was Nate"
 
             let markdown_file = {
                 let mut markdown_file =
-                    MarkdownFile::new(file.clone(), validated_config.operational_timezone())
+                    MarkdownFile::new(file.clone())
                         .unwrap();
                 markdown_file.content = content.to_string();
                 markdown_file.back_populate_matches.unambiguous = matches.clone();

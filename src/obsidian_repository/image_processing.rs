@@ -394,10 +394,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_analyze_missing_references() {
         let temp_dir = TempDir::new().unwrap();
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
@@ -410,7 +406,6 @@ mod tests {
                 "# Test\n![[missing.jpg]]\nSome content\n![Another](also_missing.jpg)".to_string(),
             )
             .with_matching_dates(test_date)
-            .with_file_system_dates(test_date, test_date)
             .create(&temp_dir, "test.md");
 
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
@@ -432,7 +427,7 @@ mod tests {
 
         let updated_content = fs::read_to_string(&markdown_file_path).unwrap();
         let mut expected_front_matter = FrontMatter::default();
-        expected_front_matter.set_date_created(test_date, validated_config.operational_timezone());
+        expected_front_matter.created = Some(test_utils::frontmatter_date_wikilink(test_date));
         expected_front_matter.set_date_modified(test_date, validated_config.operational_timezone());
         let yaml = expected_front_matter.to_yaml_str().unwrap();
         let expected_content = format!(
@@ -453,10 +448,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     #[allow(
         clippy::too_many_lines,
         reason = "test case table + assertion loop — not worth splitting"
@@ -602,10 +593,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_analyze_wikilink_errors() {
         let temp_dir = TempDir::new().unwrap();
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);
@@ -616,7 +603,6 @@ mod tests {
         let markdown_file_path = TestFileBuilder::new()
             .with_content("# Test\n![[[[Some File]]]]".to_string())
             .with_matching_dates(test_date)
-            .with_file_system_dates(test_date, test_date)
             .create(&temp_dir, "test_file.md");
 
         let mut obsidian_repository = ObsidianRepository::new(&validated_config).unwrap();
@@ -670,16 +656,14 @@ mod tests {
         );
 
         assert!(
-            &markdown_file.front_matter.as_ref().unwrap().needs_persist(),
-            "needs persist should better well be true, boyo"
+            markdown_file
+                .persist_reasons
+                .contains(&PersistReason::ImageReferencesModified),
+            "the file should be marked for persistence"
         );
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_duplicate_grouping() {
         let temp_dir = TempDir::new().unwrap();
         let mut builder = test_utils::get_test_validated_config_builder(&temp_dir);

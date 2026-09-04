@@ -11,7 +11,6 @@ use crate::constants::CLOSING_WIKILINK;
 use crate::constants::DEFAULT_TIMEZONE;
 use crate::constants::MARKDOWN_SUFFIX;
 use crate::constants::MIN_FILE_LIMIT;
-use crate::constants::OBSIDIAN_FOLDER;
 use crate::constants::OPENING_WIKILINK;
 use crate::support;
 
@@ -188,14 +187,7 @@ impl ValidatedConfigBuilder {
     }
 
     pub(crate) fn ignore_folders(&mut self, folders: Option<Vec<PathBuf>>) -> &mut Self {
-        let mut folders = folders.unwrap_or_default();
-        let obsidian_folder = PathBuf::from(OBSIDIAN_FOLDER);
-
-        if !folders.contains(&obsidian_folder) {
-            folders.push(obsidian_folder);
-        }
-
-        self.ignore_folders = Some(Some(self.resolve_paths(folders)));
+        self.ignore_folders = Some(Some(self.resolve_paths(folders.unwrap_or_default())));
         self
     }
 }
@@ -242,7 +234,6 @@ impl ValidatedConfig {
     reason = "tests should panic on unexpected values"
 )]
 mod tests {
-    use std::fs;
     use std::path::PathBuf;
 
     use serde_yaml::from_str;
@@ -254,7 +245,6 @@ mod tests {
     use crate::constants::DEFAULT_OUTPUT_FOLDER;
     use crate::constants::DEFAULT_TIMEZONE;
     use crate::constants::MARKDOWN_SUFFIX;
-    use crate::constants::OBSIDIAN_FOLDER;
     use crate::test_support;
 
     #[test]
@@ -299,26 +289,26 @@ mod tests {
     }
 
     #[test]
-    fn test_preserve_obsidian_in_ignore_folders() {
+    fn test_ignore_folders_resolve_against_obsidian_path() {
         let temp_dir = TempDir::new().unwrap();
         let obsidian_path = temp_dir.path().to_path_buf();
 
         let mut builder = ValidatedConfigBuilder::default();
         builder.obsidian_path(obsidian_path.clone());
 
-        builder.ignore_folders(Some(vec![PathBuf::from(OBSIDIAN_FOLDER)]));
+        builder.ignore_folders(Some(vec![PathBuf::from("templates")]));
 
         builder.output_folder(obsidian_path.join("custom_output"));
 
         let validated_config = builder.build().unwrap();
         let ignore_folders = validated_config.ignore_folders().unwrap();
 
-        let obsidian_dir = obsidian_path.join(OBSIDIAN_FOLDER);
+        let templates_dir = obsidian_path.join("templates");
         let output_dir = obsidian_path.join("custom_output");
 
         assert!(
-            ignore_folders.contains(&obsidian_dir),
-            "Should contain .obsidian directory"
+            ignore_folders.contains(&templates_dir),
+            "Should contain the configured folder resolved against obsidian_path"
         );
         assert!(
             ignore_folders.contains(&output_dir),
@@ -400,17 +390,13 @@ mod tests {
     fn test_output_folder_added_to_ignore() {
         let temp_dir = TempDir::new().unwrap();
 
-        let obsidian_dir = temp_dir.path().join(OBSIDIAN_FOLDER);
-        fs::create_dir(&obsidian_dir).unwrap();
-
         let yaml = format!(
             r"
     obsidian_path: {}
     output_folder: custom_output
     ignore_folders:
-      - {}",
-            temp_dir.path().display(),
-            OBSIDIAN_FOLDER
+      - templates",
+            temp_dir.path().display()
         );
 
         let config: Config = from_str(&yaml).unwrap();
@@ -420,7 +406,7 @@ mod tests {
         let output_path = validated.output_folder();
 
         assert!(ignore_folders.contains(&output_path.to_path_buf()));
-        assert!(ignore_folders.contains(&obsidian_dir));
+        assert!(ignore_folders.contains(&temp_dir.path().join("templates")));
     }
 
     #[test]

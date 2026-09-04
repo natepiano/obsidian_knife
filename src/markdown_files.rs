@@ -8,7 +8,6 @@ use derive_more::DerefMut;
 use derive_more::IntoIterator;
 use rayon::prelude::*;
 
-use crate::frontmatter::FrontMatter;
 use crate::markdown_file::BackPopulateMatch;
 use crate::markdown_file::MarkdownFile;
 use crate::validated_config::ValidatedConfig;
@@ -68,24 +67,14 @@ impl MarkdownFiles {
 
     pub(crate) fn total_files_to_persist(&self) -> usize {
         self.iter()
-            .filter(|file_info| {
-                file_info
-                    .front_matter
-                    .as_ref()
-                    .is_some_and(FrontMatter::needs_persist)
-            })
+            .filter(|file_info| !file_info.persist_reasons.is_empty())
             .count()
     }
 
     pub(crate) fn files_to_persist(&self) -> Self {
         let mut files_to_persist: Vec<MarkdownFile> = self
             .iter()
-            .filter(|file_info| {
-                file_info
-                    .front_matter
-                    .as_ref()
-                    .is_some_and(FrontMatter::needs_persist)
-            })
+            .filter(|file_info| !file_info.persist_reasons.is_empty())
             .cloned()
             .collect();
 

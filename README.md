@@ -46,7 +46,7 @@ Review proposed changes in "obsidian knife output.md" before enabling apply_chan
   - remove broken image references
   - remove zero-byte images
   - remove non-rendering formats (tiff)
-- manage frontmatter dates and file creation times
+- stamp date_modified on the files it changes
 
 ## date handling
 Currently, obsidian_knife (hereafter referred to an "ok") is hard coded for how i use dates in obsidian - as yaml
@@ -57,16 +57,19 @@ date_created: "[[2024-10-22]]"
 date_modified: "[[2024-11-06]]"
 ---
 ```
-if the date_created doesn't match the file date created, ok will update date_created to match the file's actual create date
+the front matter is the record of when a note was written. ok never reads a file's filesystem timestamps and never
+reconciles these properties against them. a vault cloned with git, restored from a backup, or copied between machines
+carries the transfer time on every file, so those timestamps say nothing about the note.
 
-if the file modify date is different from the property in the file, then the property will be updated
+date_created belongs to whatever creates the note - the obsidian linter plugin stamps it on creation. ok never writes
+one. if you disagree with a date, edit the markdown and ok will leave your edit alone. a file with no date_created is
+listed in the frontmatter issues report so you know to run the linter on it.
 
-### date_create_fix - doesn't work on linux
-if you want to change the file create date to something else you can add a property called "date_create_fix" to the
-front matter with the date that you'd like the file to have.  ok will change the file create date, update the date_created
-property and remove the date_create_fix property after.
+ok does stamp date_modified on the files it changes itself - back population, link rewrites, image reference cleanup -
+because the linter only runs when obsidian saves a file and would never see those edits.
 
-at some point, i may make date handling a configurable feature - for now it's default behavior
+a file whose front matter is missing or unparseable is reported and skipped. ok never invents a front matter block and
+never replaces one it could not read.
 
 also at some point providing the name of the frontmatter property should become configurable as well
 
@@ -74,24 +77,20 @@ also at some point providing the name of the frontmatter property should become 
 we can set an operational time zone (defaults to: America/New_York time zone). For more information on naming,
 see [IANA time zones](https://data.iana.org/time-zones/tzdb-2021a/zone1970.tab)
 
-the operational time zone bridges the gap between the wikilink dates of date_created and date_modified and the UTC date
-from the operating system.
+the operational time zone decides which calendar day a date_modified stamp lands on. the operating system hands ok a
+UTC instant and the front matter wants a wikilink date, so ok converts to the operational timezone before formatting it.
 
-This way, mismatches between the OS and the frontmatter will always treat the frontmatter as if it's in the operational
-timezone so when you happen to run obsidian knife in some other time zone, it won't change the create and modified dates
-to line up with the timezone you happen to be in at that moment in time. It will keep aligning them all to the OS date
-for whatever timezone it is you specify.
-
-As an example, 23:00 on the East Coast is 04:00 of the next day UTC. Let's say the frontmatter date is 2024-01-15.
-On the East Coast the OS will show it as 2024-01-15 23:00 but in UTC it will be 2024-01-16 04:00. We don't want the
-date fix to update the frontmatter to 2024-01-16 so the operational_timezone ensures that it's looking at the UTC date
-from the OS as if it's in the East Coast to compare it to what's in the front matter - which will be 2024-01-15.
+As an example, 23:00 on the East Coast is 04:00 of the next day UTC. A file changed at 23:00 on 2024-01-15 in New York
+is already 2024-01-16 in UTC. With operational_timezone: America/New_York the stamp reads [[2024-01-15]] - the date on
+the wall clock where you are - and it stays that way no matter which timezone you happen to run ok in.
 
 the obsidian linter plugin can do most of what i'm doing here with dates but it doesn't have the notion of the operational timezone.
 it does allow you to conver to UTC but if you don't want to operate in UTC then this doesn't work
 
 ## useful troubleshooting info
-ok will output a list of any files that have invalid frontmatter.
+ok will output a list of any files that have invalid frontmatter. Those files are never modified: back population,
+link rewrites, and image cleanup all skip a file whose frontmatter block exists but can't be parsed, so the block is
+left for you to repair.
 
 ok will output any invalid wikilinks so your repo doesn't get messed up
 
@@ -194,10 +193,15 @@ the word Will to be turned into [[Will A Friend|Will]] everywhere so will one of
 in my config.
 
 do_not_back_populate is special in that you can also add it as a yaml property on any of your pages to prevent
-substituting wikilinks just on that page
+substituting wikilinks just on that page. The page property accepts a single value (`do_not_back_populate: style`)
+or a list, the same as `aliases`.
 ## ignore_folders
 Optional. List of folders to skip during processing. Paths are relative to obsidian_path. The output_folder
-from the configuration file, `.obsidian`  and `.obsidian_knife` are automatically added to this list.
+from the configuration file is automatically added to this list.
+
+Files and folders whose names start with a dot (`.obsidian`, `.trash`, `.git`, `.DS_Store`) are always skipped:
+Obsidian never indexes them, so a link into one can't resolve in the app and a report about it would describe
+notes the vault can't see.
 # cache
 ok creates a `.ok` folder in your vault to store image hashes. This cache improves performance when
 checking for duplicate images across multiple runs. Especially in larger repos.

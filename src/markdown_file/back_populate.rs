@@ -397,12 +397,11 @@ mod tests {
 
     #[test]
     fn test_should_create_match_in_table() {
-        let (temp_dir, validated_config, _) =
+        let (temp_dir, _, _) =
             test_support::create_test_environment(ChangeMode::DryRun, None, None, None);
         let file_path = temp_dir.path().join("test.md");
 
-        let markdown_file =
-            MarkdownFile::new(file_path, validated_config.operational_timezone()).unwrap();
+        let markdown_file = MarkdownFile::new(file_path).unwrap();
 
         assert!(markdown_file.should_create_match("| Test Link | description |", 2, "Test Link",));
 
@@ -603,7 +602,7 @@ mod tests {
             let automaton = test_support::build_aho_corasick(slice::from_ref(&wikilink));
 
             let markdown_file =
-                MarkdownFile::new(file_path.clone(), validated_config.operational_timezone())
+                MarkdownFile::new(file_path.clone())
                     .unwrap();
 
             let matches = markdown_file.process_line_for_back_populate_replacements(

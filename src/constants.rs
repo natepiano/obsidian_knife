@@ -23,13 +23,15 @@ pub(crate) const MIN_FILE_LIMIT: usize = 1;
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // date handling
+pub(crate) const DATE_CREATED_MISSING: &str =
+    "date_created is missing - run the linter to add it";
 pub(crate) const FORMAT_DATE: &str = "%Y-%m-%d";
-pub(crate) const NOON_HOUR: u32 = 12;
 
 // files and extensions
-pub(crate) const DS_STORE: &str = ".DS_Store";
 pub(crate) const EMPTY_FILE_SIZE_BYTES: u64 = 0;
 pub(crate) const GIF_EXTENSION: &str = "gif";
+/// Obsidian never indexes a file or folder whose name starts with this.
+pub(crate) const HIDDEN_ENTRY_PREFIX: &str = ".";
 pub(crate) const IMAGE_EXTENSIONS: [&str; 8] = [
     GIF_EXTENSION,
     JPEG_EXTENSION,
@@ -50,26 +52,12 @@ pub(crate) const TIF_EXTENSION: &str = "tif";
 pub(crate) const TIFF_EXTENSION: &str = "tiff";
 pub(crate) const WEBP_EXTENSION: &str = "webp";
 
-// folders
-pub(crate) const OBSIDIAN_FOLDER: &str = ".obsidian";
-
 // frontmatter delimiters
 pub(crate) const FRONTMATTER_DELIMITER_LINE_COUNT: usize = 2;
 pub(crate) const YAML_CLOSING_DELIMITER: &str = "---\n";
 pub(crate) const YAML_CLOSING_DELIMITER_EOF: &str = "\n---";
 pub(crate) const YAML_CLOSING_DELIMITER_NEWLINE: &str = "\n---\n";
 pub(crate) const YAML_OPENING_DELIMITER: &str = "---\n";
-
-// macos file dates
-#[cfg(target_os = "macos")]
-pub(crate) const FAILED_TO_SET_CREATION_DATE_WITH_SETFILE: &str =
-    "Failed to set creation date with SetFile";
-#[cfg(target_os = "macos")]
-pub(crate) const SET_FILE_CREATED_DATE_FLAG: &str = "-d";
-#[cfg(target_os = "macos")]
-pub(crate) const SET_FILE_CREATED_DATE_FORMAT: &str = "%m/%d/%Y %H:%M:%S";
-#[cfg(target_os = "macos")]
-pub(crate) const SET_FILE_EXECUTABLE: &str = "SetFile";
 
 // markdown link syntax
 pub(crate) const IMAGE_EMBED_MARKER: char = '!';
@@ -98,7 +86,6 @@ pub(crate) const BACKSLASH_PARITY_DIVISOR: usize = 2;
 pub(crate) const CLOSING_BRACKET: char = ']';
 pub(crate) const CLOSING_PAREN: char = ')';
 pub(crate) const CLOSING_WIKILINK: &str = "]]";
-pub(crate) const DOUBLE_QUOTE: char = '"';
 pub(crate) const ESCAPED_BRACKET_CLOSE: &str = r"\]";
 pub(crate) const ESCAPED_BRACKET_OPEN: &str = r"\[";
 pub(crate) const ESCAPED_PIPE: &str = r"\|";
@@ -125,8 +112,6 @@ pub(crate) const ERROR_OCCURRED: &str = "error occurred";
 pub(crate) const ERROR_SOURCE: &str = "error source:";
 pub(crate) const ERROR_TYPE: &str = "error type:";
 pub(crate) const FORMAT_TIME_STAMP: &str = "%Y-%m-%d %H:%M:%S";
-pub(crate) const FRONTMATTER_MISSING_AFTER_ENSURE: &str =
-    "frontmatter missing after ensure_frontmatter for";
 pub(crate) const IMAGE_FILE_COLLECTION_LOCK_POISONED: &str = "image file collection lock poisoned";
 pub(crate) const INVALID_REGEX_PATTERN: &str = "invalid regex pattern";
 pub(crate) const MARKDOWN_FILE_COLLECTION_LOCK_POISONED: &str =
@@ -138,8 +123,6 @@ pub(crate) const OBSIDIAN_KNIFE: &str = "obsidian knife - aka \"ok\"";
 pub(crate) const OUTPUT_FILE_LOCK_POISONED: &str = "output file lock poisoned";
 pub(crate) const PERSIST_REQUIRES_FRONTMATTER: &str =
     "frontmatter is required to persist a markdown file";
-pub(crate) const PERSIST_REQUIRES_RAW_DATE_MODIFIED: &str =
-    "raw_date_modified must be set for persist";
 #[cfg(not(debug_assertions))]
 pub(crate) const RELEASE: &str = "release";
 pub(crate) const TOTAL_TIME: &str = "total time";
@@ -160,16 +143,12 @@ pub(crate) const THUMBNAIL_WIDTH: usize = 50;
 
 // report strings
 pub(crate) const ACTION: &str = "action";
-pub(crate) const ADD_FRONTMATTER: &str = "add frontmatter";
-pub(crate) const AFTER: &str = "after";
 pub(crate) const BACK_POPULATE: &str = "back populate";
 pub(crate) const BACK_POPULATE_FILE_FILTER_PREFIX: &str =
     "using back_populate_file_filter config parameter: ";
 pub(crate) const BACK_POPULATE_FILE_FILTER_SUFFIX: &str =
     "remove it from config if you want to process all files";
-pub(crate) const BEFORE: &str = "before";
 pub(crate) const COLON: &str = ":";
-pub(crate) const CREATED: &str = "created";
 pub(crate) const DELETED: &str = "deleted";
 pub(crate) const DUPLICATE: &str = "duplicate";
 pub(crate) const DUPLICATE_IMAGES: &str = "duplicate images";

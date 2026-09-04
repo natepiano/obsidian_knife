@@ -66,7 +66,10 @@ pub(crate) fn run() -> Result<(), Box<dyn Error + Send + Sync>> {
 fn process_obsidian_repository(config_path: PathBuf) -> Result<(), Box<dyn Error + Send + Sync>> {
     let path = support::expand_tilde(config_path);
 
-    let mut markdown_file = MarkdownFile::new(path, DEFAULT_TIMEZONE)?;
+    // The config file's own dates are read with `DateMode::Ignore` because the setting
+    // that governs reconciliation lives inside the file being read. `reset_change_mode`
+    // replaces this frontmatter wholesale when changes are applied.
+    let mut markdown_file = MarkdownFile::new(path)?;
     let mut config = if let Some(front_matter) = &markdown_file.front_matter {
         Config::try_from(front_matter)?
     } else {

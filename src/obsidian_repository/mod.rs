@@ -49,7 +49,6 @@ impl ObsidianRepository {
 
         let markdown_files = Self::initialize_markdown_files(
             &repository_files.markdown,
-            validated_config.operational_timezone(),
             validated_config.file_limit(),
         )?;
 
@@ -72,13 +71,12 @@ impl ObsidianRepository {
 
     fn initialize_markdown_files(
         markdown_paths: &[PathBuf],
-        timezone: &str,
         file_limit: Option<usize>,
     ) -> Result<MarkdownFiles, Box<dyn Error + Send + Sync>> {
         let markdown_files = Arc::new(Mutex::new(MarkdownFiles::default()));
 
         markdown_paths.par_iter().try_for_each(|file_path| {
-            match MarkdownFile::new(file_path.clone(), timezone) {
+            match MarkdownFile::new(file_path.clone()) {
                 Ok(markdown_file) => {
                     markdown_files
                         .lock()
@@ -168,16 +166,7 @@ mod tests {
     use std::fs::read_to_string;
     use std::path::Path;
     use std::path::PathBuf;
-    use std::str::FromStr;
-    use std::time::Duration;
-    use std::time::SystemTime;
 
-    use chrono::DateTime;
-    use chrono::Duration as ChronoDuration;
-    use chrono::NaiveDate;
-    use chrono::TimeZone;
-    use chrono::Utc;
-    use filetime::FileTime;
     use rayon::prelude::*;
     use serde_json::Value;
     use serde_json::from_str;
@@ -187,7 +176,6 @@ mod tests {
     use crate::constants::CACHE_FILE;
     use crate::constants::CACHE_FOLDER;
     use crate::constants::DEFAULT_TIMEZONE;
-    use crate::constants::FORMAT_DATE;
     use crate::constants::MARKDOWN_EXTENSION;
     use crate::image_file::ImageFile;
     use crate::image_file::ImageFileState;
@@ -198,9 +186,8 @@ mod tests {
     use crate::markdown_file::PersistReason;
     use crate::test_support;
     use crate::test_support as test_utils;
-    use crate::test_support::PersistExpectation;
     use crate::test_support::TestFileBuilder;
-    use crate::validated_config::ValidatedConfig;
+        use crate::validated_config::ValidatedConfig;
     use crate::validated_config::ValidatedConfigBuilder;
 
     #[derive(Debug)]
@@ -211,26 +198,14 @@ mod tests {
         expected_processed: usize,
     }
 
-    fn create_test_files(temp_dir: &TempDir, count: usize, timezone: &str) {
-        let timezone = chrono_tz::Tz::from_str(timezone).unwrap();
-        let base_date = timezone.with_ymd_and_hms(2024, 1, 1, 0, 0, 0).unwrap();
-
+    fn create_test_files(temp_dir: &TempDir, count: usize) {
         let _: Vec<MarkdownFile> = (0..count)
             .map(|i| {
-                let created =
-                    base_date + ChronoDuration::days(i64::try_from(i).expect("test index"));
-                let modified = created + ChronoDuration::hours(1);
-
-                // `created_utc` and `modified_utc` store filesystem dates in UTC.
-                let created_utc = created.with_timezone(&Utc);
-                let modified_utc = modified.with_timezone(&Utc);
-
                 let file = TestFileBuilder::new()
                     .with_frontmatter_dates(
                         Some(format!("[[{}-01-01]]", 2023 - i)),
                         Some(format!("[[{}-01-01]]", 2023 - i)),
                     )
-                    .with_file_system_dates(created_utc, modified_utc)
                     .create(temp_dir, &format!("test_{i}.md"));
 
                 test_utils::get_test_markdown_file(file)
@@ -239,10 +214,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_file_limit() -> Result<(), Box<dyn Error + Send + Sync>> {
         let test_cases = vec![
             FileLimitTestCase {
@@ -278,12 +249,15 @@ mod tests {
             builder.file_limit(case.limit);
             let validated_config = builder.build()?;
 
-            create_test_files(
-                &temp_dir,
-                case.file_count,
-                validated_config.operational_timezone(),
-            );
-            let obsidian_repository = ObsidianRepository::new(&validated_config)?;
+            create_test_files(&temp_dir, case.file_count);
+            let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
+
+            // Only files the tool changed are persisted, so each test file gets a reason.
+            for markdown_file in &mut obsidian_repository.markdown_files {
+                markdown_file
+                    .persist_reasons
+                    .push(PersistReason::ImageReferencesModified);
+            }
 
             obsidian_repository.persist()?;
 
@@ -291,7 +265,6 @@ mod tests {
                 .markdown_files
                 .files_to_persist()
                 .iter()
-                .take(case.expected_processed)
                 .filter(|file| {
                     read_to_string(&file.path).is_ok_and(|content| {
                         let file_index = file
@@ -302,12 +275,12 @@ mod tests {
                             .and_then(|s| s.parse::<i64>().ok())
                             .unwrap_or(0);
 
-                        let expected_date = format!("2024-01-{:02}", file_index + 1);
+                        let expected_date = format!("[[{}-01-01]]", 2023 - file_index);
 
                         let has_created =
-                            content.contains(&format!("date_created: '[[{expected_date}]]'"));
+                            content.contains(&format!("date_created: '{expected_date}'"));
                         let has_modified =
-                            content.contains(&format!("date_modified: '[[{expected_date}]]'"));
+                            content.contains(&format!("date_modified: '{expected_date}'"));
 
                         has_created && has_modified
                     })
@@ -443,250 +416,6 @@ date_modified: 2024-01-01
         );
 
         Ok(())
-    }
-
-    #[derive(Debug)]
-    struct FrontmatterDates {
-        created:  Option<String>,
-        modified: Option<String>,
-    }
-
-    #[derive(Debug)]
-    struct FileSystemDates<T> {
-        created:  T,
-        modified: T,
-    }
-
-    #[derive(Debug)]
-    struct PersistenceState<T> {
-        frontmatter_dates: FrontmatterDates,
-        file_system:       FileSystemDates<T>,
-    }
-
-    #[derive(Debug)]
-    struct PersistenceOutcome {
-        dates:   PersistenceState<NaiveDate>,
-        persist: PersistExpectation,
-    }
-
-    #[derive(Debug)]
-    struct PersistenceTestCase {
-        name:     &'static str,
-        initial:  PersistenceState<DateTime<Utc>>,
-        expected: PersistenceOutcome,
-    }
-
-    fn create_test_file_from_case(temp_dir: &TempDir, case: &PersistenceTestCase) -> PathBuf {
-        // Format dates in wikilink format if they exist
-        let created = case
-            .initial
-            .frontmatter_dates
-            .created
-            .as_ref()
-            .map(|d| format!("[[{d}]]"));
-        let modified = case
-            .initial
-            .frontmatter_dates
-            .modified
-            .as_ref()
-            .map(|d| format!("[[{d}]]"));
-
-        TestFileBuilder::new()
-            .with_frontmatter_dates(created, modified)
-            .with_file_system_dates(
-                case.initial.file_system.created,
-                case.initial.file_system.modified,
-            )
-            .create(temp_dir, "test.md")
-    }
-
-    fn verify_dates(
-        markdown_file: &MarkdownFile,
-        case: &PersistenceTestCase,
-    ) -> Result<(), Box<dyn Error + Send + Sync>> {
-        if let Some(front_matter) = &markdown_file.front_matter {
-            assert_eq!(
-                front_matter.needs_persist(),
-                case.expected.persist.needs_persist(),
-                "Persistence flag mismatch for case: {}",
-                case.name
-            );
-
-            assert_eq!(
-                front_matter.date_created().map(|d| d
-                    .trim_matches('"')
-                    .trim_matches('[')
-                    .trim_matches(']')
-                    .to_string()),
-                case.expected.dates.frontmatter_dates.created,
-                "Frontmatter created date mismatch for case: {}",
-                case.name
-            );
-
-            assert_eq!(
-                front_matter.date_modified().map(|d| d
-                    .trim_matches('"')
-                    .trim_matches('[')
-                    .trim_matches(']')
-                    .to_string()),
-                case.expected.dates.frontmatter_dates.modified,
-                "Frontmatter modified date mismatch for case: {}",
-                case.name
-            );
-        } else if case.expected.dates.frontmatter_dates.created.is_some()
-            || case.expected.dates.frontmatter_dates.modified.is_some()
-        {
-            panic!(
-                "Expected frontmatter but none found for case: {}",
-                case.name
-            );
-        }
-
-        let metadata = fs::metadata(&markdown_file.path)?;
-        let file_system_created_time = FileTime::from_creation_time(&metadata).unwrap();
-        let file_system_modified_time = FileTime::from_last_modification_time(&metadata);
-
-        // `file_system_created_date` stores the creation timestamp in UTC.
-        let file_system_created_date = DateTime::<Utc>::from(
-            SystemTime::UNIX_EPOCH
-                + Duration::from_secs(file_system_created_time.unix_seconds().cast_unsigned()),
-        )
-        .date_naive();
-
-        let file_system_modified_date = DateTime::<Utc>::from(
-            SystemTime::UNIX_EPOCH
-                + Duration::from_secs(file_system_modified_time.unix_seconds().cast_unsigned()),
-        )
-        .date_naive();
-
-        // `case.expected.dates.file_system` stores the expected file dates.
-        assert_eq!(
-            file_system_created_date, case.expected.dates.file_system.created,
-            "Filesystem created date mismatch for case: {}",
-            case.name
-        );
-
-        assert_eq!(
-            file_system_modified_date, case.expected.dates.file_system.modified,
-            "Filesystem modified date mismatch for case: {}",
-            case.name
-        );
-
-        Ok(())
-    }
-
-    #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
-    fn test_persist_modified_files() -> Result<(), Box<dyn Error + Send + Sync>> {
-        let test_cases = create_test_cases();
-
-        for case in test_cases {
-            // Each loop iteration scopes its own `TempDir` so file cleanup runs before the next
-            // case.
-            let temp_dir = TempDir::new()?;
-            let validated_config = test_utils::get_test_validated_config(&temp_dir, None);
-
-            let file_path = create_test_file_from_case(&temp_dir, &case);
-
-            let mut obsidian_repository = ObsidianRepository::new(&validated_config)?;
-            let markdown_file = test_utils::get_test_markdown_file(file_path);
-
-            obsidian_repository.markdown_files.push(markdown_file);
-
-            obsidian_repository.persist()?;
-
-            verify_dates(&obsidian_repository.markdown_files[0], &case)?;
-        }
-
-        Ok(())
-    }
-
-    fn create_test_cases() -> Vec<PersistenceTestCase> {
-        let last_week = test_utils::eastern_midnight(2024, 1, 8);
-
-        vec![
-            PersistenceTestCase {
-                name:     "no changes needed - dates match",
-                initial:  PersistenceState {
-                    frontmatter_dates: FrontmatterDates {
-                        created:  Some("2024-01-01".to_string()),
-                        modified: Some("2024-01-01".to_string()),
-                    },
-                    file_system:       FileSystemDates {
-                        created:  test_utils::eastern_midnight(2024, 1, 1),
-                        modified: test_utils::eastern_midnight(2024, 1, 1),
-                    },
-                },
-                expected: PersistenceOutcome {
-                    dates:   PersistenceState {
-                        frontmatter_dates: FrontmatterDates {
-                            created:  Some("2024-01-01".to_string()),
-                            modified: Some("2024-01-01".to_string()),
-                        },
-                        file_system:       FileSystemDates {
-                            created:  NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-                            modified: NaiveDate::from_ymd_opt(2024, 1, 1).unwrap(),
-                        },
-                    },
-                    persist: PersistExpectation::Unchanged,
-                },
-            },
-            PersistenceTestCase {
-                name:     "created date mismatch triggers both dates update",
-                initial:  PersistenceState {
-                    frontmatter_dates: FrontmatterDates {
-                        created:  Some("2024-01-15".to_string()),
-                        modified: Some("2024-01-15".to_string()),
-                    },
-                    file_system:       FileSystemDates {
-                        created:  test_utils::eastern_midnight(2024, 1, 20),
-                        modified: test_utils::eastern_midnight(2024, 1, 20),
-                    },
-                },
-                expected: PersistenceOutcome {
-                    dates:   PersistenceState {
-                        frontmatter_dates: FrontmatterDates {
-                            created:  Some("2024-01-20".to_string()),
-                            modified: Some("2024-01-20".to_string()),
-                        },
-                        file_system:       FileSystemDates {
-                            created:  NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-                            modified: NaiveDate::from_ymd_opt(2024, 1, 20).unwrap(),
-                        },
-                    },
-                    persist: PersistExpectation::Persists,
-                },
-            },
-            PersistenceTestCase {
-                name:     "invalid dates fixed from filesystem",
-                initial:  PersistenceState {
-                    frontmatter_dates: FrontmatterDates {
-                        created:  Some("invalid date".to_string()),
-                        modified: Some("also invalid".to_string()),
-                    },
-                    file_system:       FileSystemDates {
-                        created:  last_week,
-                        modified: last_week,
-                    },
-                },
-                expected: PersistenceOutcome {
-                    dates:   PersistenceState {
-                        frontmatter_dates: FrontmatterDates {
-                            created:  Some(last_week.format(FORMAT_DATE).to_string()),
-                            modified: Some(last_week.format(FORMAT_DATE).to_string()),
-                        },
-                        file_system:       FileSystemDates {
-                            created:  last_week.date_naive(),
-                            modified: last_week.date_naive(),
-                        },
-                    },
-                    persist: PersistExpectation::Persists,
-                },
-            },
-        ]
     }
 
     #[test]
@@ -870,7 +599,8 @@ date_modified: 2024-01-01
             })
             .flat_map(|markdown_file| {
                 let markdown_file =
-                    MarkdownFile::new(markdown_file.path.clone(), DEFAULT_TIMEZONE).unwrap();
+                    MarkdownFile::new(markdown_file.path.clone())
+                    .unwrap();
                 let file_wikilinks = markdown_file.wikilinks.valid;
                 file_wikilinks.into_iter().map(|w| w.display_text)
             })
@@ -911,10 +641,6 @@ date_modified: 2024-01-01
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_update_modified_dates_changes_frontmatter() {
         let temp_dir = TempDir::new().unwrap();
 
@@ -926,7 +652,6 @@ date_modified: 2024-01-01
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test1.md");
 
         let mut obsidian_repository = ObsidianRepository::default();
@@ -958,14 +683,9 @@ date_modified: 2024-01-01
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str()),
             "Created date should not have changed"
         );
-        assert!(front_matter.needs_persist(), "needs_persist should be true");
     }
 
     #[test]
-    #[cfg_attr(
-        target_os = "linux",
-        ignore = "requires filesystem access unavailable on Linux CI"
-    )]
     fn test_update_modified_dates_only_updates_specified_files() {
         let temp_dir = TempDir::new().unwrap();
 
@@ -977,14 +697,12 @@ date_modified: 2024-01-01
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test1.md");
         let file_path2 = TestFileBuilder::new()
             .with_frontmatter_dates(
                 Some(eastern_date_wikilink(2024, 1, 15)),
                 Some(eastern_date_wikilink(2024, 1, 15)),
             )
-            .with_file_system_dates(base_date, base_date)
             .create(&temp_dir, "test2.md");
 
         let mut obsidian_repository = ObsidianRepository::default();
@@ -1010,12 +728,16 @@ date_modified: 2024-01-01
             file1.front_matter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(update_date).as_str())
         );
-        assert!(file1.front_matter.as_ref().unwrap().needs_persist());
+        assert!(
+            file1
+                .persist_reasons
+                .contains(&PersistReason::ImageReferencesModified)
+        );
 
         assert_eq!(
             file2.front_matter.as_ref().unwrap().date_modified(),
             Some(test_utils::frontmatter_date_wikilink(base_date).as_str())
         );
-        assert!(!file2.front_matter.as_ref().unwrap().needs_persist());
+        assert!(file2.persist_reasons.is_empty());
     }
 }

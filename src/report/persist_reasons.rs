@@ -9,11 +9,8 @@ use super::constants::FILES_TO_BE_UPDATED;
 use super::support;
 use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
-use crate::constants::AFTER;
-use crate::constants::BEFORE;
 use crate::constants::CLOSING_WIKILINK;
 use crate::constants::FILE;
-use crate::constants::FORMAT_DATE;
 use crate::constants::FORWARD_SLASH;
 use crate::constants::INFO;
 use crate::constants::INSTANCES;
@@ -27,7 +24,6 @@ use crate::constants::REASON;
 use crate::constants::REPORT_CHUNK_SIZE;
 use crate::constants::UPDATE;
 use crate::description_builder::DescriptionBuilder;
-use crate::markdown_file::DateValidation;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_file::PersistReason;
 use crate::obsidian_repository::ObsidianRepository;
@@ -41,12 +37,10 @@ pub(super) struct PersistReasonsTable;
 impl ReportDefinition for PersistReasonsTable {
     type Item = PersistReasonData;
 
-    fn headers(&self) -> Vec<&str> { vec![FILE, PATH, REASON, INFO, BEFORE, AFTER] }
+    fn headers(&self) -> Vec<&str> { vec![FILE, PATH, REASON, INFO] }
 
     fn alignments(&self) -> Vec<ColumnAlignment> {
         vec![
-            ColumnAlignment::Left,
-            ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
             ColumnAlignment::Left,
@@ -62,53 +56,18 @@ impl ReportDefinition for PersistReasonsTable {
         Ok(items
             .iter()
             .map(|item| {
-                let (before, after, reason_info) = match &item.reason {
-                    PersistReason::DateCreatedUpdated { reason } => {
-                        let (before, after) =
-                            item.created_date_validation.clone().unwrap_or_default();
-                        (before, after, reason.to_string())
-                    },
-                    PersistReason::DateModifiedUpdated { reason } => {
-                        let (before, after) =
-                            item.modified_date_validation.clone().unwrap_or_default();
-                        (before, after, reason.to_string())
-                    },
-                    PersistReason::DateCreatedFixApplied => {
-                        let (before, after) = item.date_created_fix.clone().unwrap_or_default();
-                        (before, after, String::new())
-                    },
-                    PersistReason::BackPopulated => (
-                        String::new(),
-                        String::new(),
-                        format!("{} {INSTANCES}", item.back_populate_count),
-                    ),
-                    PersistReason::ImageReferencesModified => (
-                        String::new(),
-                        String::new(),
-                        format!("{} {INSTANCES}", item.image_reference_count),
-                    ),
-                    PersistReason::FrontmatterCreated => {
-                        (String::new(), String::new(), String::new())
-                    },
-                    PersistReason::LinksCanonicalized => (
-                        String::new(),
-                        String::new(),
-                        format!("{} {INSTANCES}", item.canonical_link_count),
-                    ),
-                    PersistReason::PhantomLinksResolved => (
-                        String::new(),
-                        String::new(),
-                        format!("{} {INSTANCES}", item.phantom_link_count),
-                    ),
+                let count = match &item.reason {
+                    PersistReason::BackPopulated => item.back_populate_count,
+                    PersistReason::ImageReferencesModified => item.image_reference_count,
+                    PersistReason::LinksCanonicalized => item.canonical_link_count,
+                    PersistReason::PhantomLinksResolved => item.phantom_link_count,
                 };
 
                 vec![
                     item.wikilink.clone(),
                     item.parent_path.clone(),
                     item.reason.to_string(),
-                    reason_info,
-                    before,
-                    after,
+                    format!("{count} {INSTANCES}"),
                 ]
             })
             .collect())
@@ -131,10 +90,6 @@ impl ReportDefinition for PersistReasonsTable {
 pub(super) struct PersistReasonData {
     back_populate_count:      usize,
     canonical_link_count:     usize,
-    date_created_fix:         Option<(String, String)>,
-    // `created_date_validation` stores before and after date strings.
-    created_date_validation:  Option<(String, String)>,
-    modified_date_validation: Option<(String, String)>,
     // `full_path` orders rows before report chunking.
     full_path:                PathBuf,
     image_reference_count:    usize,
@@ -230,31 +185,6 @@ impl ObsidianRepository {
             .filter(|&r| matches!(r, PersistReason::ImageReferencesModified))
             .count();
 
-        let created_date_validation = Some(Self::format_date_validation(
-            &markdown_file.created_date_validation,
-        ));
-        let modified_date_validation = Some(Self::format_date_validation(
-            &markdown_file.modified_date_validation,
-        ));
-        let date_created_fix = Some({
-            let formatted_date = markdown_file
-                .created_date_validation
-                .operational_file_system_date()
-                .format(FORMAT_DATE);
-            let fixed_formatted = markdown_file
-                .date_created_fix_validation
-                .fixed
-                .map(|d| {
-                    let formatted = d.format(FORMAT_DATE);
-                    format!("{OPENING_WIKILINK}{formatted}{CLOSING_WIKILINK}")
-                })
-                .unwrap_or_default();
-            (
-                format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
-                fixed_formatted,
-            )
-        });
-
         markdown_file
             .persist_reasons
             .iter()
@@ -267,20 +197,8 @@ impl ObsidianRepository {
                 image_reference_count,
                 parent_path: parent_path.clone(),
                 phantom_link_count,
-                created_date_validation: created_date_validation.clone(),
-                modified_date_validation: modified_date_validation.clone(),
-                date_created_fix: date_created_fix.clone(),
             })
             .collect()
     }
 
-    fn format_date_validation(date_validation: &DateValidation) -> (String, String) {
-        let formatted_date = date_validation
-            .operational_file_system_date()
-            .format(FORMAT_DATE);
-        (
-            date_validation.frontmatter.clone().unwrap_or_default(),
-            format!("{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"),
-        )
-    }
 }

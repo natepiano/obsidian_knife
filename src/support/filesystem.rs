@@ -7,37 +7,19 @@ use std::io::ErrorKind;
 use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
-#[cfg(target_os = "macos")]
-use std::process::Command;
 use std::sync::Mutex;
 
-use chrono::DateTime;
-#[cfg(target_os = "macos")]
-use chrono::Local;
-use chrono::Utc;
-use filetime::FileTime;
-use filetime::set_file_mtime;
-#[cfg(not(target_os = "macos"))]
-use filetime::set_file_times;
 use rayon::iter::IntoParallelIterator;
 use rayon::iter::ParallelIterator;
 
-use crate::constants::DS_STORE;
 use crate::constants::ERROR_NOT_FOUND;
 use crate::constants::ERROR_READING;
-#[cfg(target_os = "macos")]
-use crate::constants::FAILED_TO_SET_CREATION_DATE_WITH_SETFILE;
+use crate::constants::HIDDEN_ENTRY_PREFIX;
 use crate::constants::HOME_ENVIRONMENT_VARIABLE;
 use crate::constants::IMAGE_EXTENSIONS;
 use crate::constants::IMAGE_FILE_COLLECTION_LOCK_POISONED;
 use crate::constants::MARKDOWN_EXTENSION;
 use crate::constants::MARKDOWN_FILE_COLLECTION_LOCK_POISONED;
-#[cfg(target_os = "macos")]
-use crate::constants::SET_FILE_CREATED_DATE_FLAG;
-#[cfg(target_os = "macos")]
-use crate::constants::SET_FILE_CREATED_DATE_FORMAT;
-#[cfg(target_os = "macos")]
-use crate::constants::SET_FILE_EXECUTABLE;
 use crate::constants::TILDE;
 use crate::constants::TILDE_SLASH;
 use crate::validated_config::ValidatedConfig;
@@ -109,6 +91,17 @@ pub fn collect_repository_files(
             .any(|ignored| path.starts_with(ignored))
     }
 
+    // Obsidian never indexes a file or folder whose name starts with a dot
+    // (`.obsidian`, `.trash`, `.git`, `.DS_Store`), so a wikilink into one cannot
+    // resolve in the app; scanning them would only report on notes the vault
+    // cannot see.
+    fn is_hidden(path: &Path) -> bool {
+        path.file_name().is_some_and(|name| {
+            name.as_encoded_bytes()
+                .starts_with(HIDDEN_ENTRY_PREFIX.as_bytes())
+        })
+    }
+
     fn visit_dirs(
         dirs: Vec<PathBuf>,
         ignore_folders: &[PathBuf],
@@ -126,7 +119,7 @@ pub fn collect_repository_files(
                 .filter_map(Result::ok)
                 .map(|entry| entry.path())
             {
-                if path.file_name().and_then(OsStr::to_str) == Some(DS_STORE) {
+                if is_hidden(&path) {
                     continue;
                 }
 
@@ -184,54 +177,6 @@ pub fn collect_repository_files(
     })
 }
 
-#[cfg(target_os = "macos")]
-pub fn set_file_dates(
-    path: &Path,
-    created: Option<DateTime<Utc>>,
-    modified: DateTime<Utc>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
-
-    if let Some(created_date) = created {
-        // `SetFile -d` parses the date string in the system's local timezone, so format
-        // the UTC instant in system-local time to round-trip the correct UTC instant
-        // regardless of where this machine is physically located.
-        let local_time: DateTime<Local> = created_date.into();
-        let formatted_date = local_time.format(SET_FILE_CREATED_DATE_FORMAT).to_string();
-
-        let output = Command::new(SET_FILE_EXECUTABLE)
-            .arg(SET_FILE_CREATED_DATE_FLAG)
-            .arg(&formatted_date)
-            .arg(path)
-            .output()?;
-
-        if !output.status.success() {
-            let stderr = String::from_utf8_lossy(&output.stderr);
-            return Err(format!("{FAILED_TO_SET_CREATION_DATE_WITH_SETFILE}: {stderr}").into());
-        }
-    }
-
-    Ok(())
-}
-
-#[cfg(not(target_os = "macos"))]
-pub fn set_file_dates(
-    path: &Path,
-    created: Option<DateTime<Utc>>,
-    modified: DateTime<Utc>,
-) -> Result<(), Box<dyn Error + Send + Sync>> {
-    if let Some(created_date) = created {
-        set_file_times(
-            path,
-            FileTime::from_system_time(created_date.into()),
-            FileTime::from_system_time(modified.into()),
-        )?;
-    } else {
-        set_file_mtime(path, FileTime::from_system_time(modified.into()))?;
-    }
-    Ok(())
-}
-
 #[cfg(test)]
 mod expand_tilde_tests {
     use std::ffi::OsStr;
@@ -284,78 +229,46 @@ mod expand_tilde_tests {
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
-    clippy::expect_used,
     reason = "tests should panic on unexpected values"
 )]
-mod set_file_dates_tests {
-    use std::fs::File;
-
-    use chrono::TimeZone;
-    use chrono::Utc;
-    use chrono_tz::Tz;
-    use tempfile::tempdir;
+mod collect_repository_files_tests {
+    use tempfile::TempDir;
 
     use super::*;
-    use crate::constants::DEFAULT_TIMEZONE;
+    use crate::validated_config::ValidatedConfigBuilder;
+
+    fn create_empty_file(root: &Path, relative: &str) -> PathBuf {
+        let path = root.join(relative);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, "").unwrap();
+        path
+    }
 
     #[test]
-    fn test_set_file_dates_round_trips_utc() {
-        let operational_timezone = DEFAULT_TIMEZONE;
-        let timezone: Tz = operational_timezone.parse().unwrap();
+    fn test_collect_repository_files_skips_hidden_entries_and_ignored_folders() {
+        let temp_dir = TempDir::new().unwrap();
+        let root = temp_dir.path();
 
-        let created_date_utc = Utc.with_ymd_and_hms(2022, 12, 31, 15, 0, 0).unwrap();
-        let modified_date_utc = Utc.with_ymd_and_hms(2023, 1, 1, 12, 0, 0).unwrap();
+        let kept_markdown = create_empty_file(root, "notes/kept.md");
+        let kept_image = create_empty_file(root, "notes/kept.png");
+        create_empty_file(root, ".trash/Untitled.md");
+        create_empty_file(root, ".obsidian/plugins/plugin.md");
+        create_empty_file(root, "notes/.hidden.md");
+        create_empty_file(root, "notes/.DS_Store");
+        create_empty_file(root, "templates/skipped.md");
+        create_empty_file(root, "output/report.md");
 
-        let temp_dir = tempdir().expect("Failed to create temporary directory");
-        let temp_file_path = temp_dir.path().join("test_file.txt");
-        File::create(&temp_file_path).expect("Failed to create test file");
+        let mut builder = ValidatedConfigBuilder::default();
+        builder.obsidian_path(root.to_path_buf());
+        builder.ignore_folders(Some(vec![PathBuf::from("templates")]));
+        builder.output_folder(root.join("output"));
+        let validated_config = builder.build().unwrap();
 
-        set_file_dates(&temp_file_path, Some(created_date_utc), modified_date_utc)
-            .expect("Failed to set file dates");
+        let repository_files =
+            collect_repository_files(&validated_config, validated_config.ignore_folders().unwrap())
+                .unwrap();
 
-        // Retrieve metadata for verification
-        let metadata = fs::metadata(&temp_file_path).expect("Failed to retrieve metadata");
-
-        let retrieved_modified: DateTime<Utc> = metadata
-            .modified()
-            .expect("Failed to retrieve modified date")
-            .into();
-        let retrieved_modified_in_timezone = retrieved_modified.with_timezone(&timezone);
-        let expected_modified_in_timezone = modified_date_utc.with_timezone(&timezone);
-
-        assert_eq!(
-            retrieved_modified, modified_date_utc,
-            "Modified dates do not match in UTC"
-        );
-        assert_eq!(
-            retrieved_modified_in_timezone, expected_modified_in_timezone,
-            "Modified dates do not match in the operational timezone"
-        );
-
-        #[cfg(target_os = "macos")]
-        {
-            let retrieved_created: DateTime<Utc> = metadata
-                .created()
-                .expect("Failed to retrieve created date")
-                .into();
-            let retrieved_created_in_timezone = retrieved_created.with_timezone(&timezone);
-            let expected_created_in_timezone = created_date_utc.with_timezone(&timezone);
-
-            println!("\nCreation Time Verification:");
-            println!("Created in UTC: {retrieved_created}");
-            println!(
-                "Retrieved created in {operational_timezone}: {retrieved_created_in_timezone}"
-            );
-            println!("Expected created in {operational_timezone}: {expected_created_in_timezone}");
-
-            assert_eq!(
-                retrieved_created, created_date_utc,
-                "Created dates do not match in UTC"
-            );
-            assert_eq!(
-                retrieved_created_in_timezone, expected_created_in_timezone,
-                "Created dates do not match in the operational timezone"
-            );
-        }
+        assert_eq!(repository_files.markdown, vec![kept_markdown]);
+        assert_eq!(repository_files.images, vec![kept_image]);
     }
 }

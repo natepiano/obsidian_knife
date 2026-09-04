@@ -208,12 +208,6 @@ impl WikilinkState {
     }
 }
 
-pub fn is_wikilink(potential_wikilink: Option<&str>) -> bool {
-    potential_wikilink.is_some_and(|test_wikilink| {
-        test_wikilink.starts_with(OPENING_WIKILINK) && test_wikilink.ends_with(CLOSING_WIKILINK)
-    })
-}
-
 pub fn create_filename_wikilink(filename: &str) -> Wikilink {
     let display_text = filename
         .strip_suffix(MARKDOWN_SUFFIX)

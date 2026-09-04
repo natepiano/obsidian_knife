@@ -6,6 +6,7 @@ use chrono_tz::Tz;
 use chrono_tz::UTC;
 use regex::Regex;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
 use serde_yaml::Value;
 
@@ -15,37 +16,40 @@ use crate::constants::OPENING_WIKILINK;
 use crate::support;
 use crate::yaml_frontmatter_struct;
 
-// `created_fix` serializes only when `Option::is_some` returns true.
-// `yaml_frontmatter_struct!` preserves YAML keys without explicit `FrontMatter` fields.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) enum PersistState {
-    #[default]
-    Clean,
-    Modified,
+/// Obsidian list properties such as `aliases` and `do_not_back_populate` hold either a
+/// single scalar (`do_not_back_populate: style`) or a sequence, so both forms deserialize
+/// into the `Vec<String>` that `FrontMatter` stores.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum ListProperty {
+    Scalar(String),
+    Sequence(Vec<String>),
+}
+
+impl From<ListProperty> for Vec<String> {
+    fn from(list_property: ListProperty) -> Self {
+        match list_property {
+            ListProperty::Scalar(value) => vec![value],
+            ListProperty::Sequence(values) => values,
+        }
+    }
 }
 
 yaml_frontmatter_struct! {
     #[derive(Debug, Clone, Serialize, Deserialize)]
     pub(crate) struct FrontMatter {
+        #[serde(default, deserialize_with = "deserialize_list_property")]
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(crate) aliases: Option<Vec<String>>,
         #[serde(rename = "date_created")]
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(crate) created: Option<String>,
-        #[serde(rename = "date_created_fix")]
-        #[serde(skip_serializing_if = "Option::is_none")]
-        pub(crate) created_fix: Option<String>,
         #[serde(rename = "date_modified")]
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(crate) modified: Option<String>,
+        #[serde(default, deserialize_with = "deserialize_list_property")]
         #[serde(skip_serializing_if = "Option::is_none")]
         pub(crate) do_not_back_populate: Option<Vec<String>>,
-        #[serde(skip)]
-        pub(crate) persist_state: PersistState,
-        #[serde(skip)]
-        pub(crate) raw_created: Option<DateTime<Utc>>,
-        #[serde(skip)]
-        pub(crate) raw_modified: Option<DateTime<Utc>>,
     }
 }
 
@@ -54,37 +58,11 @@ impl FrontMatter {
 
     pub(crate) fn date_created(&self) -> Option<&str> { self.created.as_deref() }
 
+    #[cfg(test)]
     pub(crate) fn date_modified(&self) -> Option<&str> { self.modified.as_deref() }
 
-    pub(crate) fn date_created_fix(&self) -> Option<&str> { self.created_fix.as_deref() }
-
-    pub(crate) fn remove_date_created_fix(&mut self) {
-        // `created_fix = None` skips `created_fix` during serialization.
-        self.created_fix = None;
-    }
-
-    // `raw_created` and `raw_modified` provide filesystem timestamps.
-    // `set_date_created` may only change filesystem creation time, so
-    // `set_date_modified_now` records a fallback `raw_modified` value.
-    pub(crate) fn set_date_created(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
-        let timezone: Tz = operational_timezone.parse().unwrap_or(UTC);
-        let local_date = date.with_timezone(&timezone);
-        self.raw_created = Some(date);
-        let formatted_date = local_date.format(FORMAT_DATE);
-        self.created = Some(format!(
-            "{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"
-        ));
-
-        if self.raw_modified.is_none() {
-            self.set_date_modified_now(operational_timezone);
-        }
-
-        self.persist_state = PersistState::Modified;
-    }
-
-    // We invoke `set_date_modified` on any changes to `MarkdownFile` so we persist an updated
-    // `date_modified` that matches the file, and use `date_modified` as the sentinel for
-    // persisting at the end of processing.
+    // The tool stamps `date_modified` on every file it changes: the vault's linter only runs
+    // when a note is saved in Obsidian, so it would not see a change made here.
     pub(crate) fn set_date_modified_now(&mut self, operational_timezone: &str) {
         self.set_date_modified(Utc::now(), operational_timezone);
     }
@@ -93,15 +71,11 @@ impl FrontMatter {
     pub(crate) fn set_date_modified(&mut self, date: DateTime<Utc>, operational_timezone: &str) {
         let timezone: Tz = operational_timezone.parse().unwrap_or(UTC);
         let local_date = date.with_timezone(&timezone);
-        self.raw_modified = Some(date);
         let formatted_date = local_date.format(FORMAT_DATE);
         self.modified = Some(format!(
             "{OPENING_WIKILINK}{formatted_date}{CLOSING_WIKILINK}"
         ));
-        self.persist_state = PersistState::Modified;
     }
-
-    pub(crate) fn needs_persist(&self) -> bool { self.persist_state == PersistState::Modified }
 
     pub(crate) fn get_do_not_back_populate_regexes(&self) -> Option<Vec<Regex>> {
         // `do_not_back_populate` starts with the explicit frontmatter value.
@@ -124,6 +98,14 @@ impl FrontMatter {
     }
 }
 
+fn deserialize_list_property<'de, D>(deserializer: D) -> Result<Option<Vec<String>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Option::<ListProperty>::deserialize(deserializer)
+        .map(|list_property| list_property.map(Vec::from))
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -131,6 +113,7 @@ impl FrontMatter {
 )]
 mod tests {
     use super::FrontMatter;
+    use crate::yaml_frontmatter::YamlFrontMatter;
 
     fn regex_matches(front_matter: &FrontMatter, expected_count: usize, test_line: &str) {
         let regexes = front_matter.get_do_not_back_populate_regexes().unwrap();
@@ -138,6 +121,35 @@ mod tests {
         for regex in regexes {
             assert!(regex.is_match(test_line));
         }
+    }
+
+    #[test]
+    fn test_list_properties_accept_scalar_or_sequence() {
+        let front_matter =
+            FrontMatter::from_yaml_str("aliases: Only Alias\ndo_not_back_populate: style")
+                .unwrap();
+        assert_eq!(front_matter.aliases, Some(vec!["Only Alias".to_string()]));
+        assert_eq!(
+            front_matter.do_not_back_populate,
+            Some(vec!["style".to_string()])
+        );
+
+        let front_matter = FrontMatter::from_yaml_str(
+            "aliases: [First, Second]\ndo_not_back_populate:\n  - one\n  - two",
+        )
+        .unwrap();
+        assert_eq!(
+            front_matter.aliases,
+            Some(vec!["First".to_string(), "Second".to_string()])
+        );
+        assert_eq!(
+            front_matter.do_not_back_populate,
+            Some(vec!["one".to_string(), "two".to_string()])
+        );
+
+        let front_matter = FrontMatter::from_yaml_str("tags: [note]").unwrap();
+        assert_eq!(front_matter.aliases, None);
+        assert_eq!(front_matter.do_not_back_populate, None);
     }
 
     #[test]

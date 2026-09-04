@@ -9,7 +9,6 @@ use tempfile::TempDir;
 use crate::constants::FORMAT_DATE;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_OPENING_DELIMITER;
-use crate::support;
 
 #[derive(Clone)]
 pub enum Content {
@@ -32,20 +31,13 @@ impl From<Vec<u8>> for Content {
 #[derive(Default)]
 struct FrontmatterDates {
     created:     Option<String>,
-    created_fix: Option<String>,
     modified:    Option<String>,
-}
-
-struct FileSystemDates {
-    created:  DateTime<Utc>,
-    modified: DateTime<Utc>,
 }
 
 pub struct TestFileBuilder {
     aliases:            Option<Vec<String>>,
     content:            Content,
     custom_frontmatter: Option<String>,
-    file_system_dates:  FileSystemDates,
     frontmatter_dates:  FrontmatterDates,
     tags:               Option<Vec<String>>,
     title:              Option<String>,
@@ -69,26 +61,9 @@ impl TestFileBuilder {
         self
     }
 
-    pub fn with_date_created_fix(mut self, date_created_fix: Option<String>) -> Self {
-        self.frontmatter_dates.created_fix = date_created_fix;
-        self
-    }
-
-    pub fn with_file_system_dates(
-        mut self,
-        created: DateTime<Utc>,
-        modified: DateTime<Utc>,
-    ) -> Self {
-        self.file_system_dates.created = created;
-        self.file_system_dates.modified = modified;
-        self
-    }
-
     pub fn with_matching_dates(mut self, datetime: DateTime<Utc>) -> Self {
         self.frontmatter_dates.created = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
         self.frontmatter_dates.modified = Some(format!("[[{}]]", datetime.format(FORMAT_DATE)));
-        self.file_system_dates.created = datetime;
-        self.file_system_dates.modified = datetime;
         self
     }
 
@@ -117,7 +92,6 @@ impl TestFileBuilder {
             aliases,
             content,
             custom_frontmatter,
-            file_system_dates,
             frontmatter_dates,
             tags,
             title,
@@ -127,7 +101,6 @@ impl TestFileBuilder {
 
         let has_frontmatter = frontmatter_dates.created.is_some()
             || frontmatter_dates.modified.is_some()
-            || frontmatter_dates.created_fix.is_some()
             || tags.is_some()
             || aliases.is_some()
             || title.is_some()
@@ -140,9 +113,6 @@ impl TestFileBuilder {
             }
             if let Some(modified) = frontmatter_dates.modified {
                 writeln!(file, "date_modified: \"{modified}\"").unwrap();
-            }
-            if let Some(date_created_fix) = frontmatter_dates.created_fix {
-                writeln!(file, "date_created_fix: \"{date_created_fix}\"").unwrap();
             }
             if let Some(tags) = tags {
                 writeln!(file, "tags:").unwrap();
@@ -170,28 +140,16 @@ impl TestFileBuilder {
             Content::Binary(bytes) => file.write_all(&bytes).unwrap(),
         }
 
-        support::set_file_dates(
-            &file_path,
-            Some(file_system_dates.created),
-            file_system_dates.modified,
-        )
-        .unwrap();
-
         file_path
     }
 }
 
 impl Default for TestFileBuilder {
     fn default() -> Self {
-        let now = Utc::now();
         Self {
             aliases:            None,
             content:            Content::Text("Test content".to_string()),
             custom_frontmatter: None,
-            file_system_dates:  FileSystemDates {
-                created:  now,
-                modified: now,
-            },
             frontmatter_dates:  FrontmatterDates::default(),
             tags:               None,
             title:              None,
