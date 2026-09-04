@@ -1,8 +1,8 @@
 mod back_populate;
 mod canonical_link;
 mod constants;
-mod persist_reason;
 mod image_link;
+mod persist_reason;
 mod phantom_link;
 mod replaceable_content;
 mod text_excluder;
@@ -18,9 +18,9 @@ use anyhow::anyhow;
 pub use back_populate::BackPopulateMatch;
 pub use back_populate::MatchContext;
 pub use canonical_link::CanonicalLinkMatch;
-pub use persist_reason::PersistReason;
 pub use image_link::ImageLink;
 pub use image_link::ImageLinkState;
+pub use persist_reason::PersistReason;
 pub use phantom_link::PhantomLinkMatch;
 use regex::Regex;
 pub use replaceable_content::MatchType;
@@ -55,19 +55,19 @@ pub(crate) struct Wikilinks {
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct MarkdownFile {
-    pub(crate) content:                      String,
-    pub(crate) do_not_back_populate_regexes: Option<Vec<Regex>>,
-    pub(crate) front_matter:                 Option<FrontMatter>,
-    pub(crate) frontmatter_error:            Option<YamlFrontMatterError>,
-    pub(crate) frontmatter_line_count:       usize,
-    pub(crate) image_links:                  ImageLinks,
-    pub(crate) wikilinks:                    Wikilinks,
-    pub(crate) back_populate_matches:        BackPopulateMatches,
-    pub(crate) canonical_link_matches:       Vec<CanonicalLinkMatch>,
-    pub(crate) phantom_link_matches:         Vec<PhantomLinkMatch>,
-    pub(crate) path:                         PathBuf,
-    pub(crate) persist_reasons:              Vec<PersistReason>,
+pub struct MarkdownFile {
+    pub(crate) content:                String,
+    do_not_back_populate_regexes:      Option<Vec<Regex>>,
+    pub(crate) front_matter:           Option<FrontMatter>,
+    pub(crate) frontmatter_error:      Option<YamlFrontMatterError>,
+    pub(crate) frontmatter_line_count: usize,
+    pub(crate) image_links:            ImageLinks,
+    pub(crate) wikilinks:              Wikilinks,
+    pub(crate) back_populate_matches:  BackPopulateMatches,
+    pub(crate) canonical_link_matches: Vec<CanonicalLinkMatch>,
+    pub(crate) phantom_link_matches:   Vec<PhantomLinkMatch>,
+    pub(crate) path:                   PathBuf,
+    pub(crate) persist_reasons:        Vec<PersistReason>,
 }
 
 impl MarkdownFile {
@@ -349,14 +349,14 @@ mod tests {
     use super::PersistReason;
     use crate::constants::DEFAULT_TIMEZONE;
     use crate::constants::ERROR_NOT_FOUND;
-    use crate::constants::PERSIST_REQUIRES_FRONTMATTER;
     use crate::constants::FRONTMATTER_DELIMITER_LINE_COUNT;
-        use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+    use crate::constants::PERSIST_REQUIRES_FRONTMATTER;
+    use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
     use crate::constants::YAML_OPENING_DELIMITER;
     use crate::frontmatter::FrontMatter;
     use crate::test_support as test_utils;
     use crate::test_support::AliasExpectation;
-        use crate::test_support::TestFileBuilder;
+    use crate::test_support::TestFileBuilder;
     use crate::wikilink::InvalidWikilinkReason;
     use crate::wikilink::Wikilink;
 

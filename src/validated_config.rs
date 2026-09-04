@@ -15,14 +15,14 @@ use crate::constants::OPENING_WIKILINK;
 use crate::support;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(crate) enum ChangeMode {
+pub enum ChangeMode {
     #[default]
     DryRun,
     Apply,
 }
 
 #[derive(Error, Debug)]
-pub(crate) enum ValidationError {
+pub enum ValidationError {
     #[error("Empty back populate file filter")]
     EmptyBackPopulateFileFilter,
     #[error("Empty output folder")]
@@ -53,7 +53,7 @@ impl From<UninitializedFieldError> for ValidationError {
         validate = "ValidatedConfigBuilder::validate"
     )
 )]
-pub(crate) struct ValidatedConfig {
+pub struct ValidatedConfig {
     #[builder(default)]
     change_mode:                  ChangeMode,
     #[builder(default)]

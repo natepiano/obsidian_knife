@@ -126,8 +126,7 @@ mod tests {
     #[test]
     fn test_list_properties_accept_scalar_or_sequence() {
         let front_matter =
-            FrontMatter::from_yaml_str("aliases: Only Alias\ndo_not_back_populate: style")
-                .unwrap();
+            FrontMatter::from_yaml_str("aliases: Only Alias\ndo_not_back_populate: style").unwrap();
         assert_eq!(front_matter.aliases, Some(vec!["Only Alias".to_string()]));
         assert_eq!(
             front_matter.do_not_back_populate,

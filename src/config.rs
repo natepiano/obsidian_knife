@@ -27,7 +27,7 @@ pub(crate) enum ConfiguredChanges {
 }
 
 impl ConfiguredChanges {
-    pub(crate) const fn is_unspecified(&self) -> bool { matches!(self, Self::Unspecified) }
+    const fn is_unspecified(&self) -> bool { matches!(self, Self::Unspecified) }
 
     const fn resolve(&self) -> ChangeMode {
         match self {
@@ -151,7 +151,7 @@ mod tests {
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
     use crate::validated_config::ChangeMode;
-        use crate::yaml_frontmatter::YamlFrontMatter;
+    use crate::yaml_frontmatter::YamlFrontMatter;
 
     fn create_test_environment() -> (TempDir, PathBuf) {
         let temp_dir = TempDir::new().unwrap();

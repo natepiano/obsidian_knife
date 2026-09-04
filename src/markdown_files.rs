@@ -14,7 +14,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
 #[derive(Debug, Default, Deref, DerefMut, IntoIterator)]
-pub(crate) struct MarkdownFiles {
+pub struct MarkdownFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]

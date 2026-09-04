@@ -264,9 +264,11 @@ mod collect_repository_files_tests {
         builder.output_folder(root.join("output"));
         let validated_config = builder.build().unwrap();
 
-        let repository_files =
-            collect_repository_files(&validated_config, validated_config.ignore_folders().unwrap())
-                .unwrap();
+        let repository_files = collect_repository_files(
+            &validated_config,
+            validated_config.ignore_folders().unwrap(),
+        )
+        .unwrap();
 
         assert_eq!(repository_files.markdown, vec![kept_markdown]);
         assert_eq!(repository_files.images, vec![kept_image]);

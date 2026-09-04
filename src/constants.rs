@@ -23,8 +23,7 @@ pub(crate) const MIN_FILE_LIMIT: usize = 1;
 pub(crate) const OUTPUT_MARKDOWN_FILE: &str = "obsidian knife output.md";
 
 // date handling
-pub(crate) const DATE_CREATED_MISSING: &str =
-    "date_created is missing - run the linter to add it";
+pub(crate) const DATE_CREATED_MISSING: &str = "date_created is missing - run the linter to add it";
 pub(crate) const FORMAT_DATE: &str = "%Y-%m-%d";
 
 // files and extensions
@@ -46,7 +45,7 @@ pub(crate) const JPEG_EXTENSION: &str = "jpeg";
 pub(crate) const JPG_EXTENSION: &str = "jpg";
 pub(crate) const MARKDOWN_EXTENSION: &str = "md";
 pub(crate) const MARKDOWN_SUFFIX: &str = ".md";
-pub(crate) const PDF_EXTENSION: &str = "pdf";
+const PDF_EXTENSION: &str = "pdf";
 pub(crate) const PNG_EXTENSION: &str = "png";
 pub(crate) const TIF_EXTENSION: &str = "tif";
 pub(crate) const TIFF_EXTENSION: &str = "tiff";

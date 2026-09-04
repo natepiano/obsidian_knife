@@ -24,7 +24,7 @@ pub(crate) use crate::image_files::ImageFiles;
 use crate::support::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]
-pub(crate) struct ImageHash(pub String);
+pub struct ImageHash(pub String);
 
 impl From<&str> for ImageHash {
     fn from(hash: &str) -> Self { Self(hash.to_string()) }
@@ -39,14 +39,14 @@ impl Display for ImageHash {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub(crate) enum DeletionStatus {
+pub enum DeletionStatus {
     #[default]
     Keep,
     Delete,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum ImageFileType {
+pub enum ImageFileType {
     Tiff,
     Jpeg,
     Png,
@@ -69,7 +69,7 @@ impl From<&str> for ImageFileType {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub(crate) enum ImageFileState {
+pub enum ImageFileState {
     #[default]
     Valid,
     Incompatible {
@@ -85,13 +85,13 @@ pub(crate) enum ImageFileState {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) enum IncompatibilityReason {
+pub enum IncompatibilityReason {
     TiffFormat,
     ZeroByte,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct ImageFile {
+pub struct ImageFile {
     pub deletion_status: DeletionStatus,
     pub kind:            ImageFileType,
     pub image_hash:      ImageHash,

@@ -9,7 +9,7 @@ use crate::image_file::DeletionStatus;
 use crate::image_file::ImageFile;
 
 #[derive(Default, Debug, PartialEq, Eq, Deref, DerefMut, IntoIterator)]
-pub(crate) struct ImageFiles {
+pub struct ImageFiles {
     #[deref]
     #[deref_mut]
     #[into_iterator]

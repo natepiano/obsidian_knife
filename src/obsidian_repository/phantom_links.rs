@@ -32,7 +32,7 @@ impl ObsidianRepository {
     /// Content links spelled with a rewritten target become `CanonicalLinkMatch` entries on
     /// their `MarkdownFile`, so `apply_replaceable_matches` also rewrites the existing links
     /// (`[[topics/service/LinkedIn|linkedin]]` to `[[LinkedIn|linkedin]]`).
-    pub(crate) fn canonicalize_wikilink_targets(&mut self, validated_config: &ValidatedConfig) {
+    pub(super) fn canonicalize_wikilink_targets(&mut self, validated_config: &ValidatedConfig) {
         // `stems_by_lower` maps a lowercased stem to the actual-case stem of every note
         // bearing it; only a stem naming a single note canonicalizes.
         let mut stems_by_lower: HashMap<String, Vec<String>> = HashMap::new();
@@ -86,7 +86,7 @@ impl ObsidianRepository {
     ///
     /// Running before `find_all_back_populate_matches` lets replacements build against the
     /// real note and lets `identify_ambiguous_matches` see a single target.
-    pub(crate) fn resolve_phantom_wikilinks(&mut self, validated_config: &ValidatedConfig) {
+    pub(super) fn resolve_phantom_wikilinks(&mut self, validated_config: &ValidatedConfig) {
         let note_stems = self.markdown_note_stems();
 
         // `real_targets_by_display` maps lowercased display text to targets naming real notes.

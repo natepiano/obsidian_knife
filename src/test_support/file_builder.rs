@@ -30,8 +30,8 @@ impl From<Vec<u8>> for Content {
 
 #[derive(Default)]
 struct FrontmatterDates {
-    created:     Option<String>,
-    modified:    Option<String>,
+    created:  Option<String>,
+    modified: Option<String>,
 }
 
 pub struct TestFileBuilder {

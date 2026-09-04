@@ -31,7 +31,7 @@ use crate::validated_config::ValidatedConfig;
 use crate::wikilink::Wikilink;
 
 #[derive(Default)]
-pub(crate) struct ObsidianRepository {
+pub struct ObsidianRepository {
     pub markdown_files:      MarkdownFiles,
     pub image_files:         ImageFiles,
     pub wikilinks_automaton: Option<AhoCorasick>,
@@ -187,7 +187,7 @@ mod tests {
     use crate::test_support;
     use crate::test_support as test_utils;
     use crate::test_support::TestFileBuilder;
-        use crate::validated_config::ValidatedConfig;
+    use crate::validated_config::ValidatedConfig;
     use crate::validated_config::ValidatedConfigBuilder;
 
     #[derive(Debug)]
@@ -337,10 +337,7 @@ date_modified: 2024-01-01
             .unwrap()
     }
 
-    pub(crate) fn find_image_file<'a>(
-        files: &'a ImageFiles,
-        path: &'a Path,
-    ) -> Option<&'a ImageFile> {
+    fn find_image_file<'a>(files: &'a ImageFiles, path: &'a Path) -> Option<&'a ImageFile> {
         files.images.iter().find(|image| image.path == *path)
     }
 
@@ -598,9 +595,7 @@ date_modified: 2024-01-01
                 markdown_file.path.extension().and_then(OsStr::to_str) == Some(MARKDOWN_EXTENSION)
             })
             .flat_map(|markdown_file| {
-                let markdown_file =
-                    MarkdownFile::new(markdown_file.path.clone())
-                    .unwrap();
+                let markdown_file = MarkdownFile::new(markdown_file.path.clone()).unwrap();
                 let file_wikilinks = markdown_file.wikilinks.valid;
                 file_wikilinks.into_iter().map(|w| w.display_text)
             })

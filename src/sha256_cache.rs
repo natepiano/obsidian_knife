@@ -36,10 +36,10 @@ pub(crate) enum CacheEntryStatus {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub(crate) struct CachedImageInfo {
+struct CachedImageInfo {
     #[serde(rename = "hash")]
-    pub image_hash: ImageHash,
-    pub time_stamp: SystemTime,
+    image_hash: ImageHash,
+    time_stamp: SystemTime,
 }
 
 #[derive(Debug)]

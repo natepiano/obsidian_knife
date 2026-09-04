@@ -52,9 +52,7 @@ pub fn create_test_environment(
         )
         .create(&temp_dir, "test.md");
 
-    let markdown_file =
-        MarkdownFile::new(file_path)
-        .unwrap();
+    let markdown_file = MarkdownFile::new(file_path).unwrap();
     obsidian_repository.markdown_files.push(markdown_file);
 
     if let Some(wikilinks) = wikilinks {

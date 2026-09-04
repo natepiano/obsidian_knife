@@ -601,9 +601,7 @@ mod tests {
             let wikilink = case.wikilink;
             let automaton = test_support::build_aho_corasick(slice::from_ref(&wikilink));
 
-            let markdown_file =
-                MarkdownFile::new(file_path.clone())
-                    .unwrap();
+            let markdown_file = MarkdownFile::new(file_path.clone()).unwrap();
 
             let matches = markdown_file.process_line_for_back_populate_replacements(
                 case.content,

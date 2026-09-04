@@ -31,9 +31,7 @@ pub fn parse_datetime(s: &str) -> DateTime<Utc> {
     )
 }
 
-pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile {
-    MarkdownFile::new(path).unwrap()
-}
+pub fn get_test_markdown_file(path: PathBuf) -> MarkdownFile { MarkdownFile::new(path).unwrap() }
 
 pub fn frontmatter_date_wikilink(date: DateTime<Utc>) -> String {
     let mut front_matter = FrontMatter::default();

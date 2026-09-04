@@ -392,8 +392,7 @@ mod tests {
             .with_content("Unique wrote this")
             .create(&temp_dir, "test2.md");
 
-        let mut test_file = MarkdownFile::new(temp_dir.path().join("test1.md"))
-        .unwrap();
+        let mut test_file = MarkdownFile::new(temp_dir.path().join("test1.md")).unwrap();
         test_file.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test1.md".to_string(),
             line_number:   1,
@@ -404,8 +403,7 @@ mod tests {
             match_context: MatchContext::Plaintext,
         }];
 
-        let mut test_file2 = MarkdownFile::new(temp_dir.path().join("test2.md"))
-        .unwrap();
+        let mut test_file2 = MarkdownFile::new(temp_dir.path().join("test2.md")).unwrap();
         test_file2.back_populate_matches.unambiguous = vec![BackPopulateMatch {
             relative_path: "test2.md".to_string(),
             line_number:   1,
@@ -964,10 +962,9 @@ Nate was here and so was Nate"
             .create(&temp_dir, "unparseable_frontmatter.md");
 
         let mut obsidian_repository = ObsidianRepository::default();
-        obsidian_repository.markdown_files.push(
-            MarkdownFile::new(file_path)
-            .unwrap(),
-        );
+        obsidian_repository
+            .markdown_files
+            .push(MarkdownFile::new(file_path).unwrap());
         obsidian_repository.wikilinks_sorted = vec![Wikilink {
             display_text: "Test Link".to_string(),
             target:       "Test Link".to_string(),
@@ -1063,9 +1060,7 @@ Nate was here and so was Nate"
                 .create(&temp_dir, "test.md");
 
             let markdown_file = {
-                let mut markdown_file =
-                    MarkdownFile::new(file.clone())
-                        .unwrap();
+                let mut markdown_file = MarkdownFile::new(file.clone()).unwrap();
                 markdown_file.content = content.to_string();
                 markdown_file.back_populate_matches.unambiguous = matches.clone();
                 markdown_file

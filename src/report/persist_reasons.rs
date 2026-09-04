@@ -88,15 +88,15 @@ impl ReportDefinition for PersistReasonsTable {
 
 #[derive(Clone)]
 pub(super) struct PersistReasonData {
-    back_populate_count:      usize,
-    canonical_link_count:     usize,
+    back_populate_count:   usize,
+    canonical_link_count:  usize,
     // `full_path` orders rows before report chunking.
-    full_path:                PathBuf,
-    image_reference_count:    usize,
-    parent_path:              String,
-    phantom_link_count:       usize,
-    reason:                   PersistReason,
-    wikilink:                 String,
+    full_path:             PathBuf,
+    image_reference_count: usize,
+    parent_path:           String,
+    phantom_link_count:    usize,
+    reason:                PersistReason,
+    wikilink:              String,
 }
 
 impl ObsidianRepository {
@@ -200,5 +200,4 @@ impl ObsidianRepository {
             })
             .collect()
     }
-
 }
