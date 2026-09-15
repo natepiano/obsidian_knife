@@ -223,6 +223,12 @@ pub(crate) const YOU_HAVE_TO_FIX_THESE_YOURSELF: &str = "you have to fix these y
 pub(crate) const ZERO_BYTE: &str = "zero-byte";
 
 // yaml frontmatter
+pub(crate) const YAML_BLOCK_SCALAR_INDICATORS: [char; 2] = ['|', '>'];
+/// Chomping (`-`, `+`) and indentation (digit) indicators that may follow a block scalar indicator.
+pub(crate) const YAML_BLOCK_SCALAR_MODIFIERS: &str = "+-0123456789";
+pub(crate) const YAML_DOUBLE_QUOTE: char = '"';
+pub(crate) const YAML_ESCAPED_BACKSLASH: &str = r"\\";
+pub(crate) const YAML_ESCAPED_DOUBLE_QUOTE: &str = r#"\""#;
 pub(crate) const YAML_EXPECTED_MAPPING: &str = "Expected a mapping";
 pub(crate) const YAML_FRONTMATTER_EMPTY: &str =
     "yaml frontmatter delimiters are present but there is no yaml";
@@ -232,3 +238,6 @@ pub(crate) const YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER: &str =
     "missing closing frontmatter delimiter (---)";
 pub(crate) const YAML_FRONTMATTER_PARSE_PREFIX: &str = "error parsing YAML frontmatter";
 pub(crate) const YAML_FRONTMATTER_SERIALIZE_PREFIX: &str = "error serializing YAML frontmatter";
+pub(crate) const YAML_KEY_SEPARATOR: &str = ": ";
+pub(crate) const YAML_SEQUENCE_ENTRY: &str = "- ";
+pub(crate) const YAML_SINGLE_QUOTE: char = '\'';

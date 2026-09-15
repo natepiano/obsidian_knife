@@ -278,9 +278,9 @@ mod tests {
                         let expected_date = format!("[[{}-01-01]]", 2023 - file_index);
 
                         let has_created =
-                            content.contains(&format!("date_created: '{expected_date}'"));
+                            content.contains(&format!(r#"date_created: "{expected_date}""#));
                         let has_modified =
-                            content.contains(&format!("date_modified: '{expected_date}'"));
+                            content.contains(&format!(r#"date_modified: "{expected_date}""#));
 
                         has_created && has_modified
                     })

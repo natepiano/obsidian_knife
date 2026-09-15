@@ -10,9 +10,17 @@ use serde_yaml::from_str;
 use serde_yaml::to_string;
 use serde_yaml::to_value;
 
+use crate::constants::BACKSLASH;
+use crate::constants::NEWLINE;
+use crate::constants::SPACE;
+use crate::constants::YAML_BLOCK_SCALAR_INDICATORS;
+use crate::constants::YAML_BLOCK_SCALAR_MODIFIERS;
 use crate::constants::YAML_CLOSING_DELIMITER;
 use crate::constants::YAML_CLOSING_DELIMITER_EOF;
 use crate::constants::YAML_CLOSING_DELIMITER_NEWLINE;
+use crate::constants::YAML_DOUBLE_QUOTE;
+use crate::constants::YAML_ESCAPED_BACKSLASH;
+use crate::constants::YAML_ESCAPED_DOUBLE_QUOTE;
 use crate::constants::YAML_EXPECTED_MAPPING;
 use crate::constants::YAML_FRONTMATTER_EMPTY;
 use crate::constants::YAML_FRONTMATTER_INVALID_PREFIX;
@@ -20,7 +28,10 @@ use crate::constants::YAML_FRONTMATTER_MISSING;
 use crate::constants::YAML_FRONTMATTER_MISSING_CLOSING_DELIMITER;
 use crate::constants::YAML_FRONTMATTER_PARSE_PREFIX;
 use crate::constants::YAML_FRONTMATTER_SERIALIZE_PREFIX;
+use crate::constants::YAML_KEY_SEPARATOR;
 use crate::constants::YAML_OPENING_DELIMITER;
+use crate::constants::YAML_SEQUENCE_ENTRY;
+use crate::constants::YAML_SINGLE_QUOTE;
 
 /// `YamlFrontMatter` provides YAML frontmatter serialization and deserialization.
 pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
@@ -67,6 +78,7 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
 
             // `sorted_map` preserves deterministic frontmatter key order.
             to_string(&Value::Mapping(sorted_map))
+                .map(|yaml| double_quote_single_quoted_scalars(&yaml))
                 .map_err(|e| YamlFrontMatterError::Serialize(e.to_string()))
         } else {
             Err(YamlFrontMatterError::Serialize(
@@ -74,6 +86,130 @@ pub(crate) trait YamlFrontMatter: DeserializeOwned + Serialize {
             ))
         }
     }
+}
+
+/// Rewrites every single-quoted scalar in `serde_yaml` output as the equivalent double-quoted
+/// scalar.
+///
+/// `serde_yaml` single-quotes any string that would otherwise parse as another YAML type, such as
+/// the `[[2024-01-15]]` wikilink dates in `date_created` and `date_modified`, and offers no way to
+/// choose the quote style. The vault's Obsidian Linter writes those dates double-quoted, and its
+/// `yaml-timestamp` rule replaces a `date_created` that does not match its format with the file's
+/// creation time. Where Obsidian Sync created the files, that time is the sync date, so a
+/// single-quoted `date_created` written here would be lost at the next save in Obsidian.
+fn double_quote_single_quoted_scalars(yaml: &str) -> String {
+    let mut converted = String::with_capacity(yaml.len());
+    // `block_scalar_indent` is the indentation of the line that opened a `|` or `>` block scalar;
+    // blank or more-indented lines after it are the scalar's literal content and stay unchanged.
+    let mut block_scalar_indent: Option<usize> = None;
+
+    for line in yaml.split_inclusive(NEWLINE) {
+        let indent = line.len() - line.trim_start_matches(SPACE).len();
+        if let Some(opening_indent) = block_scalar_indent {
+            if line.trim().is_empty() || indent > opening_indent {
+                converted.push_str(line);
+                continue;
+            }
+            block_scalar_indent = None;
+        }
+        converted.push_str(&double_quote_line(line));
+        if opens_block_scalar(line) {
+            block_scalar_indent = Some(indent);
+        }
+    }
+
+    converted
+}
+
+/// Rewrites a single-quoted node and a single-quoted mapping value on one line of block YAML. The
+/// node starts after the indentation and any `- ` sequence entries; a mapping value starts after
+/// the key's `: `.
+fn double_quote_line(line: &str) -> String {
+    let mut node_start = line.len() - line.trim_start_matches(SPACE).len();
+    while line[node_start..].starts_with(YAML_SEQUENCE_ENTRY) {
+        node_start += YAML_SEQUENCE_ENTRY.len();
+    }
+    let (prefix, node) = line.split_at(node_start);
+    let (leading, rest) = split_leading_scalar(node);
+
+    rest.strip_prefix(YAML_KEY_SEPARATOR).map_or_else(
+        || format!("{prefix}{leading}{rest}"),
+        |value| {
+            let (value_scalar, value_rest) = split_leading_scalar(value);
+            format!("{prefix}{leading}{YAML_KEY_SEPARATOR}{value_scalar}{value_rest}")
+        },
+    )
+}
+
+/// Splits `node` into its leading scalar, double-quoted if it was single-quoted, and the text after
+/// it. A plain scalar ends at the first `: `, which a plain scalar cannot contain.
+fn split_leading_scalar(node: &str) -> (String, &str) {
+    match node.chars().next() {
+        Some(YAML_SINGLE_QUOTE) => single_quoted_as_double_quoted(node),
+        Some(YAML_DOUBLE_QUOTE) => split_double_quoted(node),
+        _ => node.find(YAML_KEY_SEPARATOR).map_or_else(
+            || (node.to_string(), ""),
+            |separator| (node[..separator].to_string(), &node[separator..]),
+        ),
+    }
+}
+
+/// `''` is the only escape inside a single-quoted scalar; in the double-quoted form `\` and `"`
+/// are the characters that need escaping.
+fn single_quoted_as_double_quoted(node: &str) -> (String, &str) {
+    let quoted = &node[YAML_SINGLE_QUOTE.len_utf8()..];
+    let mut content = String::with_capacity(quoted.len());
+    let mut characters = quoted.char_indices().peekable();
+
+    while let Some((index, character)) = characters.next() {
+        if character == YAML_SINGLE_QUOTE {
+            if characters
+                .peek()
+                .is_some_and(|&(_, next)| next == YAML_SINGLE_QUOTE)
+            {
+                characters.next();
+            } else {
+                let escaped = content
+                    .replace(BACKSLASH, YAML_ESCAPED_BACKSLASH)
+                    .replace(YAML_DOUBLE_QUOTE, YAML_ESCAPED_DOUBLE_QUOTE);
+                let end = index + character.len_utf8();
+                return (
+                    format!("{YAML_DOUBLE_QUOTE}{escaped}{YAML_DOUBLE_QUOTE}"),
+                    &quoted[end..],
+                );
+            }
+        }
+        content.push(character);
+    }
+
+    (node.to_string(), "")
+}
+
+fn split_double_quoted(node: &str) -> (String, &str) {
+    let mut escaped = false;
+    for (index, character) in node.char_indices().skip(1) {
+        if escaped {
+            escaped = false;
+        } else if character == BACKSLASH {
+            escaped = true;
+        } else if character == YAML_DOUBLE_QUOTE {
+            let end = index + character.len_utf8();
+            return (node[..end].to_string(), &node[end..]);
+        }
+    }
+    (node.to_string(), "")
+}
+
+fn opens_block_scalar(line: &str) -> bool {
+    line.trim_end().rsplit(SPACE).next().is_some_and(|token| {
+        token
+            .strip_prefix(YAML_BLOCK_SCALAR_INDICATORS)
+            .is_some_and(|modifiers| {
+                modifiers
+                    .chars()
+                    .all(|modifier| YAML_BLOCK_SCALAR_MODIFIERS.contains(modifier))
+            })
+    })
 }
 
 /// `yaml_frontmatter_struct!` adds `other_fields: HashMap<String, Value>` to
@@ -319,6 +455,40 @@ tags: [not, valid, yaml"#,
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_yaml_frontmatter_serialization_double_quotes_scalars() {
+        let mut other_fields = HashMap::new();
+        other_fields.insert(
+            "date_created".to_string(),
+            Value::String("[[2024-01-15]]".to_string()),
+        );
+        other_fields.insert(
+            "note".to_string(),
+            Value::String("first line\n'second line'\n".to_string()),
+        );
+        other_fields.insert(
+            "quoted".to_string(),
+            Value::String(r#"[say "hi" \ 'bye']"#.to_string()),
+        );
+        let input = TestFrontMatter {
+            tags: vec!["[[alpha]]".to_string(), "it's".to_string()],
+            title: "don't: [[x]]".to_string(),
+            other_fields,
+        };
+
+        let yaml = input.to_yaml_str().unwrap();
+
+        assert!(
+            yaml.contains(r#"date_created: "[[2024-01-15]]""#),
+            "got:\n{yaml}"
+        );
+        assert!(yaml.contains(r#"- "[[alpha]]""#), "got:\n{yaml}");
+        assert!(yaml.contains(r#"title: "don't: [[x]]""#), "got:\n{yaml}");
+        assert!(yaml.contains("  'second line'"), "got:\n{yaml}");
+        let reparsed: Value = from_str(&yaml).unwrap();
+        assert_eq!(reparsed, to_value(&input).unwrap(), "got:\n{yaml}");
     }
 
     #[test]
