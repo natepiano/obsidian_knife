@@ -22,7 +22,7 @@ use self::constants::ERROR_PROCESSING_FILE;
 use self::constants::MARKDOWN_FILE_COLLECTION_SHARED_REFERENCES;
 use self::constants::PRESCAN_ANALYZE_TIMER_LABEL;
 use crate::constants::MARKDOWN_FILE_COLLECTION_LOCK_POISONED;
-use crate::image_file::ImageFiles;
+use crate::image_files::ImageFiles;
 use crate::markdown_file::MarkdownFile;
 use crate::markdown_files::MarkdownFiles;
 use crate::support;
@@ -179,8 +179,8 @@ mod tests {
     use crate::constants::MARKDOWN_EXTENSION;
     use crate::image_file::ImageFile;
     use crate::image_file::ImageFileState;
-    use crate::image_file::ImageFiles;
     use crate::image_file::IncompatibilityReason;
+    use crate::image_files::ImageFiles;
     use crate::markdown_file::ImageLink;
     use crate::markdown_file::MarkdownFile;
     use crate::markdown_file::PersistReason;

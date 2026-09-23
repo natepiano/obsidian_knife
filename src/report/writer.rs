@@ -1,6 +1,6 @@
 use std::error::Error;
 
-pub(super) use super::definition::ReportDefinition;
+use super::definition::ReportDefinition;
 use crate::output_file_writer::OutputFileWriter;
 use crate::validated_config::ValidatedConfig;
 

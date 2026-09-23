@@ -6,8 +6,8 @@ use anyhow::anyhow;
 
 use super::constants::FILE_COLUMN_INDEX;
 use super::constants::MISSING_REFERENCES_REPORT_CONFIG_REQUIRED;
+use super::definition::ReportDefinition;
 use super::support;
-use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::FILE;

@@ -6,8 +6,8 @@ use anyhow::anyhow;
 
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_CONFIG_REQUIRED;
 use super::constants::INCOMPATIBLE_IMAGES_REPORT_INVARIANT;
+use super::definition::ReportDefinition;
 use super::support as report_support;
-use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::FILE;

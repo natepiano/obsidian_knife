@@ -8,8 +8,8 @@ use anyhow::anyhow;
 
 use super::constants::DUPLICATE_IMAGES_REPORT_CONFIG_REQUIRED;
 use super::constants::IMAGE_PATH_COLUMN_INDEX;
+use super::definition::ReportDefinition;
 use super::support;
-use super::writer::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::ACTION;
 use crate::constants::CLOSING_WIKILINK;

@@ -20,7 +20,6 @@ use crate::constants::TIF_EXTENSION;
 use crate::constants::TIFF_EXTENSION;
 use crate::constants::UNKNOWN;
 use crate::constants::WEBP_EXTENSION;
-pub(crate) use crate::image_files::ImageFiles;
 use crate::support::EnumFilter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize)]

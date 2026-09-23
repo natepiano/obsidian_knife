@@ -6,7 +6,7 @@ use anyhow::Result as AnyhowResult;
 
 use super::constants::TABLE_HEADER_ERROR_MESSAGE;
 use super::constants::TABLE_HEADER_FILE_NAME;
-use super::writer::ReportDefinition;
+use super::definition::ReportDefinition;
 use super::writer::ReportWriter;
 use crate::constants::DATE_CREATED_MISSING;
 use crate::constants::FOUND;
